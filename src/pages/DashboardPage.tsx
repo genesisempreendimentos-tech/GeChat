@@ -1,0 +1,487 @@
+import { motion } from 'framer-motion';
+import { useAuthStore } from '@/store/authStore';
+import { useAccessLogStore } from '@/store/accessLogStore';
+import { databaseService } from '@/services/supabase';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { ActivityChart, SystemUsageChart } from '@/components/Charts';
+import { EmptyFavoritesState } from '@/components/EmptyStates';
+import { LoadingGifScreen } from '@/components/LoadingGif';
+import { Badge } from '@/components/ui/badge';
+import {
+  AppWindow,
+  Star,
+  Activity,
+  TrendingUp,
+  ExternalLink,
+  Clock,
+  Minus,
+  ArrowUpRight,
+  ArrowDownRight,
+} from 'lucide-react';
+import * as Icons from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { formatDistanceToNow, subDays, format, startOfDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { System } from '@/types';
+
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 },
+};
+
+export default function DashboardPage() {
+  const { user } = useAuthStore();
+  const navigate = useNavigate();
+  const { getRecentLogs, getAllLogs, addLog } = useAccessLogStore();
+
+  const [systems, setSystems] = useState<System[]>([]);
+  const [userAccesses, setUserAccesses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  const loadData = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Carregar sistemas
+      const { data: systemsData, error: systemsError } = await databaseService.getSystems();
+      if (systemsError) {
+        console.error('Erro ao carregar sistemas:', systemsError);
+      }
+      setSystems(systemsData || []);
+
+      // Carregar acessos do usuário
+      const { data: accessData, error: accessError } = await databaseService.getUserSystemAccess(user.id);
+      if (accessError) {
+        console.error('Erro ao carregar acessos:', accessError);
+      }
+      setUserAccesses(accessData || []);
+    } catch (error) {
+      console.error('Erro geral ao carregar dados:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const accessibleSystems = useMemo(() => {
+    if (user?.role === 'admin' || user?.role === 'manager') {
+      return systems;
+    }
+    const accessibleIds = userAccesses
+      .filter((access: any) => access.can_access)
+      .map((access: any) => access.system_id);
+    return systems.filter((system) => accessibleIds.includes(system.id));
+  }, [systems, userAccesses, user?.role]);
+
+  const favoriteSystems = useMemo(() => {
+    const favoriteIds = userAccesses
+      .filter((access: any) => !!(access.is_favorite ?? access.favorite))
+      .map((access: any) => access.system_id);
+    return systems.filter((system) => favoriteIds.includes(system.id));
+  }, [systems, userAccesses]);
+
+  const toggleFavorite = async (systemId: string) => {
+    if (!user?.id) return;
+    await databaseService.toggleFavorite(user.id, systemId);
+    await loadData(); // Recarregar dados
+  };
+  const recentLogs = getRecentLogs(user?.id || '', 5);
+  const allLogs = getAllLogs(user?.id || '');
+
+  // Calcular dados para gráficos
+  const chartData = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = subDays(new Date(), 6 - i);
+      return {
+        date: format(date, 'dd/MM'),
+        fullDate: startOfDay(date),
+        acessos: 0,
+      };
+    });
+
+    allLogs.forEach((log) => {
+      const logDate = startOfDay(new Date(log.timestamp));
+      const dayData = last7Days.find((day) => day.fullDate.getTime() === logDate.getTime());
+      if (dayData) {
+        dayData.acessos++;
+      }
+    });
+
+    return last7Days.map(({ date, acessos }) => ({ date, acessos }));
+  }, [allLogs]);
+
+  const systemUsageData = useMemo(() => {
+    const systemCounts: Record<string, { name: string; count: number }> = {};
+
+    allLogs.forEach((log) => {
+      if (!systemCounts[log.systemId]) {
+        systemCounts[log.systemId] = {
+          name: log.systemName || 'Sistema',
+          count: 0,
+        };
+      }
+      systemCounts[log.systemId].count++;
+    });
+
+    return Object.values(systemCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+      .map((item) => ({ name: item.name, acessos: item.count }));
+  }, [allLogs]);
+
+  // Calcular tendências (simulado - comparando com período anterior)
+  const todayAccessCount = allLogs.filter((log) => {
+    const logDate = startOfDay(new Date(log.timestamp));
+    const today = startOfDay(new Date());
+    return logDate.getTime() === today.getTime();
+  }).length;
+
+  const yesterdayAccessCount = allLogs.filter((log) => {
+    const logDate = startOfDay(new Date(log.timestamp));
+    const yesterday = startOfDay(subDays(new Date(), 1));
+    return logDate.getTime() === yesterday.getTime();
+  }).length;
+
+  const accessTrend = yesterdayAccessCount > 0
+    ? ((todayAccessCount - yesterdayAccessCount) / yesterdayAccessCount) * 100
+    : 0;
+
+  const stats = [
+    {
+      title: 'Sistemas Disponíveis',
+      value: accessibleSystems.length,
+      icon: AppWindow,
+      color: 'text-blue-500',
+      bgColor: 'bg-blue-500/10',
+      trend: null,
+    },
+    {
+      title: 'Favoritos',
+      value: favoriteSystems.length,
+      icon: Star,
+      color: 'text-yellow-500',
+      bgColor: 'bg-yellow-500/10',
+      trend: null,
+    },
+    {
+      title: 'Acessos Hoje',
+      value: todayAccessCount,
+      icon: Activity,
+      color: 'text-green-500',
+      bgColor: 'bg-green-500/10',
+      trend: accessTrend,
+    },
+    {
+      title: 'Sistemas Ativos',
+      value: accessibleSystems.filter((s) => s.active).length,
+      icon: TrendingUp,
+      color: 'text-purple-500',
+      bgColor: 'bg-purple-500/10',
+      trend: null,
+    },
+  ];
+
+  const handleSystemAccess = (systemId: string, url: string) => {
+    addLog(user?.id || '', systemId);
+    window.open(url, '_blank');
+  };
+
+  const renderIcon = (iconPath: string, className: string = '') => {
+    // Se for uma imagem PNG, renderizar <img>
+    if (iconPath.endsWith('.png') || iconPath.endsWith('.jpg') || iconPath.endsWith('.jpeg')) {
+      return <img src={iconPath} alt="System icon" className={className} />;
+    }
+    // Caso contrário, usar ícone Lucide
+    const Icon = (Icons as any)[iconPath];
+    const IconComponent = Icon || Icons.AppWindow;
+    return <IconComponent className={className} />;
+  };
+
+  const getTrendIcon = (trend: number | null) => {
+    if (trend === null) return null;
+    if (trend > 0) return <ArrowUpRight className="w-3 h-3" />;
+    if (trend < 0) return <ArrowDownRight className="w-3 h-3" />;
+    return <Minus className="w-3 h-3" />;
+  };
+
+  const getTrendColor = (trend: number | null) => {
+    if (trend === null) return '';
+    if (trend > 0) return 'text-success';
+    if (trend < 0) return 'text-destructive';
+    return 'text-muted-foreground';
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Breadcrumbs */}
+      <Breadcrumbs />
+
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold">
+          Bem-vindo, {user?.name?.split(' ')[0]}! 👋
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Aqui está um resumo dos seus sistemas e atividades recentes.
+        </p>
+      </div>
+
+      {loading ? (
+        <LoadingGifScreen className="h-64" />
+      ) : (
+        <>
+      {/* Stats */}
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <motion.div key={stat.title} variants={item}>
+              <Card className="transition-shadow hover:shadow-md">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">{stat.title}</p>
+                      <div className="flex items-baseline gap-2 mt-2">
+                        <p className="text-3xl font-bold">{stat.value}</p>
+                        {stat.trend !== null && (
+                          <div className={`flex items-center text-xs font-medium ${getTrendColor(stat.trend)}`}>
+                            {getTrendIcon(stat.trend)}
+                            <span>{Math.abs(stat.trend).toFixed(0)}%</span>
+                          </div>
+                        )}
+                      </div>
+                      {stat.trend !== null && (
+                        <p className="text-xs text-muted-foreground mt-1">vs ontem</p>
+                      )}
+                    </div>
+                    <div className={`p-3 rounded-lg ${stat.bgColor}`}>
+                      <Icon className={`w-6 h-6 ${stat.color}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <ActivityChart data={chartData} />
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <SystemUsageChart data={systemUsageData} />
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Favorite Systems */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-yellow-500" />
+                Sistemas Favoritos
+              </CardTitle>
+              <CardDescription>
+                Acesso rápido aos seus sistemas mais usados
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {favoriteSystems.length === 0 ? (
+                <EmptyFavoritesState onBrowseSystems={() => navigate('/systems')} />
+              ) : (
+                favoriteSystems.slice(0, 5).map((system) => {
+                  return (
+                    <div
+                      key={system.id}
+                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          {renderIcon(system.icon, 'w-10 h-10 text-primary object-contain')}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{system.name}</p>
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {system.category}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleSystemAccess(system.id, system.url)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Recent Activity */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.35 }}
+        >
+          <Card className="transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-blue-500" />
+                Atividade Recente
+              </CardTitle>
+              <CardDescription>Seus últimos acessos aos sistemas</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {recentLogs.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Nenhuma atividade recente
+                </p>
+              ) : (
+                recentLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between pb-3 border-b last:border-0"
+                  >
+                    <div>
+                      <p className="font-medium text-sm">{log.systemName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(log.timestamp, {
+                          addSuffix: true,
+                          locale: ptBR,
+                        })}
+                      </p>
+                    </div>
+                    <Activity className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* All Systems Grid */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <Card className="transition-shadow hover:shadow-md">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Todos os Sistemas</CardTitle>
+                <CardDescription>
+                  Clique em um sistema para acessá-lo
+                </CardDescription>
+              </div>
+              <Button variant="outline" onClick={() => navigate('/systems')}>
+                Ver Todos
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {accessibleSystems.slice(0, 6).map((system) => {
+                const isFavorite = favoriteSystems.some((s) => s.id === system.id);
+
+                return (
+                  <motion.div
+                    key={system.id}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="relative p-4 rounded-lg border bg-card hover:shadow-md transition-all cursor-pointer group"
+                    onClick={() => handleSystemAccess(system.id, system.url)}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                        {renderIcon(system.icon, 'w-10 h-10 text-primary object-contain')}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(system.id);
+                        }}
+                        className="p-1 hover:bg-background rounded transition-colors"
+                      >
+                        <Star
+                          className={`w-4 h-4 ${
+                            isFavorite
+                              ? 'fill-yellow-500 text-yellow-500'
+                              : 'text-muted-foreground'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    <h3 className="font-semibold mb-1">{system.name}</h3>
+                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                      {system.description}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary" className="text-xs">
+                        {system.category}
+                      </Badge>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+        </>
+      )}
+    </div>
+  );
+}
