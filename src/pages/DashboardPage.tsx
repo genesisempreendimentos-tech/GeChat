@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const [systems, setSystems] = useState<System[]>([]);
   const [userAccesses, setUserAccesses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favoriteTogglingId, setFavoriteTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -88,16 +89,6 @@ export default function DashboardPage() {
     }
   };
 
-  const accessibleSystems = useMemo(() => {
-    if (user?.role === 'admin' || user?.role === 'manager') {
-      return systems;
-    }
-    const accessibleIds = userAccesses
-      .filter((access: any) => access.can_access)
-      .map((access: any) => access.system_id);
-    return systems.filter((system) => accessibleIds.includes(system.id));
-  }, [systems, userAccesses, user?.role]);
-
   const favoriteSystems = useMemo(() => {
     const favoriteIds = userAccesses
       .filter((access: any) => !!(access.is_favorite ?? access.favorite))
@@ -107,8 +98,11 @@ export default function DashboardPage() {
 
   const toggleFavorite = async (systemId: string) => {
     if (!user?.id) return;
-    await databaseService.toggleFavorite(user.id, systemId);
-    await loadData(); // Recarregar dados
+    setFavoriteTogglingId(systemId);
+    const { error } = await databaseService.toggleFavorite(user.id, systemId);
+    await loadData();
+    setFavoriteTogglingId(null);
+    if (error) console.error('Erro ao favoritar:', error);
   };
   const recentLogs = getRecentLogs(user?.id || '', 5);
   const allLogs = getAllLogs(user?.id || '');
@@ -174,7 +168,7 @@ export default function DashboardPage() {
   const stats = [
     {
       title: 'Sistemas Disponíveis',
-      value: accessibleSystems.length,
+      value: systems.length,
       icon: AppWindow,
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
@@ -198,7 +192,7 @@ export default function DashboardPage() {
     },
     {
       title: 'Sistemas Ativos',
-      value: accessibleSystems.filter((s) => s.active).length,
+      value: systems.filter((s) => s.active).length,
       icon: TrendingUp,
       color: 'text-purple-500',
       bgColor: 'bg-purple-500/10',
@@ -212,8 +206,9 @@ export default function DashboardPage() {
   };
 
   const renderIcon = (iconPath: string, className: string = '') => {
-    // Se for uma imagem PNG, renderizar <img>
-    if (iconPath.endsWith('.png') || iconPath.endsWith('.jpg') || iconPath.endsWith('.jpeg')) {
+    // Se for URL ou caminho (SVG, PNG, etc.) da tabela apps, renderizar <img>
+    const isImg = iconPath?.startsWith('http') || iconPath?.startsWith('/') || iconPath?.endsWith('.svg') || iconPath?.endsWith('.png') || iconPath?.endsWith('.jpg') || iconPath?.endsWith('.jpeg');
+    if (isImg) {
       return <img src={iconPath} alt="System icon" className={className} />;
     }
     // Caso contrário, usar ícone Lucide
@@ -432,7 +427,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {accessibleSystems.slice(0, 6).map((system) => {
+              {systems.slice(0, 6).map((system) => {
                 const isFavorite = favoriteSystems.some((s) => s.id === system.id);
 
                 return (
@@ -448,18 +443,21 @@ export default function DashboardPage() {
                         {renderIcon(system.icon, 'w-10 h-10 text-primary object-contain')}
                       </div>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleFavorite(system.id);
                         }}
-                        className="p-1 hover:bg-background rounded transition-colors"
+                        disabled={favoriteTogglingId === system.id}
+                        className="p-1 hover:bg-background rounded transition-colors disabled:opacity-50"
+                        aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                       >
                         <Star
                           className={`w-4 h-4 ${
                             isFavorite
                               ? 'fill-yellow-500 text-yellow-500'
                               : 'text-muted-foreground'
-                          }`}
+                          } ${favoriteTogglingId === system.id ? 'animate-pulse' : ''}`}
                         />
                       </button>
                     </div>

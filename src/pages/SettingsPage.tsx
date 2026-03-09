@@ -63,7 +63,7 @@ export default function SettingsPage() {
           Configurações
         </h1>
         <p className="text-muted-foreground mt-2">
-          Personalize sua experiência no GêTudo
+          Personalize sua experiência no GêApps
         </p>
       </div>
 

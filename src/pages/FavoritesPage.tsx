@@ -61,11 +61,14 @@ export default function FavoritesPage() {
   });
 
   const hasAccessTo = (systemId: string) =>
-    userAccesses.some((a: any) => a.system_id === systemId && a.can_access);
+    user?.role === 'admin' || user?.role === 'manager'
+      ? true
+      : userAccesses.some((a: any) => a.system_id === systemId && a.can_access);
 
   const renderIcon = (iconPath: string, className: string = '') => {
-    // Se for uma imagem PNG, renderizar <img>
-    if (iconPath.endsWith('.png') || iconPath.endsWith('.jpg') || iconPath.endsWith('.jpeg')) {
+    // Se for URL ou caminho (SVG, PNG, etc.) da tabela apps, renderizar <img>
+    const isImg = iconPath?.startsWith('http') || iconPath?.startsWith('/') || iconPath?.endsWith('.svg') || iconPath?.endsWith('.png') || iconPath?.endsWith('.jpg') || iconPath?.endsWith('.jpeg');
+    if (isImg) {
       return <img src={iconPath} alt="System icon" className={className} />;
     }
     // Caso contrário, usar ícone Lucide

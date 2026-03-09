@@ -4,7 +4,7 @@ import { User, System, UserSystemAccess, AccessLog } from '@/types';
 export const mockUsers: User[] = [];
 
 // Mock Systems - VAZIO: Os sistemas agora vêm do Supabase
-// GeStack foi renomeado para GêTudo (são o mesmo sistema)
+// GeStack foi renomeado para GêApps (são o mesmo sistema)
 export const mockSystems: System[] = [];
 
 // Mock User System Access

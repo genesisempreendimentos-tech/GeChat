@@ -17,7 +17,7 @@ const BACKGROUND_LOGOS = [
   { src: '/assets/systems/GeSup.png', top: '5%', left: '35%', size: 'w-11 h-11', delay: '1s' },
   { src: '/assets/systems/GêTask.png', top: '50%', left: '6%', size: 'w-12 h-12', delay: '6s' },
   { src: '/assets/systems/GeTeam.png', bottom: '8%', right: '20%', left: 'auto', size: 'w-14 h-14', delay: '2s' },
-  { src: '/assets/systems/GêTudo.png', top: '40%', left: '45%', size: 'w-16 h-16', delay: '0s' },
+  { src: '/assets/systems/GêApps.png', top: '40%', left: '45%', size: 'w-16 h-16', delay: '0s' },
 ];
 
 type LogoItem = (typeof BACKGROUND_LOGOS)[number];

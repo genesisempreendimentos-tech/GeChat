@@ -14,7 +14,7 @@ interface OnboardingStep {
 
 const onboardingSteps: OnboardingStep[] = [
   {
-    title: "Bem-vindo ao GêTudo! 👋",
+    title: "Bem-vindo ao GêApps! 👋",
     description:
       "Vamos fazer um tour rápido pelas principais funcionalidades da plataforma. Você pode pular este tour a qualquer momento.",
   },

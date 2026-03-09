@@ -86,8 +86,9 @@ export default function SystemsPage() {
   });
   const [formError, setFormError] = useState('');
 
-  const isAdmin = currentUser?.role === 'admin';
-  const isManager = currentUser?.role === 'manager';
+  const role = (currentUser?.role ?? '').toString().toLowerCase();
+  const isAdmin = role === 'admin';
+  const isManager = role === 'manager';
   const isAdminOrManager = isAdmin || isManager;
 
   useEffect(() => {
@@ -275,8 +276,9 @@ export default function SystemsPage() {
   };
 
   const renderIcon = (iconPath: string, className: string = '') => {
-    // Se for uma imagem PNG, renderizar <img>
-    if (iconPath.endsWith('.png') || iconPath.endsWith('.jpg') || iconPath.endsWith('.jpeg')) {
+    // Se for URL ou caminho (SVG, PNG, etc.) da tabela apps, renderizar <img>
+    const isImg = iconPath?.startsWith('http') || iconPath?.startsWith('/') || iconPath?.endsWith('.svg') || iconPath?.endsWith('.png') || iconPath?.endsWith('.jpg') || iconPath?.endsWith('.jpeg');
+    if (isImg) {
       return <img src={iconPath} alt="System icon" className={className} />;
     }
     // Caso contrário, usar ícone Lucide
@@ -311,7 +313,10 @@ export default function SystemsPage() {
     ? systems 
     : systems.filter((system) => hasAccess(system.id));
 
-  const filteredSystems = accessibleSystems.filter((system) => {
+  // Lista exibida: todos os sistemas da tabela apps (banco), filtrados só por busca e categoria
+  const systemsForList = systems;
+
+  const filteredSystems = systemsForList.filter((system) => {
     const matchesSearch =
       system.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       system.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -329,9 +334,9 @@ export default function SystemsPage() {
         <div>
           <h1 className="text-3xl font-bold">Sistemas</h1>
           <p className="text-muted-foreground mt-2">
-            {isManager 
-              ? 'Gerencie todos os sistemas, permissões e crie novos sistemas' 
-              : isAdmin
+            {isAdmin 
+              ? 'Gerencie sistemas, permissões e crie novos sistemas (apenas Admin)' 
+              : isManager
               ? 'Gerencie permissões de acesso aos sistemas'
               : 'Acesse seus sistemas corporativos'}
           </p>
@@ -349,7 +354,7 @@ export default function SystemsPage() {
             </Button>
           )}
           
-          {isManager && (
+          {isAdmin && (
             <Dialog open={isAddSystemDialogOpen} onOpenChange={setIsAddSystemDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -357,73 +362,78 @@ export default function SystemsPage() {
                   Adicionar Sistema
                 </Button>
               </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto p-6">
               <DialogHeader>
                 <DialogTitle>Adicionar Novo Sistema</DialogTitle>
                 <DialogDescription>
-                  Cadastre um novo sistema no GêTudo
+                  Cadastre um novo sistema no GêApps
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                {formError && (
-                  <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-3 rounded-lg">
-                    <AlertCircle className="w-4 h-4" />
-                    {formError}
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Nome do Sistema</label>
-                  <Input
-                    placeholder="Ex: GêNovo"
-                    value={newSystem.name}
-                    onChange={(e) => setNewSystem({ ...newSystem, name: e.target.value })}
-                  />
+              {formError && (
+                <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-3 rounded-lg">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {formError}
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Descrição</label>
-                  <Input
-                    placeholder="Breve descrição do sistema"
-                    value={newSystem.description}
-                    onChange={(e) => setNewSystem({ ...newSystem, description: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">URL</label>
-                  <Input
-                    placeholder="https://genovo.gestack.com"
-                    value={newSystem.url}
-                    onChange={(e) => setNewSystem({ ...newSystem, url: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Categoria</label>
-                  <select
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
-                    value={newSystem.category}
-                    onChange={(e) =>
-                      setNewSystem({ ...newSystem, category: e.target.value as SystemCategory })
-                    }
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Ícone (Lucide Icon)</label>
-                  <Input
-                    placeholder="AppWindow, Globe2, etc"
-                    value={newSystem.icon}
-                    onChange={(e) => setNewSystem({ ...newSystem, icon: e.target.value })}
-                  />
-                </div>
-                <Button className="w-full" onClick={handleAddSystem}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Criar Sistema
-                </Button>
+              )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nome do Sistema</label>
+                <Input
+                  placeholder="Ex: GêNovo"
+                  value={newSystem.name}
+                  onChange={(e) => setNewSystem({ ...newSystem, name: e.target.value })}
+                  className="w-full"
+                />
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Descrição</label>
+                <Input
+                  placeholder="Breve descrição do sistema"
+                  value={newSystem.description}
+                  onChange={(e) => setNewSystem({ ...newSystem, description: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">URL</label>
+                <Input
+                  placeholder="https://genovo.gestack.com"
+                  value={newSystem.url}
+                  onChange={(e) => setNewSystem({ ...newSystem, url: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Categoria</label>
+                <select
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                  value={newSystem.category}
+                  onChange={(e) =>
+                    setNewSystem({ ...newSystem, category: e.target.value as SystemCategory })
+                  }
+                >
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Ícone (opcional)</label>
+                <Input
+                  placeholder="/assets/systems/Nome.png ou deixe em branco"
+                  value={newSystem.icon}
+                  onChange={(e) => setNewSystem({ ...newSystem, icon: e.target.value })}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Caminho do ícone ou em branco para usar ícone pelo nome do sistema
+                </p>
+              </div>
+              <Button className="w-full" onClick={handleAddSystem}>
+                <Plus className="w-4 h-4 mr-2" />
+                Criar Sistema
+              </Button>
             </DialogContent>
           </Dialog>
         )}

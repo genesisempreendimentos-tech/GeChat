@@ -1,10 +1,10 @@
-# GeStack 🚀
+# GêApps 🚀
 
 > Hub Central de Sistemas Corporativos
 
-GeStack é uma plataforma SaaS moderna que centraliza todos os sistemas corporativos de uma empresa em um único painel intuitivo e eficiente.
+GêApps é uma plataforma SaaS moderna que centraliza todos os sistemas corporativos de uma empresa em um único painel intuitivo e eficiente.
 
-![GeStack](https://img.shields.io/badge/version-1.0.0-blue)
+![GêApps](https://img.shields.io/badge/version-1.0.0-blue)
 ![React](https://img.shields.io/badge/React-18.2-61dafb)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178c6)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3.4-38bdf8)
@@ -47,8 +47,8 @@ GeStack é uma plataforma SaaS moderna que centraliza todos os sistemas corporat
 
 1. Clone o repositório
 ```bash
-git clone https://github.com/seu-usuario/gestack.git
-cd gestack
+git clone https://github.com/seu-usuario/geapps.git
+cd geapps
 ```
 
 2. Instale as dependências
@@ -69,15 +69,15 @@ http://localhost:5173
 ## 👤 Credenciais de Teste
 
 ### Administrador
-- **Email**: admin@gestack.com
+- **Email**: admin@geapps.com
 - **Senha**: admin123
 
 ### Gerente
-- **Email**: carlos@gestack.com
+- **Email**: carlos@geapps.com
 - **Senha**: admin123
 
 ### Usuário
-- **Email**: maria@gestack.com
+- **Email**: maria@geapps.com
 - **Senha**: admin123
 
 ## 📁 Estrutura do Projeto
@@ -170,7 +170,7 @@ VITE_SUPABASE_ANON_KEY=sua_chave_anonima
 - **Destructive**: Red
 
 ### Componentes
-Todos os componentes seguem o padrão Shadcn/UI com customizações para o tema GeStack.
+Todos os componentes seguem o padrão Shadcn/UI com customizações para o tema GêApps.
 
 ## 🔐 Autenticação e Segurança
 
@@ -208,5 +208,5 @@ Desenvolvido por **Bruno Souza**
 ---
 
 <div align="center">
-  <strong>GeStack - Centralize. Organize. Simplifique.</strong>
+  <strong>GêApps - Centralize. Organize. Simplifique.</strong>
 </div>

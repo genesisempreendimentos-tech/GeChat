@@ -60,7 +60,11 @@ ALTER TABLE access_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view all users" ON users
   FOR SELECT USING (true);
 
--- Only admins can modify users
+-- New users can insert their own row on signup (id = auth.uid())
+CREATE POLICY "Users can insert own row on signup" ON users
+  FOR INSERT WITH CHECK (id = auth.uid());
+
+-- Only admins can update/delete other users
 CREATE POLICY "Admins can modify users" ON users
   FOR ALL USING (
     EXISTS (

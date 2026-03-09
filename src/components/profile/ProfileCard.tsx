@@ -425,8 +425,8 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
               <div className="pc-content pc-avatar-content">
                 <div className="genesis-logo">
                   <img 
-                    src="/assets/GêTudo.svg" 
-                    alt="GêTudo Logo"
+                    src="/assets/GêApps.svg" 
+                    alt="GêApps Logo"
                     className="genesis-logo-img"
                   />
                 </div>

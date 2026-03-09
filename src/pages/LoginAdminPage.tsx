@@ -8,12 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuthStore } from '@/store/authStore';
 import LogoSvg from '../../assets/logo-gen-sem-fundo-svg.svg';
 
+const ADMIN_EMAIL = 'admingeapps@genesisempreendimentos.com.br';
+const ADMIN_PASSWORD = 'Admingeapps123@';
+
 export default function LoginAdminPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const { login } = useAuthStore();
   const navigate = useNavigate();
 
@@ -22,7 +25,13 @@ export default function LoginAdminPage() {
     setError('');
     setLoading(true);
 
-    const result = await login(email, password);
+    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+      setError('Acesso restrito. Apenas o administrador pode acessar.');
+      setLoading(false);
+      return;
+    }
+
+    const result = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
 
     if (result.success) {
       navigate('/dashboard');
@@ -35,8 +44,8 @@ export default function LoginAdminPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
-      {/* Background gradiente animado - Tons escuros com destaque teal */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900/50" />
+      {/* Background igual ao login normal */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-primary/30" />
       
       {/* Logos animadas no background */}
       <motion.div 
@@ -169,7 +178,7 @@ export default function LoginAdminPage() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md relative z-10"
       >
-        <Card className="border-0 shadow-2xl backdrop-blur-sm bg-background/95">
+        <Card className="border-0 shadow-2xl shadow-black/20 backdrop-blur-md bg-background/95 rounded-2xl overflow-hidden">
           <CardHeader className="space-y-6 pb-8 pt-10">
             {/* Logo */}
             <motion.div 
@@ -179,7 +188,7 @@ export default function LoginAdminPage() {
               transition={{ delay: 0.2, duration: 0.3 }}
             >
               <div className="relative">
-                <div className="absolute inset-0 bg-teal-500/20 rounded-2xl blur-xl" />
+                <div className="absolute inset-0 bg-primary/20 rounded-2xl blur-xl" />
                 <motion.div 
                   className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center shadow-lg p-3"
                   animate={{ 
@@ -193,11 +202,11 @@ export default function LoginAdminPage() {
                   }}
                 >
                   <img 
-                    src="/assets/GêTudo.svg" 
-                    alt="GêTudo" 
+                    src="/assets/GêApps.svg" 
+                    alt="GêApps" 
                     className="w-full h-full object-contain"
                     style={{
-                      filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)'
+                      filter: 'brightness(0) saturate(100%) invert(40%) sepia(90%) saturate(1500%) hue-rotate(200deg) brightness(95%) contrast(90%)'
                     }}
                   />
                 </motion.div>
@@ -222,15 +231,15 @@ export default function LoginAdminPage() {
                 }}
               >
                 <CardTitle className="text-4xl font-bold bg-gradient-to-r from-primary via-teal-400 to-primary bg-clip-text text-transparent" style={{ backgroundSize: '200% auto' }}>
-                  GêTudo Admin
+                  GêApps Admin
                 </CardTitle>
               </motion.div>
               <CardDescription className="text-base">
                 Painel Administrativo
               </CardDescription>
               <div className="pt-2">
-                <span className="inline-block px-4 py-1.5 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-400 text-xs font-medium">
-                  Acesso Restrito
+                <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                  Acesso Restrito · Admin
                 </span>
               </div>
             </motion.div>
@@ -249,7 +258,7 @@ export default function LoginAdminPage() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="email"
-                  placeholder="admin@genesisempreendimentos.com.br"
+                  placeholder="Email do administrador"
                   className="pl-10 h-11"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -297,7 +306,7 @@ export default function LoginAdminPage() {
             >
               <Button
                 type="submit"
-                className="w-full h-12 text-base font-medium shadow-lg bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 transition-all"
+                className="w-full h-12 text-base font-medium shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all"
                 disabled={loading}
               >
                 {loading ? (
@@ -318,7 +327,7 @@ export default function LoginAdminPage() {
               className="text-center pt-2"
             >
               <p className="text-sm text-muted-foreground">
-                <Link to="/login" className="text-teal-600 dark:text-teal-400 font-medium hover:underline">
+                <Link to="/login" className="text-primary font-medium hover:underline">
                   ← Voltar ao login normal
                 </Link>
               </p>

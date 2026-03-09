@@ -25,7 +25,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const allowedDomain = '@genesisempreendimentos.com.br';
     if (!email.endsWith(allowedDomain)) {
       console.log('❌ [Login] Domínio inválido');
-      return { success: false, error: 'Acesso restrito: Apenas colaboradores da Genesis Empreendimentos podem acessar o GêTudo' };
+      return { success: false, error: 'Acesso restrito: Apenas colaboradores da Genesis Empreendimentos podem acessar o GêApps' };
     }
 
     console.log('🔵 [Login] Chamando authService.signIn...');
@@ -53,7 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: userData.email,
         role: userData.role,
         avatar: userData.avatar,
-        createdAt: new Date(userData.created_at),
+        createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
       };
       
       console.log('✅ [Login] Login completo! Usuário:', user);
@@ -69,7 +69,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       return { success: true };
     }
     
-    console.error('❌ [Login] Usuário não encontrado na tabela users. Erro:', userError);
+    console.error('❌ [Login] Usuário não encontrado na tabela profiles. Erro:', userError);
     return { success: false, error: 'USUARIO_NAO_CADASTRADO' };
   },
 
@@ -116,7 +116,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: userData.email,
         role: userData.role,
         avatar: userData.avatar,
-        createdAt: new Date(userData.created_at),
+        createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
       };
       set({ user, isAuthenticated: true, loading: false });
     } else {

@@ -11,9 +11,10 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { databaseService } from '@/services/supabase';
+import { useSetSidebarWidth } from '@/contexts/SidebarContext';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -36,11 +37,32 @@ export default function Sidebar({ userRole }: SidebarProps) {
     return saved ? JSON.parse(saved) : false;
   });
   const [isHovered, setIsHovered] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [favoriteSystems, setFavoriteSystems] = useState<{ id: string; name: string; url: string }[]>([]);
+
+  const SIDEBAR_CLOSE_DELAY_MS = 2000;
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    clearCloseTimer();
+    if (pinned) return;
+    closeTimerRef.current = setTimeout(() => {
+      setIsHovered(false);
+      closeTimerRef.current = null;
+    }, SIDEBAR_CLOSE_DELAY_MS);
+  };
 
   useEffect(() => {
     localStorage.setItem('sidebar-pinned', JSON.stringify(pinned));
   }, [pinned]);
+
+  useEffect(() => () => clearCloseTimer(), []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -59,6 +81,11 @@ export default function Sidebar({ userRole }: SidebarProps) {
   }, [user?.id, location.pathname]);
 
   const isExpanded = pinned || isHovered;
+  const setSidebarWidth = useSetSidebarWidth();
+
+  useEffect(() => {
+    setSidebarWidth(isExpanded ? 280 : 80);
+  }, [isExpanded, setSidebarWidth]);
 
   const filteredMenu = menuItems.filter(
     (item) => !item.adminOnly || userRole === 'admin' || userRole === 'gerente'
@@ -70,8 +97,11 @@ export default function Sidebar({ userRole }: SidebarProps) {
         initial={false}
         animate={{ width: isExpanded ? 280 : 80 }}
         transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-        onMouseEnter={() => !pinned && setIsHovered(true)}
-        onMouseLeave={() => !pinned && setIsHovered(false)}
+        onMouseEnter={() => {
+          clearCloseTimer();
+          if (!pinned) setIsHovered(true);
+        }}
+        onMouseLeave={() => scheduleClose()}
         className="hidden md:flex fixed left-0 top-0 h-screen bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
         role="navigation"
         aria-label="Navegação principal"
@@ -81,8 +111,8 @@ export default function Sidebar({ userRole }: SidebarProps) {
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
               <img
-                src="/assets/GêTudo.svg"
-                alt="GêTudo"
+                src="/assets/GêApps.svg"
+                alt="GêApps"
                 className="w-full h-full object-contain"
                 style={{
                   filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
@@ -95,7 +125,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
                 isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'
               )}
             >
-              GêTudo
+              GêApps
             </span>
           </div>
         </div>
@@ -172,7 +202,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
         )}
       >
         <p className="text-xs text-muted-foreground text-center">
-          GêTudo v1.0.0
+          GêApps v1.0.0
         </p>
       </div>
     </motion.aside>

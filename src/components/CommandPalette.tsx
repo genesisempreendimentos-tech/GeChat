@@ -20,15 +20,20 @@ import {
   ExternalLink,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
-import { useSystemStore } from "@/store/systemStore"
+import { databaseService } from "@/services/supabase"
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { getAccessibleSystems } = useSystemStore()
+  const [systems, setSystems] = React.useState<{ id: string; name: string; description?: string; category?: string; url: string }[]>([])
 
-  const accessibleSystems = user ? getAccessibleSystems(user.id) : []
+  React.useEffect(() => {
+    if (!user?.id) return
+    databaseService.getSystems().then(({ data }) => {
+      setSystems(data ?? [])
+    })
+  }, [user?.id])
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -53,7 +58,7 @@ export function CommandPalette() {
       <div className="flex items-center gap-3 border-b border-border bg-muted/40 dark:bg-muted/20 px-4 py-3 pr-14 min-h-[52px]">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 dark:bg-primary/20">
           <img
-            src="/assets/GêTudo.svg"
+            src="/assets/GêApps.svg"
             alt=""
             className="h-4 w-4 dark:opacity-95"
             style={{
@@ -66,9 +71,9 @@ export function CommandPalette() {
           aria-hidden
         />
         <span className="min-w-0 flex-shrink-0 font-semibold text-foreground text-sm tracking-tight whitespace-nowrap">
-          GêTudo
+          GêApps
         </span>
-        {/* Espaço reservado para o botão fechar (evita o "o" de GêTudo ser cortado) */}
+        {/* Espaço reservado para o botão fechar (evita o "o" de GêApps ser cortado) */}
         <div className="w-12 shrink-0" aria-hidden />
       </div>
       <CommandInput placeholder="Buscar sistemas, páginas, ações..." />
@@ -114,7 +119,7 @@ export function CommandPalette() {
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Sistemas">
-          {accessibleSystems.map((system) => (
+          {systems.map((system) => (
             <CommandItem
               key={system.id}
               onSelect={() => {

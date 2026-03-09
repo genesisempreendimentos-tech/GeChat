@@ -1,14 +1,87 @@
 // Supabase Service Layer
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase credentials not found. Using mock data.');
+const hasCredentials = Boolean(supabaseUrl && supabaseAnonKey);
+
+if (!hasCredentials) {
+  console.warn(
+    '⚠️ Supabase credentials not found. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (e.g. in Vercel → Project → Settings → Environment Variables).'
+  );
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+/** Client real quando há credenciais; senão um proxy que lança erro claro ao ser usado (evita "supabaseUrl is required" no load). */
+function createSupabaseClient(): SupabaseClient {
+  if (hasCredentials) {
+    return createClient(supabaseUrl!, supabaseAnonKey!);
+  }
+  return new Proxy({} as SupabaseClient, {
+    get() {
+      throw new Error(
+        'Supabase não configurado. Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nas variáveis de ambiente (ex.: Vercel → Settings → Environment Variables).'
+      );
+    },
+  });
+}
+
+export const supabase = createSupabaseClient();
+
+// Mapeamento: tabelas do Supabase (profiles, apps, user_app_access, audit_logs) <-> formato do app (User, System)
+type ProfileRow = { id?: string; user_id?: string; full_name?: string; name?: string; avatar_url?: string; avatar?: string; role?: string; role_type?: string; user_type?: string; email?: string; created_at?: string };
+type UserShape = { id: string; name: string; email: string; role: string; avatar?: string; created_at?: string; createdAt?: Date };
+
+function profileToUser(row: ProfileRow | null, authEmail?: string): UserShape | null {
+  if (!row) return null;
+  const id = row.id ?? row.user_id ?? '';
+  const rawRole = (row.role ?? row.role_type ?? row.user_type ?? 'user').toString().trim();
+  const role = rawRole ? rawRole.toLowerCase() : 'user';
+  return {
+    id,
+    name: (row.full_name ?? row.name) ?? '',
+    email: row.email ?? authEmail ?? '',
+    role,
+    avatar: row.avatar_url ?? row.avatar,
+    created_at: row.created_at,
+    createdAt: row.created_at ? new Date(row.created_at) : undefined,
+  };
+}
+
+function userToProfilePayload(user: { name: string; email: string; role: string; avatar?: string }) {
+  return {
+    full_name: user.name,
+    avatar_url: user.avatar,
+    role: user.role,
+    email: user.email,
+  };
+}
+
+// Ícones em public/assets/systems — slug (normalizado) -> nome do arquivo na pasta
+const SYSTEMS_ICONS: Record<string, string> = {
+  geforms: 'GeForms.png',
+  geroute: 'GêRoute.png',
+  getask: 'GêTask.png',
+  geteam: 'GeTeam.png',
+  geapps: 'GêApps.png',
+  gestack: 'GeStack.png',
+};
+const SYSTEMS_ICONS_DEFAULT = 'GêApps.png';
+
+function normalizeSlug(str: string): string {
+  return (str || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function resolveSystemIcon(row: any): string {
+  const slug = normalizeSlug(row.slug ?? row.name ?? row.title ?? '');
+  const mappedFile = slug ? (SYSTEMS_ICONS[slug] ?? SYSTEMS_ICONS_DEFAULT) : SYSTEMS_ICONS_DEFAULT;
+  const base = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL ? import.meta.env.BASE_URL.replace(/\/$/, '') : '';
+  return `${base}/assets/systems/${mappedFile}`;
+}
 
 // Storage Service
 export const storageService = {
@@ -139,32 +212,45 @@ export const authService = {
       }
 
       console.log('✅ [SignUp] Usuário criado no Auth:', authData.user.id);
-      console.log('🔵 [SignUp] Criando registro na tabela users...');
+      console.log('🔵 [SignUp] Criando registro na tabela profiles...');
 
-      // Criar registro na tabela users
-      const { data: userData, error: dbError } = await supabase
-        .from('users')
-        .insert([{
-          id: authData.user.id,
-          name: fullName,
-          email: email,
-          role: role,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${fullName}`,
-        }])
-        .select()
-        .single();
+      const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fullName)}`;
+      const userId = authData.user.id;
 
-      if (dbError) {
-        console.error('❌ [SignUp] Erro ao criar registro na tabela users:', dbError);
-        return { 
-          data: authData, 
-          error: { 
-            message: `Usuário criado no Auth mas falhou ao salvar dados: ${dbError.message}` 
-          } 
-        };
+      // Tenta com coluna "id" (padrão); se a tabela usar "user_id" como PK, tenta com user_id
+      const payloadWithId = { id: userId, full_name: fullName, avatar_url: avatarUrl, role, email };
+      const payloadWithUserId = { user_id: userId, full_name: fullName, avatar_url: avatarUrl, role, email };
+
+      let profileError: Error | null = null;
+      let lastError: { message?: string; code?: string } | null = null;
+
+      for (const payload of [payloadWithId, payloadWithUserId]) {
+        const { error: dbError } = await supabase
+          .from('profiles')
+          .insert([payload]);
+
+        if (!dbError) {
+          console.log('✅ [SignUp] Registro criado na tabela profiles');
+          return { data: authData, error: null };
+        }
+        lastError = dbError;
+        if (dbError?.code === 'PGRST204' || (dbError?.message && dbError.message.includes("Could not find the 'id' column"))) {
+          continue;
+        }
+        profileError = dbError;
+        break;
       }
 
-      console.log('✅ [SignUp] Registro criado na tabela users:', userData);
+      if (profileError || lastError) {
+        const err = profileError || lastError;
+        console.error('❌ [SignUp] Erro ao criar registro na tabela profiles:', err);
+        return {
+          data: authData,
+          error: {
+            message: `Usuário criado no Auth mas falhou ao salvar dados: ${err?.message ?? 'Coluna id ou user_id não encontrada em profiles. Verifique o nome da PK na tabela.'}`,
+          },
+        };
+      }
       console.log('✅ [SignUp] Cadastro completo!');
 
       return { data: authData, error: null };
@@ -198,13 +284,25 @@ export const authService = {
 
       if (error || !user) return { data: null, error };
 
-      const { data: userData, error: dbError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      return { data: userData, error: dbError };
+      let profileRow: ProfileRow | null = null;
+      let dbError: Error | null = null;
+      for (const key of ['id', 'user_id']) {
+        const { data, error: e } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq(key, user.id)
+          .maybeSingle();
+        if (!e && data) {
+          profileRow = data as ProfileRow;
+          break;
+        }
+        dbError = e;
+      }
+      if (profileRow) {
+        const userData = profileToUser(profileRow, user.email);
+        return { data: userData, error: null };
+      }
+      return { data: null, error: dbError };
     } catch (error) {
       console.error('❌ [AuthService] getCurrentUser exception:', error);
       return { data: null, error };
@@ -213,149 +311,202 @@ export const authService = {
 };
 
 export const databaseService = {
-  // Users
+  // Profiles (tabela profiles no Supabase)
   async getUsers() {
     const { data, error } = await supabase
-      .from('users')
+      .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
-    return { data, error };
+    if (error) return { data: null, error };
+    const mapped = (data ?? []).map((row) => profileToUser(row as ProfileRow));
+    return { data: mapped, error: null };
   },
 
   async getUserById(userId: string) {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    return { data, error };
+    for (const key of ['id', 'user_id']) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq(key, userId)
+        .maybeSingle();
+      if (!error && data) return { data: profileToUser(data as ProfileRow), error: null };
+    }
+    return { data: null, error: { message: 'Profile not found' } };
   },
 
   async getUserByEmail(email: string) {
     console.log('🔍 [getUserByEmail] Verificando email:', email);
     const { data, error } = await supabase
-      .from('users')
+      .from('profiles')
       .select('*')
       .eq('email', email)
       .maybeSingle();
     console.log('🔍 [getUserByEmail] Resultado:', { data, error, exists: !!data });
-    return { data, error };
+    if (error) return { data: null, error };
+    return { data: data ? profileToUser(data as ProfileRow) : null, error: null };
   },
 
   async createUser(userData: any) {
+    const payload = userToProfilePayload({
+      name: userData.name,
+      email: userData.email,
+      role: userData.role ?? 'user',
+      avatar: userData.avatar,
+    });
     const { data, error } = await supabase
-      .from('users')
-      .insert([userData])
+      .from('profiles')
+      .insert([{ id: userData.id, ...payload }])
       .select()
       .single();
-    return { data, error };
+    if (error) return { data: null, error };
+    return { data: profileToUser(data as ProfileRow), error: null };
   },
 
   async updateUser(userId: string, userData: any) {
-    const { data, error } = await supabase
-      .from('users')
-      .update(userData)
-      .eq('id', userId)
-      .select()
-      .single();
-    return { data, error };
+    const payload: Record<string, unknown> = {};
+    if (userData.name != null) payload.full_name = userData.name;
+    if (userData.avatar != null) payload.avatar_url = userData.avatar;
+    if (userData.role != null) payload.role = userData.role;
+    if (userData.email != null) payload.email = userData.email;
+    for (const key of ['id', 'user_id']) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq(key, userId)
+        .select()
+        .maybeSingle();
+      if (!error && data) return { data: profileToUser(data as ProfileRow), error: null };
+    }
+    return { data: null, error: { message: 'Profile not found' } };
   },
 
   async deleteUser(userId: string) {
     console.log('🗑️ [deleteUser] Deletando usuário:', userId);
-    
-    // Deletar da tabela users
-    const { data, error, count } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', userId)
-      .select();
-    
-    if (error) {
-      console.error('❌ [deleteUser] Erro ao deletar da tabela users:', error);
-    } else {
-      console.log('✅ [deleteUser] Resposta do delete:', { data, count, deletedRows: data?.length });
-      if (!data || data.length === 0) {
-        console.warn('⚠️ [deleteUser] Nenhuma linha foi deletada! Pode ser problema de RLS policy');
-        return { 
-          error: { 
-            message: 'Nenhum registro foi deletado. Verifique as permissões RLS no Supabase.' 
-          } 
-        };
+    for (const key of ['id', 'user_id']) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq(key, userId)
+        .select();
+      if (error) {
+        console.error('❌ [deleteUser] Erro ao deletar da tabela profiles:', error);
+        continue;
       }
-      console.log('✅ [deleteUser] Usuário deletado da tabela users');
+      if (data && data.length > 0) {
+        console.log('✅ [deleteUser] Usuário deletado da tabela profiles');
+        return { error: null };
+      }
     }
-    
-    return { error };
+    console.warn('⚠️ [deleteUser] Nenhuma linha foi deletada! Pode ser problema de RLS policy');
+    return { error: { message: 'Nenhum registro foi deletado. Verifique as permissões RLS no Supabase.' } };
   },
 
-  // Systems
+  // Converte uma linha da tabela apps do Supabase no formato usado pelo frontend
+  appRowToSystem(row: any): any {
+    const hasStatus = row.status !== undefined || row.active !== undefined;
+    const active = hasStatus ? (row.status === 'active' || row.active === true) : true;
+    return {
+      id: row.id,
+      name: row.name ?? row.title ?? '',
+      description: row.description ?? '',
+      url: row.url ?? '',
+      icon: resolveSystemIcon(row),
+      category: row.category ?? 'Ferramentas',
+      active,
+      createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+    };
+  },
+
   async getSystems() {
     const { data, error } = await supabase
-      .from('systems')
-      .select('*')
-      .eq('active', true)
-      .order('name');
-    return { data, error };
+      .from('apps')
+      .select('*');
+    if (error) {
+      console.error('[getSystems] Erro ao ler tabela apps:', error);
+      return { data: null, error };
+    }
+    const rows = Array.isArray(data) ? data : [];
+    const mapped = rows.map((r: any) => this.appRowToSystem(r));
+    mapped.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+    return { data: mapped, error: null };
   },
 
   async getSystemById(systemId: string) {
     const { data, error } = await supabase
-      .from('systems')
+      .from('apps')
       .select('*')
       .eq('id', systemId)
       .single();
-    return { data, error };
+    if (error) return { data: null, error };
+    return { data: data ? this.appRowToSystem(data) : null, error: null };
   },
 
   async createSystem(systemData: any) {
-    const { data, error } = await supabase
-      .from('systems')
-      .insert([systemData])
-      .select()
-      .single();
-    return { data, error };
+    const slug =
+      systemData.slug ??
+      (systemData.name ? normalizeSlug(systemData.name) : '');
+    const row: any = {
+      name: systemData.name,
+      url: systemData.url,
+      description: systemData.description ?? '',
+      status: systemData.active !== false ? 'active' : 'inactive',
+      slug,
+    };
+    if (systemData.category != null) row.category = systemData.category;
+    // Ícone: caminho ou nome do arquivo em /assets/systems/ (opcional; senão usa mapeamento por slug)
+    const icon = systemData.icon ?? systemData.icon_url;
+    if (icon && (String(icon).startsWith('/') || String(icon).startsWith('http') || /\.(svg|png|jpg|jpeg)$/i.test(String(icon)))) {
+      row.icon_url = icon;
+    }
+    const { data, error } = await supabase.from('apps').insert([row]).select().single();
+    if (error) return { data: null, error };
+    return { data: data ? this.appRowToSystem(data) : null, error: null };
   },
 
   async updateSystem(systemId: string, systemData: any) {
-    const { data, error } = await supabase
-      .from('systems')
-      .update(systemData)
-      .eq('id', systemId)
-      .select()
-      .single();
-    return { data, error };
+    const row: any = {};
+    if (systemData.name != null) row.name = systemData.name;
+    if (systemData.url != null) row.url = systemData.url;
+    if (systemData.description != null) row.description = systemData.description;
+    if (systemData.icon != null || systemData.icon_url != null) row.icon_url = systemData.icon ?? systemData.icon_url;
+    if (systemData.active != null) row.status = systemData.active ? 'active' : 'inactive';
+    if (systemData.category != null) row.category = systemData.category;
+    const { data, error } = await supabase.from('apps').update(row).eq('id', systemId).select().single();
+    if (error) return { data: null, error };
+    return { data: data ? this.appRowToSystem(data) : null, error: null };
   },
 
   async deleteSystem(systemId: string) {
     const { error } = await supabase
-      .from('systems')
+      .from('apps')
       .delete()
       .eq('id', systemId);
     return { error };
   },
 
-  // User System Access
+  // User App Access (tabela user_app_access: access, is_favorite, access_type 'member'|'viewer')
   async getUserSystemAccess(userId: string) {
     const { data, error } = await supabase
-      .from('user_systems')
+      .from('user_app_access')
       .select('*')
       .eq('user_id', userId);
-    return { data, error };
+    if (error) return { data: null, error };
+    // Mapear para o frontend: app_id -> system_id, access -> can_access, is_favorite
+    const mapped = (data ?? []).map((row: any) => ({
+      ...row,
+      system_id: row.app_id ?? row.system_id,
+      can_access: row.access ?? row.can_access ?? true,
+      is_favorite: row.is_favorite ?? row.favorite ?? false,
+    }));
+    return { data: mapped, error: null };
   },
 
   async setUserSystemAccess(userId: string, systemId: string, canAccess: boolean) {
     const { data, error } = await supabase
-      .from('user_systems')
+      .from('user_app_access')
       .upsert(
-        {
-          user_id: userId,
-          system_id: systemId,
-          can_access: canAccess,
-        },
-        {
-          onConflict: 'user_id,system_id',
-        }
+        { user_id: userId, app_id: systemId, access: canAccess, access_type: 'member' },
+        { onConflict: 'user_id,app_id' }
       )
       .select()
       .single();
@@ -364,60 +515,52 @@ export const databaseService = {
 
   async toggleFavorite(userId: string, systemId: string) {
     const { data: current } = await supabase
-      .from('user_systems')
+      .from('user_app_access')
       .select('*')
       .eq('user_id', userId)
-      .eq('system_id', systemId)
+      .eq('app_id', systemId)
       .maybeSingle();
 
-    const cur = current as Record<string, unknown> | null;
-    const isFav = cur ? !!(cur.is_favorite ?? cur.favorite) : false;
-    const favCol = cur && Object.prototype.hasOwnProperty.call(cur, 'favorite') ? 'favorite' : 'is_favorite';
+    const isFav = current ? !!(current.is_favorite ?? (current as any).favorite) : false;
 
     if (current) {
       const { data, error } = await supabase
-        .from('user_systems')
-        .update({ [favCol]: !isFav })
+        .from('user_app_access')
+        .update({ is_favorite: !isFav, updated_at: new Date().toISOString() })
         .eq('user_id', userId)
-        .eq('system_id', systemId)
+        .eq('app_id', systemId)
         .select()
         .single();
       return { data, error };
     }
 
-    for (const col of ['favorite', 'is_favorite']) {
-      const row: Record<string, unknown> = {
-        user_id: userId,
-        system_id: systemId,
-        can_access: true,
-        [col]: true,
-      };
-      const { data, error } = await supabase
-        .from('user_systems')
-        .upsert(row, { onConflict: 'user_id,system_id' })
-        .select()
-        .single();
-      if (!error) return { data, error };
-    }
-    return { data: null, error: new Error('Não foi possível favoritar') };
+    // Inserir novo registro: favoritar = acesso + is_favorite (qualquer um pode salvar)
+    const { data, error } = await supabase
+      .from('user_app_access')
+      .upsert(
+        {
+          user_id: userId,
+          app_id: systemId,
+          access: true,
+          access_type: 'member',
+          is_favorite: true,
+        },
+        { onConflict: 'user_id,app_id' }
+      )
+      .select()
+      .single();
+    return { data, error };
   },
 
-  // Access Logs
+  // Audit Logs (tabela audit_logs)
   async logAccess(userId: string, systemId: string) {
     try {
       const { data, error } = await supabase
-        .from('access_logs')
-        .insert([{
-          user_id: userId,
-          system_id: systemId,
-        }])
+        .from('audit_logs')
+        .insert([{ user_id: userId, app_id: systemId }])
         .select()
         .single();
-      
-      if (error) {
-        console.warn('Falha ao registrar log de acesso:', error);
-      }
-      
+      if (error) console.warn('Falha ao registrar log de acesso:', error);
       return { data, error };
     } catch (err) {
       console.warn('Erro ao registrar log de acesso:', err);
@@ -426,18 +569,29 @@ export const databaseService = {
   },
 
   async getAccessLogs(userId?: string, limit = 50) {
+    const orderCol = 'timestamp'; // audit_logs: timestamp ou created_at
     let query = supabase
-      .from('access_logs')
-      .select('*, users(*), systems(*)')
-      .order('timestamp', { ascending: false })
+      .from('audit_logs')
+      .select('*, profiles(*), apps(*)')
+      .order(orderCol, { ascending: false })
       .limit(limit);
-    
-    if (userId) {
-      query = query.eq('user_id', userId);
-    }
-    
+    if (userId) query = query.eq('user_id', userId);
     const { data, error } = await query;
-    return { data, error };
+    if (error) return { data: null, error };
+    const normalized = (data ?? []).map((row: any) => {
+      const user = row.profiles ? profileToUser(row.profiles as ProfileRow) : null;
+      const app = row.apps;
+      return {
+        ...row,
+        system_id: row.app_id ?? row.system_id,
+        systemId: row.app_id ?? row.system_id,
+        userName: user?.name ?? row.userName,
+        systemName: app?.name ?? row.systemName,
+        users: user,
+        systems: app,
+      };
+    });
+    return { data: normalized, error: null };
   },
 };
 

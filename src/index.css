@@ -157,10 +157,20 @@
   * {
     @apply border-border;
   }
+  html {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+  #root {
+    overflow-x: hidden;
+    min-height: 100vh;
   }
 }
 

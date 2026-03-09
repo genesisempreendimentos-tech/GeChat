@@ -46,12 +46,7 @@ export default function SignupPage() {
     } else {
       if (import.meta.env.DEV) console.error('Erro no cadastro:', result.error);
       
-      // Mensagem customizada para rate limit
-      if (result.error?.includes('rate limit') || result.error?.includes('Limite de tentativas')) {
-        setError('⏱️ Muitas tentativas! Aguarde 2-3 minutos antes de tentar novamente.');
-      } else {
-        setError(result.error || 'Erro ao criar conta');
-      }
+      setError(result.error || 'Erro ao criar conta');
     }
 
     setLoading(false);
@@ -217,8 +212,8 @@ export default function SignupPage() {
                   }}
                 >
                   <img 
-                    src="/assets/GêTudo.svg" 
-                    alt="GêTudo" 
+                    src="/assets/GêApps.svg" 
+                    alt="GêApps" 
                     className="w-full h-full object-contain"
                     style={{
                       filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)'
@@ -246,11 +241,11 @@ export default function SignupPage() {
                 }}
               >
                 <CardTitle className="text-4xl font-bold bg-gradient-to-r from-primary via-teal-400 to-primary bg-clip-text text-transparent" style={{ backgroundSize: '200% auto' }}>
-                  GêTudo
+                  GêApps
                 </CardTitle>
               </motion.div>
               <CardDescription className="text-base">
-                Cadastre-se no GêTudo
+                Cadastre-se no GêApps
               </CardDescription>
               <div className="pt-2">
                 <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
@@ -368,25 +363,11 @@ export default function SignupPage() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2"
+                  className="p-4 rounded-lg bg-destructive/10 border border-destructive/20"
                 >
                   <p className="text-destructive text-sm font-medium text-center">
                     {error}
                   </p>
-                  <details className="text-xs text-destructive/70">
-                    <summary className="cursor-pointer hover:text-destructive text-center">
-                      Ver detalhes técnicos
-                    </summary>
-                    <pre className="mt-2 p-2 bg-destructive/5 rounded overflow-auto text-left">
-                      Email: {email}{'\n'}
-                      Domínio válido: {email.endsWith('@genesisempreendimentos.com.br') ? 'Sim' : 'Não'}{'\n'}
-                      Senha: {password.length} caracteres{'\n'}
-                      Senhas coincidem: {password === confirmPassword ? 'Sim' : 'Não'}
-                    </pre>
-                    <p className="mt-2 text-center text-destructive/80">
-                      Abra o Console do navegador (F12) para ver logs detalhados
-                    </p>
-                  </details>
                 </motion.div>
               )}
 
