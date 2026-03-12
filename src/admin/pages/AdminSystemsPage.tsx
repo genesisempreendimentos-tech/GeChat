@@ -547,14 +547,8 @@ export default function AdminSystemsPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Logo (URL ou upload)</label>
-              <div className="mt-1 flex gap-2">
-                <Input
-                  placeholder="URL ou use o botão para enviar do PC"
-                  value={form.logo}
-                  onChange={(e) => setForm((f) => ({ ...f, logo: e.target.value }))}
-                  className="flex-1 min-w-0"
-                />
+              <label className="text-sm font-medium">Logo (apenas upload)</label>
+              <div className="mt-1 flex items-center gap-2">
                 <input
                   ref={createLogoInputRef}
                   type="file"
@@ -569,13 +563,22 @@ export default function AdminSystemsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
-                  title="Enviar imagem do PC (bucket GeImage/GeApps)"
                   disabled={logoUploading}
                   onClick={() => createLogoInputRef.current?.click()}
                 >
-                  {logoUploading ? <LoadingGif size="sm" className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                  {logoUploading ? <LoadingGif size="sm" className="w-4 h-4 mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
+                  Enviar imagem
                 </Button>
+                {form.logo && (
+                  <div className="flex items-center gap-2">
+                    {form.logo.startsWith('http') ? (
+                      <img src={form.logo} alt="Logo" className="w-10 h-10 rounded object-contain border border-border" />
+                    ) : null}
+                    <span className="text-xs text-muted-foreground truncate max-w-[180px]" title={form.logo}>
+                      Imagem selecionada
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             <div>
@@ -671,14 +674,8 @@ export default function AdminSystemsPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Logo (URL ou upload)</label>
-                  <div className="mt-1 flex gap-2">
-                    <Input
-                      placeholder="URL ou use o botão para enviar do PC"
-                      value={editForm.logo}
-                      onChange={(e) => setEditForm((f) => ({ ...f, logo: e.target.value }))}
-                      className="flex-1 min-w-0"
-                    />
+                  <label className="text-sm font-medium">Logo (apenas upload)</label>
+                  <div className="mt-1 flex items-center gap-2 flex-wrap">
                     <input
                       ref={editLogoInputRef}
                       type="file"
@@ -693,13 +690,22 @@ export default function AdminSystemsPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      title="Enviar imagem do PC (bucket GeImage/GeApps)"
                       disabled={logoUploading}
                       onClick={() => editLogoInputRef.current?.click()}
                     >
-                      {logoUploading ? <LoadingGif size="sm" className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                      {logoUploading ? <LoadingGif size="sm" className="w-4 h-4 mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
+                      {editForm.logo ? 'Substituir imagem' : 'Enviar imagem'}
                     </Button>
+                    {editForm.logo && (
+                      <div className="flex items-center gap-2">
+                        {(editForm.logo.startsWith('http') || editForm.logo.startsWith('/')) ? (
+                          <img src={editForm.logo} alt="Logo" className="w-10 h-10 rounded object-contain border border-border" />
+                        ) : null}
+                        <span className="text-xs text-muted-foreground truncate max-w-[180px]" title={editForm.logo}>
+                          Imagem atual
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div>

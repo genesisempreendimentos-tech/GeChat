@@ -89,6 +89,15 @@ function resolveSystemIcon(row: any): string {
   return `${base}/assets/systems/${mappedFile}`;
 }
 
+/** Usa icon_url do banco (URL pública do Supabase) quando existir; senão usa ícone local por slug. */
+function getSystemIcon(row: any): string {
+  const stored = row.icon_url ?? row.icon ?? row.logo;
+  if (stored && typeof stored === 'string' && (stored.startsWith('http') || stored.startsWith('https'))) {
+    return stored;
+  }
+  return resolveSystemIcon(row);
+}
+
 // Storage Service
 export const storageService = {
   async uploadAvatar(userId: string, file: File) {
@@ -576,7 +585,7 @@ export const databaseService = {
       name: row.name ?? row.title ?? '',
       description: row.description ?? '',
       url: row.url ?? '',
-      icon: resolveSystemIcon(row),
+      icon: getSystemIcon(row),
       category: row.category ?? 'Ferramentas',
       status,
       active,

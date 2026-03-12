@@ -1,6 +1,6 @@
 # Autenticação centralizada com GêApps
 
-Este documento descreve como usar o **GêApps** como provedor central de autenticação para os demais aplicativos do ecossistema Genesis (GeTeams, GeForms, etc.), usando **Supabase Auth** e sessão compartilhada entre subdomínios.
+Este documento descreve como usar o **GêApps** como provedor central de autenticação para os demais aplicativos do ecossistema Genesis (GeTeams, GeForms, etc.), usando **Supabase Auth** e sessão compartilhada entre subdomínios. Use este guia para **atualizar o GeTeams** (ou qualquer app irmão).
 
 ---
 
@@ -21,35 +21,32 @@ Todos os apps usam o **mesmo login** (Supabase Auth). O GêApps é o ponto únic
 ### 2.1 Usuário acessa um app irmão (ex.: GeTeams)
 
 1. Usuário abre `https://geteams.genesisapps.com.br`.
-2. O app verifica se existe sessão (cookie/localStorage, conforme ambiente).
+2. O app verifica se existe sessão (via **cookies** no domínio pai quando em `*.genesisapps.com.br` — ver `getAuthStorage()`).
 3. **Se não há sessão:** exibe uma tela com o botão **"Entrar com GêApps"**, que redireciona para:
    ```
    https://geapps.genesisapps.com.br/login?returnTo=https://geteams.genesisapps.com.br/
    ```
-4. O usuário faz login no GêApps (email/senha, Supabase Auth).
-5. Após login com sucesso, o GêApps redireciona de volta para o valor de `returnTo` (apenas se a URL for permitida: HTTPS e host em `*.genesisapps.com.br`).
-6. O usuário volta ao GeTeams já autenticado (o cookie de sessão está no domínio pai).
-7. O GeTeams verifica na tabela **`user_app_access`** se esse usuário tem acesso ao app (por exemplo, pelo **slug** `geteams`).
-8. **Se tiver acesso:** o usuário entra normalmente no app.
-9. **Se não tiver acesso:** o app redireciona para uma página de "sem acesso", por exemplo:
-   ```
-   https://geapps.genesisapps.com.br/access-denied?reason=app
-   ```
-   ou uma página equivalente no próprio app, com a mensagem **"Ops, você não tem acesso a esse app."** e um botão para voltar ao GêApps.
+   (Use a URL completa do app como `returnTo`, ex.: `window.location.origin + '/'` ou a rota desejada após o login.)
+4. O usuário faz login no GêApps (email/senha, Supabase Auth) **ou já está logado**.
+5. **Se já estava logado:** o GêApps detecta a sessão na rota `/login?returnTo=...` e **redireciona imediatamente** para o `returnTo` (tela "Redirecionando..." e depois redirect para o app irmão).
+6. **Se acabou de fazer login:** após sucesso, o GêApps redireciona para o valor de `returnTo` (apenas se a URL for permitida: HTTPS e host em `*.genesisapps.com.br`).
+7. O usuário volta ao GeTeams já autenticado (o cookie de sessão está no domínio `.genesisapps.com.br` e é lido pelo GeTeams se ele usar o **mesmo** `getAuthStorage()`).
+8. O GeTeams verifica na tabela **`user_app_access`** se esse usuário tem acesso ao app (pelo **slug** `geteams`).
+9. **Se tiver acesso:** o usuário entra normalmente no app.
+10. **Se não tiver acesso:** redirecionar para `https://geapps.genesisapps.com.br/access-denied?reason=app` ou exibir página local com a mensagem e link para o GêApps.
 
 ### 2.2 Resumo do fluxo
 
 ```
 [App irmão] → sem sessão → "Entrar com GêApps" → [GêApps /login?returnTo=...]
      ↑                                                          |
-     |                                                          v
-     |                                              usuário faz login
+     |                                    usuário faz login OU já está logado
      |                                                          |
      |                                                          v
      +-------- redirect para returnTo (app irmão) ---------------+
      |
      v
-[App irmão] → com sessão → consulta user_app_access por slug
+[App irmão] → com sessão (cookie) → consulta user_app_access por slug
      |
      ├── tem acesso  → entra no app
      └── sem acesso  → /access-denied?reason=app (ou página local)
@@ -69,7 +66,8 @@ Todos os apps usam o **mesmo login** (Supabase Auth). O GêApps é o ponto únic
 
 - A página de login aceita o parâmetro **`returnTo`** na URL (ex.: `?returnTo=https://geteams.genesisapps.com.br/`).
 - A URL é validada com **`isAllowedReturnToUrl()`**: apenas HTTPS e host em `genesisapps.com.br` ou subdomínios.
-- Após login com sucesso, se `returnTo` for válido, o usuário é redirecionado para essa URL em vez de `/dashboard`.
+- **Usuário já logado:** se o usuário acessar `/login?returnTo=...` já autenticado, o GêApps **não** exibe o formulário de login; redireciona diretamente para o `returnTo` (componente `LoginRoute` em `App.tsx`). Assim, ao clicar em "Entrar com GêApps" no GeTeams estando já logado no GêApps, o usuário volta ao GeTeams.
+- **Após digitar email/senha:** após login com sucesso, se `returnTo` for válido, o usuário é redirecionado para essa URL em vez de `/dashboard`.
 
 ### 3.3 APIs de acesso por app
 
@@ -95,20 +93,23 @@ Cada app (GeTeams, GeForms, etc.) precisa:
 
 - Usar as **mesmas** variáveis **`VITE_SUPABASE_URL`** e **`VITE_SUPABASE_ANON_KEY`** do GêApps.
 - Criar o cliente Supabase com o **mesmo storage** usado no GêApps, para que a sessão seja lida/escrita nos mesmos cookies quando estiver em `*.genesisapps.com.br`:
-  - Copiar o arquivo **`src/services/authStorage.ts`** do GêApps (ou compartilhar via pacote/mono-repo) e usar:
+  - Copiar o arquivo **`src/services/authStorage.ts`** do GêApps (caminho no repositório GeApps: `src/services/authStorage.ts`). **Não altere** prefixos nem domínio — o código deve ser idêntico para os cookies serem compartilhados.
+  - Instanciar o cliente assim:
     ```ts
     import { createClient } from '@supabase/supabase-js';
-    import { getAuthStorage } from './authStorage'; // ou caminho equivalente
+    import { getAuthStorage } from './authStorage'; // ou src/services/authStorage
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { storage: getAuthStorage() },
-    });
+    const supabase = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY,
+      { auth: { storage: getAuthStorage() } }
+    );
     ```
 
 ### 4.2 Definir o slug do app
 
 - Cada app deve saber seu **slug** (ex.: `geteams`, `geforms`), que deve existir na tabela **`apps`** e em **`user_app_access`** para controle de acesso.
-- O slug costuma ser derivado do subdomínio (ex.: `geteams.genesisapps.com.br` → slug `geteams`).
+- No GeTeams use o slug **`geteams`** (igual ao subdomínio em `geteams.genesisapps.com.br`). Defina uma constante, ex.: `const APP_SLUG = 'geteams';`.
 
 ### 4.3 Tela "Entrar com GêApps"
 
@@ -116,35 +117,145 @@ Cada app (GeTeams, GeForms, etc.) precisa:
   ```
   https://geapps.genesisapps.com.br/login?returnTo=<URL_ATUAL_DO_APP>
   ```
-  Exemplo para GeTeams:
+  Exemplo para GeTeams (use a origem atual para funcionar em produção e em localhost):
+  ```ts
+  import { GEAPPS_BASE_URL } from './authStorage'; // exportado em authStorage.ts
+
+  const loginUrl = `${GEAPPS_BASE_URL}/login?returnTo=${encodeURIComponent(window.location.origin + '/')}`;
+  // Ex.: https://geapps.genesisapps.com.br/login?returnTo=https%3A%2F%2Fgeteams.genesisapps.com.br%2F
+  window.location.href = loginUrl;
   ```
-  https://geapps.genesisapps.com.br/login?returnTo=https://geteams.genesisapps.com.br/
-  ```
-  Use a URL completa do app (incluindo barra final ou path desejado) para o usuário voltar ao mesmo lugar após o login.
+  Use a URL completa do app (incluindo barra final ou path desejado, ex.: `window.location.origin + '/dashboard'`) para o usuário voltar ao mesmo lugar após o login.
 
 ### 4.4 Ao carregar o app (ou após retorno do login)
 
-1. Obter a sessão: `supabase.auth.getSession()` ou `supabase.auth.getUser()`.
-2. Se **não** houver sessão → mostrar a tela "Entrar com GêApps" (ver acima).
+1. Obter a sessão: `const { data: { session } } = await supabase.auth.getSession();` (ou `getUser()`).
+2. Se **não** houver sessão → mostrar a tela "Entrar com GêApps" (link acima).
 3. Se **houver** sessão:
-   - Obter `userId` (ex.: `user.id` do `getUser()`).
-   - Chamar **`userHasAccessToAppBySlug(userId, slugDoApp)`** (ou equivalente: `getAppBySlug(slug)` + `userHasAccessToApp(userId, appId)`). O GêApps já expõe isso no `databaseService`; no app irmão você pode usar o mesmo serviço ou replicar a lógica com o mesmo Supabase.
+   - Obter `userId`: `session.user.id`.
+   - Verificar acesso com **`userHasAccessToAppBySlug(userId, APP_SLUG)`**. No app irmão você pode replicar a lógica (consultas às tabelas `apps` e `user_app_access`) usando o **mesmo** cliente Supabase; o RLS do Supabase já restringe os dados por usuário.
    - **Se tiver acesso:** seguir normalmente (renderizar o app).
-   - **Se não tiver acesso:** redirecionar para:
-     ```
-     https://geapps.genesisapps.com.br/access-denied?reason=app
-     ```
-     ou exibir uma página local com a mesma mensagem e um link/botão para `https://geapps.genesisapps.com.br`.
+   - **Se não tiver acesso:** redirecionar para `https://geapps.genesisapps.com.br/access-denied?reason=app` ou exibir página local com a mensagem e link para o GêApps.
 
 ### 4.5 Resumo para o desenvolvedor do app irmão
 
 | Etapa | Ação |
 |-------|------|
 | Supabase | Mesmo projeto: mesma URL e anon key; cliente com `auth: { storage: getAuthStorage() }`. |
+| authStorage | Copiar `src/services/authStorage.ts` do GêApps sem alterar (cookies no domínio `.genesisapps.com.br`). |
 | Slug | Definir slug do app (ex.: `geteams`) e garantir que exista em `apps` e em `user_app_access` para os usuários liberados. |
-| Sem sessão | Mostrar "Entrar com GêApps" → link para `geapps.../login?returnTo=<url_do_app>`. |
+| Sem sessão | Mostrar "Entrar com GêApps" → link para `GEAPPS_BASE_URL/login?returnTo=<url_do_app>`. |
 | Com sessão | Verificar acesso com `userHasAccessToAppBySlug(userId, slug)`. |
 | Sem acesso | Redirecionar para `/access-denied?reason=app` no GêApps ou exibir página local "Ops, você não tem acesso a esse app." + link para GêApps. |
+
+---
+
+## 4.6 Checklist de implementação no GeTeams (ou outro app irmão)
+
+Siga esta ordem ao atualizar o GeTeams:
+
+1. **Variáveis de ambiente**  
+   - Definir `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (mesmos valores do GêApps).  
+   - Opcional: `VITE_GEAPPS_BASE_URL=https://geapps.genesisapps.com.br` (usado por `authStorage.ts` fora de `*.genesisapps.com.br`).
+
+2. **Copiar `authStorage.ts`**  
+   - Do GêApps: `src/services/authStorage.ts` → no GeTeams: mesmo caminho `src/services/authStorage.ts` (ou ajustar imports).  
+   - Não alterar constantes (`AUTH_COOKIE_PREFIX`, `ALLOWED_DOMAIN`, etc.) para os cookies continuarem compartilhados.
+
+3. **Cliente Supabase**  
+   - Criar o cliente Supabase **com** `auth: { storage: getAuthStorage() }` (ver trecho em 4.1).  
+   - Garantir que **todas** as chamadas de auth usem esse cliente (não criar um segundo cliente sem storage).
+
+4. **Slug do app**  
+   - Definir `APP_SLUG = 'geteams'`.  
+   - Confirmar no Supabase que existe um registro em `apps` com `slug = 'geteams'` e que o usuário tem linha em `user_app_access` com `access = true` para esse app.
+
+5. **Tela de login (sem sessão)**  
+   - Se `getSession()` não retornar sessão, exibir tela com botão "Entrar com GêApps".  
+   - O botão deve redirecionar para `GEAPPS_BASE_URL + '/login?returnTo=' + encodeURIComponent(window.location.origin + '/')` (ou path desejado após retorno).
+
+6. **Verificação de acesso (com sessão)**  
+   - Ao carregar o app (e após retorno do GêApps), se houver sessão, chamar a lógica equivalente a `userHasAccessToAppBySlug(userId, APP_SLUG)`.  
+   - Se não tiver acesso, redirecionar para `https://geapps.genesisapps.com.br/access-denied?reason=app` ou página local com link para o GêApps.
+
+7. **Rotas protegidas**  
+   - Garantir que rotas como `/dashboard` só sejam acessíveis após: (1) existir sessão e (2) `userHasAccessToAppBySlug` retornar true. Caso contrário, redirecionar para a tela "Entrar com GêApps" ou para a página de acesso negado.
+
+---
+
+## 4.7 Código de verificação de acesso (para copiar no app irmão)
+
+O GêApps expõe `getAppBySlug` e `userHasAccessToAppBySlug` em `src/services/supabase.ts` (databaseService). No GeTeams você pode **replicar** a lógica abaixo usando o **mesmo** cliente Supabase (com `getAuthStorage()`). O RLS do Supabase já restringe o que o usuário pode ler.
+
+```ts
+// Exemplo: funções que você pode implementar no GeTeams (ou em um serviço compartilhado).
+// Suponha que `supabase` seja o cliente criado com getAuthStorage().
+
+async function getAppBySlug(supabase: SupabaseClient, slug: string) {
+  const normalized = (slug || '').toLowerCase().trim().replace(/\s+/g, '');
+  if (!normalized) return { data: null, error: null };
+  const { data, error } = await supabase
+    .from('apps')
+    .select('id, status')
+    .ilike('slug', normalized)
+    .maybeSingle();
+  return { data, error };
+}
+
+async function userHasAccessToApp(supabase: SupabaseClient, userId: string, appId: string) {
+  const { data: app, error: appError } = await supabase
+    .from('apps')
+    .select('id, status')
+    .eq('id', appId)
+    .single();
+  if (appError || !app) return { data: false, error: appError };
+  const status = (app.status ?? '').toString().toLowerCase();
+  if (status !== 'ativo' && status !== 'beta') return { data: false, error: null };
+  const { data: accessRow, error: accessError } = await supabase
+    .from('user_app_access')
+    .select('access')
+    .eq('user_id', userId)
+    .eq('app_id', appId)
+    .maybeSingle();
+  if (accessError) return { data: false, error: accessError };
+  return { data: accessRow?.access === true, error: null };
+}
+
+async function userHasAccessToAppBySlug(
+  supabase: SupabaseClient,
+  userId: string,
+  slug: string
+) {
+  const { data: app, error: appErr } = await getAppBySlug(supabase, slug);
+  if (appErr || !app) return { data: false, error: appErr };
+  return userHasAccessToApp(supabase, userId, app.id);
+}
+```
+
+Uso típico no GeTeams ao carregar a aplicação:
+
+```ts
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) {
+  // Mostrar tela "Entrar com GêApps" e redirecionar para GEAPPS_BASE_URL/login?returnTo=...
+  return;
+}
+const { data: hasAccess } = await userHasAccessToAppBySlug(supabase, session.user.id, 'geteams');
+if (!hasAccess) {
+  window.location.href = 'https://geapps.genesisapps.com.br/access-denied?reason=app';
+  return;
+}
+// Renderizar o app (ex.: dashboard).
+```
+
+---
+
+## 4.8 Arquivos do GêApps a copiar ou referenciar
+
+| Arquivo no GêApps | Uso no app irmão |
+|-------------------|-------------------|
+| `src/services/authStorage.ts` | **Copiar** para o projeto (ex.: `src/services/authStorage.ts`). Define `getAuthStorage()`, `GEAPPS_BASE_URL` e `isAllowedReturnToUrl`. Não altere o conteúdo para manter cookies compartilhados. |
+| `src/services/supabase.ts` (trechos) | **Referência:** criação do cliente com `getAuthStorage()` (início do arquivo) e lógica de `getAppBySlug` / `userHasAccessToApp` / `userHasAccessToAppBySlug` (se não quiser copiar o código da seção 4.7). |
 
 ---
 
@@ -217,8 +328,20 @@ http://localhost:5173/login?returnTo=http://localhost:3000/
 
 ---
 
-## 9. Resumo rápido
+## 9. Problemas comuns
 
-- **GêApps:** hub + login; sessão em cookie no domínio pai; login com `returnTo`; APIs `getAppBySlug` e `userHasAccessToAppBySlug`; página `/access-denied?reason=app`.
-- **Apps irmãos:** mesmo Supabase + mesmo `getAuthStorage()`; tela "Entrar com GêApps" com `returnTo`; ao carregar, checar sessão e `user_app_access` por slug; sem acesso → `/access-denied?reason=app` ou página local.
+| Sintoma | Causa provável | Solução |
+|--------|----------------|---------|
+| Ao clicar "Entrar com GêApps" já logado, cai no dashboard do GêApps em vez de voltar ao GeTeams. | GêApps não redirecionando para `returnTo` quando o usuário já está autenticado. | Já corrigido no GêApps: componente `LoginRoute` em `App.tsx` redireciona para `returnTo` quando há sessão. Garantir que está usando a versão atual do GeApps. |
+| Após voltar do GêApps para o GeTeams, o GeTeams ainda mostra a tela de login ou redireciona para login. | O GeTeams não está usando o **mesmo** storage de auth (cookies no domínio pai). | Copiar `authStorage.ts` do GêApps e criar o cliente Supabase com `auth: { storage: getAuthStorage() }`. Não usar apenas `localStorage` padrão do Supabase. |
+| "Você não tem acesso a esse app" mesmo com acesso liberado. | Slug incorreto; app inativo; ou sem linha em `user_app_access`. | Verificar em `apps` o `slug` exato (ex.: `geteams`). Verificar em `user_app_access` se existe `user_id`, `app_id` e `access = true`. Verificar `apps.status` (deve ser `ativo` ou `beta`). |
+| Em localhost o redirect não funciona ou dá erro. | Redirect URLs do Supabase não incluem a origem do app irmão. | No Supabase (Authentication → URL Configuration), adicionar ex.: `http://localhost:5173/**` (ou a porta do GeTeams em dev). |
+| Sessão existe no GêApps mas não no GeTeams no mesmo navegador. | Domínios diferentes (ex.: localhost vs produção) não compartilham cookies. | Em `*.genesisapps.com.br` os cookies são compartilhados; em localhost cada origem tem seu próprio storage. Para testar fluxo completo em dev, use subdomínios locais ou aceite fazer login de novo no app irmão em localhost. |
+
+---
+
+## 10. Resumo rápido
+
+- **GêApps:** hub + login; sessão em cookie no domínio pai (`getAuthStorage()`); rota `/login` com `returnTo` — ao **já estar logado** redireciona para `returnTo`, ao fazer login redireciona para `returnTo` ou `/dashboard`; APIs `getAppBySlug` e `userHasAccessToAppBySlug`; página `/access-denied?reason=app`.
+- **Apps irmãos (GeTeams, etc.):** mesmo Supabase + **copiar** `authStorage.ts` e usar `auth: { storage: getAuthStorage() }`; tela "Entrar com GêApps" com link `GEAPPS_BASE_URL/login?returnTo=<url_do_app>`; ao carregar, checar sessão e `userHasAccessToAppBySlug(userId, slug)`; sem acesso → `/access-denied?reason=app` no GêApps ou página local.
 - **Supabase:** Redirect URLs para todos os hosts (produção com `/**` e localhost com porta); tabelas `apps.slug` e `user_app_access` com RLS já previstos nas migrations.

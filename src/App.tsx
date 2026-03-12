@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
+import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAdminShortcut } from '@/hooks/useAdminShortcut';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -37,6 +38,33 @@ import AdminMembersPage from '@/admin/pages/AdminMembersPage';
 import AdminAdministratorsPage from '@/admin/pages/AdminAdministratorsPage';
 import AdminCategoriesPage from '@/admin/pages/AdminCategoriesPage';
 
+/**
+ * Rota /login: se já autenticado e houver returnTo válido, redireciona para o app irmão (ex.: GeTeams).
+ * Caso contrário, redireciona para /dashboard ou exibe a página de login.
+ */
+function LoginRoute() {
+  const { isAuthenticated } = useAuthStore();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('returnTo') ?? '';
+  const validReturnTo = returnTo && isAllowedReturnToUrl(returnTo) ? returnTo : null;
+
+  useEffect(() => {
+    if (isAuthenticated && validReturnTo) {
+      window.location.href = validReturnTo;
+    }
+  }, [isAuthenticated, validReturnTo]);
+
+  if (!isAuthenticated) return <LoginPage />;
+  if (validReturnTo) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-muted-foreground">Redirecionando...</p>
+      </div>
+    );
+  }
+  return <Navigate to="/dashboard" replace />;
+}
+
 function AppRoutes() {
   const { isAuthenticated } = useAuthStore();
   const { compactMode, animations } = useSettingsStore();
@@ -64,12 +92,7 @@ function AppRoutes() {
       <Routes>
         {/* Auth Routes */}
         <Route element={<AuthLayout />}>
-          <Route
-            path="/login"
-            element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
-            }
-          />
+          <Route path="/login" element={<LoginRoute />} />
           <Route
             path="/signup"
             element={
