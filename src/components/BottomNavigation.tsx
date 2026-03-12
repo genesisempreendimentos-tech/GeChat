@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom"
-import { Home, Boxes, Star, MessageCircle, Users, Settings } from "lucide-react"
+import { Home, Boxes, Star, MessageCircle, Users, Settings, Shield } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 
@@ -8,6 +8,8 @@ interface NavItem {
   label: string
   path: string
   roles?: string[]
+  /** Mostrar apenas quando accessType === 'softadmin' */
+  showWhenSoftadmin?: boolean
 }
 
 export function BottomNavigation() {
@@ -43,13 +45,26 @@ export function BottomNavigation() {
       roles: ["admin", "manager"],
     },
     {
+      icon: Shield,
+      label: "Admin",
+      path: "/admin/home",
+      showWhenSoftadmin: true,
+    },
+    {
       icon: Settings,
       label: "Config",
       path: "/settings",
     },
   ]
 
+  const isSoftadmin = String(user?.accessType ?? "").toLowerCase().trim() === "softadmin"
+  const isAdminPath = location.pathname.startsWith("/admin")
+
   const filteredNavItems = navItems.filter((item) => {
+    if (isAdminPath) {
+      return item.path === "/admin/home" || item.path === "/settings"
+    }
+    if (item.showWhenSoftadmin) return isSoftadmin
     if (!item.roles) return true
     return item.roles.includes(user?.role || "")
   })
@@ -62,7 +77,9 @@ export function BottomNavigation() {
       <div className="flex items-center justify-around h-16">
         {filteredNavItems.map((item) => {
           const Icon = item.icon
-          const isActive = location.pathname === item.path
+          const isActive = item.path.startsWith("/admin")
+            ? location.pathname.startsWith("/admin")
+            : location.pathname === item.path
 
           return (
             <button

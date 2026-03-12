@@ -1,5 +1,6 @@
 // Supabase Service Layer
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { getAuthStorage } from './authStorage';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -15,7 +16,10 @@ if (!hasCredentials) {
 /** Client real quando há credenciais; senão um proxy que lança erro claro ao ser usado (evita "supabaseUrl is required" no load). */
 function createSupabaseClient(): SupabaseClient {
   if (hasCredentials) {
-    return createClient(supabaseUrl!, supabaseAnonKey!);
+    const storage = getAuthStorage();
+    return createClient(supabaseUrl!, supabaseAnonKey!, {
+      auth: { storage },
+    });
   }
   return new Proxy({} as SupabaseClient, {
     get() {
@@ -29,8 +33,9 @@ function createSupabaseClient(): SupabaseClient {
 export const supabase = createSupabaseClient();
 
 // Mapeamento: tabelas do Supabase (profiles, apps, user_app_access, audit_logs) <-> formato do app (User, System)
-type ProfileRow = { id?: string; user_id?: string; full_name?: string; name?: string; avatar_url?: string; avatar?: string; role?: string; role_type?: string; user_type?: string; email?: string; created_at?: string };
-type UserShape = { id: string; name: string; email: string; role: string; avatar?: string; created_at?: string; createdAt?: Date };
+type ProfileRow = { id?: string; user_id?: string; full_name?: string; name?: string; avatar_url?: string; avatar?: string; role?: string; role_type?: string; user_type?: string; email?: string; created_at?: string; access_type?: string };
+type UserShape = { id: string; name: string; email: string; role: string; avatar?: string; created_at?: string; createdAt?: Date; accessType?: string };
+type CategoryRow = { id: string; name: string; description?: string; icon?: string; color?: string; created_at?: string; updated_at?: string; status?: string };
 
 function profileToUser(row: ProfileRow | null, authEmail?: string): UserShape | null {
   if (!row) return null;
@@ -45,6 +50,7 @@ function profileToUser(row: ProfileRow | null, authEmail?: string): UserShape | 
     avatar: row.avatar_url ?? row.avatar,
     created_at: row.created_at,
     createdAt: row.created_at ? new Date(row.created_at) : undefined,
+    accessType: row.access_type ?? undefined,
   };
 }
 
@@ -89,12 +95,12 @@ export const storageService = {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const filePath = `profile/${fileName}`;
 
       console.log('📤 [Storage] Uploading avatar:', { userId, fileName, size: file.size });
 
       const { data, error } = await supabase.storage
-        .from('avatars')
+        .from('GeImage')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true
@@ -105,9 +111,8 @@ export const storageService = {
         throw error;
       }
 
-      // Obter URL pública
       const { data: publicUrlData } = supabase.storage
-        .from('avatars')
+        .from('GeImage')
         .getPublicUrl(filePath);
 
       console.log('✅ [Storage] Avatar uploaded:', publicUrlData.publicUrl);
@@ -120,12 +125,13 @@ export const storageService = {
 
   async deleteAvatar(url: string) {
     try {
-      const filePath = url.split('/avatars/')[1];
-      if (!filePath) return { error: 'Invalid URL' };
+      const pathAfterBucket = url.split('/GeImage/')[1];
+      if (!pathAfterBucket) return { error: 'Invalid URL' };
+      const filePath = decodeURIComponent(pathAfterBucket.split('?')[0]);
 
       const { error } = await supabase.storage
-        .from('avatars')
-        .remove([`avatars/${filePath}`]);
+        .from('GeImage')
+        .remove([filePath]);
 
       if (error) throw error;
       return { error: null };
@@ -133,7 +139,38 @@ export const storageService = {
       console.error('❌ [Storage] Delete error:', error);
       return { error };
     }
-  }
+  },
+
+  /** Upload de imagem do sistema/app para o bucket GeImage, pasta GeApps. Retorna a URL pública. */
+  async uploadSystemImage(file: File): Promise<{ url: string | null; error: unknown }> {
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 80);
+      const fileName = `${Date.now()}-${safeName}`;
+      const filePath = `GeApps/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from('GeImage')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (error) {
+        console.error('❌ [Storage] System image upload error:', error);
+        return { url: null, error };
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('GeImage')
+        .getPublicUrl(filePath);
+
+      return { url: publicUrlData.publicUrl, error: null };
+    } catch (err) {
+      console.error('❌ [Storage] uploadSystemImage exception:', err);
+      return { url: null, error: err };
+    }
+  },
 };
 
 // Auth Service
@@ -269,6 +306,17 @@ export const authService = {
     }
   },
 
+  async resetPasswordForEmail(email: string, redirectTo?: string) {
+    try {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectTo || `${typeof window !== 'undefined' ? window.location.origin : ''}/reset-password`,
+      });
+      return { data, error };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
   async getSession() {
     try {
       const { data, error } = await supabase.auth.getSession();
@@ -286,7 +334,8 @@ export const authService = {
 
       let profileRow: ProfileRow | null = null;
       let dbError: Error | null = null;
-      for (const key of ['id', 'user_id']) {
+      // profiles usa user_id (coluna id pode não existir no projeto)
+      for (const key of ['user_id']) {
         const { data, error: e } = await supabase
           .from('profiles')
           .select('*')
@@ -322,14 +371,103 @@ export const databaseService = {
     return { data: mapped, error: null };
   },
 
+  async getAdministrators() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .ilike('access_type', 'softadmin')
+      .order('created_at', { ascending: false });
+    if (error) return { data: null, error };
+    const mapped = (data ?? []).map((row) => profileToUser(row as ProfileRow));
+    return { data: mapped, error: null };
+  },
+
+  /** Busca colaboradores (profiles) por nome ou e-mail para o modal Liberar acesso. */
+  async searchProfiles(query: string): Promise<{ data: { id: string; name: string; email: string; avatar?: string }[]; error: any }> {
+    const q = (query ?? '').trim();
+    if (!q || q.length < 2) return { data: [], error: null };
+    const term = `%${q}%`;
+    const seen = new Set<string>();
+    const list: { id: string; name: string; email: string; avatar?: string }[] = [];
+    const push = (row: any) => {
+      const id = (row.user_id ?? row.id ?? '').toString();
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      list.push({
+        id,
+        name: (row.full_name ?? row.name ?? '').toString(),
+        email: (row.email ?? '').toString(),
+        avatar: row.avatar_url ?? row.avatar,
+      });
+    };
+    const select = 'user_id, full_name, name, email, avatar_url, avatar';
+    const { data: byEmail, error: errEmail } = await supabase
+      .from('profiles')
+      .select(select)
+      .ilike('email', term);
+    if (!errEmail && Array.isArray(byEmail)) byEmail.forEach(push);
+    const { data: byName, error: errName } = await supabase
+      .from('profiles')
+      .select(select)
+      .ilike('full_name', term);
+    if (!errName && Array.isArray(byName)) byName.forEach(push);
+    const { data: byNameAlt, error: errNameAlt } = await supabase
+      .from('profiles')
+      .select(select)
+      .ilike('name', term);
+    if (!errNameAlt && Array.isArray(byNameAlt)) byNameAlt.forEach(push);
+    const error = errEmail ?? errName ?? errNameAlt;
+    if (error) return { data: [], error };
+    return { data: list, error: null };
+  },
+
+  async getAdminCounts(): Promise<{ users: number; softadmins: number; apps: number }> {
+    try {
+      const [usersRes, adminsRes, appsRes] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).ilike('access_type', 'softadmin'),
+        supabase.from('apps').select('*', { count: 'exact', head: true }),
+      ]);
+      return {
+        users: usersRes.count ?? 0,
+        softadmins: adminsRes.count ?? 0,
+        apps: appsRes.count ?? 0,
+      };
+    } catch {
+      return { users: 0, softadmins: 0, apps: 0 };
+    }
+  },
+
   async getUserById(userId: string) {
-    for (const key of ['id', 'user_id']) {
+    for (const key of ['user_id']) {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq(key, userId)
         .maybeSingle();
-      if (!error && data) return { data: profileToUser(data as ProfileRow), error: null };
+      if (!error && data) {
+        const row = data as ProfileRow & Record<string, unknown>;
+        const base = profileToUser(data as ProfileRow);
+        if (!base) return { data: null, error: { message: 'Profile not found' } };
+        return {
+          data: {
+            ...base,
+            avatar: row.avatar_url ?? row.avatar,
+            apelido: row.apelido,
+            username: row.username,
+            bio: row.bio,
+            icon: row.icon,
+            linkedin: row.linkedin,
+            instagram: row.instagram,
+            whatsapp: row.whatsapp,
+            phone: row.phone,
+            location: row.location,
+            job_title: row.job_title,
+            birth_date: row.birth_date,
+          },
+          error: null,
+        };
+      }
     }
     return { data: null, error: { message: 'Profile not found' } };
   },
@@ -346,6 +484,14 @@ export const databaseService = {
     return { data: data ? profileToUser(data as ProfileRow) : null, error: null };
   },
 
+  /** Verifica se o email existe em profiles (usa RPC profiles_email_exists se existir, senão getUserByEmail). */
+  async profilesEmailExists(email: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc('profiles_email_exists', { check_email: email });
+    if (!error && typeof data === 'boolean') return data;
+    const { data: user } = await this.getUserByEmail(email);
+    return !!user;
+  },
+
   async createUser(userData: any) {
     const payload = userToProfilePayload({
       name: userData.name,
@@ -355,7 +501,7 @@ export const databaseService = {
     });
     const { data, error } = await supabase
       .from('profiles')
-      .insert([{ id: userData.id, ...payload }])
+      .insert([{ user_id: userData.id, ...payload }])
       .select()
       .single();
     if (error) return { data: null, error };
@@ -368,7 +514,16 @@ export const databaseService = {
     if (userData.avatar != null) payload.avatar_url = userData.avatar;
     if (userData.role != null) payload.role = userData.role;
     if (userData.email != null) payload.email = userData.email;
-    for (const key of ['id', 'user_id']) {
+    if (userData.apelido != null) payload.apelido = userData.apelido;
+    if (userData.username != null) payload.username = userData.username;
+    if (userData.bio != null) payload.bio = userData.bio;
+    if (userData.icon != null) payload.icon = userData.icon;
+    if (userData.linkedin != null) payload.linkedin = userData.linkedin;
+    if (userData.instagram != null) payload.instagram = userData.instagram;
+    if (userData.whatsapp != null) payload.whatsapp = userData.whatsapp;
+    if (userData.phone != null) payload.phone = userData.phone;
+    if (userData.location != null) payload.location = userData.location;
+    for (const key of ['user_id']) {
       const { data, error } = await supabase
         .from('profiles')
         .update(payload)
@@ -382,7 +537,7 @@ export const databaseService = {
 
   async deleteUser(userId: string) {
     console.log('🗑️ [deleteUser] Deletando usuário:', userId);
-    for (const key of ['id', 'user_id']) {
+    for (const key of ['user_id']) {
       const { data, error } = await supabase
         .from('profiles')
         .delete()
@@ -401,10 +556,21 @@ export const databaseService = {
     return { error: { message: 'Nenhum registro foi deletado. Verifique as permissões RLS no Supabase.' } };
   },
 
-  // Converte uma linha da tabela apps do Supabase no formato usado pelo frontend
+  // Status válidos para apps: ativo, beta, rascunho, arquivado, excluído (legado: active/inactive)
   appRowToSystem(row: any): any {
-    const hasStatus = row.status !== undefined || row.active !== undefined;
-    const active = hasStatus ? (row.status === 'active' || row.active === true) : true;
+    const rawStatus = (row.status ?? row.active ?? '').toString().toLowerCase();
+    const statusMap: Record<string, string> = {
+      active: 'ativo',
+      inactive: 'arquivado',
+      ativo: 'ativo',
+      beta: 'beta',
+      rascunho: 'rascunho',
+      arquivado: 'arquivado',
+      excluído: 'excluído',
+      excluido: 'excluído',
+    };
+    const status = statusMap[rawStatus] ?? (rawStatus || 'rascunho');
+    const active = status === 'ativo' || status === 'beta';
     return {
       id: row.id,
       name: row.name ?? row.title ?? '',
@@ -412,6 +578,7 @@ export const databaseService = {
       url: row.url ?? '',
       icon: resolveSystemIcon(row),
       category: row.category ?? 'Ferramentas',
+      status,
       active,
       createdAt: row.created_at ? new Date(row.created_at) : new Date(),
     };
@@ -441,20 +608,86 @@ export const databaseService = {
     return { data: data ? this.appRowToSystem(data) : null, error: null };
   },
 
+  /** Busca app por slug (ex.: geteams, geforms). Usado por apps irmãos para validar acesso. */
+  async getAppBySlug(slug: string) {
+    const normalized = (slug || '').toLowerCase().trim().replace(/\s+/g, '');
+    if (!normalized) return { data: null, error: null };
+    const { data, error } = await supabase
+      .from('apps')
+      .select('*')
+      .ilike('slug', normalized)
+      .maybeSingle();
+    if (error) return { data: null, error };
+    return { data: data ? this.appRowToSystem(data) : null, error: null };
+  },
+
+  /** Verifica se o usuário tem acesso ao app (user_app_access.access = true e app ativo/beta). */
+  async userHasAccessToApp(userId: string, appId: string) {
+    const { data: app, error: appError } = await supabase
+      .from('apps')
+      .select('id, status')
+      .eq('id', appId)
+      .single();
+    if (appError || !app) return { data: false, error: appError };
+    const status = (app.status ?? '').toString().toLowerCase();
+    if (status !== 'ativo' && status !== 'beta') return { data: false, error: null };
+    const { data: accessRow, error: accessError } = await supabase
+      .from('user_app_access')
+      .select('access')
+      .eq('user_id', userId)
+      .eq('app_id', appId)
+      .maybeSingle();
+    if (accessError) return { data: false, error: accessError };
+    const hasAccess = accessRow?.access === true;
+    return { data: hasAccess, error: null };
+  },
+
+  /** Verifica se o usuário tem acesso ao app identificado pelo slug (ex.: geteams). */
+  async userHasAccessToAppBySlug(userId: string, slug: string) {
+    const { data: app, error: appErr } = await this.getAppBySlug(slug);
+    if (appErr || !app) return { data: false, error: appErr };
+    return this.userHasAccessToApp(userId, app.id);
+  },
+
+  /** Apps visíveis para um membro: status ativo ou beta E acesso liberado em user_app_access */
+  async getSystemsForMember(userId: string) {
+    const { data: accessRows, error: accessError } = await supabase
+      .from('user_app_access')
+      .select('app_id')
+      .eq('user_id', userId)
+      .eq('access', true);
+    if (accessError || !accessRows?.length) return { data: [], error: accessError };
+    const appIds = accessRows.map((r: any) => r.app_id).filter(Boolean);
+    if (appIds.length === 0) return { data: [], error: null };
+    const { data: appRows, error: appsError } = await supabase
+      .from('apps')
+      .select('*')
+      .in('id', appIds)
+      .in('status', ['ativo', 'beta']);
+    if (appsError) return { data: null, error: appsError };
+    const rows = Array.isArray(appRows) ? appRows : [];
+    const mapped = rows.map((r: any) => this.appRowToSystem(r));
+    mapped.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+    return { data: mapped, error: null };
+  },
+
   async createSystem(systemData: any) {
     const slug =
       systemData.slug ??
       (systemData.name ? normalizeSlug(systemData.name) : '');
+    const statusVal = (systemData.status ?? 'rascunho').toString().toLowerCase();
+    const validStatus = ['ativo', 'beta', 'rascunho', 'arquivado', 'excluído'].includes(statusVal)
+      ? statusVal
+      : 'rascunho';
     const row: any = {
       name: systemData.name,
-      url: systemData.url,
+      url: systemData.url ?? '',
       description: systemData.description ?? '',
-      status: systemData.active !== false ? 'active' : 'inactive',
+      status: validStatus,
       slug,
     };
     if (systemData.category != null) row.category = systemData.category;
-    // Ícone: caminho ou nome do arquivo em /assets/systems/ (opcional; senão usa mapeamento por slug)
-    const icon = systemData.icon ?? systemData.icon_url;
+    const icon = systemData.icon ?? systemData.icon_url ?? systemData.logo;
     if (icon && (String(icon).startsWith('/') || String(icon).startsWith('http') || /\.(svg|png|jpg|jpeg)$/i.test(String(icon)))) {
       row.icon_url = icon;
     }
@@ -468,9 +701,18 @@ export const databaseService = {
     if (systemData.name != null) row.name = systemData.name;
     if (systemData.url != null) row.url = systemData.url;
     if (systemData.description != null) row.description = systemData.description;
-    if (systemData.icon != null || systemData.icon_url != null) row.icon_url = systemData.icon ?? systemData.icon_url;
-    if (systemData.active != null) row.status = systemData.active ? 'active' : 'inactive';
+    if (systemData.icon != null || systemData.icon_url != null || systemData.logo != null)
+      row.icon_url = systemData.icon ?? systemData.icon_url ?? systemData.logo;
+    if (systemData.status != null) {
+      const s = (systemData.status ?? '').toString().toLowerCase();
+      if (['ativo', 'beta', 'rascunho', 'arquivado', 'excluído'].includes(s)) row.status = s;
+    }
+    if (systemData.active != null) row.status = systemData.active ? 'ativo' : 'arquivado';
     if (systemData.category != null) row.category = systemData.category;
+    if (Object.keys(row).length === 0) {
+      const { data } = await supabase.from('apps').select('*').eq('id', systemId).single();
+      return { data: data ? this.appRowToSystem(data) : null, error: null };
+    }
     const { data, error } = await supabase.from('apps').update(row).eq('id', systemId).select().single();
     if (error) return { data: null, error };
     return { data: data ? this.appRowToSystem(data) : null, error: null };
@@ -499,6 +741,29 @@ export const databaseService = {
       is_favorite: row.is_favorite ?? row.favorite ?? false,
     }));
     return { data: mapped, error: null };
+  },
+
+  /** Usuários com acesso a um app (para exibir no AvatarStack). */
+  async getUsersWithAccessToApp(appId: string): Promise<{ data: { id: string; name: string; avatar?: string }[]; error: any }> {
+    const { data: accessRows, error: accessError } = await supabase
+      .from('user_app_access')
+      .select('user_id')
+      .eq('app_id', appId)
+      .eq('access', true);
+    if (accessError || !accessRows?.length) return { data: [], error: accessError };
+    const userIds = [...new Set(accessRows.map((r: any) => r.user_id).filter(Boolean))];
+    if (userIds.length === 0) return { data: [], error: null };
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, name, avatar_url, avatar, email')
+      .in('user_id', userIds);
+    const rows = Array.isArray(profiles) ? profiles : [];
+    const list = rows.map((row: any) => ({
+      id: row.user_id ?? row.id ?? '',
+      name: (row.full_name ?? row.name ?? row.email ?? '').toString(),
+      avatar: row.avatar_url ?? row.avatar,
+    })).filter((u) => u.id);
+    return { data: list, error: null };
   },
 
   async setUserSystemAccess(userId: string, systemId: string, canAccess: boolean) {
@@ -592,6 +857,42 @@ export const databaseService = {
       };
     });
     return { data: normalized, error: null };
+  },
+
+  // Categories (tabela categories)
+  async getCategories() {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('name', { ascending: true });
+    return { data: (data || []) as CategoryRow[], error };
+  },
+
+  async createCategory(categoryData: Partial<CategoryRow>) {
+    const { data, error } = await supabase
+      .from('categories')
+      .insert([categoryData])
+      .select()
+      .single();
+    return { data: data as CategoryRow, error };
+  },
+
+  async updateCategory(id: string, categoryData: Partial<CategoryRow>) {
+    const { data, error } = await supabase
+      .from('categories')
+      .update(categoryData)
+      .eq('id', id)
+      .select()
+      .single();
+    return { data: data as CategoryRow, error };
+  },
+
+  async deleteCategory(id: string) {
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', id);
+    return { error };
   },
 };
 

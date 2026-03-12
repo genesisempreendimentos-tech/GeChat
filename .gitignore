@@ -20,3 +20,7 @@ dist-ssr
 .env
 .env.local
 .env.production
+
+# API PHP – credenciais (copie api/.env.example para api/.env no servidor)
+public/api/.env
+dist/api/.env

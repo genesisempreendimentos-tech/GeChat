@@ -1,5 +1,5 @@
 import * as React from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import {
   CommandDialog,
   CommandEmpty,
@@ -18,6 +18,7 @@ import {
   UserCircle,
   Settings,
   ExternalLink,
+  Shield,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import { databaseService } from "@/services/supabase"
@@ -25,7 +26,9 @@ import { databaseService } from "@/services/supabase"
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuthStore()
+  const isAdminPath = location.pathname.startsWith("/admin")
   const [systems, setSystems] = React.useState<{ id: string; name: string; description?: string; category?: string; url: string }[]>([])
 
   React.useEffect(() => {
@@ -81,11 +84,13 @@ export function CommandPalette() {
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
         <CommandGroup heading="Navegação">
           <CommandItem
-            onSelect={() => runCommand(() => navigate("/dashboard"))}
+            onSelect={() => runCommand(() => navigate(isAdminPath ? "/admin/home" : "/dashboard"))}
           >
             <LayoutDashboard className="mr-2 h-4 w-4" />
-            <span>Dashboard</span>
+            <span>{isAdminPath ? "Dashboard Admin" : "Dashboard"}</span>
           </CommandItem>
+          {!isAdminPath && (
+            <>
           <CommandItem onSelect={() => runCommand(() => navigate("/systems"))}>
             <Boxes className="mr-2 h-4 w-4" />
             <span>Sistemas</span>
@@ -106,6 +111,14 @@ export function CommandPalette() {
               <span>Usuários</span>
             </CommandItem>
           ) : null}
+          {!isAdminPath && String(user?.accessType ?? "").toLowerCase().trim() === "softadmin" ? (
+            <CommandItem onSelect={() => runCommand(() => navigate("/admin/home"))}>
+              <Shield className="mr-2 h-4 w-4" />
+              <span>Painel Admin</span>
+            </CommandItem>
+          ) : null}
+            </>
+          )}
           <CommandItem onSelect={() => runCommand(() => navigate("/profile"))}>
             <UserCircle className="mr-2 h-4 w-4" />
             <span>Perfil</span>

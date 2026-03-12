@@ -6,7 +6,6 @@ import {
   Star,
   Users,
   MessageCircle,
-  Settings,
   Pin,
   ExternalLink,
 } from 'lucide-react';
@@ -18,11 +17,10 @@ import { useSetSidebarWidth } from '@/contexts/SidebarContext';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: AppWindow, label: 'Sistemas', path: '/systems' },
+  { icon: AppWindow, label: 'Aplicativos', path: '/systems' },
   { icon: Star, label: 'Favoritos', path: '/favorites' },
   { icon: MessageCircle, label: 'Chat', path: '/chat' },
   { icon: Users, label: 'Usuários', path: '/users', adminOnly: true },
-  { icon: Settings, label: 'Configurações', path: '/settings' },
 ];
 
 interface SidebarProps {

@@ -8,10 +8,25 @@ export interface User {
   role: UserRole;
   avatar?: string;
   createdAt: Date;
+  /** Tipo de acesso: 'softadmin' | 'member' (coluna access_type em profiles) */
+  accessType?: string;
 }
 
 // System types
-export type SystemCategory = 'RH' | 'Financeiro' | 'Marketing' | 'Arquitetura' | 'Ferramentas';
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  created_at?: string;
+  updated_at?: string;
+  status?: 'ativo' | 'arquivado' | 'excluído';
+}
+
+export type SystemCategory = 'RH' | 'Financeiro' | 'Marketing' | 'Arquitetura' | 'Ferramentas' | string;
+
+export type AppStatus = 'ativo' | 'beta' | 'rascunho' | 'arquivado';
 
 export interface System {
   id: string;
@@ -22,6 +37,8 @@ export interface System {
   category: SystemCategory;
   active: boolean;
   createdAt: Date;
+  /** Status do app no painel admin */
+  status?: AppStatus;
 }
 
 // User System Access

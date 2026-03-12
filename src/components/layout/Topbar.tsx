@@ -1,22 +1,32 @@
-import { Bell, LogOut, UserCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, LogOut, UserCircle, Settings } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
 
 export default function Topbar() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = () => {
+    setShowLogoutModal(false);
     logout();
     navigate('/login');
   };
@@ -41,42 +51,54 @@ export default function Topbar() {
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 pl-1 pr-3 py-2 rounded-xl hover:bg-primary/5 transition-colors">
+            <button className="flex items-center justify-center w-9 h-9 rounded-xl hover:bg-primary/5 transition-colors">
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center overflow-hidden">
                 {user?.avatar ? (
-                  <img src={user.avatar} alt={user.name} />
+                  <img src={user.avatar} alt="" />
                 ) : (
                   <span className="text-primary-foreground font-semibold text-sm">
-                    {user?.name?.charAt(0)}
+                    {user?.name?.charAt(0) ?? '?'}
                   </span>
                 )}
               </div>
-              <div className="text-left hidden md:block">
-                <p className="text-sm font-medium">{user?.name}</p>
-                <p className="text-xs text-muted-foreground capitalize">
-                  {user?.role}
-                </p>
-              </div>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
-            <DropdownMenuSeparator />
+          <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem onClick={() => navigate('/profile')}>
               <UserCircle className="w-4 h-4 mr-2" />
-              {user?.name || 'Perfil'}
+              Perfil
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <Settings className="w-4 h-4 mr-2" />
               Configurações
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+            <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="text-destructive">
               <LogOut className="w-4 h-4 mr-2" />
               Sair
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Sair do GêApps</DialogTitle>
+            <DialogDescription>
+              Deseja realmente sair do GêApps? Você precisará fazer login novamente para acessar.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowLogoutModal(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleLogout}>
+              Sim, sair
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

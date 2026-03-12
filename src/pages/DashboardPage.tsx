@@ -68,15 +68,19 @@ export default function DashboardPage() {
     
     try {
       setLoading(true);
-      
-      // Carregar sistemas
-      const { data: systemsData, error: systemsError } = await databaseService.getSystems();
-      if (systemsError) {
-        console.error('Erro ao carregar sistemas:', systemsError);
+      const isAdminOrManager = user.role === 'admin' || user.role === 'manager';
+      // Membros veem apenas apps com status ativo/beta e acesso liberado; admin/manager veem todos
+      if (isAdminOrManager) {
+        const { data: systemsData, error: systemsError } = await databaseService.getSystems();
+        if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
+        setSystems(systemsData || []);
+      } else {
+        const { data: systemsData, error: systemsError } = await databaseService.getSystemsForMember(user.id);
+        if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
+        setSystems(systemsData || []);
       }
-      setSystems(systemsData || []);
 
-      // Carregar acessos do usuário
+      // Carregar acessos do usuário (favoritos, etc.)
       const { data: accessData, error: accessError } = await databaseService.getUserSystemAccess(user.id);
       if (accessError) {
         console.error('Erro ao carregar acessos:', accessError);
@@ -183,7 +187,7 @@ export default function DashboardPage() {
       trend: null,
     },
     {
-      title: 'Acessos Hoje',
+      title: 'Acessos Hoje vs Ontem',
       value: todayAccessCount,
       icon: Activity,
       color: 'text-green-500',
@@ -276,7 +280,7 @@ export default function DashboardPage() {
                         )}
                       </div>
                       {stat.trend !== null && (
-                        <p className="text-xs text-muted-foreground mt-1">vs ontem</p>
+                        <p className="text-xs text-muted-foreground mt-1"></p>
                       )}
                     </div>
                     <div className={`p-3 rounded-lg ${stat.bgColor}`}>

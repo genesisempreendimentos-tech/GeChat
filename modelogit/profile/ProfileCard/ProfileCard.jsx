@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
-import { useAuthStore } from '@/store/authStore';
-import './assets/ProfileCard.css';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import './Assets/ProfileCard.css';
 import ProfileCardInfoPopup from './ProfileCardInfoPopup';
+import ProfileCardMicro from './ProfileCardMicro';
 
 const DEFAULT_INNER_GRADIENT = 'linear-gradient(145deg,#60496e8c 0%,#71C4FF44 100%)';
 
@@ -14,26 +15,11 @@ const ANIMATION_CONFIG = {
 };
 
 // Utils
-const clamp = (v: number, min = 0, max = 100) => Math.min(Math.max(v, min), max);
-const round = (v: number, precision = 3) => parseFloat(v.toFixed(precision));
-const adjust = (v: number, fMin: number, fMax: number, tMin: number, tMax: number) => 
-  round(tMin + ((tMax - tMin) * (v - fMin)) / (fMax - fMin));
+const clamp = (v, min = 0, max = 100) => Math.min(Math.max(v, min), max);
+const round = (v, precision = 3) => parseFloat(v.toFixed(precision));
+const adjust = (v, fMin, fMax, tMin, tMax) => round(tMin + ((tMax - tMin) * (v - fMin)) / (fMax - fMin));
 
-interface ProfileCardProps {
-  className?: string;
-  enableTilt?: boolean;
-  enableMobileTilt?: boolean;
-  mobileTiltSensitivity?: number;
-  showUserInfo?: boolean;
-  iconUrl?: string;
-  innerGradient?: string;
-  behindGlowEnabled?: boolean;
-  behindGlowColor?: string;
-  behindGlowSize?: string;
-  userData?: any;
-}
-
-const ProfileCardComponent: React.FC<ProfileCardProps> = ({
+const ProfileCardComponent = ({
   className = '',
   enableTilt = true,
   enableMobileTilt = false,
@@ -46,27 +32,27 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   behindGlowSize,
   userData: externalUserData = null,
 }) => {
-  const { user: authUser } = useAuthStore();
+  const { user: authUser } = useAuth();
   const user = externalUserData || authUser;
   
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const shellRef = useRef<HTMLDivElement>(null);
-  const enterTimerRef = useRef<number | null>(null);
-  const leaveRafRef = useRef<number | null>(null);
+  const wrapRef = useRef(null);
+  const shellRef = useRef(null);
+  const enterTimerRef = useRef(null);
+  const leaveRafRef = useRef(null);
   const [infoPopupOpen, setInfoPopupOpen] = useState(false);
 
   // Extrair dados do usuário
   const userData = useMemo(() => {
     if (!user) return null;
     
-    // Se for dados externos (de outro usuário), usar diretamente
+    // Se for dados externos (de outro usuário), usar diretamente da tabela users
     if (externalUserData) {
       const currentUsername = user.username || user.email?.split('@')[0] || '';
-      const originalAvatarUrl = user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name || currentUsername)}`;
+      const originalAvatarUrl = user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || currentUsername)}&background=random`;
       
       return {
-        name: user.name || user.email?.split('@')[0] || 'Usuário',
-        title: user.profession || 'Membro da equipe',
+        name: user.full_name || user.email?.split('@')[0] || 'Usuário',
+        title: user.profession || 'Membro',
         handle: currentUsername,
         status: 'Online',
         avatarUrl: originalAvatarUrl,
@@ -76,26 +62,28 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
       };
     }
     
-    // Se for o próprio usuário logado
-    const currentUsername = user.email?.split('@')[0] || '';
-    const originalAvatarUrl = user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name || currentUsername)}`;
+    // Se for o próprio usuário, usar user_metadata
+    const meta = user.user_metadata || {};
+    const currentUsername = meta.username || user.email?.split('@')[0] || '';
+    
+    const originalAvatarUrl = meta.avatar_url || user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(meta.full_name || currentUsername)}&background=random`;
     
     return {
-      name: user.name || user.email?.split('@')[0] || 'Usuário',
-      title: user.profession || 'Membro da equipe',
+      name: meta.full_name || user.email?.split('@')[0] || 'Usuário',
+      title: meta.profession || 'Membro',
       handle: currentUsername,
       status: 'Online',
       avatarUrl: originalAvatarUrl,
-      instagram: user.instagram || '',
-      linkedin: user.linkedin || '',
-      whatsapp: user.whatsapp || '',
+      instagram: meta.instagram || '',
+      linkedin: meta.linkedin || '',
+      whatsapp: meta.whatsapp || '',
     };
   }, [user, externalUserData]);
 
   const tiltEngine = useMemo(() => {
     if (!enableTilt) return null;
 
-    let rafId: number | null = null;
+    let rafId = null;
     let running = false;
     let lastTs = 0;
     let currentX = 0;
@@ -106,7 +94,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
     const INITIAL_TAU = 0.6;
     let initialUntil = 0;
 
-    const setVarsFromXY = (x: number, y: number) => {
+    const setVarsFromXY = (x, y) => {
       const shell = shellRef.current;
       const wrap = wrapRef.current;
       if (!shell || !wrap) return;
@@ -118,7 +106,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
       const centerX = percentX - 50;
       const centerY = percentY - 50;
 
-      const properties: Record<string, string> = {
+      const properties = {
         '--pointer-x': `${percentX}%`,
         '--pointer-y': `${percentY}%`,
         '--background-x': `${adjust(percentX, 0, 100, 35, 65)}%`,
@@ -130,12 +118,10 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
         '--rotate-y': `${round(centerY / 4)}deg`
       };
 
-      for (const [k, v] of Object.entries(properties)) {
-        wrap.style.setProperty(k, v);
-      }
+      for (const [k, v] of Object.entries(properties)) wrap.style.setProperty(k, v);
     };
 
-    const step = (ts: number) => {
+    const step = ts => {
       if (!running) return;
       if (lastTs === 0) lastTs = ts;
       const dt = (ts - lastTs) / 1000;
@@ -171,12 +157,12 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
     };
 
     return {
-      setImmediate(x: number, y: number) {
+      setImmediate(x, y) {
         currentX = x;
         currentY = y;
         setVarsFromXY(currentX, currentY);
       },
-      setTarget(x: number, y: number) {
+      setTarget(x, y) {
         targetX = x;
         targetY = y;
         start();
@@ -186,7 +172,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
         if (!shell) return;
         this.setTarget(shell.clientWidth / 2, shell.clientHeight / 2);
       },
-      beginInitial(durationMs: number) {
+      beginInitial(durationMs) {
         initialUntil = performance.now() + durationMs;
         start();
       },
@@ -202,13 +188,13 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
     };
   }, [enableTilt]);
 
-  const getOffsets = (evt: React.PointerEvent | PointerEvent, el: HTMLElement) => {
+  const getOffsets = (evt, el) => {
     const rect = el.getBoundingClientRect();
     return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
   };
 
   const handlePointerMove = useCallback(
-    (event: PointerEvent) => {
+    event => {
       const shell = shellRef.current;
       if (!shell || !tiltEngine) return;
       const { x, y } = getOffsets(event, shell);
@@ -218,7 +204,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   );
 
   const handlePointerEnter = useCallback(
-    (event: PointerEvent) => {
+    event => {
       const shell = shellRef.current;
       if (!shell || !tiltEngine) return;
 
@@ -256,7 +242,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   }, [tiltEngine]);
 
   const handleDeviceOrientation = useCallback(
-    (event: DeviceOrientationEvent) => {
+    event => {
       const shell = shellRef.current;
       if (!shell || !tiltEngine) return;
 
@@ -288,24 +274,24 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
     const pointerLeaveHandler = handlePointerLeave;
     const deviceOrientationHandler = handleDeviceOrientation;
 
-    shell.addEventListener('pointerenter', pointerEnterHandler as any);
-    shell.addEventListener('pointermove', pointerMoveHandler as any);
-    shell.addEventListener('pointerleave', pointerLeaveHandler as any);
+    shell.addEventListener('pointerenter', pointerEnterHandler);
+    shell.addEventListener('pointermove', pointerMoveHandler);
+    shell.addEventListener('pointerleave', pointerLeaveHandler);
 
     const handleClick = () => {
       if (!enableMobileTilt || location.protocol !== 'https:') return;
-      const anyMotion = (window as any).DeviceMotionEvent;
+      const anyMotion = window.DeviceMotionEvent;
       if (anyMotion && typeof anyMotion.requestPermission === 'function') {
         anyMotion
           .requestPermission()
-          .then((state: string) => {
+          .then(state => {
             if (state === 'granted') {
-              window.addEventListener('deviceorientation', deviceOrientationHandler as any);
+              window.addEventListener('deviceorientation', deviceOrientationHandler);
             }
           })
           .catch(console.error);
       } else {
-        window.addEventListener('deviceorientation', deviceOrientationHandler as any);
+        window.addEventListener('deviceorientation', deviceOrientationHandler);
       }
     };
     shell.addEventListener('click', handleClick);
@@ -317,11 +303,11 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
     tiltEngine.beginInitial(ANIMATION_CONFIG.INITIAL_DURATION);
 
     return () => {
-      shell.removeEventListener('pointerenter', pointerEnterHandler as any);
-      shell.removeEventListener('pointermove', pointerMoveHandler as any);
-      shell.removeEventListener('pointerleave', pointerLeaveHandler as any);
+      shell.removeEventListener('pointerenter', pointerEnterHandler);
+      shell.removeEventListener('pointermove', pointerMoveHandler);
+      shell.removeEventListener('pointerleave', pointerLeaveHandler);
       shell.removeEventListener('click', handleClick);
-      window.removeEventListener('deviceorientation', deviceOrientationHandler as any);
+      window.removeEventListener('deviceorientation', deviceOrientationHandler);
       if (enterTimerRef.current) window.clearTimeout(enterTimerRef.current);
       if (leaveRafRef.current) cancelAnimationFrame(leaveRafRef.current);
       tiltEngine.cancel();
@@ -344,7 +330,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
       '--inner-gradient': innerGradient ?? DEFAULT_INNER_GRADIENT,
       '--behind-glow-color': behindGlowColor ?? 'rgba(26, 147, 134, 0.5)',
       '--behind-glow-size': behindGlowSize ?? '50%'
-    } as React.CSSProperties),
+    }),
     [iconUrl, innerGradient, behindGlowColor, behindGlowSize]
   );
 
@@ -370,15 +356,16 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   const popupUserData = useMemo(() => {
     if (!user) return null;
     
-    // Se for dados externos (de outro usuário)
+    // Se for dados externos (de outro usuário), usar diretamente da tabela users
     if (externalUserData) {
       return {
-        name: user.name,
+        full_name: user.full_name,
         username: user.username || user.email?.split('@')[0] || '',
-        bio: user.bio,
+        description: user.description,
         profession: user.profession,
-        avatar: user.avatar,
-        birthDate: user.birthDate,
+        avatar_url: user.avatar_url,
+        birthday: user.birthday,
+        seal_icon: user.seal_icon,
         created_at: user.created_at,
         whatsapp: user.whatsapp || '',
         instagram: user.instagram || '',
@@ -386,18 +373,20 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
       };
     }
     
-    // Se for o próprio usuário
+    // Se for o próprio usuário, usar user_metadata
+    const meta = user.user_metadata || {};
     return {
-      name: user.name,
-      username: user.email?.split('@')[0] || '',
-      bio: user.bio,
-      profession: user.profession,
-      avatar: user.avatar,
-      birthDate: user.birthDate,
+      full_name: meta.full_name,
+      username: meta.username || user.email?.split('@')[0] || '',
+      description: meta.description,
+      profession: meta.profession,
+      avatar_url: meta.avatar_url || user.avatar_url,
+      birthday: meta.birthday,
+      seal_icon: meta.sealIcon || meta.seal_icon,
       created_at: user.created_at,
-      whatsapp: user.whatsapp || '',
-      instagram: user.instagram || '',
-      linkedin: user.linkedin || '',
+      whatsapp: meta.whatsapp || '',
+      instagram: meta.instagram || '',
+      linkedin: meta.linkedin || '',
     };
   }, [user, externalUserData]);
 
@@ -414,83 +403,43 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
       <div 
         ref={wrapRef} 
         className={`pc-card-wrapper ${className}`.trim()} 
-        style={cardStyle}
+        onClick={handleCardClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleCardClick();
+          }
+        }}
+        style={{ ...cardStyle, cursor: 'pointer' }}
       >
         {behindGlowEnabled && <div className="pc-behind" />}
         <div ref={shellRef} className="pc-card-shell">
           <section className="pc-card">
             <div className="pc-inside">
-              <div className="pc-shine" />
-              <div className="pc-glare" />
-              <div className="pc-content pc-avatar-content">
-                <div className="genesis-logo">
-                  <img 
-                    src="/assets/GêApps.svg" 
-                    alt="GêApps Logo"
-                    className="genesis-logo-img"
-                  />
-                </div>
-                {userData.avatarUrl && !userData.avatarUrl.includes('dicebear.com') ? (
-                  <img
-                    className="avatar-image"
-                    src={userData.avatarUrl}
-                    alt={`${userData.name} avatar`}
-                    loading="lazy"
-                    decoding="async"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="avatar-letter">
-                    {userData.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
+              <div className="pc-shine" style={{ pointerEvents: 'none' }} />
+              <div className="pc-glare" style={{ pointerEvents: 'none' }} />
+              <div className="pc-content pc-avatar-content relative">
+                <img
+                  className="avatar"
+                  src={userData.avatarUrl}
+                  alt={`${userData.name} avatar`}
+                  loading="lazy"
+                  decoding="async"
+                  onError={e => {
+                    const t = e.target;
+                    t.style.display = 'none';
+                  }}
+                />
                 {showUserInfo && (
-                  <div className="pc-user-info">
-                    <div className="pc-user-details">
-                      <div className="pc-mini-avatar">
-                        {userData.avatarUrl && !userData.avatarUrl.includes('dicebear.com') ? (
-                          <img
-                            src={userData.avatarUrl}
-                            alt={`${userData.name} mini`}
-                            loading="lazy"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.opacity = '0.5';
-                            }}
-                          />
-                        ) : (
-                          <div className="mini-avatar-letter">
-                            {userData.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-                      <div className="pc-user-text">
-                        <div className="pc-handle">@{userData.handle}</div>
-                        <div className="pc-status">{userData.status}</div>
-                      </div>
-                    </div>
-                    <button
-                      className="pc-contact-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setInfoPopupOpen(true);
-                      }}
-                      type="button"
-                      aria-label={`Ver perfil de ${userData.name}`}
-                    >
-                      Ver Perfil
-                    </button>
-                  </div>
+                  <ProfileCardMicro
+                    name={userData.name}
+                    username={userData.handle}
+                    avatarUrl={userData.avatarUrl}
+                    onInfoClick={() => setInfoPopupOpen(true)}
+                  />
                 )}
-              </div>
-              <div className="pc-content">
-                <div className="pc-details">
-                  <h3>{userData.name}</h3>
-                  <p>{userData.title}</p>
-                </div>
               </div>
             </div>
           </section>

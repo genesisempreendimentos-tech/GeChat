@@ -376,22 +376,21 @@
 .pc-card:hover .genesis-logo,
 .pc-card.active .genesis-logo {
   opacity: 0.6;
-  animation: logoFloat 6s ease-in-out infinite, logoPulse 3s ease-in-out infinite, logoRotate 12s linear infinite;
+  animation: logoFloat 6s ease-in-out infinite, logoPulse 3s ease-in-out infinite;
 }
 
 .genesis-logo-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%);
-  drop-shadow: 0 0 40px rgba(20, 184, 166, 0.6);
-  transition: filter 0.3s ease, drop-shadow 0.3s ease;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+  transition: opacity 0.3s ease;
 }
 
 .pc-card:hover .genesis-logo-img,
 .pc-card.active .genesis-logo-img {
-  filter: brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2600%) hue-rotate(138deg) brightness(98%) contrast(96%);
-  drop-shadow: 0 0 60px rgba(20, 184, 166, 0.9);
+  opacity: 1;
 }
 
 .pc-avatar-content::before {

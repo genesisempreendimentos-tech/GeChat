@@ -12,10 +12,10 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    /* Cores Primárias */
-    --primary: 172 94% 40%;
+    /* Cores Primárias (teal-500) */
+    --primary: 173 80% 40%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 172 94% 35%;
+    --primary-hover: 173 80% 35%;
 
     /* Cores Secundárias */
     --secondary: 210 40% 96.1%;
@@ -38,7 +38,7 @@
     /* Bordas e Inputs */
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 174 71% 32%;
+    --ring: 173 80% 40%;
 
     /* Border Radius */
     --radius: 0.5rem;
@@ -91,10 +91,10 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    /* Cores Primárias */
-    --primary: 172 94% 40%;
+    /* Cores Primárias (teal-500) */
+    --primary: 173 80% 40%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 172 94% 45%;
+    --primary-hover: 173 80% 48%;
 
     /* Cores Secundárias */
     --secondary: 217.2 32.6% 17.5%;
@@ -117,7 +117,7 @@
     /* Bordas e Inputs */
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 174 71% 42%;
+    --ring: 173 80% 42%;
 
     /* Shadows Dark Mode */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
@@ -134,9 +134,9 @@
     --card-foreground: 210 25% 96%;
     --popover: 220 16% 4%;
     --popover-foreground: 210 25% 96%;
-    --primary: 172 94% 42%;
+    --primary: 173 80% 42%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 172 94% 48%;
+    --primary-hover: 173 80% 48%;
     --secondary: 220 14% 6%;
     --secondary-foreground: 210 25% 96%;
     --muted: 220 12% 7%;
@@ -145,7 +145,7 @@
     --accent-foreground: 210 25% 96%;
     --border: 220 12% 10%;
     --input: 220 12% 10%;
-    --ring: 172 94% 42%;
+    --ring: 173 80% 42%;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);

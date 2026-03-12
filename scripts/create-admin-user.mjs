@@ -117,10 +117,10 @@ async function main() {
     console.warn('⚠️ Ajuste o perfil manualmente no Supabase (Dashboard → Table Editor → profiles) com role=admin.');
   }
 
-  console.log('\n✅ Validação: faça login na tela Admin com:');
+  console.log('\n✅ Validação: faça login na tela de login com:');
   console.log('   Email:', ADMIN_EMAIL);
   console.log('   Senha:', ADMIN_PASSWORD);
-  console.log('   Atalho: Ctrl+Shift+A → desloga e abre /login/admin');
+  console.log('   Atalho: Ctrl+Shift+A → verifica access_type; se não for softadmin, redireciona para /access-denied.');
 }
 
 main().catch((err) => {

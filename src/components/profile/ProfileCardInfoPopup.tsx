@@ -1,21 +1,26 @@
 import React from 'react';
-import { X, Calendar, Briefcase, Linkedin, Instagram, MessageCircle, Sparkles } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, Calendar, Cake, Linkedin, Instagram, MessageCircle, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ICON_MAP } from '@/views/profile/ProfileTabs/IconPickerButton';
 
 interface ProfileCardInfoPopupProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userData: {
     name?: string;
+    apelido?: string;
     username?: string;
     bio?: string;
-    profession?: string;
     avatar?: string;
     birthDate?: string;
     created_at?: string;
     whatsapp?: string;
     instagram?: string;
     linkedin?: string;
+    department?: string;
+    icon?: string;
+    admissionDate?: string;
   } | null;
 }
 
@@ -26,9 +31,18 @@ const ProfileCardInfoPopup: React.FC<ProfileCardInfoPopupProps> = ({
 }) => {
   if (!userData) return null;
 
+  const parseLocalDate = (dateString: string): Date => {
+    const match = String(dateString).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const [, y, m, d] = match;
+      return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+    return new Date(dateString);
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Não informado';
-    const date = new Date(dateString);
+    const date = parseLocalDate(dateString);
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'long',
@@ -36,24 +50,31 @@ const ProfileCardInfoPopup: React.FC<ProfileCardInfoPopupProps> = ({
     });
   };
 
+  const formatShortDate = (dateString?: string) => {
+    if (!dateString) return '—';
+    const date = parseLocalDate(dateString);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const department = userData.department ?? '';
+  const DepartmentIcon = (userData.icon && ICON_MAP[userData.icon]) ? ICON_MAP[userData.icon] : User;
+
   const hasAvatar = userData.avatar && !userData.avatar.includes('dicebear.com');
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop com blur mais intenso */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
             onClick={() => onOpenChange(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center"
+            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[9998]"
+            style={{ isolation: 'isolate' }}
           />
-
-          {/* Modal Container */}
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none" style={{ isolation: 'isolate' }}>
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -65,201 +86,113 @@ const ProfileCardInfoPopup: React.FC<ProfileCardInfoPopupProps> = ({
               }}
               className="w-full max-w-md pointer-events-auto"
             >
-            <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-primary/20">
-              {/* Efeito de brilho de fundo animado */}
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10 animate-pulse" />
-              
-              {/* Partículas decorativas */}
-              <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <motion.div
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    opacity: [0.3, 0.6, 0.3],
-                  }}
-                  transition={{
-                    duration: 4,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
-                  className="absolute -top-20 -right-20 w-40 h-40 bg-primary/20 rounded-full blur-3xl"
-                />
-                <motion.div
-                  animate={{
-                    scale: [1, 1.3, 1],
-                    opacity: [0.2, 0.5, 0.2],
-                  }}
-                  transition={{
-                    duration: 5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 1
-                  }}
-                  className="absolute -bottom-20 -left-20 w-40 h-40 bg-primary/15 rounded-full blur-3xl"
-                />
-              </div>
-
+            <div className="relative rounded-2xl shadow-2xl overflow-hidden border border-slate-600/40 bg-[#1C2229]">
               <div className="relative max-h-[90vh] overflow-y-auto">
-                {/* Header com Avatar Grande */}
-                <div className="relative p-8 pb-8">
-                  {/* Botão Close */}
+                <div className="relative p-6 pb-4">
                   <motion.button
-                    whileHover={{ scale: 1.1, rotate: 90 }}
-                    whileTap={{ scale: 0.9 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => onOpenChange(false)}
-                    className="absolute right-4 top-4 p-2 rounded-full bg-slate-700/50 hover:bg-slate-600/50 backdrop-blur-sm border border-slate-600/50 transition-colors z-10"
+                    className="absolute right-3 top-3 p-2 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 border border-slate-600/50 transition-colors z-10"
+                    aria-label="Fechar"
                   >
-                    <X className="w-5 h-5 text-slate-200" />
+                    <X className="w-5 h-5 text-white" />
                   </motion.button>
 
+                  {/* 1. Imagem de perfil */}
                   <div className="flex flex-col items-center gap-4">
-                    {/* Avatar com animação */}
-                    <motion.div
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ 
-                        type: "spring", 
-                        stiffness: 200, 
-                        damping: 15,
-                        delay: 0.1
-                      }}
-                      className="relative"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/50 to-primary/30 rounded-full blur-xl animate-pulse" />
-                      <div className="relative w-32 h-32 rounded-full border-4 border-primary shadow-2xl shadow-primary/50 overflow-hidden bg-primary/10">
-                        {hasAvatar ? (
-                          <motion.img
-                            initial={{ opacity: 0, scale: 1.2 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.5 }}
-                            src={userData.avatar}
-                            alt={userData.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-primary">
-                            {userData.name?.charAt(0).toUpperCase() || 'U'}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
+                    <div className="w-28 h-28 rounded-full border-2 border-slate-600/50 overflow-hidden bg-slate-800 flex-shrink-0">
+                      {hasAvatar ? (
+                        <img
+                          src={userData.avatar}
+                          alt={userData.apelido || userData.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-slate-400">
+                          {(userData.apelido || userData.name)?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Nome e Username */}
-                    <motion.div 
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="text-center"
-                    >
-                      <h2 className="text-3xl font-bold text-white flex items-center gap-2 justify-center">
-                        {userData.name}
-                        <Sparkles className="w-6 h-6 text-primary" />
-                      </h2>
-                      <p className="text-base text-slate-400 mt-1.5">@{userData.username}</p>
-                    </motion.div>
+                    {/* 2. Apelido (destaque) | 3. Username */}
+                    <div className="text-center">
+                      <h2 className="text-xl font-bold text-white">{userData.apelido || userData.name || '—'}</h2>
+                      <p className="text-sm text-slate-400 mt-0.5">@{userData.username || '—'}</p>
+                    </div>
+
+                    {/* 4. Bio */}
+                    {userData.bio && (
+                      <p className="text-sm text-slate-300 text-center leading-relaxed max-w-sm">{userData.bio}</p>
+                    )}
+
+                    {/* 5. Departamento (pill com ícone escolhido pelo usuário em Público) */}
+                    {department && (
+                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-cyan-500/40 bg-cyan-500/5">
+                        <DepartmentIcon className="w-4 h-4 text-cyan-400" />
+                        <span className="text-sm font-medium text-cyan-200">{department}</span>
+                      </div>
+                    )}
                   </div>
-                </div>
 
-                {/* Divider com gradiente */}
-                <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent mx-6" />
+                  {/* Linha separadora */}
+                  <div className="h-px bg-slate-600/50 my-5 mx-2" />
 
-                {/* Content */}
-                <div className="p-6 space-y-5">
-                  {/* Bio - centralizada */}
-                  {userData.bio && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                      className="text-center"
-                    >
-                      <p className="text-slate-300 text-base leading-relaxed">{userData.bio}</p>
-                    </motion.div>
-                  )}
-
-                  {/* Profession Badge */}
-                  {userData.profession && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.35 }}
-                      className="flex justify-center"
-                    >
-                      <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-primary/10 border border-primary/30">
-                        <Briefcase className="w-5 h-5 text-primary" />
-                        <span className="text-base font-medium text-white">{userData.profession}</span>
+                  {/* 6. Aniversário (esq) | 7. Redes ao centro | 8. Membro desde (dir) */}
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+                    <div className="flex items-center gap-2 text-slate-400 text-xs">
+                      <Cake className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <div>
+                        <div>Aniversário</div>
+                        <div className="text-slate-300 font-medium">{formatShortDate(userData.birthDate)}</div>
                       </div>
-                    </motion.div>
-                  )}
+                    </div>
 
-                  {/* Birthday */}
-                  {userData.birthDate && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.4 }}
-                      className="flex items-center gap-3 bg-slate-800/30 backdrop-blur-sm rounded-lg p-3 border border-slate-700/30"
-                    >
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <Calendar className="w-5 h-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-white">{formatDate(userData.birthDate)}</p>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* Social Links - Ícones grandes lado a lado */}
-                  {(userData.instagram || userData.whatsapp) && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.45 }}
-                      className="flex gap-3 justify-center pt-2"
-                    >
+                    <div className="flex items-center justify-center gap-2">
                       {userData.whatsapp && (
-                        <motion.a
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
+                        <a
                           href={`https://wa.me/${userData.whatsapp.replace(/\D/g, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-4 rounded-full bg-slate-800/50 border border-slate-700/50 hover:border-green-500/50 transition-all"
+                          className="p-2 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+                          aria-label="WhatsApp"
                         >
-                          <MessageCircle className="w-7 h-7 text-green-500" />
-                        </motion.a>
+                          <MessageCircle className="w-5 h-5 text-green-500" />
+                        </a>
                       )}
                       {userData.instagram && (
-                        <motion.a
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
+                        <a
                           href={userData.instagram.startsWith('http') ? userData.instagram : `https://instagram.com/${userData.instagram.replace('@', '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-4 rounded-full bg-slate-800/50 border border-slate-700/50 hover:border-pink-500/50 transition-all"
+                          className="p-2 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+                          aria-label="Instagram"
                         >
-                          <Instagram className="w-7 h-7 text-pink-500" />
-                        </motion.a>
+                          <Instagram className="w-5 h-5 text-pink-500" />
+                        </a>
                       )}
-                    </motion.div>
-                  )}
+                      {userData.linkedin && (
+                        <a
+                          href={userData.linkedin.startsWith('http') ? userData.linkedin : `https://linkedin.com/in/${userData.linkedin.replace(/^\/|\s/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors"
+                          aria-label="LinkedIn"
+                        >
+                          <Linkedin className="w-5 h-5 text-blue-400" />
+                        </a>
+                      )}
+                    </div>
 
-                  {/* Member since - no canto inferior direito */}
-                  {userData.created_at && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.5 }}
-                      className="flex justify-end pt-4 border-t border-slate-700/30"
-                    >
-                      <p className="text-xs text-slate-400">
-                        Membro desde <span className="text-slate-300 font-medium">{formatDate(userData.created_at)}</span>
-                      </p>
-                    </motion.div>
-                  )}
+                    <div className="flex items-center justify-end gap-2 text-slate-400 text-xs">
+                      <div className="text-right">
+                        <div>Membro desde</div>
+                        <div className="text-slate-300 font-medium">{formatShortDate(userData.admissionDate ?? userData.created_at)}</div>
+                      </div>
+                      <Calendar className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -269,6 +202,9 @@ const ProfileCardInfoPopup: React.FC<ProfileCardInfoPopupProps> = ({
       )}
     </AnimatePresence>
   );
+
+  if (!userData || typeof document === 'undefined') return null;
+  return createPortal(modalContent, document.body);
 };
 
 export default ProfileCardInfoPopup;

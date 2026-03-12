@@ -4,7 +4,6 @@ import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAdminShortcut } from '@/hooks/useAdminShortcut';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { useSilentReload } from '@/hooks/useSilentReload';
 import { useNaoGritaPopup, NaoGritaPopup } from '@/hooks/useNaoGritaPopup';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -15,11 +14,14 @@ import { OnboardingTour } from '@/components/OnboardingTour';
 import AuthLayout from '@/layouts/AuthLayout';
 import MainLayout from '@/layouts/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import AdminRoute from '@/components/AdminRoute';
+import AdminLayout from '@/admin/AdminLayout';
 
 // Pages
 import LoginPage from '@/pages/LoginPage';
-import LoginAdminPage from '@/pages/LoginAdminPage';
 import SignupPage from '@/pages/SignupPage';
+import ResetPasswordPage from '@/pages/ResetPasswordPage';
+import AccessDeniedPage from '@/pages/AccessDeniedPage';
 import DashboardPage from '@/pages/DashboardPage';
 import SystemsPage from '@/pages/SystemsPage';
 import FavoritesPage from '@/pages/FavoritesPage';
@@ -27,6 +29,13 @@ import UsersPage from '@/pages/UsersPage';
 import ProfilePage from '@/pages/ProfilePage';
 import SettingsPage from '@/pages/SettingsPage';
 import ChatPage from '@/pages/ChatPage';
+
+// Admin pages
+import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
+import AdminSystemsPage from '@/admin/pages/AdminSystemsPage';
+import AdminMembersPage from '@/admin/pages/AdminMembersPage';
+import AdminAdministratorsPage from '@/admin/pages/AdminAdministratorsPage';
+import AdminCategoriesPage from '@/admin/pages/AdminCategoriesPage';
 
 function AppRoutes() {
   const { isAuthenticated } = useAuthStore();
@@ -49,9 +58,6 @@ function AppRoutes() {
   // Ativar atalho CTRL + SHIFT + B para popup "Não Grita"
   const { showPopup, setShowPopup } = useNaoGritaPopup();
 
-  // Recarrega a cada 10s quando a aba está em segundo plano (atualiza funcionalidades sem ser notável)
-  useSilentReload();
-
   return (
     <>
       <AnimatedBackground />
@@ -65,17 +71,13 @@ function AppRoutes() {
             }
           />
           <Route
-            path="/login/admin"
-            element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginAdminPage />
-            }
-          />
-          <Route
             path="/signup"
             element={
               isAuthenticated ? <Navigate to="/dashboard" replace /> : <SignupPage />
             }
           />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/access-denied" element={<AccessDeniedPage />} />
         </Route>
 
         {/* Protected Routes */}
@@ -93,6 +95,23 @@ function AppRoutes() {
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+        </Route>
+
+        {/* Admin Routes (softadmin) */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          }
+        >
+          <Route index element={<Navigate to="/admin/home" replace />} />
+          <Route path="home" element={<AdminDashboardPage />} />
+          <Route path="systems" element={<AdminSystemsPage />} />
+          <Route path="members" element={<AdminMembersPage />} />
+          <Route path="administrators" element={<AdminAdministratorsPage />} />
+          <Route path="categories" element={<AdminCategoriesPage />} />
         </Route>
 
         {/* Redirect */}

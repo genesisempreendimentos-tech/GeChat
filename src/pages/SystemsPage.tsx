@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { databaseService } from '@/services/supabase';
@@ -24,18 +24,17 @@ import {
   AlertCircle,
   RefreshCw,
   Star,
+  ChevronDown,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
-import { SystemCategory } from '@/types';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { SystemCategory, Category } from '@/types';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
-
-const categories: SystemCategory[] = [
-  'RH',
-  'Financeiro',
-  'Marketing',
-  'Arquitetura',
-  'Ferramentas',
-];
 
 interface System {
   id: string;
@@ -66,6 +65,7 @@ export default function SystemsPage() {
   const { user: currentUser } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [categories, setCategories] = useState<Category[]>([]);
   const [systems, setSystems] = useState<System[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [userAccesses, setUserAccesses] = useState<UserSystemAccess[]>([]);
@@ -82,7 +82,7 @@ export default function SystemsPage() {
     description: '',
     icon: 'AppWindow',
     url: '',
-    category: 'Ferramentas' as SystemCategory,
+    category: '' as SystemCategory,
   });
   const [formError, setFormError] = useState('');
 
@@ -102,12 +102,18 @@ export default function SystemsPage() {
     
     setLoading(true);
 
-    const { data: systemsData } = await databaseService.getSystems();
-    if (systemsData) {
-      setSystems(systemsData as System[]);
+    const userIsAdminOrManager = currentUser.role === 'admin' || currentUser.role === 'manager';
+    // Membros veem apenas apps ativo/beta com acesso liberado; admin/manager veem todos para gerenciar
+    if (userIsAdminOrManager) {
+      const { data: systemsData } = await databaseService.getSystems();
+      if (systemsData) setSystems(systemsData as System[]);
+    } else {
+      const { data: systemsData } = await databaseService.getSystemsForMember(currentUser.id);
+      if (systemsData) setSystems(systemsData as System[]);
     }
 
-    const userIsAdminOrManager = currentUser.role === 'admin' || currentUser.role === 'manager';
+    const { data: categoriesData } = await databaseService.getCategories();
+    setCategories((categoriesData as Category[]) ?? []);
 
     if (userIsAdminOrManager) {
       const { data: usersData } = await databaseService.getUsers();
@@ -241,7 +247,7 @@ export default function SystemsPage() {
         description: '',
         icon: 'AppWindow',
         url: '',
-        category: 'Ferramentas',
+        category: (categories[0]?.name ?? '') as SystemCategory,
       });
       setIsAddSystemDialogOpen(false);
       await loadData();
@@ -313,10 +319,21 @@ export default function SystemsPage() {
     ? systems 
     : systems.filter((system) => hasAccess(system.id));
 
-  // Lista exibida: todos os sistemas da tabela apps (banco), filtrados só por busca e categoria
-  const systemsForList = systems;
+  // Categorias do dropdown: apenas as que têm pelo menos um app a que o usuário tem acesso (systems já vem restrito por acesso para membros)
+  const categoriesForDropdown = useMemo(() => {
+    const names = [...new Set(systems.map((s) => s.category).filter(Boolean))] as string[];
+    return names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [systems]);
 
-  const filteredSystems = systemsForList.filter((system) => {
+  // Se a categoria selecionada não existir mais na lista, voltar para "todas"
+  useEffect(() => {
+    if (selectedCategory !== 'all' && !categoriesForDropdown.includes(selectedCategory)) {
+      setSelectedCategory('all');
+    }
+  }, [selectedCategory, categoriesForDropdown]);
+
+  // Lista exibida: sistemas já restritos por acesso (membros) ou todos (admin/manager), filtrados por busca e categoria
+  const filteredSystems = systems.filter((system) => {
     const matchesSearch =
       system.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       system.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -411,9 +428,10 @@ export default function SystemsPage() {
                     setNewSystem({ ...newSystem, category: e.target.value as SystemCategory })
                   }
                 >
+                  <option value="">Selecione uma categoria</option>
                   {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
                     </option>
                   ))}
                 </select>
@@ -440,10 +458,10 @@ export default function SystemsPage() {
         </div>
       </div>
 
-      {/* Search and Filters */}
+      {/* Busca e filtro por categoria */}
       <Card>
         <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -453,27 +471,28 @@ export default function SystemsPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-
-            <div className="flex gap-2 overflow-x-auto">
-              <Button
-                variant={selectedCategory === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedCategory('all')}
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Todos
-              </Button>
-              {categories.map((category) => (
-                <Button
-                  key={category}
-                  variant={selectedCategory === category ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedCategory(category)}
-                >
-                  {category}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="default" className="min-w-[180px] justify-between">
+                  <Filter className="w-4 h-4 mr-2" />
+                  {selectedCategory === 'all' ? 'Todas as categorias' : selectedCategory}
+                  <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
                 </Button>
-              ))}
-            </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto">
+                <DropdownMenuItem onClick={() => setSelectedCategory('all')}>
+                  Todas as categorias
+                </DropdownMenuItem>
+                {categoriesForDropdown.map((name) => (
+                  <DropdownMenuItem
+                    key={name}
+                    onClick={() => setSelectedCategory(name)}
+                  >
+                    {name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardContent>
       </Card>

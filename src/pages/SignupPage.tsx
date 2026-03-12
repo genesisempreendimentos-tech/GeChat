@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, Mail, User } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,6 @@ import { useAuthStore } from '@/store/authStore';
 import LogoSvg from '../../assets/logo-gen-sem-fundo-svg.svg';
 
 export default function SignupPage() {
-  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,14 +30,20 @@ export default function SignupPage() {
       setLoading(false);
       return;
     }
-
     if (password.length < 6) {
       setError('A senha deve ter pelo menos 6 caracteres');
       setLoading(false);
       return;
     }
-
-    const result = await register(email, password, fullName);
+    
+    // Derivar nome do email (ex: joao.silva@domain.com -> Joao Silva)
+    const namePart = email.split('@')[0];
+    const derivedName = namePart
+      .split('.')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+      
+    const result = await register(email, password, derivedName);
 
     if (result.success) {
       setSuccess(true);
@@ -279,25 +284,6 @@ export default function SignupPage() {
             </motion.div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
-              <motion.div 
-                className="space-y-2"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4, duration: 0.3 }}
-              >
-                <label className="text-sm font-medium">Nome Completo</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Seu nome completo"
-                    className="pl-10 h-11"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-                </div>
-              </motion.div>
 
               <motion.div 
                 className="space-y-2"

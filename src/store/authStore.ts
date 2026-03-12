@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { User } from '@/types';
-import { authService } from '@/services/supabase';
+import { User, UserRole } from '@/types';
+import { authService, databaseService } from '@/services/supabase';
 
 interface AuthState {
   user: User | null;
@@ -28,14 +28,21 @@ export const useAuthStore = create<AuthState>((set) => ({
       return { success: false, error: 'Acesso restrito: Apenas colaboradores da Genesis Empreendimentos podem acessar o GêApps' };
     }
 
+    // Verificar se o email existe em profiles (coluna email) antes de tentar login
+    const emailExists = await databaseService.profilesEmailExists(email);
+    if (!emailExists) {
+      console.log('❌ [Login] Email não encontrado em profiles');
+      return { success: false, error: 'USUARIO_NAO_EXISTE' };
+    }
+
     console.log('🔵 [Login] Chamando authService.signIn...');
     const { data, error } = await authService.signIn(email, password);
     
     console.log('🔵 [Login] Resposta do signIn:', { data, error });
     
     if (error || !data || !data.user) {
-      console.error('❌ [Login] Erro na autenticação:', error);
-      return { success: false, error: 'Email ou senha inválidos' };
+      console.log('❌ [Login] Erro de autenticação (email existe → senha incorreta)');
+      return { success: false, error: 'SENHA_INCORRETA' };
     }
 
     console.log('✅ [Login] Autenticação bem-sucedida! User ID:', data.user.id);
@@ -51,9 +58,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         id: userData.id,
         name: userData.name,
         email: userData.email,
-        role: userData.role,
+        role: (userData.role as UserRole) || 'user',
         avatar: userData.avatar,
         createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
+        accessType: userData.accessType,
       };
       
       console.log('✅ [Login] Login completo! Usuário:', user);
@@ -114,9 +122,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         id: userData.id,
         name: userData.name,
         email: userData.email,
-        role: userData.role,
+        role: (userData.role as UserRole) || 'user',
         avatar: userData.avatar,
         createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
+        accessType: userData.accessType,
       };
       set({ user, isAuthenticated: true, loading: false });
     } else {

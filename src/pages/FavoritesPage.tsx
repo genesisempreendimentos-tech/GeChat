@@ -34,15 +34,19 @@ export default function FavoritesPage() {
     
     try {
       setLoading(true);
-      
-      // Carregar sistemas
-      const { data: systemsData, error: systemsError } = await databaseService.getSystems();
-      if (systemsError) {
-        console.error('Erro ao carregar sistemas:', systemsError);
+      const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
+      // Membros veem apenas apps com acesso liberado; admin/manager veem todos
+      if (isAdminOrManager) {
+        const { data: systemsData, error: systemsError } = await databaseService.getSystems();
+        if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
+        setSystems(systemsData || []);
+      } else {
+        const { data: systemsData, error: systemsError } = await databaseService.getSystemsForMember(user.id);
+        if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
+        setSystems(systemsData || []);
       }
-      setSystems(systemsData || []);
 
-      // Carregar acessos do usuário
+      // Carregar acessos do usuário (favoritos)
       const { data: accessData, error: accessError } = await databaseService.getUserSystemAccess(user.id);
       if (accessError) {
         console.error('Erro ao carregar acessos:', accessError);
