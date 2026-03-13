@@ -3,10 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/services/supabase';
 
+const ADMIN_ACCESS_TYPES = ['softadmin', 'appsadmin'];
+
 /**
  * Hook: CTRL + SHIFT + A — verifica access_type no Supabase (profiles).
- * Se access_type === 'softadmin' → redireciona para o painel de admin (/admin/home).
- * Se não for softadmin → redireciona para /access-denied.
+ * Se access_type === 'softadmin' ou 'appsadmin' → redireciona para o painel de admin (/admin/home).
+ * Caso contrário → redireciona para /access-denied.
  */
 export function useAdminShortcut() {
   const location = useLocation();
@@ -42,8 +44,9 @@ export function useAdminShortcut() {
         }
       }
 
-      const isSoftadmin = String(accessType ?? '').toLowerCase().trim() === 'softadmin';
-      if (isSoftadmin) {
+      const normalized = String(accessType ?? '').toLowerCase().trim();
+      const hasAdminAccess = ADMIN_ACCESS_TYPES.includes(normalized);
+      if (hasAdminAccess) {
         navigate('/admin/home');
         return;
       }

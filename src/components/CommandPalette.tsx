@@ -111,7 +111,7 @@ export function CommandPalette() {
               <span>Usuários</span>
             </CommandItem>
           ) : null}
-          {!isAdminPath && String(user?.accessType ?? "").toLowerCase().trim() === "softadmin" ? (
+          {!isAdminPath && ['softadmin', 'appsadmin'].includes(String(user?.accessType ?? "").toLowerCase().trim()) ? (
             <CommandItem onSelect={() => runCommand(() => navigate("/admin/home"))}>
               <Shield className="mr-2 h-4 w-4" />
               <span>Painel Admin</span>

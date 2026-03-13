@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/services/supabase';
 
+const ADMIN_ACCESS_TYPES = ['softadmin', 'appsadmin'];
+
 /**
- * Verifica se o usuário atual tem access_type === 'softadmin' na tabela profiles.
+ * Verifica se o usuário atual tem acesso ao painel admin (access_type === 'softadmin' ou 'appsadmin' em profiles).
  * Usado para proteger rotas /admin/*.
  */
 export function useAdminAccess(): { isSoftadmin: boolean; loading: boolean } {
@@ -35,9 +37,10 @@ export function useAdminAccess(): { isSoftadmin: boolean; loading: boolean } {
           break;
         }
       }
-      const softadmin = String(accessType ?? '').toLowerCase().trim() === 'softadmin';
+      const normalized = String(accessType ?? '').toLowerCase().trim();
+      const hasAdminAccess = ADMIN_ACCESS_TYPES.includes(normalized);
       if (!cancelled) {
-        setIsSoftadmin(softadmin);
+        setIsSoftadmin(hasAdminAccess);
         setLoading(false);
       }
     })();

@@ -9,7 +9,7 @@ interface AdminRouteProps {
 }
 
 /**
- * Protege rotas do painel admin: exige autenticação e access_type === 'softadmin'.
+ * Protege rotas do painel admin: exige autenticação e access_type === 'softadmin' ou 'appsadmin' (profiles).
  * Caso contrário redireciona para /login ou /access-denied.
  */
 export default function AdminRoute({ children }: AdminRouteProps) {

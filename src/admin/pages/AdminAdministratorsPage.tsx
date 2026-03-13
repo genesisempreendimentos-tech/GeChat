@@ -21,7 +21,7 @@ export default function AdminAdministratorsPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data, error } = await databaseService.getAdministrators();
+      const { data, error } = await databaseService.getAppsAdmins();
       if (error) console.error(error);
       setAdmins((data ?? []) as User[]);
       setLoading(false);
@@ -43,7 +43,7 @@ export default function AdminAdministratorsPage() {
       <AdminPageHeader
         icon={Shield}
         title="Administradores"
-        description="Softadmins do software. Estes usuários têm acesso ao painel admin."
+        description="Usuários com acesso ao painel administrativo de todos os Apps (Ctrl+Shift+A)."
       />
 
       <AdminControlLine

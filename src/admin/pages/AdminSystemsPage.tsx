@@ -361,7 +361,7 @@ export default function AdminSystemsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setLiberarAppId(system.id); setSearchCollaborators(''); setSearchResults([]); }}>
                               <Unlock className="w-4 h-4 mr-2" />
-                              Liberar
+                              Acessos
                             </DropdownMenuItem>
                             <DropdownMenuSub>
                               <DropdownMenuSubTrigger>
@@ -481,7 +481,7 @@ export default function AdminSystemsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setLiberarAppId(system.id); setSearchCollaborators(''); setSearchResults([]); }}>
                               <Unlock className="w-4 h-4 mr-2" />
-                              Liberar
+                              Acessos
                             </DropdownMenuItem>
                             <DropdownMenuSub>
                               <DropdownMenuSubTrigger>

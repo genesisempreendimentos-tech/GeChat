@@ -101,7 +101,6 @@ export default function AdminMembersPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0 text-sm space-y-1">
-                    <p><span className="text-muted-foreground">Role:</span> {member.role ?? '—'}</p>
                     {member.accessType != null && member.accessType !== '' && (
                       <p><span className="text-muted-foreground">Acesso:</span> {member.accessType}</p>
                     )}
@@ -122,7 +121,6 @@ export default function AdminMembersPage() {
                 <tr className="border-b border-border">
                   <th className="text-left py-3 px-2 font-medium">Nome</th>
                   <th className="text-left py-3 px-2 font-medium">E-mail</th>
-                  <th className="text-left py-3 px-2 font-medium">Role</th>
                   <th className="text-left py-3 px-2 font-medium">Acesso</th>
                   <th className="text-left py-3 px-2 font-medium">Cadastro</th>
                 </tr>
@@ -132,7 +130,6 @@ export default function AdminMembersPage() {
                   <tr key={member.id} className="border-b border-border/50 hover:bg-muted/30">
                     <td className="py-2 px-2 font-medium">{member.name || '—'}</td>
                     <td className="py-2 px-2 text-muted-foreground">{member.email || '—'}</td>
-                    <td className="py-2 px-2">{member.role ?? '—'}</td>
                     <td className="py-2 px-2">{member.accessType ?? '—'}</td>
                     <td className="py-2 px-2 text-muted-foreground">
                       {member.createdAt

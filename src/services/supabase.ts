@@ -391,6 +391,18 @@ export const databaseService = {
     return { data: mapped, error: null };
   },
 
+  /** Usuários com access_type === 'appsadmin' na tabela profiles (acesso ao painel admin). */
+  async getAppsAdmins() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .ilike('access_type', 'appsadmin')
+      .order('created_at', { ascending: false });
+    if (error) return { data: null, error };
+    const mapped = (data ?? []).map((row) => profileToUser(row as ProfileRow));
+    return { data: mapped, error: null };
+  },
+
   /** Busca colaboradores (profiles) por nome ou e-mail para o modal Liberar acesso. */
   async searchProfiles(query: string): Promise<{ data: { id: string; name: string; email: string; avatar?: string }[]; error: any }> {
     const q = (query ?? '').trim();

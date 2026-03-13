@@ -8,7 +8,7 @@ interface NavItem {
   label: string
   path: string
   roles?: string[]
-  /** Mostrar apenas quando accessType === 'softadmin' */
+  /** Mostrar apenas quando accessType === 'softadmin' ou 'appsadmin' */
   showWhenSoftadmin?: boolean
 }
 
@@ -57,14 +57,14 @@ export function BottomNavigation() {
     },
   ]
 
-  const isSoftadmin = String(user?.accessType ?? "").toLowerCase().trim() === "softadmin"
+  const hasAdminAccess = ['softadmin', 'appsadmin'].includes(String(user?.accessType ?? "").toLowerCase().trim())
   const isAdminPath = location.pathname.startsWith("/admin")
 
   const filteredNavItems = navItems.filter((item) => {
     if (isAdminPath) {
       return item.path === "/admin/home" || item.path === "/settings"
     }
-    if (item.showWhenSoftadmin) return isSoftadmin
+    if (item.showWhenSoftadmin) return hasAdminAccess
     if (!item.roles) return true
     return item.roles.includes(user?.role || "")
   })
