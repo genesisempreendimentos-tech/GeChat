@@ -1,8 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Search } from 'lucide-react';
+import { Shield, Search, UserPlus, ArrowDownToLine } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
@@ -11,23 +26,76 @@ import { LoadingGifScreen } from '@/components/LoadingGif';
 import { User } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { MoreVertical } from 'lucide-react';
 
 export default function AdminAdministratorsPage() {
   const [admins, setAdmins] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [searchQuery, setSearchQuery] = useState('');
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [members, setMembers] = useState<User[]>([]);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [addLoading, setAddLoading] = useState(false);
+  const [downgradeLoadingId, setDowngradeLoadingId] = useState<string | null>(null);
+
+  const loadAdmins = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await databaseService.getAppsAdmins();
+    if (error) console.error(error);
+    setAdmins((data ?? []) as User[]);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const { data, error } = await databaseService.getAppsAdmins();
-      if (error) console.error(error);
-      setAdmins((data ?? []) as User[]);
-      setLoading(false);
-    };
-    load();
-  }, []);
+    loadAdmins();
+  }, [loadAdmins]);
+
+  useEffect(() => {
+    if (addModalOpen) {
+      const load = async () => {
+        const { data } = await databaseService.getUsers();
+        const all = (data ?? []) as User[];
+        const adminIds = new Set(admins.map((a) => a.id));
+        const onlyMembers = all.filter((u) => !adminIds.has(u.id));
+        setMembers(onlyMembers);
+        setSelectedMemberId(null);
+        setMemberSearch('');
+      };
+      load();
+    }
+  }, [addModalOpen]); // admins usado no closure ao abrir
+
+  const membersFiltered = members.filter((m) => {
+    const q = memberSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (m.name ?? '').toLowerCase().includes(q) ||
+      (m.email ?? '').toLowerCase().includes(q)
+    );
+  });
+
+  const handleAddAdmin = async () => {
+    if (!selectedMemberId) return;
+    setAddLoading(true);
+    const { error } = await databaseService.updateUser(selectedMemberId, { access_type: 'appsadmin' });
+    setAddLoading(false);
+    if (error) {
+      console.error(error);
+      return;
+    }
+    setAddModalOpen(false);
+    loadAdmins();
+  };
+
+  const handleRebaixar = async (userId: string) => {
+    setDowngradeLoadingId(userId);
+    const { error } = await databaseService.updateUser(userId, { access_type: 'member' });
+    setDowngradeLoadingId(null);
+    if (error) console.error(error);
+    else loadAdmins();
+  };
 
   const filtered = admins.filter((m) => {
     const q = searchQuery.toLowerCase();
@@ -44,7 +112,73 @@ export default function AdminAdministratorsPage() {
         icon={Shield}
         title="Administradores"
         description="Usuários com acesso ao painel administrativo de todos os Apps (Ctrl+Shift+A)."
+        action={
+          <Button onClick={() => setAddModalOpen(true)}>
+            <UserPlus className="w-4 h-4 mr-2" />
+            Adicionar admin
+          </Button>
+        }
       />
+
+      {/* Modal Adicionar admin */}
+      <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
+        <DialogContent className="max-w-lg" id="add_app_admin">
+          <DialogHeader>
+            <DialogTitle>Adicionar admin</DialogTitle>
+            <DialogDescription>
+              Selecione um membro do GêApps para promover a appsadmin. Apenas membros existentes aparecem na lista.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Buscar membro (nome ou e-mail)</label>
+              <Input
+                placeholder="Digite para filtrar..."
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="border rounded-lg max-h-48 overflow-y-auto">
+              {membersFiltered.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground text-center">
+                  {members.length === 0 ? 'Todos os usuários já são admins.' : 'Nenhum membro encontrado com esse filtro.'}
+                </p>
+              ) : (
+                <ul className="p-1">
+                  {membersFiltered.map((m) => (
+                    <li key={m.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMemberId(m.id === selectedMemberId ? null : m.id)}
+                        className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2 ${
+                          selectedMemberId === m.id ? 'bg-primary/15 text-primary font-medium' : 'hover:bg-muted/70'
+                        }`}
+                      >
+                        <span className="truncate">{m.name || '—'}</span>
+                        <span className="text-muted-foreground truncate text-xs">{m.email || ''}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {selectedMemberId && (
+              <p className="text-xs text-muted-foreground">
+                Selecionado: {members.find((m) => m.id === selectedMemberId)?.name ?? members.find((m) => m.id === selectedMemberId)?.email ?? selectedMemberId}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddAdmin} disabled={!selectedMemberId || addLoading}>
+              {addLoading ? 'Salvando...' : 'Confirmar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AdminControlLine
         viewMode={viewMode}
@@ -96,6 +230,23 @@ export default function AdminAdministratorsPage() {
                         <CardTitle className="text-base truncate">{admin.name || '—'}</CardTitle>
                         <CardDescription className="text-xs truncate">{admin.email || '—'}</CardDescription>
                       </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleRebaixar(admin.id)}
+                            disabled={downgradeLoadingId === admin.id}
+                          >
+                            <ArrowDownToLine className="w-4 h-4 mr-2" />
+                            {downgradeLoadingId === admin.id ? 'Rebaixando...' : 'Rebaixar a member'}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0 text-sm">
@@ -117,6 +268,7 @@ export default function AdminAdministratorsPage() {
                   <th className="text-left py-3 px-2 font-medium">Nome</th>
                   <th className="text-left py-3 px-2 font-medium">E-mail</th>
                   <th className="text-left py-3 px-2 font-medium">Cadastro</th>
+                  <th className="w-10 py-3 px-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -128,6 +280,25 @@ export default function AdminAdministratorsPage() {
                       {admin.createdAt
                         ? format(new Date(admin.createdAt), 'dd/MM/yyyy', { locale: ptBR })
                         : '—'}
+                    </td>
+                    <td className="py-2 px-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleRebaixar(admin.id)}
+                            disabled={downgradeLoadingId === admin.id}
+                          >
+                            <ArrowDownToLine className="w-4 h-4 mr-2" />
+                            {downgradeLoadingId === admin.id ? 'Rebaixando...' : 'Rebaixar a member'}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))}

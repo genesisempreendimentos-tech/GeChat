@@ -546,6 +546,7 @@ export const databaseService = {
     if (userData.phone != null) payload.phone = userData.phone;
     if (userData.location != null) payload.location = userData.location;
     if (userData.banner_url != null) payload.banner_url = userData.banner_url;
+    if (userData.access_type != null) payload.access_type = userData.access_type;
     for (const key of ['user_id']) {
       const { data, error } = await supabase
         .from('profiles')
@@ -672,24 +673,28 @@ export const databaseService = {
     return this.userHasAccessToApp(userId, app.id);
   },
 
-  /** Apps visíveis para um membro: status ativo ou beta E acesso liberado em user_app_access */
+  /**
+   * Apps visíveis para um membro: user_app_access.access = true para o user_id,
+   * e app com status ativo/beta. Só esses aparecem em "aplicativos disponíveis".
+   */
   async getSystemsForMember(userId: string) {
     const { data: accessRows, error: accessError } = await supabase
       .from('user_app_access')
-      .select('app_id')
-      .eq('user_id', userId)
-      .eq('access', true);
-    if (accessError || !accessRows?.length) return { data: [], error: accessError };
-    const appIds = accessRows.map((r: any) => r.app_id).filter(Boolean);
+      .select('app_id, access')
+      .eq('user_id', userId);
+    if (accessError) return { data: [], error: accessError };
+    const rows = Array.isArray(accessRows) ? accessRows : [];
+    const withAccess = rows.filter((r: any) => r.access === true);
+    const appIds = withAccess.map((r: any) => r.app_id).filter(Boolean);
     if (appIds.length === 0) return { data: [], error: null };
     const { data: appRows, error: appsError } = await supabase
       .from('apps')
       .select('*')
       .in('id', appIds)
-      .in('status', ['ativo', 'beta']);
-    if (appsError) return { data: null, error: appsError };
-    const rows = Array.isArray(appRows) ? appRows : [];
-    const mapped = rows.map((r: any) => this.appRowToSystem(r));
+      .in('status', ['ativo', 'beta', 'active']);
+    if (appsError) return { data: [], error: appsError };
+    const appList = Array.isArray(appRows) ? appRows : [];
+    const mapped = appList.map((r: any) => this.appRowToSystem(r));
     mapped.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
     return { data: mapped, error: null };
   },
