@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    --app-zoom: 1; /* gerenciada pelo Zoom.jsx via JS */
     /* Cores Base */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
@@ -171,6 +172,16 @@
   #root {
     overflow-x: hidden;
     min-height: 100vh;
+    height: 100%;
+    width: 100%;
+  }
+}
+
+/* Em mobile/tablet: ignorar o containerHeight calculado e usar 100dvh real */
+@media (max-width: 1023px) {
+  .dashboard-root {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
   }
 }
 

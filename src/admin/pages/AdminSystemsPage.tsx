@@ -4,6 +4,8 @@ import { AppWindow, Plus, ExternalLink, Search, AlertCircle, MoreVertical, Penci
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AvatarGroup, AvatarGroupTooltip } from '@/components/ui/avatar-group';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -25,7 +27,6 @@ import {
 import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
-import AvatarStack from '@/admin/components/AvatarStack';
 import { databaseService, storageService } from '@/services/supabase';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { SystemCategory, Category } from '@/types';
@@ -330,97 +331,132 @@ export default function AdminSystemsPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
+                className="group relative"
               >
-                <Card className="h-full hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
-                          {renderIcon(system.icon, 'w-8 h-8 object-contain')}
-                        </div>
-                        <div className="min-w-0">
-                          <CardTitle className="text-base truncate">{system.name}</CardTitle>
-                          <CardDescription className="text-xs">{system.category}</CardDescription>
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
+                
+                <div className="relative h-full flex flex-col justify-between p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md hover:border-primary/30 hover:bg-[#0d1520]/90 transition-all duration-300 shadow-lg hover:shadow-primary/5 hover:-translate-y-2">
+                  
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="relative group/icon shrink-0">
+                        <div className="absolute inset-0 bg-primary/20 blur-lg rounded-xl opacity-0 group-hover/icon:opacity-50 transition-opacity duration-500" />
+                        <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center text-primary shadow-inner group-hover/icon:border-primary/30 transition-colors overflow-hidden">
+                          {renderIcon(system.icon, 'w-7 h-7 object-contain drop-shadow')}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Badge variant="secondary" className="text-xs capitalize">
-                          {system.status ?? 'rascunho'}
-                        </Badge>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="w-4 h-4" />
-                              <span className="sr-only">Ações</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditModal(system)}>
-                              <Pencil className="w-4 h-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setLiberarAppId(system.id); setSearchCollaborators(''); setSearchResults([]); }}>
-                              <Unlock className="w-4 h-4 mr-2" />
-                              Acessos
-                            </DropdownMenuItem>
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger>
-                                Status
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent>
-                                {STATUS_OPTIONS.map((o) => (
-                                  <DropdownMenuItem
-                                    key={o.value}
-                                    onClick={() => handleStatusChange(system.id, o.value)}
-                                  >
-                                    {o.label}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                            {(system.status ?? '') === 'excluído' && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => setDeleteConfirmId(system.id)}
-                                >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Excluir definitivamente
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-bold text-white tracking-tight truncate group-hover:text-primary transition-colors duration-300">
+                          {system.name}
+                        </h3>
+                        <p className="text-xs text-muted-foreground truncate">{system.category}</p>
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3 min-h-[2.5rem]">
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge variant={system.status === 'ativo' ? 'default' : 'secondary'} className="text-[10px] uppercase tracking-wide px-2 h-6">
+                        {system.status ?? 'rascunho'}
+                      </Badge>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white hover:bg-white/10 rounded-full">
+                            <MoreVertical className="w-4 h-4" />
+                            <span className="sr-only">Ações</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditModal(system)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setLiberarAppId(system.id); setSearchCollaborators(''); setSearchResults([]); }}>
+                            <Unlock className="w-4 h-4 mr-2" />
+                            Acessos
+                          </DropdownMenuItem>
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              Status
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              {STATUS_OPTIONS.map((o) => (
+                                <DropdownMenuItem
+                                  key={o.value}
+                                  onClick={() => handleStatusChange(system.id, o.value)}
+                                >
+                                  {o.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                          {(system.status ?? '') === 'excluído' && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteConfirmId(system.id)}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Excluir definitivamente
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
+                  {/* Conteúdo */}
+                  <div className="flex-1 mb-4">
+                    <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed min-h-[2.5rem]" title={system.description}>
                       {system.description || '—'}
                     </p>
+                  </div>
+
+                  {/* Footer: AvatarStack + Abrir */}
+                  <div className="pt-4 border-t border-white/5 flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0 flex items-center">
+                      {(appUsers[system.id]?.length ?? 0) > 0 ? (
+                        <>
+                          <AvatarGroup className="-space-x-3">
+                            {(appUsers[system.id] || []).slice(0, 4).map((user, i) => (
+                              <Avatar key={user.id || i} className="w-[26px] h-[26px] border-2 border-background">
+                                <AvatarImage src={user.avatar} className="object-cover" />
+                                <AvatarFallback className="text-[10px]">{(user.name || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                                <AvatarGroupTooltip>{user.name || 'Colaborador'}</AvatarGroupTooltip>
+                              </Avatar>
+                            ))}
+                            {(appUsers[system.id]?.length || 0) > 4 && (
+                              <Avatar className="w-[26px] h-[26px] border-2 border-background hover:z-10">
+                                <AvatarFallback className="text-[9px] bg-muted text-muted-foreground font-medium">
+                                  +{(appUsers[system.id]?.length || 0) - 4}
+                                </AvatarFallback>
+                                <AvatarGroupTooltip>+{(appUsers[system.id]?.length || 0) - 4} colaboradores</AvatarGroupTooltip>
+                              </Avatar>
+                            )}
+                          </AvatarGroup>
+                          <span className="ml-2 text-[10px] text-muted-foreground hidden xl:inline-block">
+                            {appUsers[system.id].length}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground/50 italic">Sem acessos</span>
+                      )}
+                    </div>
+
                     {system.url && (
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="w-full"
+                        className="h-8 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 shadow-none px-3"
                         onClick={() => window.open(system.url, '_blank')}
                       >
-                        <ExternalLink className="w-3 h-3 mr-2" />
+                        <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
                         Abrir
                       </Button>
                     )}
-                    {(appUsers[system.id]?.length ?? 0) > 0 && (
-                      <div className="mt-2 flex justify-center">
-                        <AvatarStack
-                          users={appUsers[system.id]}
-                          avatarSize={28}
-                          maxDisplay={5}
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </motion.div>
             ))}
           </div>

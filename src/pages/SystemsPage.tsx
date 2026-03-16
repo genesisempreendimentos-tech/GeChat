@@ -25,8 +25,11 @@ import {
   RefreshCw,
   Star,
   ChevronDown,
+  Calendar,
+  Clock,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
+import { BANNER_CATEGORIES } from '@/views/profile/ProfileBanner/ProfileBannerImages';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +47,7 @@ interface System {
   url: string;
   category: SystemCategory;
   active: boolean;
+  createdAt?: Date | string;
 }
 
 interface User {
@@ -61,6 +65,17 @@ interface UserSystemAccess {
   favorite?: boolean;
 }
 
+const getSystemBanner = (systemId: string) => {
+  const images = BANNER_CATEGORIES.genesis.images;
+  if (!images || images.length === 0) return '';
+  let hash = 0;
+  for (let i = 0; i < systemId.length; i++) {
+    hash = systemId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % images.length;
+  return images[index];
+};
+
 export default function SystemsPage() {
   const { user: currentUser } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,6 +87,7 @@ export default function SystemsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedSystem, setSelectedSystem] = useState<System | null>(null);
   const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isAddSystemDialogOpen, setIsAddSystemDialogOpen] = useState(false);
   const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
   const [userToRevoke, setUserToRevoke] = useState<{ userId: string; userName: string } | null>(null);
@@ -344,6 +360,20 @@ export default function SystemsPage() {
     return matchesSearch && matchesCategory;
   });
 
+  const openDetail = (system: System) => {
+    setSelectedSystem(system);
+    setIsDetailDialogOpen(true);
+  };
+
+  const formatDate = (date?: Date | string) => {
+    if (!date) return 'Data desconhecida';
+    return new Date(date).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -459,43 +489,44 @@ export default function SystemsPage() {
       </div>
 
       {/* Busca e filtro por categoria */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar sistemas..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="default" className="min-w-[180px] justify-between">
+      <div className="p-1 rounded-2xl bg-white/50 dark:bg-[#0d1520]/50 border border-slate-200 dark:border-white/5 backdrop-blur-sm">
+        <div className="flex flex-col sm:flex-row gap-2 p-2">
+          <div className="flex-1 relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <Input
+              placeholder="Buscar sistemas..."
+              className="pl-11 h-12 bg-slate-100/50 dark:bg-black/20 border-slate-200 dark:border-white/5 focus-visible:ring-primary/30 rounded-xl"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="lg" className="min-w-[200px] h-12 justify-between bg-slate-100/50 dark:bg-black/20 border-slate-200 dark:border-white/5 hover:bg-slate-200/50 dark:hover:bg-white/5 hover:text-primary rounded-xl">
+                <div className="flex items-center">
                   <Filter className="w-4 h-4 mr-2" />
                   {selectedCategory === 'all' ? 'Todas as categorias' : selectedCategory}
-                  <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto">
-                <DropdownMenuItem onClick={() => setSelectedCategory('all')}>
-                  Todas as categorias
+                </div>
+                <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+              <DropdownMenuItem onClick={() => setSelectedCategory('all')} className="focus:bg-primary/20 focus:text-primary cursor-pointer">
+                Todas as categorias
+              </DropdownMenuItem>
+              {categoriesForDropdown.map((name) => (
+                <DropdownMenuItem
+                  key={name}
+                  onClick={() => setSelectedCategory(name)}
+                  className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                >
+                  {name}
                 </DropdownMenuItem>
-                {categoriesForDropdown.map((name) => (
-                  <DropdownMenuItem
-                    key={name}
-                    onClick={() => setSelectedCategory(name)}
-                  >
-                    {name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
 
       {/* Systems Grid */}
       {loading ? (
@@ -519,83 +550,182 @@ export default function SystemsPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
+                className="group relative"
               >
-                <Card className="hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-16 h-16 rounded-lg bg-primary/10 flex items-center justify-center text-primary p-2">
-                          {renderIcon(system.icon, 'w-12 h-12 object-contain')}
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">{system.name}</CardTitle>
-                          <CardDescription className="text-xs">
-                            {system.category}
-                          </CardDescription>
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
+                
+                <div 
+                  className="relative h-full flex flex-col justify-between p-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 transition-all duration-300 shadow-lg hover:shadow-primary/5 hover:-translate-y-1 cursor-pointer"
+                  onClick={() => openDetail(system)}
+                >
+                  
+                  {/* Header do Card */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      {/* Ícone */}
+                      <div className="relative group/icon">
+                        <div className="absolute inset-0 bg-primary/20 blur-lg rounded-xl opacity-0 group-hover/icon:opacity-50 transition-opacity duration-500" />
+                        <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-slate-50 to-white dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-primary shadow-inner group-hover/icon:border-primary/30 transition-colors">
+                          {renderIcon(system.icon, 'w-7 h-7 object-contain drop-shadow')}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleFavorite(system.id);
-                        }}
-                        disabled={favoriteTogglingId === system.id}
-                        className="p-1.5 rounded-lg hover:bg-accent transition-colors"
-                        title={isFavorite(system.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                      >
-                        {favoriteTogglingId === system.id ? (
-                          <LoadingGif size="sm" className="shrink-0" />
-                        ) : (
-                          <Star
-                            className={`w-5 h-5 ${
-                              isFavorite(system.id)
-                                ? 'fill-yellow-500 text-yellow-500'
-                                : 'text-muted-foreground hover:text-yellow-500'
-                            }`}
-                          />
-                        )}
-                      </button>
+                      
+                      {/* Nome */}
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors duration-300">
+                          {system.name}
+                        </h3>
+                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
+                    
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavorite(system.id);
+                      }}
+                      disabled={favoriteTogglingId === system.id}
+                      className={`p-2 rounded-full transition-all duration-300 ${
+                        isFavorite(system.id)
+                          ? 'text-yellow-500 dark:text-yellow-400 bg-yellow-500/10 dark:bg-yellow-400/10'
+                          : 'text-slate-400 dark:text-muted-foreground/50 hover:text-yellow-500 dark:hover:text-yellow-400 hover:bg-yellow-500/10 dark:hover:bg-yellow-400/10'
+                      }`}
+                      title={isFavorite(system.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                    >
+                      {favoriteTogglingId === system.id ? (
+                        <LoadingGif size="sm" className="shrink-0" />
+                      ) : (
+                        <Star className={`w-4 h-4 ${isFavorite(system.id) ? 'fill-current' : ''}`} />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Conteúdo */}
+                  <div className="flex-1 mb-6 flex flex-col">
                     <p
-                      className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]"
+                      className="text-sm text-slate-600 dark:text-muted-foreground/80 line-clamp-2 leading-relaxed mb-4 min-h-[2.5rem]"
                       title={system.description}
                     >
-                      {system.description.length > 80
-                        ? `${system.description.slice(0, 80).trim()}...`
-                        : system.description}
+                      {system.description}
                     </p>
-
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => handleSystemAccess(system.url, system.id)}
-                      >
-                        <ExternalLink className="w-3 h-3 mr-2" />
-                        Acessar
-                      </Button>
-
-                      {isAdminOrManager && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openPermissionsDialog(system)}
-                        >
-                          <Users className="w-3 h-3 mr-2" />
-                          Permitir
-                        </Button>
-                      )}
+                    
+                    {/* Tag de Categoria */}
+                    <div className="flex">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-gradient-to-r from-primary/10 to-primary/5 text-primary border border-primary/10 shadow-sm shadow-primary/5">
+                        {system.category}
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+
+                  {/* Footer / Ações */}
+                  <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                    <Button
+                      className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 shadow-none"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSystemAccess(system.url, system.id);
+                      }}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Acessar
+                    </Button>
+
+                    {isAdminOrManager && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPermissionsDialog(system);
+                        }}
+                        title="Gerenciar permissões"
+                      >
+                        <Users className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </motion.div>
             );
           })}
         </div>
       )}
+
+      {/* System Detail Dialog */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d1520] text-slate-900 dark:text-white">
+          <div className="relative">
+            {/* Header com banner Genesis */}
+            <div className="h-40 relative overflow-hidden bg-slate-100 dark:bg-[#0d1520]">
+              {selectedSystem && (
+                <img 
+                  src={getSystemBanner(selectedSystem.id)} 
+                  alt="" 
+                  className="absolute inset-0 w-full h-full object-cover opacity-60"
+                />
+              )}
+              {/* Overlay gradiente para integrar com o fundo escuro */}
+              <div className="absolute inset-0 bg-gradient-to-t from-white via-white/60 to-transparent dark:from-[#0d1520] dark:via-[#0d1520]/60" />
+              {/* Padrão de grid sutil */}
+              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xNSkiLz48L3N2Zz4=')] [mask-image:linear-gradient(to_bottom,transparent,black)] opacity-30" />
+            </div>
+            
+            <div className="px-8 pb-8">
+              {/* Ícone flutuante */}
+              <div className="-mt-10 mb-6 relative">
+                <div className="w-20 h-20 rounded-2xl bg-white dark:bg-[#0d1520] p-1.5 shadow-2xl ring-1 ring-slate-200 dark:ring-white/10">
+                  <div className="w-full h-full rounded-xl bg-gradient-to-br from-slate-50 to-white dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-primary backdrop-blur-sm">
+                    {selectedSystem && renderIcon(selectedSystem.icon, 'w-10 h-10 object-contain drop-shadow-md')}
+                  </div>
+                </div>
+              </div>
+
+              {selectedSystem && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-3">{selectedSystem.name}</h2>
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-muted-foreground">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                        {selectedSystem.category}
+                      </span>
+                      <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20" />
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 opacity-70" />
+                        Criado em {formatDate(selectedSystem.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="prose prose-invert max-w-none">
+                    <p className="text-slate-600 dark:text-muted-foreground/90 leading-relaxed text-base">
+                      {selectedSystem.description}
+                    </p>
+                  </div>
+
+                  <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 dark:border-white/5">
+                    <Button
+                      variant="ghost"
+                      onClick={() => setIsDetailDialogOpen(false)}
+                      className="hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
+                    >
+                      Fechar
+                    </Button>
+                    <Button
+                      size="lg"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[160px] shadow-lg shadow-primary/20"
+                      onClick={() => handleSystemAccess(selectedSystem.url, selectedSystem.id)}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Acessar Sistema
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Permissions Dialog */}
       <Dialog open={isPermissionDialogOpen} onOpenChange={setIsPermissionDialogOpen}>

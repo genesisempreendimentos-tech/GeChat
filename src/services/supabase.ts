@@ -485,6 +485,7 @@ export const databaseService = {
             location: row.location,
             job_title: row.job_title,
             birth_date: row.birth_date,
+            banner_url: (row as any).banner_url ?? null,
           },
           error: null,
         };
@@ -544,6 +545,7 @@ export const databaseService = {
     if (userData.whatsapp != null) payload.whatsapp = userData.whatsapp;
     if (userData.phone != null) payload.phone = userData.phone;
     if (userData.location != null) payload.location = userData.location;
+    if (userData.banner_url != null) payload.banner_url = userData.banner_url;
     for (const key of ['user_id']) {
       const { data, error } = await supabase
         .from('profiles')

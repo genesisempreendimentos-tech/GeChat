@@ -19,7 +19,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: AppWindow, label: 'Aplicativos', path: '/systems' },
   { icon: Star, label: 'Favoritos', path: '/favorites' },
-  { icon: MessageCircle, label: 'Chat', path: '/chat' },
+  // { icon: MessageCircle, label: 'Chat', path: '/chat' },
   { icon: Users, label: 'Usuários', path: '/users', adminOnly: true },
 ];
 
@@ -35,7 +35,9 @@ export default function Sidebar({ userRole }: SidebarProps) {
     return saved ? JSON.parse(saved) : false;
   });
   const [isHovered, setIsHovered] = useState(false);
+  const [showPin, setShowPin] = useState(true);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [favoriteSystems, setFavoriteSystems] = useState<{ id: string; name: string; url: string }[]>([]);
 
   const SIDEBAR_CLOSE_DELAY_MS = 2000;
@@ -56,11 +58,31 @@ export default function Sidebar({ userRole }: SidebarProps) {
     }, SIDEBAR_CLOSE_DELAY_MS);
   };
 
+  const clearPinTimer = () => {
+    if (pinTimerRef.current) {
+      clearTimeout(pinTimerRef.current);
+      pinTimerRef.current = null;
+    }
+  };
+
+  const schedulePinHide = () => {
+    clearPinTimer();
+    pinTimerRef.current = setTimeout(() => {
+      setShowPin(false);
+    }, 2000);
+  };
+
   useEffect(() => {
     localStorage.setItem('sidebar-pinned', JSON.stringify(pinned));
   }, [pinned]);
 
-  useEffect(() => () => clearCloseTimer(), []);
+  useEffect(() => {
+    schedulePinHide();
+    return () => {
+      clearCloseTimer();
+      clearPinTimer();
+    };
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -98,9 +120,14 @@ export default function Sidebar({ userRole }: SidebarProps) {
         onMouseEnter={() => {
           clearCloseTimer();
           if (!pinned) setIsHovered(true);
+          setShowPin(true);
+          clearPinTimer();
         }}
-        onMouseLeave={() => scheduleClose()}
-        className="hidden md:flex fixed left-0 top-0 h-screen bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
+        onMouseLeave={() => {
+          scheduleClose();
+          schedulePinHide();
+        }}
+        className="hidden md:flex fixed left-0 top-0 bottom-0 bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
         role="navigation"
         aria-label="Navegação principal"
       >
@@ -130,7 +157,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
 
       {/* Navigation - altura fixa no modo recolhido para não quebrar com fonte grande */}
       <nav className={cn(
-        'flex-1 overflow-y-auto',
+        'flex-1 overflow-y-auto pb-32',
         isExpanded ? 'px-4 py-6 space-y-2' : 'px-2 py-4 flex flex-col items-stretch gap-2'
       )}>
         {filteredMenu.map((item) => {
@@ -208,12 +235,23 @@ export default function Sidebar({ userRole }: SidebarProps) {
     {/* Pin Button - Na interseção do sidebar com o main view */}
     <motion.button
       initial={false}
-      animate={{ x: isExpanded ? 264 : 72 }}
+      animate={{ 
+        x: isExpanded ? 264 : 72,
+        opacity: showPin ? 1 : 0,
+        scale: showPin ? 1 : 0.8
+      }}
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+      onMouseEnter={() => {
+        setShowPin(true);
+        clearPinTimer();
+      }}
+      onMouseLeave={() => {
+        schedulePinHide();
+      }}
       onClick={() => setPinned(!pinned)}
       className={cn(
         'fixed top-4 z-50 p-2 rounded-full shadow-lg transition-all duration-200',
-        'hover:scale-110 active:scale-95',
+        showPin ? 'pointer-events-auto hover:scale-110 active:scale-95' : 'pointer-events-none',
         pinned 
           ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
           : 'bg-card/70 dark:bg-card/60 backdrop-blur-lg border border-border/80 hover:bg-accent/80'

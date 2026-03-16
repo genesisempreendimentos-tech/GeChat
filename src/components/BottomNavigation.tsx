@@ -33,11 +33,11 @@ export function BottomNavigation() {
       label: "Favoritos",
       path: "/favorites",
     },
-    {
-      icon: MessageCircle,
-      label: "Chat",
-      path: "/chat",
-    },
+    // {
+    //   icon: MessageCircle,
+    //   label: "Chat",
+    //   path: "/chat",
+    // },
     {
       icon: Users,
       label: "Usuários",

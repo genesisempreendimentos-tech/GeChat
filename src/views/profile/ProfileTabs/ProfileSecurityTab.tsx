@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Lock, Check, X, KeyRound, Monitor, ChevronDown } from 'lucide-react';
+import { Lock, Check, X, KeyRound, Monitor, ChevronDown, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/services/supabase';
 
@@ -60,132 +59,123 @@ export function ProfileSecurityTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Toasts */}
       {successMessage && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-primary/10 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-2"
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-sm"
         >
-          <Check className="w-5 h-5" />
-          <span>{successMessage}</span>
+          <Check className="w-4 h-4 shrink-0" />
+          {successMessage}
         </motion.div>
       )}
       {errorMessage && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-lg flex items-center gap-2"
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm"
         >
-          <X className="w-5 h-5" />
-          <span>{errorMessage}</span>
+          <X className="w-4 h-4 shrink-0" />
+          {errorMessage}
         </motion.div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Box 1: Alterar senha */}
-        <Card>
+        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/20 overflow-hidden">
           <button
             type="button"
             onClick={() => setOpenBox((v) => (v === 'password' ? null : 'password'))}
             className="w-full text-left"
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4" />
-                <CardTitle className="text-base">Alterar senha</CardTitle>
+            <div className="flex items-center justify-between px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
+                  <KeyRound className="w-4 h-4 text-orange-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Alterar senha</p>
+                  <p className="text-xs text-muted-foreground">Use uma senha forte e única</p>
+                </div>
               </div>
-              <ChevronDown
-                className={`w-5 h-5 text-muted-foreground transition-transform ${openBox === 'password' ? 'rotate-180' : ''}`}
-              />
-            </CardHeader>
-            <CardContent className="pt-0">
-              <p className="text-sm text-muted-foreground">
-                Recomendamos usar uma senha forte e única.
-              </p>
-            </CardContent>
+              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${openBox === 'password' ? 'rotate-180' : ''}`} />
+            </div>
           </button>
-          {openBox === 'password' && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
-            >
-              <CardContent className="border-t pt-4 space-y-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Senha atual</label>
-                  <Input
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
+          <AnimatePresence initial={false}>
+            {openBox === 'password' && (
+              <motion.div
+                key="password-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
+                <div className="px-5 pb-5 pt-1 border-t border-border/40 space-y-3">
+                  <div className="space-y-1.5 pt-3">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Senha atual</label>
+                    <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="••••••••" className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Nova senha</label>
+                    <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Confirmar nova senha</label>
+                    <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="h-9 text-sm" />
+                  </div>
+                  <Button onClick={handleChangePassword} disabled={saving} size="sm" className="gap-2 mt-1">
+                    <Lock className="w-3.5 h-3.5" />
+                    {saving ? 'Alterando...' : 'Alterar senha'}
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Nova senha</label>
-                  <Input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Confirmar nova senha</label>
-                  <Input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
-                </div>
-                <Button onClick={handleChangePassword} variant="outline" disabled={saving}>
-                  <Lock className="w-4 h-4 mr-2" />
-                  {saving ? 'Alterando...' : 'Alterar senha'}
-                </Button>
-              </CardContent>
-            </motion.div>
-          )}
-        </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Box 2: Sessões e dispositivos */}
-        <Card>
+        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/20 overflow-hidden">
           <button
             type="button"
             onClick={() => setOpenBox((v) => (v === 'sessions' ? null : 'sessions'))}
             className="w-full text-left"
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <Monitor className="w-4 h-4" />
-                <CardTitle className="text-base">Sessões e dispositivos</CardTitle>
+            <div className="flex items-center justify-between px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center shrink-0">
+                  <Monitor className="w-4 h-4 text-sky-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Sessões e dispositivos</p>
+                  <p className="text-xs text-muted-foreground">Dispositivos conectados à conta</p>
+                </div>
               </div>
-              <ChevronDown
-                className={`w-5 h-5 text-muted-foreground transition-transform ${openBox === 'sessions' ? 'rotate-180' : ''}`}
-              />
-            </CardHeader>
-            <CardContent className="pt-0">
-              <p className="text-sm text-muted-foreground">
-                Gerencie os dispositivos conectados à sua conta.
-              </p>
-            </CardContent>
+              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${openBox === 'sessions' ? 'rotate-180' : ''}`} />
+            </div>
           </button>
-          {openBox === 'sessions' && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
-            >
-              <CardContent className="border-t pt-4">
-                <p className="text-sm text-muted-foreground">
-                  Em breve você poderá ver e encerrar sessões ativas aqui.
-                </p>
-              </CardContent>
-            </motion.div>
-          )}
-        </Card>
+          <AnimatePresence initial={false}>
+            {openBox === 'sessions' && (
+              <motion.div
+                key="sessions-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
+                <div className="px-5 pb-5 pt-4 border-t border-border/40">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <ShieldCheck className="w-4 h-4 text-sky-500/60" />
+                    <p className="text-sm">Em breve você poderá ver e encerrar sessões ativas aqui.</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );

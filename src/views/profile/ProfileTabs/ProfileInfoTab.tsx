@@ -1,15 +1,7 @@
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { LoadingGif } from '@/components/LoadingGif';
 import {
   User,
@@ -18,12 +10,13 @@ import {
   Quote,
   Linkedin,
   Instagram,
-  MessageCircle,
   Save,
   Check,
   X,
   Upload,
+  Globe,
 } from 'lucide-react';
+import { WhatsappIcon } from '@/components/icons/WhatsappIcon';
 import { databaseService, storageService } from '@/services/supabase';
 import type { ProfileFormData } from '../ProfileView';
 import { IconPickerButton, PROFILE_ICONS, ICON_MAP } from './IconPickerButton';
@@ -112,107 +105,105 @@ export function ProfileInfoTab({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Toasts */}
       {successMessage && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-primary/10 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-2"
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-sm"
         >
-          <Check className="w-5 h-5" />
-          <span>{successMessage}</span>
+          <Check className="w-4 h-4 shrink-0" />
+          {successMessage}
         </motion.div>
       )}
       {errorMessage && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-lg flex items-center gap-2"
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm"
         >
-          <X className="w-5 h-5" />
-          <span>{errorMessage}</span>
+          <X className="w-4 h-4 shrink-0" />
+          {errorMessage}
         </motion.div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Público</CardTitle>
-          <CardDescription>Suas informações de perfil e redes sociais</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* ── Seção: Identidade ───────────────────────────────────── */}
+      <div className="rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/20 overflow-hidden">
+        {/* Header da seção */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-border/50 bg-muted/20">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <User className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Perfil público</p>
+            <p className="text-xs text-muted-foreground">Suas informações visíveis para outros</p>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-5">
           {/* Foto do perfil */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <ImageIcon className="w-4 h-4" />
-              Foto do perfil
-            </label>
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-border bg-muted flex-shrink-0">
+          <div className="flex items-center gap-5">
+            <div className="relative shrink-0">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-border/60 bg-muted shadow-sm">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="Foto do perfil" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <User className="w-10 h-10 text-muted-foreground" />
+                    <User className="w-9 h-9 text-muted-foreground/50" />
                   </div>
                 )}
               </div>
-              <div className="flex-1 min-w-0">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="hidden"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <>
-                      <LoadingGif size="sm" className="mr-2 inline-block" />
-                      Enviando...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Carregar foto
-                    </>
-                  )}
-                </Button>
-                <p className="text-xs text-muted-foreground mt-1">JPG, PNG ou GIF. Máx. 5MB.</p>
-              </div>
+              {uploading && (
+                <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center">
+                  <LoadingGif size="sm" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+              <p className="text-sm font-medium mb-1">Foto do perfil</p>
+              <p className="text-xs text-muted-foreground mb-3">JPG, PNG ou GIF · Máx. 5MB</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="gap-2 text-xs h-8"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                {uploading ? 'Enviando...' : 'Carregar foto'}
+              </Button>
             </div>
           </div>
 
-          {/* Apelido; Username + Ícone */}
+          <div className="border-t border-border/40" />
+
+          {/* Apelido + Username + Ícone */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Apelido
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <User className="w-3 h-3" /> Apelido
               </label>
               <Input
                 value={formData.apelido}
                 onChange={(e) => setFormData({ ...formData, apelido: e.target.value })}
                 placeholder="Como prefere ser chamado(a)"
+                className="h-9 text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <AtSign className="w-4 h-4" />
-                Username
-                <span className="text-muted-foreground font-normal text-xs ml-1">· Ícone</span>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <AtSign className="w-3 h-3" /> Username
+                <span className="normal-case font-normal">· Ícone</span>
               </label>
               <div className="flex gap-2">
                 <Input
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   placeholder="@usuario"
-                  className="flex-1 min-w-0"
+                  className="flex-1 min-w-0 h-9 text-sm"
                 />
                 <IconPickerButton
                   formData={formData}
@@ -225,71 +216,91 @@ export function ProfileInfoTab({
           </div>
 
           {/* Bio */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <Quote className="w-4 h-4" />
-              Bio
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <Quote className="w-3 h-3" /> Bio
             </label>
             <textarea
               value={formData.bio}
               onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
               placeholder="Conte um pouco sobre você..."
-              className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+              rows={3}
+              className="w-full rounded-lg border border-input bg-background/60 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors placeholder:text-muted-foreground/50"
             />
           </div>
+        </div>
+      </div>
 
-          {/* LinkedIn; Instagram; WhatsApp */}
+      {/* ── Seção: Redes sociais ────────────────────────────────── */}
+      <div className="rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/20 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-border/50 bg-muted/20">
+          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+            <Globe className="w-4 h-4 text-blue-500" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Redes sociais</p>
+            <p className="text-xs text-muted-foreground">Links para seus perfis nas redes</p>
+          </div>
+        </div>
+
+        <div className="p-5">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Linkedin className="w-4 h-4" />
-                LinkedIn
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Linkedin className="w-3.5 h-3.5 text-[#0A66C2]" />
+                <span className="text-[#0A66C2]">LinkedIn</span>
               </label>
               <Input
                 value={formData.linkedin}
                 onChange={(e) => setFormData({ ...formData, linkedin: e.target.value })}
                 placeholder="linkedin.com/in/seu-perfil"
+                className="h-9 text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Instagram className="w-4 h-4" />
-                Instagram
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Instagram className="w-3.5 h-3.5 text-[#E1306C]" />
+                <span className="text-[#E1306C]">Instagram</span>
               </label>
               <Input
                 value={formData.instagram}
                 onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
                 placeholder="@seuusuario"
+                className="h-9 text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <MessageCircle className="w-4 h-4" />
-                WhatsApp
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <WhatsappIcon className="w-3.5 h-3.5 text-[#25D366]" />
+                <span className="text-[#25D366]">WhatsApp</span>
               </label>
               <Input
                 value={formData.whatsapp}
-                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                onChange={(e) => {
+                  let v = e.target.value.replace(/\D/g, '');
+                  if (v.length > 11) v = v.slice(0, 11);
+                  if (v.length > 2) v = `(${v.slice(0, 2)}) ${v.slice(2)}`;
+                  if (v.length > 10) v = `${v.slice(0, 10)}-${v.slice(10)}`;
+                  setFormData({ ...formData, whatsapp: v });
+                }}
                 placeholder="(00) 00000-0000"
+                className="h-9 text-sm"
               />
             </div>
           </div>
+        </div>
+      </div>
 
-          <Button onClick={handleSaveProfile} disabled={saving} className="w-full md:w-auto">
-            {saving ? (
-              <>
-                <LoadingGif size="sm" className="mr-2 inline-block" />
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                Salvar alterações
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+      {/* ── Ação ───────────────────────────────────────────────── */}
+      <div className="flex justify-end">
+        <Button onClick={handleSaveProfile} disabled={saving} className="gap-2 min-w-[140px]">
+          {saving ? (
+            <><LoadingGif size="sm" className="inline-block" /> Salvando...</>
+          ) : (
+            <><Save className="w-4 h-4" /> Salvar alterações</>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

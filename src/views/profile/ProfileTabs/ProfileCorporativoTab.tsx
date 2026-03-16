@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React from 'react';
 import { Input } from '@/components/ui/input';
 import {
   Building2,
@@ -141,289 +141,161 @@ export function ProfileCorporativoTab({
   const formData = data ?? initialCorporativoData;
   const departamentoValue = departamento ?? formData.departamento;
 
+  const FieldLabel = ({ icon: Icon, label, color }: { icon: React.ElementType; label: string; color?: string }) => (
+    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+      <Icon className={`w-3.5 h-3.5 ${color ?? ''}`} />
+      {label}
+    </label>
+  );
+
+  const roClass = 'h-9 text-sm bg-muted/50 cursor-not-allowed opacity-80 border-border/40';
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="w-5 h-5" />
-                Dados corporativos
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                      aria-label="Informações sobre dados corporativos"
-                    >
-                      <Info className="w-4 h-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs font-extralight">
-                    Essas informações serão adicionadas pelo setor de RH. <br /> Qualquer dúvida, entrar em contato com{' '}
-                    <a href="mailto:rh@genesisempreendimentos.com.br" className="text-primary underline underline-offset-2 hover:opacity-80 cursor-pointer font-normal">rh@genesisempreendimentos.com.br</a>
-                  </TooltipContent>
-                </Tooltip>
-              </CardTitle>
+    <div className="space-y-5">
+
+      {/* ── Aviso RH ─────────────────────────────────────────── */}
+      {notFound && !loading && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-500/8 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
+          <Info className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{RH_MESSAGE}</span>
+        </div>
+      )}
+
+      {/* ── Seção: Dados pessoais ─────────────────────────────── */}
+      <div className="rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/20 overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 bg-muted/20">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+              <User className="w-4 h-4 text-violet-500" />
             </div>
+            <div>
+              <p className="text-sm font-semibold">Dados pessoais</p>
+              <p className="text-xs text-muted-foreground">Informações cadastradas pelo RH</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Info RH">
+                  <Info className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                Gerenciado pelo RH.{' '}
+                <a href="mailto:rh@genesisempreendimentos.com.br" className="text-primary underline">rh@genesisempreendimentos.com.br</a>
+              </TooltipContent>
+            </Tooltip>
             {onRefresh && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={onRefresh}
-                disabled={loading}
-                className="shrink-0"
-                aria-label="Atualizar dados corporativos"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <Button type="button" variant="ghost" size="icon" onClick={onRefresh} disabled={loading} className="w-7 h-7" aria-label="Atualizar">
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {loading && (
+        </div>
+
+        <div className="p-5">
+          {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <div className="h-4 w-24 rounded bg-muted animate-pulse" />
-                  <div className="h-10 rounded bg-muted animate-pulse" />
+                <div key={i} className="space-y-1.5">
+                  <div className="h-3 w-20 rounded bg-muted animate-pulse" />
+                  <div className="h-9 rounded-lg bg-muted animate-pulse" />
                 </div>
               ))}
             </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <FieldLabel icon={User} label="Nome completo" />
+                <Input value={formData.name} disabled readOnly className={roClass} placeholder="Nome completo" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={Phone} label="Telefone" />
+                <Input value={formData.phone} disabled readOnly className={roClass} placeholder="(00) 00000-0000" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={Mail} label="E-mail pessoal" />
+                <Input type="email" value={formData.personal_email ?? formData.email ?? ''} disabled readOnly className={roClass} placeholder="e-mail@exemplo.com" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={Mail} label="E-mail corporativo" />
+                <Input type="email" value={formData.corporate_email ?? ''} disabled readOnly className={roClass} placeholder="email@empresa.com" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={Calendar} label="Data de nascimento" />
+                <Input type="date" value={formData.birth_date} disabled readOnly className={roClass} />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={CreditCard} label="CPF" />
+                <Input value={formData.cpf} disabled readOnly className={roClass} placeholder="000.000.000-00" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={Heart} label="Estado civil" />
+                <Input value={formData.marital_status} disabled readOnly className={roClass} placeholder="Ex.: Solteiro(a)" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={CircleUser} label="Gênero" />
+                <Input value={formData.gender} disabled readOnly className={roClass} placeholder="Ex.: Masculino, Feminino" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={Briefcase} label="Profissão" />
+                <Input value={formData.profession} disabled readOnly className={roClass} placeholder="Profissão" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={FileText} label="Currículo" />
+                <ReadOnlyUrlField value={formData.curriculum_url} placeholder="URL do currículo" />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <FieldLabel icon={MapPin} label="Endereço" />
+                <Input value={formData.address} disabled readOnly className={roClass} placeholder="Rua, número, bairro, cidade, estado, CEP" />
+              </div>
+            </div>
           )}
-          {!loading && notFound && (
-            <p className="text-muted-foreground text-sm mb-4">
-              {RH_MESSAGE}
-            </p>
-          )}
-          {!loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* 1. Nome; Telefone */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Nome
-              </label>
-              <Input
-                value={formData.name}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="Nome completo"
-              />
+        </div>
+      </div>
+
+      {/* ── Seção: Dados organizacionais ─────────────────────── */}
+      {!loading && (
+        <div className="rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/20 overflow-hidden">
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-border/50 bg-muted/20">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0">
+              <Building2 className="w-4 h-4 text-teal-500" />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Phone className="w-4 h-4" />
-                Telefone
-              </label>
-              <Input
-                value={formData.phone}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="(00) 00000-0000"
-              />
-            </div>
-            {/* 2. Email; Email corporativo */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                Email Pessoal
-              </label>
-              <Input
-                type="email"
-                value={formData.personal_email ?? formData.email ?? ''}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="e-mail@exemplo.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                Email corporativo
-              </label>
-              <Input
-                type="email"
-                value={formData.corporate_email ?? ''}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="email@empresa.com"
-              />
-            </div>
-            {/* 3. Data de nascimento; CPF */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Data de nascimento
-              </label>
-              <Input
-                type="date"
-                value={formData.birth_date}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <CreditCard className="w-4 h-4" />
-                CPF
-              </label>
-              <Input
-                value={formData.cpf}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="000.000.000-00"
-              />
-            </div>
-            {/* 4. Estado civil; Gênero */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Heart className="w-4 h-4" />
-                Estado civil
-              </label>
-              <Input
-                value={formData.marital_status}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="Ex.: Solteiro(a), Casado(a), Divorciado(a)"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <CircleUser className="w-4 h-4" />
-                Gênero
-              </label>
-              <Input
-                value={formData.gender}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="Ex.: Masculino, Feminino, Outro"
-              />
-            </div>
-            {/* 5. Profissão; Currículo */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Briefcase className="w-4 h-4" />
-                Profissão
-              </label>
-              <Input
-                value={formData.profession}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="Profissão"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                Currículo
-              </label>
-              <ReadOnlyUrlField value={formData.curriculum_url} placeholder="URL do currículo" />
-            </div>
-            {/* 6. Endereço (largura total) */}
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                Endereço
-              </label>
-              <Input
-                value={formData.address}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="Rua, número, bairro, cidade, estado, CEP"
-              />
-            </div>
-            {/* 7. Departamento; Setor */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <FolderOpen className="w-4 h-4" />
-                Departamento
-              </label>
-              <Input
-                value={departamentoValue ?? ''}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="Departamento"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Layers className="w-4 h-4" />
-                Setor
-              </label>
-              <Input
-                value={formData.setor ?? ''}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="Setor"
-              />
-            </div>
-            {/* 8. Cadeira principal; Cadeira secundária */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Armchair className="w-4 h-4" />
-                Cadeira principal
-              </label>
-              <Input
-                value={formData.cadeira_principal ?? formData.primary_chair_id ?? ''}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="Nome da cadeira principal"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <LayoutGrid className="w-4 h-4" />
-                Cadeira secundária
-              </label>
-              <Input
-                value={formData.cadeiras_secundarias ?? ''}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-                placeholder="Nomes das cadeiras secundárias"
-              />
-            </div>
-            {/* 9. Data de admissão; Contrato */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <CalendarCheck className="w-4 h-4" />
-                Data de admissão
-              </label>
-              <Input
-                type="date"
-                value={formData.hire_date}
-                disabled
-                readOnly
-                className={readOnlyInputClass}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <FileSignature className="w-4 h-4" />
-                Contrato
-              </label>
-              <ReadOnlyUrlField value={formData.contract_url} placeholder="URL do contrato" />
+            <div>
+              <p className="text-sm font-semibold">Dados organizacionais</p>
+              <p className="text-xs text-muted-foreground">Estrutura e vínculo na empresa</p>
             </div>
           </div>
-          )}
-        </CardContent>
-      </Card>
+          <div className="p-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <FieldLabel icon={FolderOpen} label="Departamento" />
+                <Input value={departamentoValue ?? ''} disabled readOnly className={roClass} placeholder="Departamento" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={Layers} label="Setor" />
+                <Input value={formData.setor ?? ''} disabled readOnly className={roClass} placeholder="Setor" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={Armchair} label="Cadeira principal" color="text-teal-500" />
+                <Input value={formData.cadeira_principal ?? formData.primary_chair_id ?? ''} disabled readOnly className={roClass} placeholder="Cargo principal" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={LayoutGrid} label="Cadeiras secundárias" />
+                <Input value={formData.cadeiras_secundarias ?? ''} disabled readOnly className={roClass} placeholder="Outros cargos" />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={CalendarCheck} label="Data de admissão" color="text-teal-500" />
+                <Input type="date" value={formData.hire_date} disabled readOnly className={roClass} />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel icon={FileSignature} label="Contrato" />
+                <ReadOnlyUrlField value={formData.contract_url} placeholder="URL do contrato" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
