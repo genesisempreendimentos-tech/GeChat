@@ -1,23 +1,33 @@
 import { motion } from 'framer-motion';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
-  AppWindow,
   Star,
   Users,
   MessageCircle,
   Pin,
   ExternalLink,
+  Shield,
+  Check,
+  UserCircle,
 } from 'lucide-react';
+import { BrandDatabricksIcon } from '@/components/icons/BrandDatabricksIcon';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { databaseService } from '@/services/supabase';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: AppWindow, label: 'Aplicativos', path: '/systems' },
+  { icon: BrandDatabricksIcon, label: 'Aplicativos', path: '/systems' },
   { icon: Star, label: 'Favoritos', path: '/favorites' },
   // { icon: MessageCircle, label: 'Chat', path: '/chat' },
   { icon: Users, label: 'Usuários', path: '/users', adminOnly: true },
@@ -29,7 +39,10 @@ interface SidebarProps {
 
 export default function Sidebar({ userRole }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { isSoftadmin } = useAdminAccess();
+  const isInAdmin = location.pathname.startsWith('/admin');
   const [pinned, setPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-pinned');
     return saved ? JSON.parse(saved) : false;
@@ -131,29 +144,78 @@ export default function Sidebar({ userRole }: SidebarProps) {
         role="navigation"
         aria-label="Navegação principal"
       >
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-center px-6 border-b border-border/70 shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
-              <img
-                src="/assets/GêApps.svg"
-                alt="GêApps"
-                className="w-full h-full object-contain"
-                style={{
-                  filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
-                }}
-              />
+        {/* Logo — dropdown Painel de membro / Painel admin (somente access_type softadmin/appsadmin) */}
+        {isSoftadmin ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div
+                className={cn(
+                  'h-16 flex items-center justify-center px-6 border-b border-border/70 shrink-0 cursor-pointer hover:bg-accent/30 transition-colors outline-none',
+                  'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+                )}
+                aria-label="Trocar painel"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
+                    <img
+                      src="/assets/GêApps.svg"
+                      alt="GêApps"
+                      className="w-full h-full object-contain"
+                      style={{
+                        filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
+                      }}
+                    />
+                  </div>
+                  <span
+                    className={cn(
+                      'text-xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent whitespace-nowrap overflow-hidden transition-all duration-200',
+                      isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'
+                    )}
+                  >
+                    GêApps
+                  </span>
+                </div>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="bottom" align="center" className="min-w-[180px]" sideOffset={4}>
+              <DropdownMenuItem onClick={() => navigate('/dashboard')} className="gap-2 cursor-pointer">
+                {!isInAdmin && <Check className="h-4 w-4 shrink-0" />}
+                {isInAdmin && <span className="w-4 shrink-0" />}
+                <UserCircle className="h-4 w-4 shrink-0" />
+                Painel de membro
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/admin/home')} className="gap-2 cursor-pointer">
+                {isInAdmin && <Check className="h-4 w-4 shrink-0" />}
+                {!isInAdmin && <span className="w-4 shrink-0" />}
+                <Shield className="h-4 w-4 shrink-0" />
+                Painel admin
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <div className="h-16 flex items-center justify-center px-6 border-b border-border/70 shrink-0 cursor-default">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
+                <img
+                  src="/assets/GêApps.svg"
+                  alt="GêApps"
+                  className="w-full h-full object-contain"
+                  style={{
+                    filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
+                  }}
+                />
+              </div>
+              <span
+                className={cn(
+                  'text-xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent whitespace-nowrap overflow-hidden transition-all duration-200',
+                  isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'
+                )}
+              >
+                GêApps
+              </span>
             </div>
-            <span
-              className={cn(
-                'text-xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent whitespace-nowrap overflow-hidden transition-all duration-200',
-                isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'
-              )}
-            >
-              GêApps
-            </span>
           </div>
-        </div>
+        )}
 
       {/* Navigation - altura fixa no modo recolhido para não quebrar com fonte grande */}
       <nav className={cn(
@@ -265,6 +327,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
         )} 
       />
     </motion.button>
+
   </>
   );
 }

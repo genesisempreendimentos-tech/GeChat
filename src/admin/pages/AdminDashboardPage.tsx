@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { BrandDatabricksIcon } from '@/components/icons/BrandDatabricksIcon';
 import {
   LayoutDashboard,
   Users,
   Shield,
-  AppWindow,
   Activity,
   TrendingUp,
   Star,
@@ -174,7 +174,7 @@ export default function AdminDashboardPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Apps totais</CardTitle>
-                <AppWindow className="w-5 h-5 text-muted-foreground" />
+                <BrandDatabricksIcon className="w-5 h-5 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{counts?.apps ?? 0}</p>

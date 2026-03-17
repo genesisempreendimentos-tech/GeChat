@@ -36,29 +36,30 @@ export default function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-end px-4 md:px-6 h-16 w-full border-b border-border/70 bg-card/60 dark:bg-card/50 backdrop-blur-xl shrink-0 transition-all duration-300">
-      <div className="flex items-center gap-2">
-        <span className="hidden lg:flex items-center">
+      <div className="flex items-center gap-1.5 shrink-0 bg-muted/40 hover:bg-muted/50 border border-border/50 rounded-full p-1.5 shadow-sm transition-colors">
+        <span className="hidden lg:flex items-center border-r border-border/50 pr-1.5 mr-0.5">
           <Zoom />
         </span>
-        <ThemeToggle />
+        <ThemeToggle className="relative h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 shadow-sm transition-all" />
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-primary/10"
+          className="relative h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 shadow-sm transition-all"
           onClick={() => setNotificationsOpen(true)}
           aria-label="Abrir notificações"
         >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-destructive rounded-full" />
+          <Bell className="w-[18px] h-[18px]" />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-destructive border-2 border-background rounded-full" />
         </Button>
+        <div className="w-[1px] h-4 bg-border/50 mx-0.5" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center justify-center h-9 w-9 rounded-xl hover:bg-primary/5 transition-colors shrink-0" aria-label="Menu do usuário">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center overflow-hidden shrink-0">
+            <button className="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-transparent hover:ring-primary/30 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-primary/50" aria-label="Menu do usuário">
+              <div className="w-full h-full rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shadow-sm">
                 {user?.avatar ? (
                   <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-primary-foreground font-semibold text-sm">
+                  <span className="text-primary font-semibold text-sm">
                     {user?.name?.charAt(0) ?? '?'}
                   </span>
                 )}

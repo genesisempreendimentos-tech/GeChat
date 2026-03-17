@@ -5,6 +5,7 @@ import { Cake, Instagram, Linkedin, X } from 'lucide-react'
 import { WhatsappIcon } from '@/components/icons/WhatsappIcon'
 import { DotLottiePlayer } from '@dotlottie/react-player'
 import '@dotlottie/react-player/dist/index.css'
+import { ICON_MAP } from '@/views/profile/ProfileTabs/IconPickerButton'
 
 // Helpers para construir URLs sociais
 const digitsOnly   = (v: string) => (v || '').replace(/\D+/g, '')
@@ -73,6 +74,7 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
       instagram:     userData.instagram || '',
       linkedin:      userData.linkedin  || '',
       mascote:       (userData.mascote as 'gato' | 'cachorro' | 'passaro' | 'terra' | 'tigre' | 'cavalo' | 'peixe' | 'leao') || '',
+      icon:          userData.icon ?? '',
     }
   }, [userData])
 
@@ -144,24 +146,43 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
           {/* Info — apenas apelido + username (relative para posicionar mascotes) */}
           <div className="px-6 pb-6 relative z-10 min-h-[140px]">
 
-            {/* Mascote ao lado do nome (passaro, leao): um pouco acima e à direita */}
-            <div className="text-center mb-4 relative">
-              {(data.mascote === 'passaro' || data.mascote === 'leao') && (
-                <div className="absolute -top-2 right-1/4 w-12 h-12 pointer-events-none" style={{ transform: 'translate(8px, -4px)' }}>
-                  <DotLottiePlayer
-                    src={data.mascote === 'leao' ? '/assets/leao.lottie' : '/assets/bird.lottie'}
-                    autoplay
-                    loop
-                    className="w-full h-full"
-                    renderer="svg"
-                  />
-                </div>
-              )}
-              <h2 className="text-xl font-bold text-white tracking-tight leading-tight">
-                {data.apelido || data.username || 'Usuário'}
-              </h2>
-              <div className="flex items-center justify-center gap-2 mt-1 flex-wrap">
-                <span className="text-teal-400 text-sm font-semibold">@{data.username}</span>
+            {/* Nome sempre centralizado sob o avatar; ícone (passaro/leao) ao lado sem deslocar o nome */}
+            <div className="text-center mb-4">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 min-w-0 w-full">
+                <span className="min-w-0" aria-hidden />
+                <h2 className="text-xl font-bold text-white tracking-tight leading-tight truncate min-w-0 justify-self-center">
+                  {data.apelido || data.username || 'Usuário'}
+                </h2>
+                <span className="flex items-center justify-start min-w-0">
+                  {(data.mascote === 'passaro' || data.mascote === 'leao') && (
+                    <div className="w-10 h-10 shrink-0 pointer-events-none flex items-center justify-center" style={{ marginTop: -2 }}>
+                      <DotLottiePlayer
+                        src={data.mascote === 'leao' ? '/assets/leao.lottie' : '/assets/bird.lottie'}
+                        autoplay
+                        loop
+                        className="w-full h-full"
+                        renderer="svg"
+                      />
+                    </div>
+                  )}
+                </span>
+              </div>
+              {/* @username centralizado; ícone do perfil ao lado (mesma ideia do nome) */}
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 min-w-0 w-full mt-1">
+                <span className="min-w-0" aria-hidden />
+                <span className="text-teal-400 text-sm font-semibold truncate min-w-0 justify-self-center">
+                  @{data.username}
+                </span>
+                <span className="flex items-center justify-start min-w-0">
+                  {data.icon && ICON_MAP[data.icon] && (() => {
+                    const IconComponent = ICON_MAP[data.icon]
+                    return (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md overflow-hidden ring-1 ring-white/20 bg-white/5 text-teal-400/90">
+                        <IconComponent className="h-3 w-3" />
+                      </span>
+                    )
+                  })()}
+                </span>
               </div>
               {data.description && (
                 <p className="text-white/55 text-sm mt-2 leading-relaxed">{data.description}</p>

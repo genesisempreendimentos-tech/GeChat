@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,24 +9,17 @@ import {
   Quote,
   Linkedin,
   Instagram,
-  Save,
   Check,
   X,
   Upload,
   Globe,
   Cat,
-  Dog,
-  Bird,
-  Mountain,
-  PawPrint,
-  Zap,
-  Fish,
-  Crown,
 } from 'lucide-react';
 import { WhatsappIcon } from '@/components/icons/WhatsappIcon';
 import { databaseService, storageService } from '@/services/supabase';
-import type { ProfileFormData, MascoteOption } from '../ProfileView';
+import type { ProfileFormData } from '../ProfileView';
 import { IconPickerButton, PROFILE_ICONS, ICON_MAP } from './IconPickerButton';
+import { MascotePickerButton } from './MascotePickerButton';
 
 interface ProfileInfoTabProps {
   formData: ProfileFormData;
@@ -35,16 +28,20 @@ interface ProfileInfoTabProps {
   setAvatarUrl: React.Dispatch<React.SetStateAction<string>>;
   currentUserId: string | null;
   onUserUpdate: (data: { name?: string; avatar?: string }) => void;
+  onSaveSuccess?: () => void;
+  onSavingChange?: (saving: boolean) => void;
 }
 
-export function ProfileInfoTab({
+export const ProfileInfoTab = forwardRef<{ save: () => Promise<void> }, ProfileInfoTabProps>(function ProfileInfoTab({
   formData,
   setFormData,
   avatarUrl,
   setAvatarUrl,
   currentUserId,
   onUserUpdate,
-}: ProfileInfoTabProps) {
+  onSaveSuccess,
+  onSavingChange,
+}, ref) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -54,6 +51,7 @@ export function ProfileInfoTab({
   const handleSaveProfile = async () => {
     if (!currentUserId) return;
     setSaving(true);
+    onSavingChange?.(true);
     setErrorMessage('');
     setSuccessMessage('');
     try {
@@ -73,14 +71,19 @@ export function ProfileInfoTab({
         setErrorMessage('Erro ao salvar perfil: ' + error.message);
       } else {
         onUserUpdate({ name: formData.name || formData.apelido, avatar: avatarUrl });
+        onSaveSuccess?.();
         setSuccessMessage('Perfil atualizado com sucesso!');
         setTimeout(() => setSuccessMessage(''), 3000);
       }
     } catch (err: unknown) {
       setErrorMessage('Erro ao salvar perfil: ' + (err as Error).message);
+    } finally {
+      setSaving(false);
+      onSavingChange?.(false);
     }
-    setSaving(false);
   };
+
+  useImperativeHandle(ref, () => ({ save: handleSaveProfile }), [formData, avatarUrl, currentUserId]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -228,33 +231,10 @@ export function ProfileInfoTab({
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
               <Cat className="w-3 h-3" /> Mascote
             </label>
-            <div className="flex flex-wrap gap-2">
-              {([
-                { value: '' as MascoteOption, label: 'Nenhum', Icon: null },
-                { value: 'gato' as MascoteOption, label: 'Gato', Icon: Cat },
-                { value: 'cachorro' as MascoteOption, label: 'Cachorro', Icon: Dog },
-                { value: 'passaro' as MascoteOption, label: 'Pássaro', Icon: Bird },
-                { value: 'terra' as MascoteOption, label: 'Terra', Icon: Mountain },
-                { value: 'tigre' as MascoteOption, label: 'Tigre', Icon: PawPrint },
-                { value: 'cavalo' as MascoteOption, label: 'Cavalo', Icon: Zap },
-                { value: 'peixe' as MascoteOption, label: 'Peixe', Icon: Fish },
-                { value: 'leao' as MascoteOption, label: 'Leão', Icon: Crown },
-              ]).map(({ value, label, Icon }) => (
-                <button
-                  key={value || 'none'}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, mascote: value })}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
-                    formData.mascote === value
-                      ? 'border-primary bg-primary/15 text-primary'
-                      : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                  }`}
-                >
-                  {Icon && <Icon className="w-4 h-4" />}
-                  {label}
-                </button>
-              ))}
-            </div>
+            <MascotePickerButton
+              value={formData.mascote}
+              onChange={(mascote) => setFormData({ ...formData, mascote })}
+            />
           </div>
 
           {/* Bio */}
@@ -332,17 +312,6 @@ export function ProfileInfoTab({
           </div>
         </div>
       </div>
-
-      {/* ── Ação ───────────────────────────────────────────────── */}
-      <div className="flex justify-end">
-        <Button onClick={handleSaveProfile} disabled={saving} className="gap-2 min-w-[140px]">
-          {saving ? (
-            <><LoadingGif size="sm" className="inline-block" /> Salvando...</>
-          ) : (
-            <><Save className="w-4 h-4" /> Salvar alterações</>
-          )}
-        </Button>
-      </div>
     </div>
   );
-}
+});

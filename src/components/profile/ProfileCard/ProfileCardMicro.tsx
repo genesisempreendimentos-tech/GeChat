@@ -7,12 +7,10 @@ interface ProfileCardMicroProps {
   displayName: string;
   username: string;
   avatarUrl: string;
-  /** Ícone opcional ao lado do username (URL ou null) */
-  iconUrl?: string | null;
   onInfoClick?: () => void;
 }
 
-export default function ProfileCardMicro({ displayName, username, avatarUrl, iconUrl, onInfoClick }: ProfileCardMicroProps) {
+export default function ProfileCardMicro({ displayName, username, avatarUrl, onInfoClick }: ProfileCardMicroProps) {
   return (
     <div
       className="pc-microcard-container absolute bottom-4 left-4 right-4 z-[10000]
@@ -45,15 +43,7 @@ export default function ProfileCardMicro({ displayName, username, avatarUrl, ico
           >
             {displayName}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, minWidth: 0, overflow: 'hidden' }}>
-            {iconUrl && (
-              <span
-                className="shrink-0 flex items-center justify-center rounded-md overflow-hidden ring-1 ring-white/20 bg-white/5"
-                style={{ width: 14, height: 14 }}
-              >
-                <img src={iconUrl} alt="" className="w-full h-full object-contain" />
-              </span>
-            )}
+          <div style={{ display: 'block', marginTop: 2 }}>
             <span
               style={{
                 display: 'block',

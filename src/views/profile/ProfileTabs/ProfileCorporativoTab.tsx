@@ -148,7 +148,6 @@ export function ProfileCorporativoTab({
 
   return (
     <div className="space-y-5">
-
       {/* ── Seção: Dados pessoais ─────────────────────────────── */}
       <div className="rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/20 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 bg-muted/20">
