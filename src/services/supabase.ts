@@ -870,12 +870,12 @@ export const databaseService = {
     return { data, error };
   },
 
-  // Audit Logs (tabela audit_logs)
+  // Audit Logs (tabela audit_logs: actor_user_id, app_id, action, entity_type, ...)
   async logAccess(userId: string, systemId: string) {
     try {
       const { data, error } = await supabase
         .from('audit_logs')
-        .insert([{ user_id: userId, app_id: systemId }])
+        .insert([{ actor_user_id: userId, app_id: systemId, action: 'access', entity_type: 'app', entity_id: systemId }])
         .select()
         .single();
       if (error) console.warn('Falha ao registrar log de acesso:', error);
@@ -887,24 +887,52 @@ export const databaseService = {
   },
 
   async getAccessLogs(userId?: string, limit = 50) {
-    const orderCol = 'timestamp'; // audit_logs: timestamp ou created_at
-    let query = supabase
-      .from('audit_logs')
-      .select('*, profiles(*), apps(*)')
-      .order(orderCol, { ascending: false })
-      .limit(limit);
-    if (userId) query = query.eq('user_id', userId);
-    const { data, error } = await query;
-    if (error) return { data: null, error };
-    const normalized = (data ?? []).map((row: any) => {
-      const user = row.profiles ? profileToUser(row.profiles as ProfileRow) : null;
-      const app = row.apps;
+    // audit_logs usa actor_user_id (não user_id); ordenação por timestamp ou created_at
+    const orderCols = ['created_at', 'timestamp'] as const;
+    let rows: Array<{ actor_user_id?: string; app_id?: string; [k: string]: unknown }> | null = null;
+    let error: unknown = null;
+    for (const orderCol of orderCols) {
+      let query = supabase.from('audit_logs').select('*').order(orderCol, { ascending: false }).limit(limit);
+      if (userId) query = query.eq('actor_user_id', userId);
+      const result = await query;
+      if (!result.error) {
+        rows = (result.data ?? []) as Array<{ actor_user_id?: string; app_id?: string; [k: string]: unknown }>;
+        error = null;
+        break;
+      }
+      error = result.error;
+    }
+    if (error && !rows) return { data: null, error };
+    const list = (rows ?? []) as Array<{ actor_user_id?: string; app_id?: string; [k: string]: unknown }>;
+    const userIds = [...new Set(list.map((r) => r.actor_user_id).filter(Boolean))] as string[];
+    const appIds = [...new Set(list.map((r) => r.app_id).filter(Boolean))] as string[];
+    const [profilesByIdRes, profilesByUserIdRes, appsRes] = await Promise.all([
+      userIds.length ? supabase.from('profiles').select('*').in('id', userIds) : { data: [] as ProfileRow[] },
+      userIds.length ? supabase.from('profiles').select('*').in('user_id', userIds) : { data: [] as ProfileRow[] },
+      appIds.length ? supabase.from('apps').select('*').in('id', appIds) : { data: [] as Record<string, unknown>[] },
+    ]);
+    const profileByUserId = new Map<string, ProfileRow>();
+    for (const p of [...(profilesByIdRes.data ?? []), ...(profilesByUserIdRes.data ?? [])]) {
+      const row = p as ProfileRow;
+      if (row.id) profileByUserId.set(row.id, row);
+      if (row.user_id) profileByUserId.set(row.user_id, row);
+    }
+    const appById = new Map<string, Record<string, unknown>>();
+    for (const a of appsRes.data ?? []) {
+      const id = (a as { id?: string }).id;
+      if (id) appById.set(id, a as Record<string, unknown>);
+    }
+    const normalized = list.map((row: Record<string, unknown>) => {
+      const actorId = (row.actor_user_id ?? row.user_id) as string | undefined;
+      const user = actorId ? profileToUser(profileByUserId.get(actorId) ?? null) : null;
+      const app = row.app_id ? appById.get(row.app_id as string) : null;
       return {
         ...row,
+        user_id: actorId ?? row.user_id,
         system_id: row.app_id ?? row.system_id,
         systemId: row.app_id ?? row.system_id,
         userName: user?.name ?? row.userName,
-        systemName: app?.name ?? row.systemName,
+        systemName: (app as { name?: string })?.name ?? row.systemName,
         users: user,
         systems: app,
       };

@@ -36,7 +36,6 @@ const COLLABORATORS_FIELD_MAP = {
   avatar_url: ['avatar_url'],
   profession: ['profession'],
   gender: ['gender'],
-  address: ['address'],
   hire_date: ['hire_date'],
   dismissal_date: ['dismissal_date'],
   marital_status: ['marital_status'],
@@ -45,6 +44,7 @@ const COLLABORATORS_FIELD_MAP = {
   contract_url: ['contract_url'],
   departamento: ['department_cadeira_principal'],
   setor: ['setor_cadeira_principal'],
+  cadeira_principal: ['cadeira_principal_nome'],
   cadeiras_secundarias: ['cadeiras_secundarias_nomes'],
   primary_chair_id: ['cadeira_principal_nome'],
 };
@@ -56,6 +56,28 @@ function getRowValue(row, columnName) {
   const key = Object.keys(row).find((k) => k.toLowerCase() === want);
   if (key != null && row[key] != null && row[key] !== '') return row[key];
   return null;
+}
+
+function getAddressLine(row) {
+  const rua = getRowValue(row, 'rua');
+  const numero = getRowValue(row, 'numero');
+  const complemento = getRowValue(row, 'complemento');
+  const bairro = getRowValue(row, 'bairro');
+  const cidade = getRowValue(row, 'cidade');
+  const estado = getRowValue(row, 'estado');
+  const cep = getRowValue(row, 'cep');
+  const pais = getRowValue(row, 'pais');
+  const str = (v) => (v != null && v !== '' ? String(v).trim() : '');
+  const parts = [
+    str(rua),
+    str(numero),
+    str(complemento),
+    str(bairro),
+    cidade && estado ? `${str(cidade)} - ${str(estado)}` : (str(cidade) || str(estado)),
+    str(cep),
+    str(pais),
+  ].filter(Boolean);
+  return parts.join(', ');
 }
 
 function mapRowToCorporativo(row) {
@@ -71,6 +93,7 @@ function mapRowToCorporativo(row) {
     }
     result[formKey] = value;
   }
+  result.address = getAddressLine(row);
   return result;
 }
 

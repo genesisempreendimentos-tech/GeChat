@@ -15,9 +15,8 @@ import {
   FileText,
   FileSignature,
   Armchair,
-  FolderOpen,
-  Layers,
-  LayoutGrid,
+  Grid2x2,
+  Shapes,
   RefreshCw,
   Info,
 } from 'lucide-react';
@@ -120,9 +119,6 @@ function ReadOnlyUrlField({
   );
 }
 
-const RH_MESSAGE =
-  'Essas informações serão adicionadas pelo setor de RH. Qualquer dúvida, entrar em contato com rh@genesisempreendimentos.com.br';
-
 interface ProfileCorporativoTabProps {
   data?: CorporativoFormData | null;
   loading?: boolean;
@@ -153,14 +149,6 @@ export function ProfileCorporativoTab({
   return (
     <div className="space-y-5">
 
-      {/* ── Aviso RH ─────────────────────────────────────────── */}
-      {notFound && !loading && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-500/8 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
-          <Info className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>{RH_MESSAGE}</span>
-        </div>
-      )}
-
       {/* ── Seção: Dados pessoais ─────────────────────────────── */}
       <div className="rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/20 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 bg-muted/20">
@@ -169,22 +157,24 @@ export function ProfileCorporativoTab({
               <User className="w-4 h-4 text-violet-500" />
             </div>
             <div>
-              <p className="text-sm font-semibold">Dados pessoais</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-semibold">Dados pessoais</p>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Info RH">
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="w-max text-xs">
+                    Essas informações são adicionadas pelo <br /> departamento de RH. <br /> Qualquer dúvida, entrar em contato com<br />{' '}
+                    <a href="mailto:rh@genesisempreendimentos.com.br" className="text-primary underline">rh@genesisempreendimentos.com.br</a>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <p className="text-xs text-muted-foreground">Informações cadastradas pelo RH</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Info RH">
-                  <Info className="w-4 h-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-xs">
-                Gerenciado pelo RH.{' '}
-                <a href="mailto:rh@genesisempreendimentos.com.br" className="text-primary underline">rh@genesisempreendimentos.com.br</a>
-              </TooltipContent>
-            </Tooltip>
             {onRefresh && (
               <Button type="button" variant="ghost" size="icon" onClick={onRefresh} disabled={loading} className="w-7 h-7" aria-label="Atualizar">
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -247,7 +237,7 @@ export function ProfileCorporativoTab({
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <FieldLabel icon={MapPin} label="Endereço" />
-                <Input value={formData.address} disabled readOnly className={roClass} placeholder="Rua, número, bairro, cidade, estado, CEP" />
+                <Input value={formData.address} disabled readOnly className={roClass} placeholder="Rua, Número, Complemento, Bairro, Cidade - Estado, CEP, País" />
               </div>
             </div>
           )}
@@ -269,23 +259,23 @@ export function ProfileCorporativoTab({
           <div className="p-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <FieldLabel icon={FolderOpen} label="Departamento" />
+                <FieldLabel icon={Grid2x2} label="Departamento" />
                 <Input value={departamentoValue ?? ''} disabled readOnly className={roClass} placeholder="Departamento" />
               </div>
               <div className="space-y-1.5">
-                <FieldLabel icon={Layers} label="Setor" />
+                <FieldLabel icon={Shapes} label="Setor" />
                 <Input value={formData.setor ?? ''} disabled readOnly className={roClass} placeholder="Setor" />
               </div>
               <div className="space-y-1.5">
-                <FieldLabel icon={Armchair} label="Cadeira principal" color="text-teal-500" />
-                <Input value={formData.cadeira_principal ?? formData.primary_chair_id ?? ''} disabled readOnly className={roClass} placeholder="Cargo principal" />
+                <FieldLabel icon={Armchair} label="Cadeira principal" />
+                <Input value={formData.cadeira_principal ?? formData.primary_chair_id ?? ''} disabled readOnly className={roClass} placeholder="Cadeira principal" />
               </div>
               <div className="space-y-1.5">
-                <FieldLabel icon={LayoutGrid} label="Cadeiras secundárias" />
+                <FieldLabel icon={Armchair} label="Cadeiras secundárias" />
                 <Input value={formData.cadeiras_secundarias ?? ''} disabled readOnly className={roClass} placeholder="Outros cargos" />
               </div>
               <div className="space-y-1.5">
-                <FieldLabel icon={CalendarCheck} label="Data de admissão" color="text-teal-500" />
+                <FieldLabel icon={CalendarCheck} label="Data de admissão" />
                 <Input type="date" value={formData.hire_date} disabled readOnly className={roClass} />
               </div>
               <div className="space-y-1.5">

@@ -153,7 +153,7 @@ export async function getCorporateProfile(): Promise<CorporateProfileResult> {
       contract_url: String(raw.contract_url ?? ''),
       departamento: String(raw.departamento ?? ''),
       setor: String(raw.setor ?? ''),
-      cadeira_principal: String(raw.cadeira_principal ?? ''),
+      cadeira_principal: String(raw.cadeira_principal ?? raw.primary_chair_id ?? ''),
       cadeiras_secundarias: String(raw.cadeiras_secundarias ?? ''),
       primary_chair_id: String(raw.primary_chair_id ?? ''),
     };
