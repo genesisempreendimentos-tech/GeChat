@@ -120,9 +120,6 @@ function ReadOnlyUrlField({
   );
 }
 
-const RH_MESSAGE =
-  'Essas informações serão adicionadas pelo setor de RH. Qualquer dúvida, entrar em contato com rh@genesisempreendimentos.com.br';
-
 interface ProfileCorporativoTabProps {
   data?: CorporativoFormData | null;
   loading?: boolean;
@@ -152,15 +149,6 @@ export function ProfileCorporativoTab({
 
   return (
     <div className="space-y-5">
-
-      {/* ── Aviso RH ─────────────────────────────────────────── */}
-      {notFound && !loading && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-500/8 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
-          <Info className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>{RH_MESSAGE}</span>
-        </div>
-      )}
-
       {/* ── Seção: Dados pessoais ─────────────────────────────── */}
       <div className="rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/20 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 bg-muted/20">
@@ -181,7 +169,7 @@ export function ProfileCorporativoTab({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs">
-                Gerenciado pelo RH.{' '}
+                Essas informações serão adicionadas pelo setor de RH. Qualquer dúvida, entrar em contato com{' '}
                 <a href="mailto:rh@genesisempreendimentos.com.br" className="text-primary underline">rh@genesisempreendimentos.com.br</a>
               </TooltipContent>
             </Tooltip>
