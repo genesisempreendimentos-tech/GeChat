@@ -5,12 +5,12 @@ import {
   Users,
   Shield,
   Pin,
-  Layers,
+  Shapes,
   MessageSquareQuote,
   Check,
   UserCircle,
+  Boxes,
 } from 'lucide-react';
-import { BrandDatabricksIcon } from '@/components/icons/BrandDatabricksIcon';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
@@ -24,8 +24,8 @@ import {
 
 const adminMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/home' },
-  { icon: BrandDatabricksIcon, label: 'Aplicativos', path: '/admin/systems' },
-  { icon: Layers, label: 'Categorias', path: '/admin/categories' },
+  { icon: Boxes, label: 'Aplicativos', path: '/admin/systems' },
+  { icon: Shapes, label: 'Categorias', path: '/admin/categories' },
   { icon: Users, label: 'Membros', path: '/admin/members' },
   { icon: Shield, label: 'Administradores', path: '/admin/administrators' },
   { icon: MessageSquareQuote, label: 'Avaliações', path: '/admin/reviews' },

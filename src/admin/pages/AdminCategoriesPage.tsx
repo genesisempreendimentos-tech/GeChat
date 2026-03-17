@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Layers, Plus, Search, MoreVertical, Pencil, Trash2, Archive, 
+  Shapes, Plus, Search, MoreVertical, Pencil, Trash2, Archive, 
   AppWindow, LayoutDashboard, Users, Settings, Shield, FileText, 
   PieChart, Mail, Calendar, Camera, Music, Video, Map, 
   ShoppingBag, CreditCard, Globe, Cpu, Zap, Award, Book, 
@@ -34,7 +34,7 @@ import { Category } from '@/types';
 import { cn } from '@/lib/utils';
 
 const CATEGORY_ICONS = [
-  'Layers', 'AppWindow', 'LayoutDashboard', 'Users', 'Settings', 
+  'Shapes', 'AppWindow', 'LayoutDashboard', 'Users', 'Settings', 
   'Shield', 'FileText', 'PieChart', 'Mail', 'Calendar', 
   'Camera', 'Music', 'Video', 'Map', 'ShoppingBag', 
   'CreditCard', 'Globe', 'Cpu', 'Zap', 'Award', 
@@ -61,7 +61,7 @@ export default function AdminCategoriesPage() {
   const [form, setForm] = useState({
     name: '',
     description: '',
-    icon: 'Layers',
+    icon: 'Shapes',
     color: 'bg-primary-500'
   });
 
@@ -92,7 +92,7 @@ export default function AdminCategoriesPage() {
       setForm({
         name: category.name,
         description: category.description || '',
-        icon: category.icon || 'Layers',
+        icon: category.icon || 'Shapes',
         color: category.color || 'bg-slate-500'
       });
     } else {
@@ -100,7 +100,7 @@ export default function AdminCategoriesPage() {
       setForm({
         name: '',
         description: '',
-        icon: 'Layers',
+        icon: 'Shapes',
         color: 'bg-slate-500'
       });
     }
@@ -166,14 +166,14 @@ export default function AdminCategoriesPage() {
   };
 
   const renderIcon = (iconName: string, className?: string) => {
-    const IconComponent = (LucideIcons as any)[iconName] || Layers;
+    const IconComponent = (LucideIcons as any)[iconName] || Shapes;
     return <IconComponent className={className} />;
   };
 
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        icon={Layers}
+        icon={Shapes}
         title="Categorias"
         description="Gerencie as categorias dos aplicativos."
         action={
@@ -190,12 +190,12 @@ export default function AdminCategoriesPage() {
         leftContent={
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar categorias..."
-              className="pl-8 w-64"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+              <Input
+                placeholder="Buscar categorias..."
+                className="pl-8 w-64 h-9 rounded-xl border-border/70 bg-card/50 backdrop-blur-sm shadow-sm transition-colors hover:bg-accent/50 focus-visible:ring-1"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
           </div>
         }
         showViewToggle
@@ -206,7 +206,7 @@ export default function AdminCategoriesPage() {
           <LoadingGifScreen className="h-64" />
         ) : filteredCategories.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground">
-            <Layers className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <Shapes className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p>Nenhuma categoria encontrada.</p>
           </div>
         ) : viewMode === 'cards' ? (
@@ -224,7 +224,7 @@ export default function AdminCategoriesPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center text-white", category.color)}>
-                          {renderIcon(category.icon || 'Layers', 'w-6 h-6')}
+                          {renderIcon(category.icon || 'Shapes', 'w-6 h-6')}
                         </div>
                         <div>
                           <CardTitle className="text-base">{category.name}</CardTitle>
@@ -283,7 +283,7 @@ export default function AdminCategoriesPage() {
                   <tr key={category.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                     <td className="py-2 px-4">
                       <div className={cn("w-8 h-8 rounded flex items-center justify-center text-white", category.color)}>
-                        {renderIcon(category.icon || 'Layers', 'w-5 h-5')}
+                        {renderIcon(category.icon || 'Shapes', 'w-5 h-5')}
                       </div>
                     </td>
                     <td className="py-2 px-4 font-medium">{category.name}</td>

@@ -26,26 +26,26 @@ export function AdminControlLine({
       <div className="flex items-center gap-2 flex-wrap">
         {rightContent}
         {showViewToggle && (
-          <div className="flex rounded-lg border border-border/70 p-0.5 bg-muted/30">
+          <div className="flex rounded-xl border border-border/70 p-1 bg-card/50 backdrop-blur-sm shadow-sm">
             <Button
               variant="ghost"
               size="sm"
               className={cn(
-                'h-8 px-3',
-                viewMode === 'table' && 'bg-background shadow-sm'
+                'h-7 px-3 rounded-lg text-xs font-medium',
+                viewMode === 'table' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'
               )}
               onClick={() => onViewModeChange('table')}
               aria-pressed={viewMode === 'table'}
             >
-              <Table2 className="w-4 h-4 mr-1.5" />
+              <Table2 className="w-3.5 h-3.5 mr-1.5" />
               Tabela
             </Button>
             <Button
               variant="ghost"
               size="sm"
               className={cn(
-                'h-8 px-3',
-                viewMode === 'cards' && 'bg-background shadow-sm'
+                'h-7 px-3 rounded-lg text-xs font-medium',
+                viewMode === 'cards' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'
               )}
               onClick={() => onViewModeChange('cards')}
               aria-pressed={viewMode === 'cards'}

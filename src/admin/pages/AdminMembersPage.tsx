@@ -56,7 +56,7 @@ export default function AdminMembersPage() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nome, e-mail, role..."
-              className="pl-8 w-56"
+              className="pl-8 w-56 h-9 rounded-xl border-border/70 bg-card/50 backdrop-blur-sm shadow-sm transition-colors hover:bg-accent/50 focus-visible:ring-1"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />

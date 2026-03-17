@@ -18,7 +18,6 @@ import {
 import { WhatsappIcon } from '@/components/icons/WhatsappIcon';
 import { databaseService, storageService } from '@/services/supabase';
 import type { ProfileFormData } from '../ProfileView';
-import { IconPickerButton, PROFILE_ICONS, ICON_MAP } from './IconPickerButton';
 import { MascotePickerButton } from './MascotePickerButton';
 
 interface ProfileInfoTabProps {
@@ -207,22 +206,13 @@ export const ProfileInfoTab = forwardRef<{ save: () => Promise<void> }, ProfileI
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                 <AtSign className="w-3 h-3" /> Username
-                <span className="normal-case font-normal">· Ícone</span>
               </label>
-              <div className="flex gap-2">
-                <Input
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  placeholder="@usuario"
-                  className="flex-1 min-w-0 h-9 text-sm"
-                />
-                <IconPickerButton
-                  formData={formData}
-                  setFormData={setFormData}
-                  iconMap={ICON_MAP}
-                  profileIcons={PROFILE_ICONS}
-                />
-              </div>
+              <Input
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="@usuario"
+                className="w-full h-9 text-sm"
+              />
             </div>
           </div>
 

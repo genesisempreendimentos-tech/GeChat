@@ -5,7 +5,6 @@ import { Cake, Instagram, Linkedin, X } from 'lucide-react'
 import { WhatsappIcon } from '@/components/icons/WhatsappIcon'
 import { DotLottiePlayer } from '@dotlottie/react-player'
 import '@dotlottie/react-player/dist/index.css'
-import { ICON_MAP } from '@/views/profile/ProfileTabs/IconPickerButton'
 
 // Helpers para construir URLs sociais
 const digitsOnly   = (v: string) => (v || '').replace(/\D+/g, '')
@@ -167,22 +166,9 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
                   )}
                 </span>
               </div>
-              {/* @username centralizado; ícone do perfil ao lado (mesma ideia do nome) */}
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 min-w-0 w-full mt-1">
-                <span className="min-w-0" aria-hidden />
-                <span className="text-teal-400 text-sm font-semibold truncate min-w-0 justify-self-center">
-                  @{data.username}
-                </span>
-                <span className="flex items-center justify-start min-w-0">
-                  {data.icon && ICON_MAP[data.icon] && (() => {
-                    const IconComponent = ICON_MAP[data.icon]
-                    return (
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md overflow-hidden ring-1 ring-white/20 bg-white/5 text-teal-400/90">
-                        <IconComponent className="h-3 w-3" />
-                      </span>
-                    )
-                  })()}
-                </span>
+              {/* @username centralizado */}
+              <div className="flex items-center justify-center gap-2 mt-1 flex-wrap">
+                <span className="text-teal-400 text-sm font-semibold">@{data.username}</span>
               </div>
               {data.description && (
                 <p className="text-white/55 text-sm mt-2 leading-relaxed">{data.description}</p>

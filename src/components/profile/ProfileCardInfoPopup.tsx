@@ -2,7 +2,6 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Cake, Linkedin, Instagram, MessageCircle, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ICON_MAP } from '@/views/profile/ProfileTabs/IconPickerButton';
 
 interface ProfileCardInfoPopupProps {
   open: boolean;
@@ -57,7 +56,7 @@ const ProfileCardInfoPopup: React.FC<ProfileCardInfoPopupProps> = ({
   };
 
   const department = userData.department ?? '';
-  const DepartmentIcon = (userData.icon && ICON_MAP[userData.icon]) ? ICON_MAP[userData.icon] : User;
+  const DepartmentIcon = User;
 
   const hasAvatar = userData.avatar && !userData.avatar.includes('dicebear.com');
 

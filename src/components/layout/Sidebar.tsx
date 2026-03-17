@@ -10,8 +10,8 @@ import {
   Shield,
   Check,
   UserCircle,
+  Boxes,
 } from 'lucide-react';
-import { BrandDatabricksIcon } from '@/components/icons/BrandDatabricksIcon';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
@@ -27,7 +27,7 @@ import {
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: BrandDatabricksIcon, label: 'Aplicativos', path: '/systems' },
+  { icon: Boxes, label: 'Aplicativos', path: '/systems' },
   { icon: Star, label: 'Favoritos', path: '/favorites' },
   // { icon: MessageCircle, label: 'Chat', path: '/chat' },
   { icon: Users, label: 'Usuários', path: '/users', adminOnly: true },

@@ -28,8 +28,8 @@ import {
   Calendar,
   Clock,
 } from 'lucide-react';
-import { BrandDatabricksIcon } from '@/components/icons/BrandDatabricksIcon';
 import * as Icons from 'lucide-react';
+import { Boxes } from 'lucide-react';
 import { BANNER_CATEGORIES } from '@/views/profile/ProfileBanner/ProfileBannerImages';
 import {
   DropdownMenu,
@@ -97,7 +97,7 @@ export default function SystemsPage() {
   const [newSystem, setNewSystem] = useState({
     name: '',
     description: '',
-    icon: 'BrandDatabricksIcon',
+    icon: 'Boxes',
     url: '',
     category: '' as SystemCategory,
   });
@@ -262,7 +262,7 @@ export default function SystemsPage() {
       setNewSystem({
         name: '',
         description: '',
-        icon: 'BrandDatabricksIcon',
+        icon: 'Boxes',
         url: '',
         category: (categories[0]?.name ?? '') as SystemCategory,
       });
@@ -306,7 +306,7 @@ export default function SystemsPage() {
     }
     // Caso contrário, usar ícone Lucide
     const Icon = (Icons as any)[iconPath];
-    const IconComponent = Icon || BrandDatabricksIcon;
+    const IconComponent = Icon || Boxes;
     return <IconComponent className={className} />;
   };
 

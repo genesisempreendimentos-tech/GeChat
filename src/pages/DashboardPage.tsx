@@ -8,7 +8,6 @@ import { ActivityChart, SystemUsageChart } from '@/components/Charts';
 import { EmptyFavoritesState } from '@/components/EmptyStates';
 import { LoadingGifScreen } from '@/components/LoadingGif';
 import { Badge } from '@/components/ui/badge';
-import { BrandDatabricksIcon } from '@/components/icons/BrandDatabricksIcon';
 import {
   Star,
   Activity,
@@ -18,6 +17,7 @@ import {
   Minus,
   ArrowUpRight,
   ArrowDownRight,
+  Boxes,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -169,7 +169,7 @@ export default function DashboardPage() {
     {
       title: 'Sistemas Disponíveis',
       value: systems.length,
-      icon: BrandDatabricksIcon,
+      icon: Boxes,
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
       trend: null as number | null,
@@ -217,7 +217,7 @@ export default function DashboardPage() {
     }
     // Caso contrário, usar ícone Lucide
     const Icon = (Icons as any)[iconPath];
-    const IconComponent = Icon || BrandDatabricksIcon;
+    const IconComponent = Icon || Boxes;
     return <IconComponent className={className} />;
   };
 

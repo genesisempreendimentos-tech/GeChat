@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { BrandDatabricksIcon } from '@/components/icons/BrandDatabricksIcon';
-import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload } from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,7 +61,7 @@ function renderIcon(iconPath: string, className: string = '') {
   if (isImg && iconPath) {
     return <img src={iconPath} alt="" className={className} />;
   }
-  const IconComponent = (Icons as any)[iconPath] ?? BrandDatabricksIcon;
+  const IconComponent = (Icons as any)[iconPath] ?? Boxes;
   return <IconComponent className={className} />;
 }
 
@@ -266,7 +265,7 @@ export default function AdminSystemsPage() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        icon={BrandDatabricksIcon}
+        icon={Boxes}
         title="Apps"
         description="Gerencie os sistemas (apps) disponíveis no GêApps."
         action={
@@ -286,13 +285,13 @@ export default function AdminSystemsPage() {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar..."
-                className="pl-8 w-40"
+                className="pl-8 w-40 h-9 rounded-xl border-border/70 bg-card/50 backdrop-blur-sm shadow-sm transition-colors hover:bg-accent/50 focus-visible:ring-1"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 rounded-xl border border-border/70 bg-card/50 backdrop-blur-sm px-3 py-1 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
@@ -302,7 +301,7 @@ export default function AdminSystemsPage() {
               ))}
             </select>
             <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 rounded-xl border border-border/70 bg-card/50 backdrop-blur-sm px-3 py-1 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
             >
@@ -321,7 +320,7 @@ export default function AdminSystemsPage() {
           <LoadingGifScreen className="h-64" />
         ) : filtered.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground">
-            <BrandDatabricksIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <Boxes className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p>Nenhum app encontrado.</p>
           </div>
         ) : viewMode === 'cards' ? (
@@ -378,6 +377,7 @@ export default function AdminSystemsPage() {
                           </DropdownMenuItem>
                           <DropdownMenuSub>
                             <DropdownMenuSubTrigger>
+                              <Zap className="w-4 h-4 mr-2" />
                               Status
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent>
@@ -520,10 +520,11 @@ export default function AdminSystemsPage() {
                               <Unlock className="w-4 h-4 mr-2" />
                               Acessos
                             </DropdownMenuItem>
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger>
-                                Status
-                              </DropdownMenuSubTrigger>
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <Zap className="w-4 h-4 mr-2" />
+                              Status
+                            </DropdownMenuSubTrigger>
                               <DropdownMenuSubContent>
                                 {STATUS_OPTIONS.map((o) => (
                                   <DropdownMenuItem

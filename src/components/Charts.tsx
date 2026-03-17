@@ -69,6 +69,7 @@ export function ActivityChart({ data }: { data: ActivityData[] }) {
                 borderRadius: "0.5rem",
               }}
               labelStyle={{ color: isDark ? "#f3f4f6" : "#111827" }}
+              itemStyle={{ color: isDark ? "#f3f4f6" : "#111827" }}
             />
             <Line
               type="monotone"
@@ -77,6 +78,9 @@ export function ActivityChart({ data }: { data: ActivityData[] }) {
               strokeWidth={2}
               dot={{ fill: primaryColor, r: 4 }}
               activeDot={{ r: 6 }}
+              animationDuration={1500}
+              animationEasing="ease-in-out"
+              label={{ fill: isDark ? "#f3f4f6" : "#111827", position: 'top', dy: -10 }}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -124,8 +128,16 @@ export function SystemUsageChart({ data }: { data: SystemUsageData[] }) {
                 borderRadius: "0.5rem",
               }}
               labelStyle={{ color: isDark ? "#f3f4f6" : "#111827" }}
+              itemStyle={{ color: isDark ? "#f3f4f6" : "#111827" }}
             />
-            <Bar dataKey="acessos" fill={primaryColor} radius={[0, 4, 4, 0]} />
+            <Bar
+              dataKey="acessos"
+              fill={primaryColor}
+              radius={[0, 4, 4, 0]}
+              animationDuration={1500}
+              animationEasing="ease-out"
+              label={{ fill: isDark ? "#f3f4f6" : "#111827", position: 'right' }}
+            />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
@@ -185,6 +197,8 @@ export function DonutChart({
                 border: `1px solid ${isDark ? "#374151" : "#e5e7eb"}`,
                 borderRadius: "0.5rem",
               }}
+              labelStyle={{ color: isDark ? "#f3f4f6" : "#111827" }}
+              itemStyle={{ color: isDark ? "#f3f4f6" : "#111827" }}
             />
             <Legend />
           </PieChart>

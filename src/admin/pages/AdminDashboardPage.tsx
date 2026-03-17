@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { BrandDatabricksIcon } from '@/components/icons/BrandDatabricksIcon';
 import {
   LayoutDashboard,
   Users,
@@ -9,6 +8,7 @@ import {
   Activity,
   TrendingUp,
   Star,
+  Boxes,
 } from 'lucide-react';
 import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
@@ -174,7 +174,7 @@ export default function AdminDashboardPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Apps totais</CardTitle>
-                <BrandDatabricksIcon className="w-5 h-5 text-muted-foreground" />
+                <Boxes className="w-5 h-5 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{counts?.apps ?? 0}</p>

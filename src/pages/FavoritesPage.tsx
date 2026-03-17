@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Star, ExternalLink, Calendar } from 'lucide-react';
 import { LoadingGifScreen, LoadingGif } from '@/components/LoadingGif';
 import * as Icons from 'lucide-react';
-import { BrandDatabricksIcon } from '@/components/icons/BrandDatabricksIcon';
+import { Boxes } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { System } from '@/types';
 import { BANNER_CATEGORIES } from '@/views/profile/ProfileBanner/ProfileBannerImages';
@@ -107,7 +107,7 @@ export default function FavoritesPage() {
     }
     // Caso contrário, usar ícone Lucide
     const Icon = (Icons as any)[iconPath];
-    const IconComponent = Icon || BrandDatabricksIcon;
+    const IconComponent = Icon || Boxes;
     return <IconComponent className={className} />;
   };
 
