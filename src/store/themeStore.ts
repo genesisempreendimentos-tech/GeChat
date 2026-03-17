@@ -1,7 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'offwhite';
+
+const THEME_ORDER: Theme[] = ['light', 'dark', 'offwhite'];
+
+function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  root.classList.remove('dark', 'offwhite');
+  if (theme === 'dark') root.classList.add('dark');
+  if (theme === 'offwhite') root.classList.add('offwhite');
+}
 
 interface ThemeState {
   theme: Theme;
@@ -15,31 +24,35 @@ export const useThemeStore = create<ThemeState>()(
       theme: 'light',
       toggleTheme: () =>
         set((state) => {
-          const newTheme = state.theme === 'light' ? 'dark' : 'light';
-          document.documentElement.classList.toggle('dark', newTheme === 'dark');
-          return { theme: newTheme };
+          const idx = THEME_ORDER.indexOf(state.theme);
+          const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
+          applyTheme(next);
+          return { theme: next };
         }),
       setTheme: (theme: Theme) => {
-        document.documentElement.classList.toggle('dark', theme === 'dark');
+        applyTheme(theme);
         set({ theme });
       },
     }),
     {
       name: 'theme-storage',
       onRehydrateStorage: () => (state) => {
-        if (state) {
-          document.documentElement.classList.toggle('dark', state.theme === 'dark');
-        }
+        if (state) applyTheme(state.theme);
       },
     }
   )
 );
 
-// Initialize theme on load
 if (typeof window !== 'undefined') {
   const stored = localStorage.getItem('theme-storage');
   if (stored) {
-    const { state } = JSON.parse(stored);
-    document.documentElement.classList.toggle('dark', state.theme === 'dark');
+    try {
+      const parsed = JSON.parse(stored);
+      const theme = parsed?.state?.theme as Theme | undefined;
+      if (theme && THEME_ORDER.includes(theme)) applyTheme(theme);
+      else applyTheme('light');
+    } catch {
+      applyTheme('light');
+    }
   }
 }

@@ -655,6 +655,8 @@ export default function SystemsPage() {
       {/* System Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-2xl p-0 overflow-hidden border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d1520] text-slate-900 dark:text-white">
+          <DialogTitle className="sr-only">{selectedSystem?.name ?? 'Detalhes do sistema'}</DialogTitle>
+          <DialogDescription className="sr-only">{selectedSystem?.description ?? 'Informações do sistema'}</DialogDescription>
           <div className="relative">
             {/* Header com banner Genesis */}
             <div className="h-40 relative overflow-hidden bg-slate-100 dark:bg-[#0d1520]">

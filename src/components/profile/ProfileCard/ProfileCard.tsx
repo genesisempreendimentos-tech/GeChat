@@ -64,12 +64,15 @@ const ProfileCardComponent = ({
     const username  = u.username  || u.email?.split('@')[0] || ''
     const avatarUrl = u.avatar_url || u.avatar ||
       `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.full_name || u.name || username)}`
-    
+    const displayName = u.apelido || u.full_name || u.name || username || 'Usuário'
     return {
       name:      u.full_name || u.name || u.email?.split('@')[0] || 'Usuário',
+      displayName,
       title:     u.profession || u.jobTitle || 'Membro',
       handle:    username,
       avatarUrl,
+      apelido:   u.apelido || '',
+      icon:      u.icon ?? u.iconUrl ?? null,
       instagram: u.instagram || '',
       linkedin:  u.linkedin  || '',
       whatsapp:  u.whatsapp  || '',
@@ -275,9 +278,10 @@ const ProfileCardComponent = ({
                 />
                 {showUserInfo && (
                   <ProfileCardMicro
-                    name={userData.name}
+                    displayName={userData.displayName}
                     username={userData.handle}
                     avatarUrl={userData.avatarUrl}
+                    iconUrl={userData.icon}
                     onInfoClick={() => setInfoOpen(true)}
                   />
                 )}

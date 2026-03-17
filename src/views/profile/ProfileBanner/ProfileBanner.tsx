@@ -84,10 +84,10 @@ export function ProfileBanner({ userId }: ProfileBannerProps) {
           alt="Banner do perfil"
           className="w-full h-full object-cover animate-in fade-in duration-500"
         />
-
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
 
         <div className="absolute bottom-3 right-3 flex items-center gap-2">
+          <ProfileRandomImages onSelectImage={handleSelectImage} />
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -102,18 +102,16 @@ export function ProfileBanner({ userId }: ProfileBannerProps) {
                     'bg-slate-100/90 dark:bg-slate-800',
                     'hover:bg-slate-300 dark:hover:bg-slate-700',
                   )}
-                  aria-label="Escolher imagem do banner"
+                  aria-label="Escolha uma imagem de capa"
                 >
                   <LayoutGrid className="w-4 h-4 text-slate-700 dark:text-slate-200" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Escolher imagem</p>
+                <p>Escolha uma imagem de capa</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
-          <ProfileRandomImages onSelectImage={handleSelectImage} />
         </div>
       </div>
 

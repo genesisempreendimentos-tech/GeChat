@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { LoadingGif } from '@/components/LoadingGif';
 import {
   User,
-  Image as ImageIcon,
   AtSign,
   Quote,
   Linkedin,
@@ -15,10 +14,18 @@ import {
   X,
   Upload,
   Globe,
+  Cat,
+  Dog,
+  Bird,
+  Mountain,
+  PawPrint,
+  Zap,
+  Fish,
+  Crown,
 } from 'lucide-react';
 import { WhatsappIcon } from '@/components/icons/WhatsappIcon';
 import { databaseService, storageService } from '@/services/supabase';
-import type { ProfileFormData } from '../ProfileView';
+import type { ProfileFormData, MascoteOption } from '../ProfileView';
 import { IconPickerButton, PROFILE_ICONS, ICON_MAP } from './IconPickerButton';
 
 interface ProfileInfoTabProps {
@@ -57,6 +64,7 @@ export function ProfileInfoTab({
         username: formData.username,
         bio: formData.bio,
         icon: formData.icon,
+        mascote: formData.mascote || undefined,
         linkedin: formData.linkedin,
         instagram: formData.instagram,
         whatsapp: formData.whatsapp,
@@ -212,6 +220,40 @@ export function ProfileInfoTab({
                   profileIcons={PROFILE_ICONS}
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Mascote */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <Cat className="w-3 h-3" /> Mascote
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { value: '' as MascoteOption, label: 'Nenhum', Icon: null },
+                { value: 'gato' as MascoteOption, label: 'Gato', Icon: Cat },
+                { value: 'cachorro' as MascoteOption, label: 'Cachorro', Icon: Dog },
+                { value: 'passaro' as MascoteOption, label: 'Pássaro', Icon: Bird },
+                { value: 'terra' as MascoteOption, label: 'Terra', Icon: Mountain },
+                { value: 'tigre' as MascoteOption, label: 'Tigre', Icon: PawPrint },
+                { value: 'cavalo' as MascoteOption, label: 'Cavalo', Icon: Zap },
+                { value: 'peixe' as MascoteOption, label: 'Peixe', Icon: Fish },
+                { value: 'leao' as MascoteOption, label: 'Leão', Icon: Crown },
+              ]).map(({ value, label, Icon }) => (
+                <button
+                  key={value || 'none'}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, mascote: value })}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
+                    formData.mascote === value
+                      ? 'border-primary bg-primary/15 text-primary'
+                      : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                  }`}
+                >
+                  {Icon && <Icon className="w-4 h-4" />}
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 

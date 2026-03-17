@@ -49,6 +49,9 @@ export default function DashboardPage() {
 
   const [systems, setSystems] = useState<System[]>([]);
   const [userAccesses, setUserAccesses] = useState<any[]>([]);
+  const [totalAccessCount, setTotalAccessCount] = useState<number>(0);
+  const [allAccessLogs, setAllAccessLogs] = useState<any[]>([]);
+  const [recentLogsFromApi, setRecentLogsFromApi] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoriteTogglingId, setFavoriteTogglingId] = useState<string | null>(null);
 
@@ -65,11 +68,10 @@ export default function DashboardPage() {
       setLoading(false);
       return;
     }
-    
+
     try {
       setLoading(true);
       const isAdminOrManager = user.role === 'admin' || user.role === 'manager';
-      // Membros veem apenas apps com status ativo/beta e acesso liberado; admin/manager veem todos
       if (isAdminOrManager) {
         const { data: systemsData, error: systemsError } = await databaseService.getSystems();
         if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
@@ -80,12 +82,18 @@ export default function DashboardPage() {
         setSystems(systemsData || []);
       }
 
-      // Carregar acessos do usuário (favoritos, etc.)
       const { data: accessData, error: accessError } = await databaseService.getUserSystemAccess(user.id);
-      if (accessError) {
-        console.error('Erro ao carregar acessos:', accessError);
-      }
+      if (accessError) console.error('Erro ao carregar acessos:', accessError);
       setUserAccesses(accessData || []);
+
+      const [total, { data: logsAll }, { data: recentLogs }] = await Promise.all([
+        databaseService.getTotalAccessCount(),
+        databaseService.getAccessLogsAll(500),
+        databaseService.getAccessLogs(user.id, 5),
+      ]);
+      setTotalAccessCount(total);
+      setAllAccessLogs(logsAll || []);
+      setRecentLogsFromApi(recentLogs || []);
     } catch (error) {
       console.error('Erro geral ao carregar dados:', error);
     } finally {
@@ -108,10 +116,15 @@ export default function DashboardPage() {
     setFavoriteTogglingId(null);
     if (error) console.error('Erro ao favoritar:', error);
   };
-  const recentLogs = getRecentLogs(user?.id || '', 5);
-  const allLogs = getAllLogs(user?.id || '');
+  const recentLogs = useMemo(() => {
+    return recentLogsFromApi.map((log: any) => ({
+      id: log.id ?? log.app_id + log.user_id,
+      systemName: log.systemName ?? log.systems?.name ?? 'Sistema',
+      timestamp: log.timestamp ? new Date(log.timestamp) : new Date(),
+    }));
+  }, [recentLogsFromApi]);
 
-  // Calcular dados para gráficos
+  // Gráficos com base em acessos totais (todos os usuários, todos os apps)
   const chartData = useMemo(() => {
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = subDays(new Date(), 6 - i);
@@ -122,52 +135,35 @@ export default function DashboardPage() {
       };
     });
 
-    allLogs.forEach((log) => {
-      const logDate = startOfDay(new Date(log.timestamp));
+    allAccessLogs.forEach((log: any) => {
+      const ts = log.timestamp ?? log.created_at;
+      if (!ts) return;
+      const logDate = startOfDay(new Date(ts));
       const dayData = last7Days.find((day) => day.fullDate.getTime() === logDate.getTime());
-      if (dayData) {
-        dayData.acessos++;
-      }
+      if (dayData) dayData.acessos++;
     });
 
     return last7Days.map(({ date, acessos }) => ({ date, acessos }));
-  }, [allLogs]);
+  }, [allAccessLogs]);
 
   const systemUsageData = useMemo(() => {
     const systemCounts: Record<string, { name: string; count: number }> = {};
-
-    allLogs.forEach((log) => {
-      if (!systemCounts[log.systemId]) {
-        systemCounts[log.systemId] = {
-          name: log.systemName || 'Sistema',
+    allAccessLogs.forEach((log: any) => {
+      const id = log.systemId ?? log.app_id;
+      if (!id) return;
+      if (!systemCounts[id]) {
+        systemCounts[id] = {
+          name: log.systemName ?? log.systems?.name ?? 'Sistema',
           count: 0,
         };
       }
-      systemCounts[log.systemId].count++;
+      systemCounts[id].count++;
     });
-
     return Object.values(systemCounts)
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
       .map((item) => ({ name: item.name, acessos: item.count }));
-  }, [allLogs]);
-
-  // Calcular tendências (simulado - comparando com período anterior)
-  const todayAccessCount = allLogs.filter((log) => {
-    const logDate = startOfDay(new Date(log.timestamp));
-    const today = startOfDay(new Date());
-    return logDate.getTime() === today.getTime();
-  }).length;
-
-  const yesterdayAccessCount = allLogs.filter((log) => {
-    const logDate = startOfDay(new Date(log.timestamp));
-    const yesterday = startOfDay(subDays(new Date(), 1));
-    return logDate.getTime() === yesterday.getTime();
-  }).length;
-
-  const accessTrend = yesterdayAccessCount > 0
-    ? ((todayAccessCount - yesterdayAccessCount) / yesterdayAccessCount) * 100
-    : 0;
+  }, [allAccessLogs]);
 
   const stats = [
     {
@@ -176,7 +172,7 @@ export default function DashboardPage() {
       icon: AppWindow,
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
-      trend: null,
+      trend: null as number | null,
     },
     {
       title: 'Favoritos',
@@ -184,15 +180,15 @@ export default function DashboardPage() {
       icon: Star,
       color: 'text-yellow-500',
       bgColor: 'bg-yellow-500/10',
-      trend: null,
+      trend: null as number | null,
     },
     {
-      title: 'Acessos Hoje vs Ontem',
-      value: todayAccessCount,
+      title: 'Acessos Totais',
+      value: totalAccessCount,
       icon: Activity,
       color: 'text-green-500',
       bgColor: 'bg-green-500/10',
-      trend: accessTrend,
+      trend: null as number | null,
     },
     {
       title: 'Sistemas Ativos',
@@ -200,13 +196,17 @@ export default function DashboardPage() {
       icon: TrendingUp,
       color: 'text-purple-500',
       bgColor: 'bg-purple-500/10',
-      trend: null,
+      trend: null as number | null,
     },
   ];
 
   const handleSystemAccess = (systemId: string, url: string) => {
-    addLog(user?.id || '', systemId);
+    if (user?.id) {
+      databaseService.logAccess(user.id, systemId);
+      addLog(user.id, systemId);
+    }
     window.open(url, '_blank');
+    loadData();
   };
 
   const renderIcon = (iconPath: string, className: string = '') => {

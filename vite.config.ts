@@ -28,9 +28,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
   },
   server: {
-    host: true, // Permite acesso pela rede local
+    host: true,
     port: 5173,
-    strictPort: false,
+    strictPort: false, // se 5173 estiver ocupada, tenta 5174, 5175...
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

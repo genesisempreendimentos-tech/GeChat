@@ -37,6 +37,7 @@ import AdminSystemsPage from '@/admin/pages/AdminSystemsPage';
 import AdminMembersPage from '@/admin/pages/AdminMembersPage';
 import AdminAdministratorsPage from '@/admin/pages/AdminAdministratorsPage';
 import AdminCategoriesPage from '@/admin/pages/AdminCategoriesPage';
+import AdminReviewsPage from '@/admin/pages/AdminReviewsPage';
 
 /**
  * Rota /login: se já autenticado e houver returnTo válido, redireciona para o app irmão (ex.: GeTeams).
@@ -135,6 +136,7 @@ function AppRoutes() {
           <Route path="members" element={<AdminMembersPage />} />
           <Route path="administrators" element={<AdminAdministratorsPage />} />
           <Route path="categories" element={<AdminCategoriesPage />} />
+          <Route path="reviews" element={<AdminReviewsPage />} />
         </Route>
 
         {/* Redirect */}

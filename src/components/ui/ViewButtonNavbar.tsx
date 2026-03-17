@@ -1,14 +1,14 @@
 import React from 'react';
-import { Button, ButtonProps } from '@/components/ui/button';
+import type { ButtonProps } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
 
-const MotionButton = motion(Button);
-
-interface ViewButtonNavbarProps extends ButtonProps {
+interface ViewButtonNavbarProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onAnimationStart' | 'onDrag' | 'onDragEnd' | 'onDragStart'> {
   active?: boolean;
   Icon: LucideIcon;
+  variant?: ButtonProps['variant'];
+  size?: ButtonProps['size'];
 }
 
 /**
@@ -22,9 +22,9 @@ const ViewButtonNavbar = React.forwardRef<HTMLButtonElement, ViewButtonNavbarPro
   ...props
 }, ref) => {
   const btnClass = cn(
-    'rounded-xl size-9 flex items-center justify-center', // Mudei para arredondamento padrão do sistema (xl) e tamanho 9 para igualar o resto do topbar
-    'transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary/40',
-    'border-[2px]', // borda mais sutil
+    'inline-flex items-center justify-center rounded-xl size-9 shrink-0',
+    'transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+    'border-[2px] cursor-pointer',
     active ? [
       'bg-primary dark:bg-primary',
       'text-primary-foreground dark:text-primary-foreground',
@@ -41,11 +41,9 @@ const ViewButtonNavbar = React.forwardRef<HTMLButtonElement, ViewButtonNavbarPro
   );
 
   return (
-    <MotionButton
+    <motion.button
       ref={ref}
       type="button"
-      variant="ghost"
-      size="icon"
       aria-pressed={active}
       onClick={onClick}
       className={btnClass}
@@ -53,7 +51,7 @@ const ViewButtonNavbar = React.forwardRef<HTMLButtonElement, ViewButtonNavbarPro
       {...props}
     >
       <Icon className="w-4 h-4 shrink-0" />
-    </MotionButton>
+    </motion.button>
   );
 });
 

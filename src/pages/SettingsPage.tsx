@@ -67,6 +67,9 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Coluna esquerda: Tema, Cor de Destaque */}
+        <div className="space-y-6">
       {/* Tema */}
       <Card>
         <CardHeader>
@@ -138,7 +141,10 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+        </div>
 
+        {/* Coluna direita: Tamanho da Fonte, Preferências, Restaurar */}
+        <div className="space-y-6">
       {/* Tamanho da Fonte */}
       <Card>
         <CardHeader>
@@ -282,6 +288,8 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+        </div>
+      </div>
     </div>
   );
 }

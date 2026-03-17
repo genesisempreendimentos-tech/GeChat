@@ -13,6 +13,8 @@ import { ProfileCorporativoTab } from './ProfileTabs/ProfileCorporativoTab';
 import { User, Lock, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+export type MascoteOption = 'gato' | 'cachorro' | 'passaro' | 'terra' | 'tigre' | 'cavalo' | 'peixe' | 'leao' | '';
+
 export interface ProfileFormData {
   name: string;
   email: string;
@@ -20,6 +22,7 @@ export interface ProfileFormData {
   username: string;
   bio: string;
   icon: string;
+  mascote: MascoteOption;
   linkedin: string;
   instagram: string;
   whatsapp: string;
@@ -47,6 +50,7 @@ export function ProfileView() {
     username: currentUser?.email?.split('@')[0] ?? '',
     bio: '',
     icon: '',
+    mascote: '',
     linkedin: '',
     instagram: '',
     whatsapp: '',
@@ -54,6 +58,7 @@ export function ProfileView() {
   const [avatarUrl, setAvatarUrl] = useState(
     currentUser?.avatar ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.email ?? 'user'}`
   );
+  const [bannerUrl, setBannerUrl] = useState<string>('');
   const [corporateDepartamento, setCorporateDepartamento] = useState('');
   const [corporateData, setCorporateData] = useState<CorporativoFormData | null>(null);
   const [corporateLoading, setCorporateLoading] = useState(true);
@@ -77,6 +82,7 @@ export function ProfileView() {
           username: getStr('username') || (currentUser?.email?.split('@')[0] ?? ''),
           bio: getStr('bio'),
           icon: getStr('icon'),
+          mascote: (getStr('mascote') as ProfileFormData['mascote']) || '',
           linkedin: getStr('linkedin'),
           instagram: getStr('instagram'),
           whatsapp: getStr('whatsapp'),
@@ -86,6 +92,7 @@ export function ProfileView() {
           birthDate: (d.birth_date as string) ?? '',
         });
         if (d.avatar) setAvatarUrl(d.avatar as string);
+        if (d.banner_url) setBannerUrl(d.banner_url as string);
       }
     };
     load();
@@ -128,13 +135,16 @@ export function ProfileView() {
       description: formData.bio,
       birthDate: formData.birthDate || corporateData?.birth_date || '',
       birthday: formData.birthDate || corporateData?.birth_date || '',
+      hire_date: corporateData?.hire_date || '',
       admissionDate: corporateData?.hire_date || '',
       profession: corporateData?.cadeira_principal || corporateData?.profession || '',
+      mascote: formData.mascote,
       instagram: formData.instagram,
       linkedin: formData.linkedin,
       whatsapp: formData.whatsapp,
+      banner_url: bannerUrl,
     }),
-    [formData, avatarUrl, corporateDepartamento, corporateData]
+    [formData, avatarUrl, bannerUrl, corporateDepartamento, corporateData]
   );
 
   return (
@@ -154,6 +164,7 @@ export function ProfileView() {
             showUserInfo
             iconUrl="/assets/logo-gen-sem-fundo-svg.svg"
             userData={userDataForCard()}
+            currentUser={{ ...currentUser, apelido: formData.apelido, name: formData.name, username: formData.username }}
           />
         </motion.div>
 

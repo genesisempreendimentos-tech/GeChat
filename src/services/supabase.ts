@@ -442,21 +442,44 @@ export const databaseService = {
     return { data: list, error: null };
   },
 
-  async getAdminCounts(): Promise<{ users: number; softadmins: number; apps: number }> {
+  async getAdminCounts(): Promise<{
+    users: number;
+    softadmins: number;
+    apps: number;
+    activeApps: number;
+  }> {
     try {
-      const [usersRes, adminsRes, appsRes] = await Promise.all([
+      const [usersRes, adminsRes, appsRes, activeAppsRes] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).ilike('access_type', 'softadmin'),
         supabase.from('apps').select('*', { count: 'exact', head: true }),
+        supabase.from('apps').select('*', { count: 'exact', head: true }).in('status', ['ativo', 'active', 'beta']),
       ]);
       return {
         users: usersRes.count ?? 0,
         softadmins: adminsRes.count ?? 0,
         apps: appsRes.count ?? 0,
+        activeApps: activeAppsRes.count ?? 0,
       };
     } catch {
-      return { users: 0, softadmins: 0, apps: 0 };
+      return { users: 0, softadmins: 0, apps: 0, activeApps: 0 };
     }
+  },
+
+  async getTotalAccessCount(): Promise<number> {
+    try {
+      const { count, error } = await supabase
+        .from('audit_logs')
+        .select('*', { count: 'exact', head: true });
+      if (error) return 0;
+      return count ?? 0;
+    } catch {
+      return 0;
+    }
+  },
+
+  async getAccessLogsAll(limit = 500) {
+    return this.getAccessLogs(undefined, limit);
   },
 
   async getUserById(userId: string) {
@@ -486,6 +509,7 @@ export const databaseService = {
             job_title: row.job_title,
             birth_date: row.birth_date,
             banner_url: (row as any).banner_url ?? null,
+            mascote: (row as any).mascote ?? null,
           },
           error: null,
         };
@@ -546,6 +570,7 @@ export const databaseService = {
     if (userData.phone != null) payload.phone = userData.phone;
     if (userData.location != null) payload.location = userData.location;
     if (userData.banner_url != null) payload.banner_url = userData.banner_url;
+    if (userData.mascote != null) payload.mascote = userData.mascote;
     if (userData.access_type != null) payload.access_type = userData.access_type;
     for (const key of ['user_id']) {
       const { data, error } = await supabase

@@ -3,6 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Cake, Instagram, Linkedin, X } from 'lucide-react'
 import { WhatsappIcon } from '@/components/icons/WhatsappIcon'
+import { DotLottiePlayer } from '@dotlottie/react-player'
+import '@dotlottie/react-player/dist/index.css'
 
 // Helpers para construir URLs sociais
 const digitsOnly   = (v: string) => (v || '').replace(/\D+/g, '')
@@ -18,11 +20,13 @@ const buildLI      = (v: string) => {
   v = String(v).trim()
   return v.startsWith('http') ? v : `https://www.linkedin.com/in/${v.replace(/^in\/|^@/, '')}`
 }
-const buildWA      = (rawWA: string, senderName: string, senderUser: string) => {
+const buildWA = (rawWA: string, apelido: string) => {
   const phone = digitsOnly(rawWA)
   if (!phone) return ''
-  const name = senderName?.trim() || senderUser || 'usuário'
-  return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(`Olá, sou o ${name} e vim do app!`)}`
+  const text = apelido?.trim()
+    ? `Olá, me chamo ${apelido.trim()} e vim do GêApps.`
+    : 'Olá, vim do GêApps.'
+  return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`
 }
 
 // Formatar data
@@ -62,20 +66,21 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
       description:   userData.description || userData.bio || '',
       profession:    userData.profession  || userData.title || userData.cadeira_principal || '',
       avatarUrl:     userData.avatar_url  || userData.avatarUrl || userData.avatar || '',
+      bannerUrl:     userData.banner_url  || userData.bannerUrl || '',
       birthday:      formatDate(userData.birthday || userData.birthDate || userData.birth_date),
       admissionDate: formatDate(userData.admissionDate || userData.hire_date),
       whatsapp:      userData.whatsapp  || '',
       instagram:     userData.instagram || '',
       linkedin:      userData.linkedin  || '',
+      mascote:       (userData.mascote as 'gato' | 'cachorro' | 'passaro' | 'terra' | 'tigre' | 'cavalo' | 'peixe' | 'leao') || '',
     }
   }, [userData])
 
-  const senderName = currentUser?.name || currentUser?.full_name || currentUser?.user_metadata?.full_name || ''
-  const senderUser = currentUser?.username || currentUser?.email?.split('@')[0] || ''
+  const currentUserApelido = currentUser?.apelido || currentUser?.name || currentUser?.full_name || currentUser?.username || currentUser?.email?.split('@')[0] || ''
 
   if (!data) return null
 
-  const waUrl = buildWA(data.whatsapp, senderName, senderUser)
+  const waUrl = buildWA(data.whatsapp, currentUserApelido)
   const igUrl = buildIG(data.instagram)
   const liUrl = buildLI(data.linkedin)
 
@@ -87,8 +92,8 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
         className="max-w-sm p-0 overflow-visible rounded-2xl border-0"
         style={{ boxShadow: '0 0 24px rgba(26,147,134,0.35), 0 0 48px rgba(26,147,134,0.15)' }}
       >
-        <DialogTitle className="sr-only">Perfil — {data.name}</DialogTitle>
-        <DialogDescription className="sr-only">Informações de {data.name}</DialogDescription>
+        <DialogTitle className="sr-only">Perfil — {data.apelido || data.username}</DialogTitle>
+        <DialogDescription className="sr-only">Informações de {data.apelido || data.username}</DialogDescription>
 
         <div className="relative text-card-foreground overflow-hidden rounded-2xl border border-border/40 bg-[#0d1b2a]">
 
@@ -102,9 +107,20 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
             <X className="w-4 h-4" />
           </button>
 
-          {/* Banner topo */}
-          <div className="h-28 bg-gradient-to-br from-teal-600/60 via-teal-500/30 to-transparent relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-teal-500/20 to-blue-600/20" />
+          {/* Banner topo: imagem do perfil (reduzida) ou gradiente */}
+          <div className="h-28 relative overflow-hidden bg-gradient-to-br from-teal-600/60 via-teal-500/30 to-transparent">
+            {data.bannerUrl ? (
+              <>
+                <img
+                  src={data.bannerUrl}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-teal-500/20 to-blue-600/20" />
+              </>
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-r from-teal-500/20 to-blue-600/20" />
+            )}
           </div>
 
           {/* Avatar sobreposto ao banner */}
@@ -113,37 +129,75 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
               {!avatarError ? (
                 <img
                   src={data.avatarUrl}
-                  alt={data.name}
+                  alt={data.apelido || data.username}
                   className="w-full h-full object-cover"
                   onError={() => setAvatarError(true)}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-muted-foreground bg-muted">
-                  {data.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                  {(data.apelido || data.username || 'U').slice(0, 2).toUpperCase()}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Info */}
-          <div className="px-6 pb-6 relative z-10">
+          {/* Info — apenas apelido + username (relative para posicionar mascotes) */}
+          <div className="px-6 pb-6 relative z-10 min-h-[140px]">
 
-            {/* Nome completo + username + apelido */}
-            <div className="text-center mb-4">
-              <h2 className="text-xl font-bold text-white tracking-tight leading-tight">{data.name}</h2>
+            {/* Mascote ao lado do nome (passaro, leao): um pouco acima e à direita */}
+            <div className="text-center mb-4 relative">
+              {(data.mascote === 'passaro' || data.mascote === 'leao') && (
+                <div className="absolute -top-2 right-1/4 w-12 h-12 pointer-events-none" style={{ transform: 'translate(8px, -4px)' }}>
+                  <DotLottiePlayer
+                    src={data.mascote === 'leao' ? '/assets/leao.lottie' : '/assets/bird.lottie'}
+                    autoplay
+                    loop
+                    className="w-full h-full"
+                    renderer="svg"
+                  />
+                </div>
+              )}
+              <h2 className="text-xl font-bold text-white tracking-tight leading-tight">
+                {data.apelido || data.username || 'Usuário'}
+              </h2>
               <div className="flex items-center justify-center gap-2 mt-1 flex-wrap">
                 <span className="text-teal-400 text-sm font-semibold">@{data.username}</span>
-                {data.apelido && (
-                  <>
-                    <span className="text-white/20 text-xs">·</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/50 font-medium">{data.apelido}</span>
-                  </>
-                )}
               </div>
               {data.description && (
                 <p className="text-white/55 text-sm mt-2 leading-relaxed">{data.description}</p>
               )}
             </div>
+
+            {/* Mascote canto esquerdo: gato, terra, cavalo */}
+            {(data.mascote === 'gato' || data.mascote === 'terra' || data.mascote === 'cavalo') && (
+              <div className="absolute bottom-4 left-4 w-20 h-20 pointer-events-none z-0 opacity-90">
+                <DotLottiePlayer
+                  src={
+                    data.mascote === 'gato' ? '/assets/cat.lottie' :
+                    data.mascote === 'terra' ? '/assets/terra.lottie' : '/assets/cavalo.lottie'
+                  }
+                  autoplay
+                  loop
+                  className="w-full h-full"
+                  renderer="svg"
+                />
+              </div>
+            )}
+            {/* Mascote canto direito: cachorro, tigre, peixe (tigre um pouco maior) */}
+            {(data.mascote === 'cachorro' || data.mascote === 'tigre' || data.mascote === 'peixe') && (
+              <div className={`absolute bottom-4 right-4 pointer-events-none z-0 opacity-90 ${data.mascote === 'tigre' ? 'w-28 h-28' : 'w-20 h-20'}`}>
+                <DotLottiePlayer
+                  src={
+                    data.mascote === 'cachorro' ? '/assets/dog.lottie' :
+                    data.mascote === 'tigre' ? '/assets/tigre.lottie' : '/assets/peixe.lottie'
+                  }
+                  autoplay
+                  loop
+                  className="w-full h-full"
+                  renderer="svg"
+                />
+              </div>
+            )}
 
             {/* Badge profissão */}
             {data.profession && (

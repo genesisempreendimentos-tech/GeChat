@@ -3,13 +3,16 @@ import React from 'react'
 import { Info } from 'lucide-react'
 
 interface ProfileCardMicroProps {
-  name: string;
+  /** Apelido ou nome de exibição (apelido + username conforme plano) */
+  displayName: string;
   username: string;
   avatarUrl: string;
+  /** Ícone opcional ao lado do username (URL ou null) */
+  iconUrl?: string | null;
   onInfoClick?: () => void;
 }
 
-export default function ProfileCardMicro({ name, username, avatarUrl, onInfoClick }: ProfileCardMicroProps) {
+export default function ProfileCardMicro({ displayName, username, avatarUrl, iconUrl, onInfoClick }: ProfileCardMicroProps) {
   return (
     <div
       className="pc-microcard-container absolute bottom-4 left-4 right-4 z-[10000]
@@ -19,11 +22,10 @@ export default function ProfileCardMicro({ name, username, avatarUrl, onInfoClic
                  rounded-2xl px-3 py-2 pointer-events-auto isolate"
       style={{ transform: 'translateZ(0)', minWidth: 0, overflow: 'hidden' }}
     >
-      {/* Avatar + texto — flex-1 com minWidth:0 garante truncate */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 0%', minWidth: 0, overflow: 'hidden', transform: 'translateZ(0)' }}>
         <img
           src={avatarUrl}
-          alt={`${name} mini avatar`}
+          alt={`${displayName} mini avatar`}
           className="rounded-full object-cover ring-1 ring-white/15"
           style={{ width: 32, height: 32, flexShrink: 0 }}
           loading="lazy"
@@ -41,22 +43,31 @@ export default function ProfileCardMicro({ name, username, avatarUrl, onInfoClic
               textShadow: '0 1px 3px rgba(0,0,0,0.5)',
             }}
           >
-            {name}
+            {displayName}
           </span>
-          <span
-            style={{
-              display: 'block',
-              fontSize: 11,
-              fontWeight: 400,
-              color: 'rgba(94,234,212,0.8)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              marginTop: 2,
-            }}
-          >
-            @{username}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, minWidth: 0, overflow: 'hidden' }}>
+            {iconUrl && (
+              <span
+                className="shrink-0 flex items-center justify-center rounded-md overflow-hidden ring-1 ring-white/20 bg-white/5"
+                style={{ width: 14, height: 14 }}
+              >
+                <img src={iconUrl} alt="" className="w-full h-full object-contain" />
+              </span>
+            )}
+            <span
+              style={{
+                display: 'block',
+                fontSize: 11,
+                fontWeight: 400,
+                color: 'rgba(94,234,212,0.8)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              @{username}
+            </span>
+          </div>
         </div>
       </div>
 

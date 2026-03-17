@@ -29,27 +29,21 @@ const Zoom = () => {
   useEffect(() => {
     const load = async () => {
       let front = 100;
+      // Tenta primeiro o localStorage (resposta imediata)
+      const saved = localStorage.getItem('pageZoom');
+      if (saved) front = Math.round(backToFront(parseFloat(saved)));
+
       if (user?.id) {
         try {
           const { data, error } = await supabase
-            .from('users') // Nota: Pode precisar verificar se a tabela é 'users' ou 'profiles'
+            .from('profiles')
             .select('zoom')
-            .eq('id', user.id)
+            .eq('user_id', user.id)
             .maybeSingle();
-            
-          if (!error && data?.zoom) {
-            front = data.zoom;
-          } else {
-            const saved = localStorage.getItem('pageZoom');
-            if (saved) front = Math.round(backToFront(parseFloat(saved)));
-          }
+          if (!error && data?.zoom) front = data.zoom;
         } catch {
-          const saved = localStorage.getItem('pageZoom');
-          if (saved) front = Math.round(backToFront(parseFloat(saved)));
+          // silencia — fallback já está no localStorage
         }
-      } else {
-        const saved = localStorage.getItem('pageZoom');
-        if (saved) front = Math.round(backToFront(parseFloat(saved)));
       }
       setZoomLevelFront(front);
     };
@@ -79,18 +73,12 @@ const Zoom = () => {
       if (!user?.id || isLoading) return;
       try {
         setIsLoading(true);
-        // Tenta atualizar em profiles se houver erro em users, pois a modelagem parece usar profiles
-        let error = null;
-        try {
-          const res = await supabase.from('users').update({ zoom: zoomLevelFront }).eq('id', user.id);
-          error = res.error;
-        } catch (e) {}
-
-        if (error) {
-          await supabase.from('profiles').update({ zoom: zoomLevelFront }).eq('user_id', user.id);
-        }
+        await supabase
+          .from('profiles')
+          .update({ zoom: zoomLevelFront })
+          .eq('user_id', user.id);
       } catch (e) {
-        console.error('Erro ao salvar zoom:', e);
+        // silencia — localStorage já persiste o valor localmente
       } finally {
         setIsLoading(false);
       }

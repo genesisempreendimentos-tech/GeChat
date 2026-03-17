@@ -7,6 +7,8 @@ import {
   Shield,
   Pin,
   Layers,
+  Star,
+  ArrowLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
@@ -18,6 +20,7 @@ const adminMenuItems = [
   { icon: Layers, label: 'Categorias', path: '/admin/categories' },
   { icon: Users, label: 'Membros', path: '/admin/members' },
   { icon: Shield, label: 'Administradores', path: '/admin/administrators' },
+  { icon: Star, label: 'Avaliações', path: '/admin/reviews' },
 ];
 
 export default function AdminSidebar() {
@@ -142,10 +145,17 @@ export default function AdminSidebar() {
 
         <div
           className={cn(
-            'p-4 border-t border-border/70 overflow-hidden transition-all duration-200 shrink-0',
-            isExpanded ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0 py-0'
+            'p-4 border-t border-border/70 overflow-hidden transition-all duration-200 shrink-0 space-y-2',
+            isExpanded ? 'opacity-100 max-h-40' : 'opacity-0 max-h-0 py-0'
           )}
         >
+          <Link
+            to="/dashboard"
+            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 shrink-0" />
+            <span>Retornar ao ambiente de membro</span>
+          </Link>
           <p className="text-xs text-muted-foreground text-center">
             GêApps Admin v1.0.0
           </p>

@@ -6,6 +6,9 @@ import { supabase } from './supabase';
 
 const API_BASE = (import.meta.env.VITE_GEAPPS_API_URL ?? '').replace(/\/$/, '');
 
+/** Retorna true apenas quando a URL da API externa está explicitamente configurada. */
+const API_CONFIGURED = API_BASE.length > 0;
+
 export interface CorporativoFormData {
   name: string;
   personal_email: string;
@@ -48,11 +51,12 @@ export interface CorporateProfileDebug {
  * ao header Authorization.
  */
 export async function getCorporateProfile(): Promise<CorporateProfileResult> {
-  const requestUrl = API_BASE
-    ? `${API_BASE}/api/corporate-profile`
-    : (typeof window !== 'undefined'
-        ? `${window.location.origin}/api/corporate-profile`
-        : '/api/corporate-profile');
+  // Sem URL configurada, não faz nenhuma requisição (evita 404 no console em dev)
+  if (!API_CONFIGURED) {
+    return { data: null, notFound: true };
+  }
+
+  const requestUrl = `${API_BASE}/api/corporate-profile`;
 
   const emptyDebug = (error?: string, hint?: string): CorporateProfileDebug => ({
     url: requestUrl,
@@ -113,6 +117,9 @@ export async function getCorporateProfile(): Promise<CorporateProfileResult> {
 
     if (!res.ok) {
       const errMsg = (body && (body.error || body.message)) || res.statusText || 'Erro ao carregar perfil corporativo.';
+      if (res.status !== 404) {
+        console.warn('[corporateProfile] API indisponível:', res.status, errMsg);
+      }
       return {
         data: null,
         notFound: true,
@@ -153,7 +160,7 @@ export async function getCorporateProfile(): Promise<CorporateProfileResult> {
     return { data, notFound: false, debug };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro de conexão.';
-    console.error('[corporateProfile]', err);
+    console.warn('[corporateProfile] Perfil corporativo indisponível:', message);
     return {
       data: null,
       notFound: true,

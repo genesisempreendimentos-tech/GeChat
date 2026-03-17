@@ -4,11 +4,15 @@ import {
   Line,
   BarChart,
   Bar,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useThemeStore } from "@/store/themeStore"
@@ -123,6 +127,67 @@ export function SystemUsageChart({ data }: { data: SystemUsageData[] }) {
             />
             <Bar dataKey="acessos" fill={primaryColor} radius={[0, 4, 4, 0]} />
           </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  )
+}
+
+export interface DonutSlice {
+  name: string
+  value: number
+  color?: string
+}
+
+export function DonutChart({
+  data,
+  title,
+  description,
+}: {
+  data: DonutSlice[]
+  title: string
+  description?: string
+}) {
+  const { theme } = useThemeStore()
+  const isDark = theme === "dark"
+  const primaryColor = "hsl(var(--primary))"
+  const mutedColor = isDark ? "#6b7280" : "#9ca3af"
+  const colors = data.map((d, i) => d.color ?? (i === 0 ? primaryColor : mutedColor))
+
+  return (
+    <Card className="transition-shadow hover:shadow-md">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {description && <CardDescription>{description}</CardDescription>}
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={70}
+              outerRadius={95}
+              paddingAngle={2}
+              dataKey="value"
+              nameKey="name"
+              label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+            >
+              {data.map((_, i) => (
+                <Cell key={i} fill={colors[i]} stroke="transparent" />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value: number | undefined) => [value ?? 0, undefined]}
+              contentStyle={{
+                backgroundColor: isDark ? "#1f2937" : "#ffffff",
+                border: `1px solid ${isDark ? "#374151" : "#e5e7eb"}`,
+                borderRadius: "0.5rem",
+              }}
+            />
+            <Legend />
+          </PieChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
