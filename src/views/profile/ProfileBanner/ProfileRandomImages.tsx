@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Shuffle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,10 @@ import {
 } from '@/components/ui/tooltip';
 import { getAllBannerImages } from './ProfileBannerImages';
 
+const SPIN_DEG = 360;
+const TRANSITION_MS = 380;
+const EASING = 'cubic-bezier(0.34, 1.2, 0.64, 1)';
+
 interface ProfileRandomImagesProps {
   onSelectImage: (url: string) => void;
   disabled?: boolean;
@@ -17,14 +21,26 @@ interface ProfileRandomImagesProps {
 
 export function ProfileRandomImages({ onSelectImage, disabled }: ProfileRandomImagesProps) {
   const [rotation, setRotation] = useState(0);
+  const [iconKey, setIconKey] = useState(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
 
   const handleRandomize = () => {
     const allImages = getAllBannerImages();
     if (allImages.length > 0) {
       const randomIndex = Math.floor(Math.random() * allImages.length);
       onSelectImage(allImages[randomIndex]!);
-      setRotation((prev) => prev + 180);
     }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setRotation(SPIN_DEG);
+    timeoutRef.current = setTimeout(() => {
+      setRotation(0);
+      setIconKey((k) => k + 1);
+      timeoutRef.current = null;
+    }, TRANSITION_MS + 20);
   };
 
   return (
@@ -47,11 +63,14 @@ export function ProfileRandomImages({ onSelectImage, disabled }: ProfileRandomIm
             aria-label="Randomizar imagem do banner"
           >
             <Shuffle
+              key={iconKey}
               className={cn(
-                'w-5 h-5 transition-transform duration-200',
-                'text-slate-700 dark:text-slate-200'
+                'w-5 h-5 text-slate-700 dark:text-slate-200'
               )}
-              style={{ transform: `rotate(${rotation}deg)` }}
+              style={{
+                transform: `rotate(${rotation}deg)`,
+                transition: `transform ${TRANSITION_MS}ms ${EASING}`,
+              }}
             />
           </Button>
         </TooltipTrigger>

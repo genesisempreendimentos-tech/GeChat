@@ -281,7 +281,6 @@ const ProfileCardComponent = ({
                     displayName={userData.displayName}
                     username={userData.handle}
                     avatarUrl={userData.avatarUrl}
-                    iconUrl={userData.icon}
                     onInfoClick={() => setInfoOpen(true)}
                   />
                 )}

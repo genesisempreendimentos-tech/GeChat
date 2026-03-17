@@ -3,7 +3,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ className }: { className?: string }) {
   const { theme, toggleTheme } = useThemeStore();
 
   return (
@@ -11,7 +11,7 @@ export default function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={toggleTheme}
-      className="relative h-9 w-9 rounded-xl"
+      className={className || "relative h-9 w-9 rounded-xl text-muted-foreground hover:text-foreground"}
       aria-label={`Tema: ${theme === 'light' ? 'claro' : theme === 'dark' ? 'escuro' : 'off-white'}. Clique para alternar.`}
     >
       <motion.div

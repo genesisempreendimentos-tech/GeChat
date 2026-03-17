@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { AppWindow, Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload } from 'lucide-react';
+import { BrandDatabricksIcon } from '@/components/icons/BrandDatabricksIcon';
+import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,8 +62,8 @@ function renderIcon(iconPath: string, className: string = '') {
   if (isImg && iconPath) {
     return <img src={iconPath} alt="" className={className} />;
   }
-  const Icon = (Icons as any)[iconPath] ?? Icons.AppWindow;
-  return <Icon className={className} />;
+  const IconComponent = (Icons as any)[iconPath] ?? BrandDatabricksIcon;
+  return <IconComponent className={className} />;
 }
 
 export default function AdminSystemsPage() {
@@ -265,7 +266,7 @@ export default function AdminSystemsPage() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        icon={AppWindow}
+        icon={BrandDatabricksIcon}
         title="Apps"
         description="Gerencie os sistemas (apps) disponíveis no GêApps."
         action={
@@ -320,7 +321,7 @@ export default function AdminSystemsPage() {
           <LoadingGifScreen className="h-64" />
         ) : filtered.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground">
-            <AppWindow className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <BrandDatabricksIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p>Nenhum app encontrado.</p>
           </div>
         ) : viewMode === 'cards' ? (

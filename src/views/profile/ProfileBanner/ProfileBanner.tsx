@@ -19,13 +19,17 @@ const LS_KEY = (userId?: string | null) =>
 
 interface ProfileBannerProps {
   userId?: string | null;
+  /** Banner controlado pelo pai (ex.: ProfileView) para o popup do card atualizar junto */
+  value?: string;
+  /** Chamado quando o usuário troca o banner (random/picker); o pai pode atualizar seu state */
+  onBannerChange?: (url: string) => void;
 }
 
-export function ProfileBanner({ userId }: ProfileBannerProps) {
+export function ProfileBanner({ userId, value, onBannerChange }: ProfileBannerProps) {
   const allImages = useMemo(() => getAllBannerImages(), []);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [bannerUrl, setBannerUrl] = useState<string>(() => {
+  const [localBannerUrl, setLocalBannerUrl] = useState<string>(() => {
     try {
       const saved = localStorage.getItem(LS_KEY(userId));
       if (saved) return saved;
@@ -38,23 +42,32 @@ export function ProfileBanner({ userId }: ProfileBannerProps) {
 
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Ao montar ou trocar userId: busca banner salvo no Supabase
+  const displayUrl = (value !== undefined && value !== '') ? value : localBannerUrl;
+
+  // Sincroniza estado local quando o pai envia valor (ex.: após carregar do Supabase)
   useEffect(() => {
-    if (!userId) return;
+    if (value !== undefined && value !== '') {
+      setLocalBannerUrl(value);
+    }
+  }, [value]);
+
+  // Ao montar ou trocar userId: busca banner salvo no Supabase (só se não estiver controlado pelo pai)
+  useEffect(() => {
+    if (!userId || (value !== undefined && value !== '')) return;
     databaseService.getUserById(userId).then(({ data }) => {
       const remote = (data as any)?.banner_url;
       if (remote) {
-        setBannerUrl(remote);
+        setLocalBannerUrl(remote);
+        onBannerChange?.(remote);
         try { localStorage.setItem(LS_KEY(userId), remote); } catch { /* ignorar */ }
       } else {
-        // Sem dado remoto — aplica o que está no localStorage
         try {
           const local = localStorage.getItem(LS_KEY(userId));
-          if (local) setBannerUrl(local);
+          if (local) setLocalBannerUrl(local);
         } catch { /* ignorar */ }
       }
     });
-  }, [userId]);
+  }, [userId, value, onBannerChange]);
 
   const persist = (url: string) => {
     // 1. Atualiza localStorage imediatamente
@@ -71,16 +84,17 @@ export function ProfileBanner({ userId }: ProfileBannerProps) {
   };
 
   const handleSelectImage = (url: string) => {
-    setBannerUrl(url);
+    setLocalBannerUrl(url);
     persist(url);
+    onBannerChange?.(url);
   };
 
   return (
     <>
       <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden bg-muted">
         <img
-          key={bannerUrl}
-          src={bannerUrl}
+          key={displayUrl}
+          src={displayUrl}
           alt="Banner do perfil"
           className="w-full h-full object-cover animate-in fade-in duration-500"
         />
@@ -119,7 +133,7 @@ export function ProfileBanner({ userId }: ProfileBannerProps) {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         onSelectImage={handleSelectImage}
-        currentUrl={bannerUrl}
+        currentUrl={displayUrl}
       />
     </>
   );
