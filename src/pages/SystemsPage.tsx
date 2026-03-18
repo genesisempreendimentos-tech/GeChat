@@ -775,10 +775,11 @@ export default function SystemsPage() {
                         </span>
                       </div>
                       
-                      {selectedSystem.next_release_version && selectedSystem.next_release_date && (
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-amber-600 dark:text-amber-400 font-medium">
-                          <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-500/20">
-                            Próximo lançamento - versão {selectedSystem.next_release_version} para a data {formatDate(selectedSystem.next_release_date)}
+                      {selectedSystem.next_release_version && (
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-amber-600 dark:text-amber-400 font-medium mt-1">
+                          <span className="flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20">
+                            Próximo lançamento: Versão {selectedSystem.next_release_version} 
+                            {selectedSystem.next_release_date && selectedSystem.next_release_date !== 'TBA' ? ` para ${formatDate(selectedSystem.next_release_date)}` : ' (em breve)'}
                           </span>
                         </div>
                       )}

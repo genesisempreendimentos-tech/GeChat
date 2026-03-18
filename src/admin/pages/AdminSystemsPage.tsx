@@ -880,14 +880,39 @@ export default function AdminSystemsPage() {
                     className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 flex flex-col">
                   <label className="text-sm font-medium text-foreground">Data do Lançamento</label>
                   <Input
                     type="date"
                     value={form.next_release_date}
                     onChange={(e) => setForm((f) => ({ ...f, next_release_date: e.target.value }))}
-                    className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                    disabled={form.next_release_date === 'TBA'}
+                    className={`h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20 cursor-pointer ${
+                      !form.next_release_date || form.next_release_date === 'TBA' ? 'text-muted-foreground' : ''
+                    } relative [&::-webkit-calendar-picker-indicator]:bg-transparent [&::-webkit-calendar-picker-indicator]:p-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:rounded-md hover:[&::-webkit-calendar-picker-indicator]:bg-muted`}
                   />
+                  <label className="flex items-center gap-2 mt-1 cursor-pointer group w-fit">
+                    <div className="relative flex items-center justify-center">
+                      <input
+                        type="checkbox"
+                        className="peer sr-only"
+                        checked={form.next_release_date === 'TBA'}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setForm((f) => ({ ...f, next_release_date: 'TBA' }));
+                          } else {
+                            setForm((f) => ({ ...f, next_release_date: '' }));
+                          }
+                        }}
+                      />
+                      <div className="w-4 h-4 rounded border border-input bg-background peer-focus-visible:ring-2 peer-focus-visible:ring-primary/20 peer-checked:bg-primary peer-checked:border-primary transition-all flex items-center justify-center">
+                        <Icons.Check className="w-3 h-3 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity" strokeWidth={3} />
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground font-medium group-hover:text-foreground transition-colors select-none">
+                      Data ainda não prevista
+                    </span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1057,14 +1082,39 @@ export default function AdminSystemsPage() {
                         className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
                       />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 flex flex-col">
                       <label className="text-sm font-medium text-foreground">Data do Lançamento</label>
                       <Input
-                        type="date"
-                        value={editForm.next_release_date}
+                        type={editForm.next_release_date === 'TBA' ? 'text' : 'date'}
+                        value={editForm.next_release_date === 'TBA' ? 'Não definida' : editForm.next_release_date}
                         onChange={(e) => setEditForm((f) => ({ ...f, next_release_date: e.target.value }))}
-                        className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                        disabled={editForm.next_release_date === 'TBA'}
+                        className={`h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20 cursor-pointer ${
+                          !editForm.next_release_date || editForm.next_release_date === 'TBA' ? 'text-muted-foreground' : ''
+                        } relative [&::-webkit-calendar-picker-indicator]:bg-transparent [&::-webkit-calendar-picker-indicator]:p-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:rounded-md hover:[&::-webkit-calendar-picker-indicator]:bg-muted`}
                       />
+                      <label className="flex items-center gap-2 mt-1 cursor-pointer group w-fit">
+                        <div className="relative flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            className="peer sr-only"
+                            checked={editForm.next_release_date === 'TBA'}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditForm((f) => ({ ...f, next_release_date: 'TBA' }));
+                              } else {
+                                setEditForm((f) => ({ ...f, next_release_date: '' }));
+                              }
+                            }}
+                          />
+                          <div className="w-4 h-4 rounded border border-input bg-background peer-focus-visible:ring-2 peer-focus-visible:ring-primary/20 peer-checked:bg-primary peer-checked:border-primary transition-all flex items-center justify-center">
+                            <Icons.Check className="w-3 h-3 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity" strokeWidth={3} />
+                          </div>
+                        </div>
+                        <span className="text-xs text-muted-foreground font-medium group-hover:text-foreground transition-colors select-none">
+                          Data ainda não prevista
+                        </span>
+                      </label>
                     </div>
                   </div>
                 </div>
