@@ -39,6 +39,8 @@ export interface System {
   createdAt: Date;
   /** Status do app no painel admin */
   status?: AppStatus;
+  next_release_version?: string;
+  next_release_date?: string;
 }
 
 // User System Access

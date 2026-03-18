@@ -287,15 +287,25 @@ export default function FavoritesPage() {
                 <div className="space-y-6">
                   <div>
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-3">{selectedSystem.name}</h2>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-muted-foreground">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-                        {selectedSystem.category}
-                      </span>
-                      <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20" />
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 opacity-70" />
-                        Criado em {formatDate((selectedSystem as any).createdAt)}
-                      </span>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-muted-foreground">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                          {selectedSystem.category}
+                        </span>
+                        <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20" />
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 opacity-70" />
+                          Criado em {formatDate((selectedSystem as any).createdAt)}
+                        </span>
+                      </div>
+                      
+                      {(selectedSystem as any).next_release_version && (selectedSystem as any).next_release_date && (
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-amber-600 dark:text-amber-400 font-medium">
+                          <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-500/20">
+                            Próximo lançamento - versão {(selectedSystem as any).next_release_version} para a data {formatDate((selectedSystem as any).next_release_date)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

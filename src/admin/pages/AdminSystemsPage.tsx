@@ -54,6 +54,8 @@ interface AdminSystem {
   active: boolean;
   status?: string;
   createdAt: Date;
+  next_release_version?: string;
+  next_release_date?: string;
 }
 
 function renderIcon(iconPath: string, className: string = '') {
@@ -106,6 +108,8 @@ export default function AdminSystemsPage() {
     category: string;
     status: FormStatus;
     url: string;
+    next_release_version: string;
+    next_release_date: string;
   }>({
     name: '',
     logo: '',
@@ -113,12 +117,14 @@ export default function AdminSystemsPage() {
     category: '',
     status: 'rascunho',
     url: '',
+    next_release_version: '',
+    next_release_date: '',
   });
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const [appUsers, setAppUsers] = useState<Record<string, { id: string; name: string; avatar?: string }[]>>({});
   const [editingSystem, setEditingSystem] = useState<AdminSystem | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', logo: '', category: '' as SystemCategory, url: '', status: 'rascunho' as string });
+  const [editForm, setEditForm] = useState({ name: '', description: '', logo: '', category: '' as SystemCategory, url: '', status: 'rascunho' as string, next_release_version: '', next_release_date: '' });
   
   // Modal de acessos em massa
   const [accessModalSystem, setAccessModalSystem] = useState<AdminSystem | null>(null);
@@ -199,6 +205,8 @@ export default function AdminSystemsPage() {
       category: editForm.category,
       url: editForm.url.trim() || undefined,
       status: editForm.status,
+      next_release_version: editForm.next_release_version.trim() || undefined,
+      next_release_date: editForm.next_release_date.trim() || undefined,
     });
     setFormLoading(false);
     if (error) {
@@ -332,6 +340,8 @@ export default function AdminSystemsPage() {
       category: (system.category as SystemCategory) ?? 'Ferramentas',
       url: system.url ?? '',
       status: system.status ?? 'rascunho',
+      next_release_version: system.next_release_version ?? '',
+      next_release_date: system.next_release_date ?? '',
     });
     setFormError('');
   };
@@ -350,6 +360,8 @@ export default function AdminSystemsPage() {
       category: form.category,
       status: form.status,
       url: form.url.trim() || undefined,
+      next_release_version: form.next_release_version.trim() || undefined,
+      next_release_date: form.next_release_date.trim() || undefined,
     });
     setFormLoading(false);
     if (error) {
@@ -359,7 +371,7 @@ export default function AdminSystemsPage() {
     if (data) {
       setSystems((prev) => [...prev, data as AdminSystem].sort((a, b) => a.name.localeCompare(b.name)));
       setIsCreateOpen(false);
-      setForm({ name: '', logo: '', description: '', category: categories[0]?.name || '', status: 'rascunho', url: '' });
+      setForm({ name: '', logo: '', description: '', category: categories[0]?.name || '', status: 'rascunho', url: '', next_release_version: '', next_release_date: '' });
     }
   };
 
@@ -856,6 +868,28 @@ export default function AdminSystemsPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Lançamento / Versão */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Próxima Versão</label>
+                  <Input
+                    placeholder="Ex: 2.0"
+                    value={form.next_release_version}
+                    onChange={(e) => setForm((f) => ({ ...f, next_release_version: e.target.value }))}
+                    className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Data do Lançamento</label>
+                  <Input
+                    type="date"
+                    value={form.next_release_date}
+                    onChange={(e) => setForm((f) => ({ ...f, next_release_date: e.target.value }))}
+                    className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1009,6 +1043,28 @@ export default function AdminSystemsPage() {
                           ))}
                         </select>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Lançamento / Versão */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Próxima Versão</label>
+                      <Input
+                        placeholder="Ex: 2.0"
+                        value={editForm.next_release_version}
+                        onChange={(e) => setEditForm((f) => ({ ...f, next_release_version: e.target.value }))}
+                        className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Data do Lançamento</label>
+                      <Input
+                        type="date"
+                        value={editForm.next_release_date}
+                        onChange={(e) => setEditForm((f) => ({ ...f, next_release_date: e.target.value }))}
+                        className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                      />
                     </div>
                   </div>
                 </div>

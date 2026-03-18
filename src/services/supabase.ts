@@ -630,6 +630,8 @@ export const databaseService = {
       status,
       active,
       createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+      next_release_version: row.next_release_version ?? '',
+      next_release_date: row.next_release_date ?? '',
     };
   },
 
@@ -738,6 +740,8 @@ export const databaseService = {
       description: systemData.description ?? '',
       status: validStatus,
       slug,
+      next_release_version: systemData.next_release_version || null,
+      next_release_date: systemData.next_release_date || null,
     };
     if (systemData.category != null) row.category = systemData.category;
     const icon = systemData.icon ?? systemData.icon_url ?? systemData.logo;
@@ -762,6 +766,8 @@ export const databaseService = {
     }
     if (systemData.active != null) row.status = systemData.active ? 'ativo' : 'arquivado';
     if (systemData.category != null) row.category = systemData.category;
+    if (systemData.next_release_version !== undefined) row.next_release_version = systemData.next_release_version || null;
+    if (systemData.next_release_date !== undefined) row.next_release_date = systemData.next_release_date || null;
     if (Object.keys(row).length === 0) {
       const { data } = await supabase.from('apps').select('*').eq('id', systemId).single();
       return { data: data ? this.appRowToSystem(data) : null, error: null };
