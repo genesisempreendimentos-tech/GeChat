@@ -1,4 +1,4 @@
-import { Moon, Sun, MoonStar } from 'lucide-react';
+import { Moon, Sun, Contrast } from 'lucide-react';
 import { useThemeStore } from '@/store/themeStore';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
@@ -38,7 +38,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
               transition={{ duration: 0.2 }}
               className="absolute"
             >
-              <Moon className="w-5 h-5" />
+              <Contrast className="w-5 h-5" />
             </motion.div>
             <motion.div
               initial={false}
@@ -46,7 +46,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
               transition={{ duration: 0.2 }}
               className="absolute"
             >
-              <MoonStar className="w-5 h-5" />
+              <Moon className="w-5 h-5" />
             </motion.div>
           </Button>
         </TooltipTrigger>

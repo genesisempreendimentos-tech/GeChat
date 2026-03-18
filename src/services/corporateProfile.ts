@@ -174,3 +174,34 @@ export async function getCorporateProfile(): Promise<CorporateProfileResult> {
     };
   }
 }
+
+/**
+ * Busca os setores de todos os colaboradores a partir do banco Neon.
+ * Utilizado na listagem de membros do painel admin.
+ * Usa sempre URL relativa /api/... para funcionar tanto via proxy Vite (dev)
+ * quanto via PHP em produção.
+ */
+export async function getAllCollaboratorsSectors(): Promise<Record<string, string>> {
+  try {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session?.access_token) return {};
+
+    document.cookie = `geapps_auth_token=${session.access_token}; path=/; SameSite=Strict; Secure`;
+
+    const res = await fetch('/api/all-collaborators-sectors', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!res.ok) return {};
+
+    const data = await res.json();
+    return data || {};
+  } catch (error) {
+    console.error('Erro ao buscar setores dos colaboradores:', error);
+    return {};
+  }
+}

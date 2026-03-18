@@ -10,6 +10,7 @@ import { Bell, CheckCheck, Info, Sparkles, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 export interface NotificationItem {
@@ -46,6 +47,7 @@ interface NotificationsPanelProps {
 }
 
 export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelProps) {
+  const navigate = useNavigate();
   const items = MOCK_NOTIFICATIONS;
   const unreadCount = items.filter((n) => !n.read).length;
 
@@ -63,7 +65,15 @@ export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelPro
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
                 <Bell className="w-4 h-4" />
               </div>
-              <DialogTitle className="text-xl font-semibold tracking-tight">Notificações</DialogTitle>
+              <DialogTitle 
+                className="text-xl font-semibold tracking-tight hover:text-primary cursor-pointer transition-colors"
+                onClick={() => {
+                  onOpenChange(false);
+                  navigate('/notifications');
+                }}
+              >
+                Notificações
+              </DialogTitle>
             </div>
             {unreadCount > 0 && (
               <Button

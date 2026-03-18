@@ -30,6 +30,7 @@ import UsersPage from '@/pages/UsersPage';
 import ProfilePage from '@/pages/ProfilePage';
 import SettingsPage from '@/pages/SettingsPage';
 import ChatPage from '@/pages/ChatPage';
+import NotificationsPage from '@/pages/NotificationsPage';
 
 // Admin pages
 import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
@@ -117,6 +118,7 @@ function AppRoutes() {
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/users" element={<UsersPage />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
