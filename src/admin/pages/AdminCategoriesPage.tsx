@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Shapes, Plus, Search, MoreVertical, Pencil, Trash2, Archive, 
+  Shapes, LibraryBig, Plus, Search, MoreVertical, Pencil, Trash2, Archive, 
   AppWindow, LayoutDashboard, Users, Settings, Shield, FileText, 
   PieChart, Mail, Calendar, Camera, Music, Video, Map, 
   ShoppingBag, CreditCard, Globe, Cpu, Zap, Award, Book, 
@@ -173,7 +173,7 @@ export default function AdminCategoriesPage() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        icon={Shapes}
+        icon={LibraryBig}
         title="Categorias"
         description="Gerencie as categorias dos aplicativos."
         action={
