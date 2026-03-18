@@ -30,6 +30,7 @@ export interface CorporativoFormData {
   cadeira_principal: string;
   cadeiras_secundarias: string;
   primary_chair_id: string;
+  sector_icon: string;
   email?: string;
 }
 
@@ -156,6 +157,7 @@ export async function getCorporateProfile(): Promise<CorporateProfileResult> {
       cadeira_principal: String(raw.cadeira_principal ?? raw.primary_chair_id ?? ''),
       cadeiras_secundarias: String(raw.cadeiras_secundarias ?? ''),
       primary_chair_id: String(raw.primary_chair_id ?? ''),
+      sector_icon: String(raw.sector_icon ?? raw.setor_icon ?? ''),
     };
     return { data, notFound: false, debug };
   } catch (err) {

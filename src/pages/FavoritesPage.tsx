@@ -333,6 +333,8 @@ export default function FavoritesPage() {
         open={!!comingSoonSystem}
         onClose={() => setComingSoonSystem(null)}
         systemName={comingSoonSystem?.name}
+        systemUrl={comingSoonSystem?.url}
+        status={comingSoonSystem?.status}
       />
     </div>
   );

@@ -184,14 +184,14 @@ export default function AdminAdministratorsPage() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         leftContent={
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou e-mail..."
-                className="pl-8 w-56 h-9 rounded-xl border-border/70 bg-card/50 backdrop-blur-sm shadow-sm transition-colors hover:bg-accent/50 focus-visible:ring-1"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          <div className="relative group/search">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
+            <Input
+              placeholder="Buscar por nome ou e-mail..."
+              className="pl-8 w-60 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
         }
         showViewToggle

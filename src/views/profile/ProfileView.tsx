@@ -160,6 +160,7 @@ export function ProfileView() {
       hire_date: corporateData?.hire_date || '',
       admissionDate: corporateData?.hire_date || '',
       profession: corporateData?.cadeira_principal || corporateData?.profession || '',
+      sector_icon: corporateData?.sector_icon || '',
       mascote: formData.mascote,
       instagram: formData.instagram,
       linkedin: formData.linkedin,

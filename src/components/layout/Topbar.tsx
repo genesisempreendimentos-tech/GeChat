@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Bell, LogOut, UserCircle, Settings } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
@@ -21,8 +21,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
 import Zoom from './Zoom';
 import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
-import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
-import { databaseService } from '@/services/supabase';
 
 export default function Topbar() {
   const { user, logout } = useAuthStore();
@@ -31,23 +29,9 @@ export default function Topbar() {
   const isInAdmin = location.pathname.startsWith('/admin');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profilePopupOpen, setProfilePopupOpen] = useState(false);
-  const [profileData, setProfileData] = useState<any>(null);
-
-  useEffect(() => {
-    if (profilePopupOpen && user?.id && !profileData) {
-      databaseService.getUserById(user.id).then(({ data }) => {
-        if (data) setProfileData(data);
-      });
-    }
-  }, [profilePopupOpen, user?.id]);
 
   const handleProfileClick = () => {
-    if (isInAdmin) {
-      setProfilePopupOpen(true);
-    } else {
-      navigate('/profile');
-    }
+    navigate(isInAdmin ? '/admin/profile' : '/profile');
   };
 
   const handleLogout = () => {
@@ -126,16 +110,6 @@ export default function Topbar() {
       </Dialog>
 
       <NotificationsPanel open={notificationsOpen} onOpenChange={setNotificationsOpen} />
-
-      <ProfileCardInfoPopup
-        open={profilePopupOpen}
-        onOpenChange={(open) => {
-          setProfilePopupOpen(open);
-          if (!open) setProfileData(null);
-        }}
-        userData={profileData}
-        currentUser={user}
-      />
     </header>
   );
 }

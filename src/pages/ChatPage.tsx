@@ -325,13 +325,13 @@ export default function ChatPage() {
               Escolha um usuário do GêApps para iniciar a conversa.
             </DialogDescription>
           </DialogHeader>
-          <div className="relative mt-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div className="relative mt-2 group/search">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
             <Input
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
               placeholder="Buscar por nome ou email..."
-              className="pl-9"
+              className="pl-9 h-10 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
             />
           </div>
           <ul className="max-h-64 overflow-y-auto mt-4 space-y-1">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes } from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes, Archive, ArchiveRestore, RefreshCw } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,13 +76,24 @@ export default function AdminSystemsPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [comingSoonSystem, setComingSoonSystem] = useState<AdminSystem | null>(null);
+  const [archivedSystem, setArchivedSystem] = useState<AdminSystem | null>(null);
+  const [deletedSystem, setDeletedSystem] = useState<AdminSystem | null>(null);
+  const [unarchiveLoading, setUnarchiveLoading] = useState(false);
 
   const handleOpenSystem = (system: AdminSystem) => {
-    if (system.status === 'beta' || system.status === 'rascunho') {
-      setComingSoonSystem(system);
-      return;
-    }
+    if (system.status === 'arquivado') { setArchivedSystem(system); return; }
+    if (system.status === 'excluído' || system.status === 'excluido') { setDeletedSystem(system); return; }
+    if (system.status === 'beta' || system.status === 'rascunho') { setComingSoonSystem(system); return; }
     if (system.url) window.open(system.url, '_blank');
+  };
+
+  const handleUnarchive = async () => {
+    if (!archivedSystem) return;
+    setUnarchiveLoading(true);
+    await databaseService.updateSystem(archivedSystem.id, { status: 'ativo' });
+    await loadData();
+    setUnarchiveLoading(false);
+    setArchivedSystem(null);
   };
 
   type FormStatus = 'ativo' | 'beta' | 'rascunho' | 'arquivado';
@@ -147,15 +158,26 @@ export default function AdminSystemsPage() {
     loadData();
   }, []);
 
-  const filtered = systems.filter((s) => {
-    const matchSearch =
-      !searchQuery ||
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.description ?? '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchCat = selectedCategory === 'all' || s.category === selectedCategory;
-    const matchStatus = selectedStatus === 'all' || (s.status ?? '') === selectedStatus;
-    return matchSearch && matchCat && matchStatus;
-  });
+  const STATUS_ORDER: Record<string, number> = {
+    ativo: 0, beta: 1, rascunho: 2, arquivado: 3, excluído: 4, excluido: 4,
+  };
+
+  const filtered = systems
+    .filter((s) => {
+      const matchSearch =
+        !searchQuery ||
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.description ?? '').toLowerCase().includes(searchQuery.toLowerCase());
+      const matchCat = selectedCategory === 'all' || s.category === selectedCategory;
+      const matchStatus = selectedStatus === 'all' || (s.status ?? '') === selectedStatus;
+      return matchSearch && matchCat && matchStatus;
+    })
+    .sort((a, b) => {
+      const oA = STATUS_ORDER[a.status ?? 'ativo'] ?? 0;
+      const oB = STATUS_ORDER[b.status ?? 'ativo'] ?? 0;
+      if (oA !== oB) return oA - oB;
+      return a.name.localeCompare(b.name, 'pt-BR');
+    });
 
   const handleUpdateSystem = async () => {
     if (!editingSystem) return;
@@ -292,17 +314,17 @@ export default function AdminSystemsPage() {
         onViewModeChange={setViewMode}
         leftContent={
           <>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <div className="relative group/search">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
               <Input
                 placeholder="Buscar..."
-                className="pl-8 w-40 h-9 rounded-xl border-border/70 bg-card/50 backdrop-blur-sm shadow-sm transition-colors hover:bg-accent/50 focus-visible:ring-1"
+                className="pl-8 w-44 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <select
-              className="h-9 rounded-xl border border-border/70 bg-card/50 backdrop-blur-sm px-3 py-1 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+              className="h-9 rounded-xl border border-border/60 bg-muted/50 px-3 py-1 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background cursor-pointer"
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
@@ -312,7 +334,7 @@ export default function AdminSystemsPage() {
               ))}
             </select>
             <select
-              className="h-9 rounded-xl border border-border/70 bg-card/50 backdrop-blur-sm px-3 py-1 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+              className="h-9 rounded-xl border border-border/60 bg-muted/50 px-3 py-1 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background cursor-pointer"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
             >
@@ -344,9 +366,24 @@ export default function AdminSystemsPage() {
                 transition={{ delay: index * 0.03 }}
                 className="group relative"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
+                <div className={`absolute inset-0 bg-gradient-to-br via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10
+                  ${system.status === 'excluído' || system.status === 'excluido' ? 'from-destructive/20'
+                    : system.status === 'arquivado' ? 'from-slate-400/15'
+                    : system.status === 'beta' ? 'from-amber-500/20'
+                    : system.status === 'rascunho' ? 'from-orange-500/15'
+                    : 'from-primary/10'}`} />
                 
-                <div className="relative h-full flex flex-col justify-between p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md hover:border-primary/30 hover:bg-[#0d1520]/90 transition-all duration-300 shadow-lg hover:shadow-primary/5 hover:-translate-y-2">
+                <div className={`relative h-full flex flex-col justify-between p-5 rounded-2xl border backdrop-blur-md transition-all duration-300 shadow-lg
+                  ${system.status === 'excluído' || system.status === 'excluido'
+                    ? 'border-destructive/40 bg-[#0d1520]/80 hover:border-destructive/60 hover:bg-destructive/10 hover:shadow-destructive/20 hover:-translate-y-2'
+                    : system.status === 'arquivado'
+                      ? 'border-white/5 bg-[#0d1520]/40 opacity-60 hover:opacity-90 hover:border-white/20 hover:shadow-slate-400/10 hover:-translate-y-2'
+                    : system.status === 'beta'
+                      ? 'border-white/5 bg-[#0d1520]/80 hover:border-amber-500/50 hover:bg-amber-500/10 hover:shadow-amber-500/15 hover:-translate-y-2'
+                    : system.status === 'rascunho'
+                      ? 'border-white/5 bg-[#0d1520]/80 hover:border-orange-500/50 hover:bg-orange-500/10 hover:shadow-orange-500/15 hover:-translate-y-2'
+                      : 'border-white/5 bg-[#0d1520]/80 hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-2'
+                  }`}>
                   
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
@@ -366,9 +403,22 @@ export default function AdminSystemsPage() {
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
-                      <Badge variant={system.status === 'ativo' ? 'default' : 'secondary'} className="text-[10px] uppercase tracking-wide px-2 h-6">
-                        {system.status ?? 'rascunho'}
-                      </Badge>
+                      {(() => {
+                        const s = system.status ?? 'rascunho';
+                        const cls =
+                          s === 'ativo'    ? 'bg-primary/15 border-primary/30 text-primary' :
+                          s === 'beta'     ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' :
+                          s === 'rascunho' ? 'bg-orange-500/15 border-orange-500/30 text-orange-400' :
+                          s === 'arquivado'? 'bg-muted/60 border-border/50 text-muted-foreground' :
+                          /* excluído */    'bg-destructive/15 border-destructive/30 text-destructive';
+                        return (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${cls}`}>
+                            {(s === 'arquivado') && <Archive className="w-2.5 h-2.5" />}
+                            {(s === 'excluído' || s === 'excluido') && <Trash2 className="w-2.5 h-2.5" />}
+                            {s}
+                          </span>
+                        );
+                      })()}
                       
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -499,9 +549,22 @@ export default function AdminSystemsPage() {
                     </td>
                     <td className="py-2 px-2">{system.category}</td>
                     <td className="py-2 px-2">
-                      <Badge variant="secondary" className="capitalize text-xs">
-                        {system.status ?? 'rascunho'}
-                      </Badge>
+                      {(() => {
+                        const s = system.status ?? 'rascunho';
+                        const cls =
+                          s === 'ativo'    ? 'bg-primary/15 border-primary/30 text-primary' :
+                          s === 'beta'     ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' :
+                          s === 'rascunho' ? 'bg-orange-500/15 border-orange-500/30 text-orange-400' :
+                          s === 'arquivado'? 'bg-muted/60 border-border/50 text-muted-foreground' :
+                          'bg-destructive/15 border-destructive/30 text-destructive';
+                        return (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${cls}`}>
+                            {s === 'arquivado' && <Archive className="w-2.5 h-2.5" />}
+                            {(s === 'excluído' || s === 'excluido') && <Trash2 className="w-2.5 h-2.5" />}
+                            {s}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-2 px-2">
                       <div className="flex items-center gap-1">
@@ -916,7 +979,55 @@ export default function AdminSystemsPage() {
         open={!!comingSoonSystem}
         onClose={() => setComingSoonSystem(null)}
         systemName={comingSoonSystem?.name}
+        systemUrl={comingSoonSystem?.url}
+        status={comingSoonSystem?.status}
       />
+
+      {/* Modal: sistema arquivado */}
+      <Dialog open={!!archivedSystem} onOpenChange={(o) => { if (!o) setArchivedSystem(null); }}>
+        <DialogContent className="sm:max-w-sm rounded-2xl border border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-muted/60 border border-border/50 flex items-center justify-center shrink-0">
+                <Archive className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <DialogTitle className="text-base font-semibold">Sistema arquivado</DialogTitle>
+            </div>
+            <DialogDescription className="text-sm leading-relaxed">
+              O sistema <span className="font-semibold text-foreground">{archivedSystem?.name}</span> está arquivado e temporariamente indisponível. Deseja desarquivá-lo e torná-lo ativo novamente?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setArchivedSystem(null)} disabled={unarchiveLoading}>
+              Não
+            </Button>
+            <Button className="flex-1 rounded-xl gap-2" onClick={handleUnarchive} disabled={unarchiveLoading}>
+              {unarchiveLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArchiveRestore className="w-4 h-4" />}
+              Sim, desarquivar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: sistema excluído */}
+      <Dialog open={!!deletedSystem} onOpenChange={(o) => { if (!o) setDeletedSystem(null); }}>
+        <DialogContent className="sm:max-w-sm rounded-2xl border border-destructive/30 bg-background/95 backdrop-blur-xl shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-destructive" />
+              </div>
+              <DialogTitle className="text-base font-semibold">Sistema excluído</DialogTitle>
+            </div>
+            <DialogDescription className="text-sm leading-relaxed">
+              O sistema <span className="font-semibold text-foreground">{deletedSystem?.name}</span> foi excluído. Se precisar analisar ou recuperar algo, entre em contato com um administrador.
+            </DialogDescription>
+          </DialogHeader>
+          <Button className="w-full rounded-xl mt-2" onClick={() => setDeletedSystem(null)}>
+            Entendido
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

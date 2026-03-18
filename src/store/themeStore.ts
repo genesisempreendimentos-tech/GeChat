@@ -1,15 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type Theme = 'light' | 'dark' | 'offwhite';
+export type Theme = 'light' | 'dark' | 'full-dark';
 
-const THEME_ORDER: Theme[] = ['light', 'dark', 'offwhite'];
+const THEME_ORDER: Theme[] = ['light', 'dark', 'full-dark'];
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  root.classList.remove('dark', 'offwhite');
+  root.classList.remove('dark', 'full-dark', 'offwhite');
   if (theme === 'dark') root.classList.add('dark');
-  if (theme === 'offwhite') root.classList.add('offwhite');
+  if (theme === 'full-dark') {
+    // full-dark herda as variáveis CSS de .full-dark e também precisa da classe
+    // dark para que as variantes dark: do Tailwind funcionem
+    root.classList.add('dark', 'full-dark');
+  }
 }
 
 interface ThemeState {
@@ -48,8 +52,14 @@ if (typeof window !== 'undefined') {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      const theme = parsed?.state?.theme as Theme | undefined;
-      if (theme && THEME_ORDER.includes(theme)) applyTheme(theme);
+      let theme = parsed?.state?.theme as string | undefined;
+      // Migração: offwhite era o antigo 3º tema, agora é full-dark
+      if (theme === 'offwhite') {
+        theme = 'full-dark';
+        parsed.state.theme = 'full-dark';
+        localStorage.setItem('theme-storage', JSON.stringify(parsed));
+      }
+      if (theme && THEME_ORDER.includes(theme as Theme)) applyTheme(theme as Theme);
       else applyTheme('light');
     } catch {
       applyTheme('light');

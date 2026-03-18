@@ -27,6 +27,9 @@ import {
   ChevronDown,
   Calendar,
   Clock,
+  Archive,
+  Trash2,
+  ArchiveRestore,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Boxes } from 'lucide-react';
@@ -96,6 +99,9 @@ export default function SystemsPage() {
   const [userToRevoke, setUserToRevoke] = useState<{ userId: string; userName: string } | null>(null);
   const [permissionLoading, setPermissionLoading] = useState(false);
   const [comingSoonSystem, setComingSoonSystem] = useState<System | null>(null);
+  const [archivedSystem, setArchivedSystem] = useState<System | null>(null);
+  const [deletedSystem, setDeletedSystem] = useState<System | null>(null);
+  const [unarchiveLoading, setUnarchiveLoading] = useState(false);
   
   const [newSystem, setNewSystem] = useState({
     name: '',
@@ -315,14 +321,29 @@ export default function SystemsPage() {
 
   const handleSystemAccess = (url: string, systemId: string) => {
     const system = systems.find(s => s.id === systemId);
-    if (system && (system.status === 'beta' || system.status === 'rascunho')) {
-      setComingSoonSystem(system);
-      return;
-    }
+    if (!system) return;
+    if (system.status === 'arquivado') { setArchivedSystem(system); return; }
+    if (system.status === 'excluído' || system.status === 'excluido') { setDeletedSystem(system); return; }
+    if (system.status === 'beta' || system.status === 'rascunho') { setComingSoonSystem(system); return; }
     if (currentUser?.id) {
       databaseService.logAccess(currentUser.id, systemId);
     }
     window.open(url, '_blank');
+  };
+
+  const handleCardClick = (system: System) => {
+    if (system.status === 'arquivado') { setArchivedSystem(system); return; }
+    if (system.status === 'excluído' || system.status === 'excluido') { setDeletedSystem(system); return; }
+    openDetail(system);
+  };
+
+  const handleUnarchive = async () => {
+    if (!archivedSystem) return;
+    setUnarchiveLoading(true);
+    await databaseService.updateSystem(archivedSystem.id, { status: 'ativo' });
+    await loadData();
+    setUnarchiveLoading(false);
+    setArchivedSystem(null);
   };
 
   const isFavorite = (systemId: string) => {
@@ -358,16 +379,27 @@ export default function SystemsPage() {
   }, [selectedCategory, categoriesForDropdown]);
 
   // Lista exibida: sistemas já restritos por acesso (membros) ou todos (admin/manager), filtrados por busca e categoria
-  const filteredSystems = systems.filter((system) => {
-    const matchesSearch =
-      system.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      system.description.toLowerCase().includes(searchQuery.toLowerCase());
+  const STATUS_ORDER: Record<string, number> = {
+    ativo: 0, beta: 1, rascunho: 2, arquivado: 3, excluído: 4, excluido: 4,
+  };
 
-    const matchesCategory =
-      selectedCategory === 'all' || system.category === selectedCategory;
+  const filteredSystems = systems
+    .filter((system) => {
+      const matchesSearch =
+        system.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        system.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesSearch && matchesCategory;
-  });
+      const matchesCategory =
+        selectedCategory === 'all' || system.category === selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      const oA = STATUS_ORDER[a.status ?? 'ativo'] ?? 0;
+      const oB = STATUS_ORDER[b.status ?? 'ativo'] ?? 0;
+      if (oA !== oB) return oA - oB;
+      return a.name.localeCompare(b.name, 'pt-BR');
+    });
 
   const openDetail = (system: System) => {
     setSelectedSystem(system);
@@ -500,18 +532,18 @@ export default function SystemsPage() {
       {/* Busca e filtro por categoria */}
       <div className="p-1 rounded-2xl bg-white/50 dark:bg-[#0d1520]/50 border border-slate-200 dark:border-white/5 backdrop-blur-sm">
         <div className="flex flex-col sm:flex-row gap-2 p-2">
-          <div className="flex-1 relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <div className="flex-1 relative group/search">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
             <Input
               placeholder="Buscar sistemas..."
-              className="pl-11 h-12 bg-slate-100/50 dark:bg-black/20 border-slate-200 dark:border-white/5 focus-visible:ring-primary/30 rounded-xl"
+              className="pl-11 h-12 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="lg" className="min-w-[200px] h-12 justify-between bg-slate-100/50 dark:bg-black/20 border-slate-200 dark:border-white/5 hover:bg-slate-200/50 dark:hover:bg-white/5 hover:text-primary rounded-xl">
+              <Button variant="outline" size="lg" className="min-w-[200px] h-12 justify-between border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background rounded-xl">
                 <div className="flex items-center">
                   <Filter className="w-4 h-4 mr-2" />
                   {selectedCategory === 'all' ? 'Todas as categorias' : selectedCategory}
@@ -561,13 +593,28 @@ export default function SystemsPage() {
                 transition={{ delay: index * 0.05 }}
                 className="group relative"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
+                <div className={`absolute inset-0 bg-gradient-to-br via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10
+                  ${system.status === 'excluído' || system.status === 'excluido' ? 'from-destructive/20'
+                    : system.status === 'arquivado' ? 'from-slate-400/15'
+                    : system.status === 'beta' ? 'from-amber-500/20'
+                    : system.status === 'rascunho' ? 'from-orange-500/15'
+                    : 'from-primary/20'}`} />
                 
-                <div 
-                  className="relative h-full flex flex-col justify-between p-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 transition-all duration-300 shadow-lg hover:shadow-primary/5 hover:-translate-y-1 cursor-pointer"
-                  onClick={() => openDetail(system)}
+                <div
+                  className={`relative h-full flex flex-col justify-between p-5 rounded-2xl border backdrop-blur-md transition-all duration-300 shadow-lg cursor-pointer
+                    ${system.status === 'excluído' || system.status === 'excluido'
+                      ? 'border-destructive/40 bg-white/80 dark:bg-[#0d1520]/80 hover:border-destructive/60 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:shadow-destructive/20 hover:-translate-y-1'
+                      : system.status === 'arquivado'
+                        ? 'border-slate-200 dark:border-white/5 bg-white/40 dark:bg-[#0d1520]/40 opacity-60 hover:opacity-90 hover:border-slate-400 dark:hover:border-white/20 hover:shadow-slate-400/10 hover:-translate-y-1'
+                      : system.status === 'beta'
+                        ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-amber-500/50 hover:bg-amber-500/5 dark:hover:bg-amber-500/10 hover:shadow-amber-500/15 hover:-translate-y-1'
+                      : system.status === 'rascunho'
+                        ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-orange-500/50 hover:bg-orange-500/5 dark:hover:bg-orange-500/10 hover:shadow-orange-500/15 hover:-translate-y-1'
+                        : 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-1'
+                    }`}
+                  onClick={() => handleCardClick(system)}
                 >
-                  
+
                   {/* Header do Card */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-4">
@@ -578,12 +625,32 @@ export default function SystemsPage() {
                           {renderIcon(system.icon, 'w-7 h-7 object-contain drop-shadow')}
                         </div>
                       </div>
-                      
-                      {/* Nome */}
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors duration-300">
+
+                      {/* Nome + badge status */}
+                      <div className="flex flex-col gap-1">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors duration-300 leading-tight">
                           {system.name}
                         </h3>
+                        {system.status === 'beta' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-500/15 border border-amber-500/30 text-amber-500 w-fit">
+                            Beta
+                          </span>
+                        )}
+                        {system.status === 'rascunho' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-orange-500/15 border border-orange-500/30 text-orange-500 w-fit">
+                            Rascunho
+                          </span>
+                        )}
+                        {system.status === 'arquivado' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-muted/60 border border-border/50 text-muted-foreground w-fit">
+                            <Archive className="w-2.5 h-2.5" /> Arquivado
+                          </span>
+                        )}
+                        {(system.status === 'excluído' || system.status === 'excluido') && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-destructive/15 border border-destructive/30 text-destructive w-fit">
+                            <Trash2 className="w-2.5 h-2.5" /> Excluído
+                          </span>
+                        )}
                       </div>
                     </div>
                     
@@ -880,7 +947,55 @@ export default function SystemsPage() {
         open={!!comingSoonSystem}
         onClose={() => setComingSoonSystem(null)}
         systemName={comingSoonSystem?.name}
+        systemUrl={comingSoonSystem?.url}
+        status={comingSoonSystem?.status}
       />
+
+      {/* Modal: sistema arquivado */}
+      <Dialog open={!!archivedSystem} onOpenChange={(o) => { if (!o) setArchivedSystem(null); }}>
+        <DialogContent className="sm:max-w-sm rounded-2xl border border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-muted/60 border border-border/50 flex items-center justify-center shrink-0">
+                <Archive className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <DialogTitle className="text-base font-semibold">Sistema arquivado</DialogTitle>
+            </div>
+            <DialogDescription className="text-sm leading-relaxed">
+              O sistema <span className="font-semibold text-foreground">{archivedSystem?.name}</span> está arquivado e temporariamente indisponível. Deseja desarquivá-lo e torná-lo ativo novamente?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setArchivedSystem(null)} disabled={unarchiveLoading}>
+              Não
+            </Button>
+            <Button className="flex-1 rounded-xl gap-2" onClick={handleUnarchive} disabled={unarchiveLoading}>
+              {unarchiveLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArchiveRestore className="w-4 h-4" />}
+              Sim, desarquivar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: sistema excluído */}
+      <Dialog open={!!deletedSystem} onOpenChange={(o) => { if (!o) setDeletedSystem(null); }}>
+        <DialogContent className="sm:max-w-sm rounded-2xl border border-destructive/30 bg-background/95 backdrop-blur-xl shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-destructive" />
+              </div>
+              <DialogTitle className="text-base font-semibold">Sistema excluído</DialogTitle>
+            </div>
+            <DialogDescription className="text-sm leading-relaxed">
+              O sistema <span className="font-semibold text-foreground">{deletedSystem?.name}</span> foi excluído. Se precisar analisar ou recuperar algo, entre em contato com um administrador.
+            </DialogDescription>
+          </DialogHeader>
+          <Button className="w-full rounded-xl mt-2" onClick={() => setDeletedSystem(null)}>
+            Entendido
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -137,6 +137,7 @@ function AppRoutes() {
           <Route path="administrators" element={<AdminAdministratorsPage />} />
           <Route path="categories" element={<AdminCategoriesPage />} />
           <Route path="reviews" element={<AdminReviewsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* Redirect */}

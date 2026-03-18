@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Cake, Instagram, Linkedin, X } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import { WhatsappIcon } from '@/components/icons/WhatsappIcon'
 import { DotLottiePlayer } from '@dotlottie/react-player'
 import '@dotlottie/react-player/dist/index.css'
@@ -54,8 +55,14 @@ interface ProfileCardInfoPopupProps {
 
 export default function ProfileCardInfoPopup({ open, onOpenChange, userData, currentUser }: ProfileCardInfoPopupProps) {
   const [avatarError, setAvatarError] = useState(false)
+  const [mascoteOnRight, setMascoteOnRight] = useState(true)
 
-  useEffect(() => { if (open) setAvatarError(false) }, [open, userData])
+  useEffect(() => {
+    if (open) {
+      setAvatarError(false)
+      setMascoteOnRight(Math.random() < 0.5)
+    }
+  }, [open, userData])
 
   const data = useMemo(() => {
     if (!userData) return null
@@ -74,6 +81,7 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
       linkedin:      userData.linkedin  || '',
       mascote:       (userData.mascote as 'gato' | 'cachorro' | 'passaro' | 'terra' | 'tigre' | 'cavalo' | 'peixe' | 'leao') || '',
       icon:          userData.icon ?? '',
+      sectorIcon:    userData.sector_icon || '',
     }
   }, [userData])
 
@@ -143,29 +151,13 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
           </div>
 
           {/* Info — apenas apelido + username (relative para posicionar mascotes) */}
-          <div className="px-6 pb-6 relative z-10 min-h-[140px]">
+          <div className="px-6 pb-6 relative z-10">
 
             {/* Nome sempre centralizado sob o avatar; ícone (passaro/leao) ao lado sem deslocar o nome */}
             <div className="text-center mb-4">
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 min-w-0 w-full">
-                <span className="min-w-0" aria-hidden />
-                <h2 className="text-xl font-bold text-white tracking-tight leading-tight truncate min-w-0 justify-self-center">
-                  {data.apelido || data.username || 'Usuário'}
-                </h2>
-                <span className="flex items-center justify-start min-w-0">
-                  {(data.mascote === 'passaro' || data.mascote === 'leao') && (
-                    <div className="w-10 h-10 shrink-0 pointer-events-none flex items-center justify-center" style={{ marginTop: -2 }}>
-                      <DotLottiePlayer
-                        src={data.mascote === 'leao' ? '/assets/leao.lottie' : '/assets/bird.lottie'}
-                        autoplay
-                        loop
-                        className="w-full h-full"
-                        renderer="svg"
-                      />
-                    </div>
-                  )}
-                </span>
-              </div>
+              <h2 className="text-xl font-bold text-white tracking-tight leading-tight truncate">
+                {data.apelido || data.username || 'Usuário'}
+              </h2>
               {/* @username centralizado */}
               <div className="flex items-center justify-center gap-2 mt-1 flex-wrap">
                 <span className="text-teal-400 text-sm font-semibold">@{data.username}</span>
@@ -175,99 +167,129 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
               )}
             </div>
 
-            {/* Mascote canto esquerdo: gato, terra, cavalo */}
-            {(data.mascote === 'gato' || data.mascote === 'terra' || data.mascote === 'cavalo') && (
-              <div className="absolute bottom-4 left-4 w-20 h-20 pointer-events-none z-0 opacity-90">
-                <DotLottiePlayer
-                  src={
-                    data.mascote === 'gato' ? '/assets/cat.lottie' :
-                    data.mascote === 'terra' ? '/assets/terra.lottie' : '/assets/cavalo.lottie'
-                  }
-                  autoplay
-                  loop
-                  className="w-full h-full"
-                  renderer="svg"
-                />
-              </div>
-            )}
-            {/* Mascote canto direito: cachorro, tigre, peixe (tigre um pouco maior) */}
-            {(data.mascote === 'cachorro' || data.mascote === 'tigre' || data.mascote === 'peixe') && (
-              <div className={`absolute bottom-4 right-4 pointer-events-none z-0 opacity-90 ${data.mascote === 'tigre' ? 'w-28 h-28' : 'w-20 h-20'}`}>
-                <DotLottiePlayer
-                  src={
-                    data.mascote === 'cachorro' ? '/assets/dog.lottie' :
-                    data.mascote === 'tigre' ? '/assets/tigre.lottie' : '/assets/peixe.lottie'
-                  }
-                  autoplay
-                  loop
-                  className="w-full h-full"
-                  renderer="svg"
-                />
-              </div>
-            )}
-
             {/* Badge profissão */}
             {data.profession && (
               <div className="flex justify-center mb-4">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-300 font-medium text-sm">
-                  <span className="text-teal-400">👤</span>
+                  {data.sectorIcon ? (
+                    <img
+                      src={data.sectorIcon}
+                      alt=""
+                      className="w-4 h-4 object-contain shrink-0"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                    />
+                  ) : (
+                    <span className="w-4 h-4 shrink-0 flex items-center justify-center text-teal-400 text-xs">◆</span>
+                  )}
                   {data.profession}
                 </div>
               </div>
             )}
 
-            {/* Redes sociais centralizadas */}
-            {(data.whatsapp || data.instagram || data.linkedin) && (
-              <div className="flex items-center justify-center gap-2 mb-4">
-                {data.whatsapp && (
-                  <button
-                    onClick={() => open_(waUrl)}
-                    className="w-9 h-9 flex items-center justify-center rounded-full bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366] hover:text-white hover:scale-110 transition-all duration-200"
-                    title="WhatsApp"
-                  >
-                    <WhatsappIcon className="w-[18px] h-[18px]" />
-                  </button>
-                )}
-                {data.instagram && (
-                  <button
-                    onClick={() => open_(igUrl)}
-                    className="w-9 h-9 flex items-center justify-center rounded-full bg-[#E1306C]/15 text-[#E1306C] hover:bg-[#E1306C] hover:text-white hover:scale-110 transition-all duration-200"
-                    title="Instagram"
-                  >
-                    <Instagram className="w-4 h-4" />
-                  </button>
-                )}
-                {data.linkedin && (
-                  <button
-                    onClick={() => open_(liUrl)}
-                    className="w-9 h-9 flex items-center justify-center rounded-full bg-[#0A66C2]/15 text-[#0A66C2] hover:bg-[#0A66C2] hover:text-white hover:scale-110 transition-all duration-200"
-                    title="LinkedIn"
-                  >
-                    <Linkedin className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            )}
+            {/* Redes sociais centralizadas + mascote na coluna direita (não desloca o centro) */}
+            {(data.whatsapp || data.instagram || data.linkedin || !!data.mascote) && (() => {
+              const mascoteSrc =
+                data.mascote === 'gato' ? '/assets/cat.lottie' :
+                data.mascote === 'cachorro' ? '/assets/dog.lottie' :
+                data.mascote === 'passaro' ? '/assets/bird.lottie' :
+                data.mascote === 'terra' ? '/assets/terra.lottie' :
+                data.mascote === 'tigre' ? '/assets/tigre.lottie' :
+                data.mascote === 'cavalo' ? '/assets/cavalo.lottie' :
+                data.mascote === 'peixe' ? '/assets/peixe.lottie' :
+                data.mascote === 'leao' ? '/assets/leao.lottie' : null
+
+              return (
+                <div className="grid grid-cols-[auto_auto_auto] items-center justify-center mb-4 w-full">
+                  {/* coluna esquerda */}
+                  <span className="flex items-center justify-end pr-2">
+                    {mascoteSrc && !mascoteOnRight ? (
+                      <div className="w-24 h-24 shrink-0 pointer-events-none">
+                        <DotLottiePlayer src={mascoteSrc} autoplay loop className="w-full h-full" renderer="svg" />
+                      </div>
+                    ) : (
+                      <span className="w-24" aria-hidden />
+                    )}
+                  </span>
+
+                  {/* centro: redes sociais sempre centralizadas */}
+                  <TooltipProvider delayDuration={200}>
+                    <div className="flex items-center justify-center gap-2">
+                      {data.whatsapp && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => open_(waUrl)}
+                              className="w-9 h-9 flex items-center justify-center rounded-full bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366] hover:text-white hover:scale-110 transition-all duration-200"
+                            >
+                              <WhatsappIcon className="w-[18px] h-[18px]" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={6}>WhatsApp</TooltipContent>
+                        </Tooltip>
+                      )}
+                      {data.instagram && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => open_(igUrl)}
+                              className="w-9 h-9 flex items-center justify-center rounded-full bg-[#E1306C]/15 text-[#E1306C] hover:bg-[#E1306C] hover:text-white hover:scale-110 transition-all duration-200"
+                            >
+                              <Instagram className="w-4 h-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={6}>Instagram</TooltipContent>
+                        </Tooltip>
+                      )}
+                      {data.linkedin && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => open_(liUrl)}
+                              className="w-9 h-9 flex items-center justify-center rounded-full bg-[#0A66C2]/15 text-[#0A66C2] hover:bg-[#0A66C2] hover:text-white hover:scale-110 transition-all duration-200"
+                            >
+                              <Linkedin className="w-4 h-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={6}>LinkedIn</TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </TooltipProvider>
+
+                  {/* coluna direita */}
+                  <span className="flex items-center pl-2">
+                    {mascoteSrc && mascoteOnRight ? (
+                      <div className="w-24 h-24 shrink-0 pointer-events-none">
+                        <DotLottiePlayer src={mascoteSrc} autoplay loop className="w-full h-full" renderer="svg" />
+                      </div>
+                    ) : (
+                      <span className="w-24" aria-hidden />
+                    )}
+                  </span>
+                </div>
+              )
+            })()}
 
             {/* Linha separadora: aniversário esquerda | admissão direita */}
             {(data.birthday || data.admissionDate) && (
               <div className="border-t border-white/10 pt-4">
                 <div className="flex items-center justify-between">
                   {/* Aniversário */}
-                  <div>
-                    {data.birthday ? (
+                  {data.birthday ? (
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-xs text-white/35 leading-none">Aniversário</p>
                       <div className="flex items-center gap-1.5 text-white/55 text-sm">
                         <Cake className="w-3.5 h-3.5 text-white/35" />
                         <span>{data.birthday}</span>
                       </div>
-                    ) : <span />}
-                  </div>
+                    </div>
+                  ) : <span />}
 
                   {/* Data de admissão */}
                   {data.admissionDate && (
-                    <div className="text-right">
+                    <div className="text-right flex flex-col gap-0.5">
                       <p className="text-xs text-white/35 leading-none">Desde</p>
-                      <p className="text-sm font-semibold text-white/65 mt-0.5">{data.admissionDate}</p>
+                      <p className="text-sm font-semibold text-white/65">{data.admissionDate}</p>
                     </div>
                   )}
                 </div>
