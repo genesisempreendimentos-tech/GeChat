@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes, Archive, ArchiveRestore, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes, Archive, ArchiveRestore, RefreshCw, Check, X, Loader2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,10 +28,12 @@ import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { databaseService, storageService } from '@/services/supabase';
+import { getAllCollaboratorsSectors } from '@/services/corporateProfile';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { SystemCategory, Category } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { ComingSoonModal } from '@/components/ComingSoonModal';
+import { cn } from '@/lib/utils';
 
 // O array CATEGORIES original agora é carregado do banco
 const STATUS_OPTIONS = [
@@ -117,10 +119,17 @@ export default function AdminSystemsPage() {
   const [appUsers, setAppUsers] = useState<Record<string, { id: string; name: string; avatar?: string }[]>>({});
   const [editingSystem, setEditingSystem] = useState<AdminSystem | null>(null);
   const [editForm, setEditForm] = useState({ name: '', description: '', logo: '', category: '' as SystemCategory, url: '', status: 'rascunho' as string });
-  const [liberarAppId, setLiberarAppId] = useState<string | null>(null);
-  const [searchCollaborators, setSearchCollaborators] = useState('');
-  const [searchResults, setSearchResults] = useState<{ id: string; name: string; email: string; avatar?: string }[]>([]);
-  const [searching, setSearching] = useState(false);
+  
+  // Modal de acessos em massa
+  const [accessModalSystem, setAccessModalSystem] = useState<AdminSystem | null>(null);
+  const [memberAccesses, setMemberAccesses] = useState<{ id: string; name: string; email: string; avatar?: string; sector?: string; canAccess: boolean; original: boolean }[]>([]);
+  const [sectors, setSectors] = useState<string[]>([]);
+  const [loadingAccess, setLoadingAccess] = useState(false);
+  const [savingAccess, setSavingAccess] = useState(false);
+  const [accessSearch, setAccessSearch] = useState('');
+  const [accessFilter, setAccessFilter] = useState<'all' | 'granted' | 'denied'>('all');
+  const [accessSectorFilter, setAccessSectorFilter] = useState<string>('all');
+
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const createLogoInputRef = useRef<HTMLInputElement>(null);
@@ -213,35 +222,106 @@ export default function AdminSystemsPage() {
     }
   };
 
-  const handleGrantAccess = async (appId: string, userId: string) => {
-    await databaseService.setUserSystemAccess(userId, appId, true);
-    const { data } = await databaseService.getUsersWithAccessToApp(appId);
-    setAppUsers((prev) => ({ ...prev, [appId]: data ?? [] }));
-  };
+  const handleOpenAccessModal = useCallback(async (system: AdminSystem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setAccessModalSystem(system);
+    setAccessSearch('');
+    setAccessFilter('all');
+    setAccessSectorFilter('all');
+    setLoadingAccess(true);
 
-  const handleRevokeAccess = async (appId: string, userId: string) => {
-    await databaseService.setUserSystemAccess(userId, appId, false);
-    const { data } = await databaseService.getUsersWithAccessToApp(appId);
-    setAppUsers((prev) => ({ ...prev, [appId]: data ?? [] }));
-  };
+    const [{ data: users }, { data: accesses }, sectorsData] = await Promise.all([
+      databaseService.getUsers(),
+      databaseService.getUsersWithAccessToApp(system.id),
+      getAllCollaboratorsSectors()
+    ]);
 
-  const searchCollaboratorsDebounced = useCallback(() => {
-    const q = searchCollaborators.trim();
-    if (q.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    setSearching(true);
-    databaseService.searchProfiles(q).then(({ data }) => {
-      setSearchResults(data ?? []);
-      setSearching(false);
+    const userList = (users ?? []) as any[];
+    const accessList = (accesses ?? []) as any[];
+    const accessMap = new Set(accessList.map(a => a.id));
+    
+    // Extrai setores únicos
+    const uniqueSectors = new Set<string>();
+
+    const mapped = userList.map((u: any) => {
+      const hasAccess = accessMap.has(u.id);
+      const sector = sectorsData[u.email?.toLowerCase()] || '';
+      if (sector) uniqueSectors.add(sector);
+
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        avatar: u.avatar,
+        sector,
+        canAccess: hasAccess,
+        original: hasAccess,
+      };
     });
-  }, [searchCollaborators]);
 
-  useEffect(() => {
-    const t = setTimeout(searchCollaboratorsDebounced, 300);
-    return () => clearTimeout(t);
-  }, [searchCollaborators, searchCollaboratorsDebounced]);
+    mapped.sort((a, b) => {
+      if (a.canAccess !== b.canAccess) return a.canAccess ? -1 : 1;
+      return (a.name || a.email || '').localeCompare(b.name || b.email || '', 'pt-BR');
+    });
+
+    setSectors(Array.from(uniqueSectors).sort((a, b) => a.localeCompare(b, 'pt-BR')));
+    setMemberAccesses(mapped);
+    setLoadingAccess(false);
+  }, []);
+
+  const toggleMemberAccess = (userId: string) => {
+    setMemberAccesses(prev =>
+      prev.map(m => m.id === userId ? { ...m, canAccess: !m.canAccess } : m)
+    );
+  };
+
+  const handleGrantAllSector = (sector: string) => {
+    setMemberAccesses(prev =>
+      prev.map(m => m.sector === sector ? { ...m, canAccess: true } : m)
+    );
+  };
+
+  const handleRevokeAllSector = (sector: string) => {
+    setMemberAccesses(prev =>
+      prev.map(m => m.sector === sector ? { ...m, canAccess: false } : m)
+    );
+  };
+
+  const handleSaveAccess = async () => {
+    if (!accessModalSystem) return;
+    setSavingAccess(true);
+
+    const changed = memberAccesses.filter(m => m.canAccess !== m.original);
+    await Promise.all(
+      changed.map(m =>
+        databaseService.setUserSystemAccess(m.id, accessModalSystem.id, m.canAccess)
+      )
+    );
+
+    // Update appUsers locally so UI updates instantly
+    const { data } = await databaseService.getUsersWithAccessToApp(accessModalSystem.id);
+    setAppUsers((prev) => ({ ...prev, [accessModalSystem.id]: data ?? [] }));
+
+    setMemberAccesses(prev => prev.map(m => ({ ...m, original: m.canAccess })));
+    setSavingAccess(false);
+    // setAccessModalSystem(null); // Keep open if they want to do more changes, or close. Let's keep the user's choice to close manually or close on success.
+    // Close on success
+    setAccessModalSystem(null);
+  };
+
+  const filteredAccesses = memberAccesses.filter(m => {
+    const q = accessSearch.toLowerCase();
+    const matchSearch = !q || (m.name ?? '').toLowerCase().includes(q) || (m.email ?? '').toLowerCase().includes(q);
+    const matchFilter =
+      accessFilter === 'all' ? true :
+      accessFilter === 'granted' ? m.canAccess :
+      !m.canAccess;
+    const matchSector = accessSectorFilter === 'all' || m.sector === accessSectorFilter;
+    return matchSearch && matchFilter && matchSector;
+  });
+
+  const changedCount = memberAccesses.filter(m => m.canAccess !== m.original).length;
+  const grantedCount = memberAccesses.filter(m => m.canAccess).length;
 
   const openEditModal = (system: AdminSystem) => {
     setEditingSystem(system);
@@ -432,7 +512,7 @@ export default function AdminSystemsPage() {
                             <Pencil className="w-4 h-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setLiberarAppId(system.id); setSearchCollaborators(''); setSearchResults([]); }}>
+                          <DropdownMenuItem onClick={(e) => handleOpenAccessModal(system, e as any)}>
                             <Unlock className="w-4 h-4 mr-2" />
                             Acessos
                           </DropdownMenuItem>
@@ -567,17 +647,19 @@ export default function AdminSystemsPage() {
                       })()}
                     </td>
                     <td className="py-2 px-2">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 min-w-[72px]">
                         {system.url && (
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8"
+                            className="h-8 w-8 p-0"
                             onClick={() => handleOpenSystem(system)}
+                            title="Abrir"
                           >
                             <ExternalLink className="w-4 h-4" />
                           </Button>
                         )}
+                        {!system.url && <div className="w-8" />}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -590,15 +672,15 @@ export default function AdminSystemsPage() {
                               <Pencil className="w-4 h-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setLiberarAppId(system.id); setSearchCollaborators(''); setSearchResults([]); }}>
+                            <DropdownMenuItem onClick={(e) => handleOpenAccessModal(system, e as any)}>
                               <Unlock className="w-4 h-4 mr-2" />
                               Acessos
                             </DropdownMenuItem>
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger>
-                              <Zap className="w-4 h-4 mr-2" />
-                              Status
-                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                <Zap className="w-4 h-4 mr-2" />
+                                Status
+                              </DropdownMenuSubTrigger>
                               <DropdownMenuSubContent>
                                 {STATUS_OPTIONS.map((o) => (
                                   <DropdownMenuItem
@@ -635,117 +717,155 @@ export default function AdminSystemsPage() {
       </AdminBigBox>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Criar sistema</DialogTitle>
-            <DialogDescription>
-              Preencha os campos. O sistema aparecerá no painel após ser criado.
-            </DialogDescription>
-          </DialogHeader>
-          {formError && (
-            <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              {formError}
-            </div>
-          )}
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium">Nome</label>
-              <Input
-                placeholder="Ex: GêNovo"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Logo (apenas upload)</label>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  ref={createLogoInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleLogoUpload(file, (url) => setForm((f) => ({ ...f, logo: url })));
-                    e.target.value = '';
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={logoUploading}
-                  onClick={() => createLogoInputRef.current?.click()}
-                >
-                  {logoUploading ? <LoadingGif size="sm" className="w-4 h-4 mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-                  Enviar imagem
-                </Button>
-                {form.logo && (
-                  <div className="flex items-center gap-2">
-                    {form.logo.startsWith('http') ? (
-                      <img src={form.logo} alt="Logo" className="w-10 h-10 rounded object-contain border border-border" />
-                    ) : null}
-                    <span className="text-xs text-muted-foreground truncate max-w-[180px]" title={form.logo}>
-                      Imagem selecionada
-                    </span>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl">
+          
+          <div className="p-6 border-b border-border/40 bg-muted/20">
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <Plus className="w-5 h-5 text-primary" />
+                </div>
+                <DialogTitle className="text-xl font-semibold">Criar novo app</DialogTitle>
+              </div>
+              <DialogDescription className="text-sm">
+                Preencha os campos abaixo para adicionar um novo sistema ao painel.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {formError && (
+              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {formError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-6">
+              {/* Nome e Descrição */}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Nome do app <span className="text-destructive">*</span></label>
+                  <Input
+                    placeholder="Ex: GêNovo"
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Descrição</label>
+                  <Input
+                    placeholder="Breve descrição do aplicativo"
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              {/* Logo */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Ícone / Logo</label>
+                <div className="flex items-start gap-4 mt-1">
+                  <div className="w-16 h-16 rounded-2xl bg-muted/30 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
+                    {form.logo ? (
+                      form.logo.startsWith('http') ? (
+                        <img src={form.logo} alt="Logo" className="w-10 h-10 object-contain drop-shadow" />
+                      ) : (
+                        <Icons.Image className="w-6 h-6 text-muted-foreground/50" />
+                      )
+                    ) : (
+                      <Icons.Image className="w-6 h-6 text-muted-foreground/50" />
+                    )}
                   </div>
-                )}
+                  <div className="flex flex-col gap-2 flex-1">
+                    <input
+                      ref={createLogoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleLogoUpload(file, (url) => setForm((f) => ({ ...f, logo: url })));
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-10 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                      disabled={logoUploading}
+                      onClick={() => createLogoInputRef.current?.click()}
+                    >
+                      {logoUploading ? <LoadingGif size="sm" className="w-4 h-4 mr-2" /> : <Upload className="w-4 h-4 mr-2 text-muted-foreground" />}
+                      <span className="font-normal text-muted-foreground">{logoUploading ? 'Enviando...' : 'Clique para enviar imagem'}</span>
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground/70">Recomendado: 512x512px, formato PNG ou SVG transparente.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Link */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">URL de acesso</label>
+                <div className="relative">
+                  <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                  <Input
+                    placeholder="https://..."
+                    value={form.url}
+                    onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+                    className="pl-9 h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              {/* Categorias e Status */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Categoria</label>
+                  <div className="relative">
+                    <Boxes className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
+                    <select
+                      className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none"
+                      value={form.category}
+                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                    >
+                      <option value="" disabled>Selecione...</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Status</label>
+                  <div className="relative">
+                    <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
+                    <select
+                      className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none"
+                      value={form.status}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, status: e.target.value as FormStatus }))
+                      }
+                    >
+                      {STATUS_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium">Descrição</label>
-              <Input
-                placeholder="Breve descrição do aplicativo"
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">URL (opcional)</label>
-              <Input
-                placeholder="https://..."
-                value={form.url}
-                onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Categoria</label>
-              <select
-                className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={form.category}
-                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              >
-                <option value="" disabled>Selecione uma categoria</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.name}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Status</label>
-              <select
-                className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={form.status}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, status: e.target.value as 'ativo' | 'beta' | 'rascunho' | 'arquivado' }))
-                }
-              >
-                {STATUS_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
           </div>
-          <div className="flex gap-2 pt-2">
-            <Button className="flex-1" onClick={handleCreate} disabled={formLoading}>
-              {formLoading ? <LoadingGif size="sm" className="mr-2" /> : null}
-              Criar sistema
-            </Button>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+
+          <div className="p-6 pt-0 mt-2 flex gap-3">
+            <Button variant="outline" className="flex-1 rounded-xl h-11" onClick={() => setIsCreateOpen(false)}>
               Cancelar
+            </Button>
+            <Button className="flex-1 rounded-xl h-11" onClick={handleCreate} disabled={formLoading}>
+              {formLoading ? <LoadingGif size="sm" className="mr-2" /> : null}
+              Criar app
             </Button>
           </div>
         </DialogContent>
@@ -753,114 +873,154 @@ export default function AdminSystemsPage() {
 
       {/* Modal Editar */}
       <Dialog open={!!editingSystem} onOpenChange={(open) => !open && setEditingSystem(null)}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Editar app</DialogTitle>
-            <DialogDescription>
-              Altere nome, descrição, logo, categoria e demais informações.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl">
+          
+          <div className="p-6 border-b border-border/40 bg-muted/20">
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <Pencil className="w-5 h-5 text-primary" />
+                </div>
+                <DialogTitle className="text-xl font-semibold">Editar app</DialogTitle>
+              </div>
+              <DialogDescription className="text-sm">
+                Altere nome, descrição, logo, categoria e demais informações.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
           {editingSystem && (
             <>
-              {formError && (
-                <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {formError}
-                </div>
-              )}
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium">Nome</label>
-                  <Input
-                    value={editForm.name}
-                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Descrição</label>
-                  <Input
-                    value={editForm.description}
-                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Logo (apenas upload)</label>
-                  <div className="mt-1 flex items-center gap-2 flex-wrap">
-                    <input
-                      ref={editLogoInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleLogoUpload(file, (url) => setEditForm((f) => ({ ...f, logo: url })));
-                        e.target.value = '';
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={logoUploading}
-                      onClick={() => editLogoInputRef.current?.click()}
-                    >
-                      {logoUploading ? <LoadingGif size="sm" className="w-4 h-4 mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-                      {editForm.logo ? 'Substituir imagem' : 'Enviar imagem'}
-                    </Button>
-                    {editForm.logo && (
-                      <div className="flex items-center gap-2">
-                        {(editForm.logo.startsWith('http') || editForm.logo.startsWith('/')) ? (
-                          <img src={editForm.logo} alt="Logo" className="w-10 h-10 rounded object-contain border border-border" />
-                        ) : null}
-                        <span className="text-xs text-muted-foreground truncate max-w-[180px]" title={editForm.logo}>
-                          Imagem atual
-                        </span>
+              <div className="p-6 space-y-6">
+                {formError && (
+                  <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    {formError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-6">
+                  {/* Nome e Descrição */}
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Nome do app <span className="text-destructive">*</span></label>
+                      <Input
+                        value={editForm.name}
+                        onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                        className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Descrição</label>
+                      <Input
+                        value={editForm.description}
+                        onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                        className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Logo */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">Ícone / Logo</label>
+                    <div className="flex items-start gap-4 mt-1">
+                      <div className="w-16 h-16 rounded-2xl bg-muted/30 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
+                        {editForm.logo ? (
+                          (editForm.logo.startsWith('http') || editForm.logo.startsWith('/')) ? (
+                            <img src={editForm.logo} alt="Logo" className="w-10 h-10 object-contain drop-shadow" />
+                          ) : (
+                            <Icons.Image className="w-6 h-6 text-muted-foreground/50" />
+                          )
+                        ) : (
+                          <Icons.Image className="w-6 h-6 text-muted-foreground/50" />
+                        )}
                       </div>
-                    )}
+                      <div className="flex flex-col gap-2 flex-1">
+                        <input
+                          ref={editLogoInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleLogoUpload(file, (url) => setEditForm((f) => ({ ...f, logo: url })));
+                            e.target.value = '';
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full h-10 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                          disabled={logoUploading}
+                          onClick={() => editLogoInputRef.current?.click()}
+                        >
+                          {logoUploading ? <LoadingGif size="sm" className="w-4 h-4 mr-2" /> : <Upload className="w-4 h-4 mr-2 text-muted-foreground" />}
+                          <span className="font-normal text-muted-foreground">
+                            {logoUploading ? 'Enviando...' : editForm.logo ? 'Substituir imagem' : 'Clique para enviar imagem'}
+                          </span>
+                        </Button>
+                        <p className="text-[11px] text-muted-foreground/70">Recomendado: 512x512px, formato PNG ou SVG transparente.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Link */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">URL de acesso</label>
+                    <div className="relative">
+                      <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                      <Input
+                        value={editForm.url}
+                        onChange={(e) => setEditForm((f) => ({ ...f, url: e.target.value }))}
+                        className="pl-9 h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Categorias e Status */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Categoria</label>
+                      <div className="relative">
+                        <Boxes className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
+                        <select
+                          className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none"
+                          value={editForm.category}
+                          onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value as SystemCategory }))}
+                        >
+                          <option value="" disabled>Selecione...</option>
+                          {categories.map((c) => (
+                            <option key={c.id} value={c.name}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Status</label>
+                      <div className="relative">
+                        <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
+                        <select
+                          className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none"
+                          value={editForm.status}
+                          onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                        >
+                          {STATUS_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium">URL</label>
-                  <Input
-                    value={editForm.url}
-                    onChange={(e) => setEditForm((f) => ({ ...f, url: e.target.value }))}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Categoria</label>
-                  <select
-                    className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                    value={editForm.category}
-                    onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
-                  >
-                    <option value="" disabled>Selecione uma categoria</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Status</label>
-                  <select
-                    className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                    value={editForm.status}
-                    onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
-                  >
-                    {STATUS_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
-              <div className="flex gap-2 pt-2">
-                <Button className="flex-1" onClick={handleUpdateSystem} disabled={formLoading}>
+              
+              <div className="p-6 pt-0 mt-2 flex gap-3">
+                <Button variant="outline" className="flex-1 rounded-xl h-11" onClick={() => setEditingSystem(null)}>
+                  Cancelar
+                </Button>
+                <Button className="flex-1 rounded-xl h-11" onClick={handleUpdateSystem} disabled={formLoading}>
                   {formLoading ? <LoadingGif size="sm" className="mr-2" /> : null}
                   Salvar
-                </Button>
-                <Button variant="outline" onClick={() => setEditingSystem(null)}>
-                  Cancelar
                 </Button>
               </div>
             </>
@@ -868,86 +1028,252 @@ export default function AdminSystemsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Liberar acesso */}
-      <Dialog open={!!liberarAppId} onOpenChange={(open) => !open && setLiberarAppId(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Liberar acesso ao app</DialogTitle>
-            <DialogDescription>
-              Colaboradores com acesso liberado veem este app no ambiente de membros. Busque e adicione ou remova acessos.
-            </DialogDescription>
-          </DialogHeader>
-          {liberarAppId && (
-            <div className="space-y-4 flex-1 min-h-0 flex flex-col">
-              <div>
-                <label className="text-sm font-medium">Buscar colaborador (nome ou e-mail)</label>
-                <Input
-                  placeholder="Digite ao menos 2 caracteres..."
-                  value={searchCollaborators}
-                  onChange={(e) => setSearchCollaborators(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              {searchResults.length > 0 && (
-                <div className="border rounded-lg p-2 max-h-40 overflow-y-auto space-y-1">
-                  <p className="text-xs text-muted-foreground mb-2">Resultados — clique para liberar acesso</p>
-                  {searchResults.map((u) => {
-                    const hasAccess = (appUsers[liberarAppId] ?? []).some((a) => a.id === u.id);
-                    return (
-                      <div
-                        key={u.id}
-                        className="flex items-center justify-between gap-2 py-2 px-2 rounded hover:bg-muted/50"
-                      >
-                        <span className="text-sm truncate">{u.name || u.email}</span>
-                        {hasAccess ? (
-                          <Badge variant="secondary">Com acesso</Badge>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7"
-                            onClick={() => handleGrantAccess(liberarAppId, u.id)}
-                          >
-                            <UserPlus className="w-3 h-3 mr-1" />
-                            Liberar
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
+      {/* Modal: Gerenciar Acessos em Massa (Sistema) */}
+      <Dialog open={!!accessModalSystem} onOpenChange={(o) => { if (!o) setAccessModalSystem(null); }}>
+        <DialogContent className="sm:max-w-lg rounded-3xl border border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+          {/* Header */}
+          <div className="p-6 border-b border-border/40 bg-muted/20 shrink-0">
+            <DialogHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                    {accessModalSystem && renderIcon(accessModalSystem.icon, 'w-7 h-7 object-contain drop-shadow')}
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-semibold tracking-tight">{accessModalSystem?.name || '—'}</DialogTitle>
+                    <DialogDescription className="text-sm mt-1">
+                      Gerencie quais membros podem acessar este app
+                    </DialogDescription>
+                  </div>
                 </div>
-              )}
-              {searching && <p className="text-sm text-muted-foreground">Buscando...</p>}
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium mb-2">Colaboradores com acesso</p>
-                <div className="max-h-48 overflow-y-auto space-y-2">
-                  {(appUsers[liberarAppId] ?? []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhum colaborador com acesso liberado.</p>
-                  ) : (
-                    (appUsers[liberarAppId] ?? []).map((u) => (
-                      <div
-                        key={u.id}
-                        className="flex items-center justify-between gap-2 py-2 px-2 rounded bg-muted/30"
-                      >
-                        <span className="text-sm truncate">{u.name || u.id}</span>
+                {!loadingAccess && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 shadow-sm mt-1">
+                    <Check className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-semibold text-primary whitespace-nowrap">{grantedCount} com acesso</span>
+                  </div>
+                )}
+              </div>
+            </DialogHeader>
+
+            {/* Barra de busca + filtros */}
+            <div className="flex flex-col gap-3 mt-6">
+              {/* Linha 1: Busca e Filtros de Status */}
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <div className="relative w-full sm:flex-1 group/search">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 group-focus-within/search:text-primary transition-colors duration-200" />
+                  <Input
+                    placeholder="Buscar membro..."
+                    className="pl-9 h-10 rounded-xl bg-background/50 border-border/60 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 w-full"
+                    value={accessSearch}
+                    onChange={(e) => setAccessSearch(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex gap-1 w-full sm:w-auto p-1 rounded-xl bg-muted/40 border border-border/40 shrink-0 overflow-x-auto">
+                  {(['all', 'granted', 'denied'] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setAccessFilter(f)}
+                      className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
+                        accessFilter === f
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                      }`}
+                    >
+                      {f === 'all' ? 'Todos' : f === 'granted' ? 'Com acesso' : 'Sem acesso'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Linha 2: Filtro de Setor e Ações em Massa */}
+              {sectors.length > 0 && (
+                <div className="flex items-center gap-2 w-full">
+                  <div className="relative flex-1 sm:flex-none sm:min-w-[240px]">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-destructive hover:text-destructive"
-                          onClick={() => handleRevokeAccess(liberarAppId, u.id)}
+                          variant="outline"
+                          className="w-full h-10 rounded-xl bg-background/50 border-input justify-between px-3 font-normal hover:bg-muted/50 hover:text-foreground text-foreground/80 shadow-sm transition-colors"
                         >
-                          Remover
+                          <div className="flex items-center gap-2 truncate">
+                            <Icons.Building2 className="w-4 h-4 text-muted-foreground/50 shrink-0" />
+                            <span className="truncate">
+                              {accessSectorFilter === 'all' ? 'Todos os setores' : accessSectorFilter}
+                            </span>
+                          </div>
+                          <Icons.ChevronDown className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0 opacity-50 ml-2" />
                         </Button>
-                      </div>
-                    ))
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[240px] max-h-[300px] overflow-y-auto rounded-xl p-1.5">
+                        <DropdownMenuItem
+                          onClick={() => setAccessSectorFilter('all')}
+                          className={cn(
+                            "cursor-pointer rounded-lg py-2",
+                            accessSectorFilter === 'all' ? "bg-primary/10 text-primary font-medium focus:bg-primary/15 focus:text-primary" : ""
+                          )}
+                        >
+                          Todos os setores
+                          {accessSectorFilter === 'all' && <Icons.Check className="w-4 h-4 ml-auto text-primary" />}
+                        </DropdownMenuItem>
+                        {sectors.map(s => (
+                          <DropdownMenuItem
+                            key={s}
+                            onClick={() => setAccessSectorFilter(s)}
+                            className={cn(
+                              "cursor-pointer rounded-lg py-2",
+                              accessSectorFilter === s ? "bg-primary/10 text-primary font-medium focus:bg-primary/15 focus:text-primary" : ""
+                            )}
+                          >
+                            {s}
+                            {accessSectorFilter === s && <Icons.Check className="w-4 h-4 ml-auto text-primary" />}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  
+                  {accessSectorFilter !== 'all' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="h-10 rounded-xl shadow-sm px-3 border-border hover:bg-muted/60 text-muted-foreground hover:text-foreground shrink-0">
+                          <Icons.Settings2 className="w-4 h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Ações do Setor</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5">
+                        <DropdownMenuItem onClick={() => handleGrantAllSector(accessSectorFilter)} className="text-primary focus:text-primary focus:bg-primary/10 rounded-lg cursor-pointer py-2">
+                          <Icons.CheckCircle2 className="w-4 h-4 mr-2" />
+                          Liberar para todos do setor
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleRevokeAllSector(accessSectorFilter)} className="text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg cursor-pointer py-2">
+                          <Icons.XCircle className="w-4 h-4 mr-2" />
+                          Bloquear para todos do setor
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </div>
+              )}
+            </div>
+          </div>
+
+          {/* Lista de membros */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-2.5 min-h-0 bg-background/50">
+            {loadingAccess ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+                <span className="text-sm text-muted-foreground animate-pulse">Carregando membros...</span>
               </div>
-              <Button variant="outline" className="w-full" onClick={() => setLiberarAppId(null)}>
-                Fechar
+            ) : filteredAccesses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
+                  <Search className="w-5 h-5 text-muted-foreground/50" />
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">Nenhum membro encontrado.</p>
+              </div>
+            ) : (
+              <AnimatePresence initial={false}>
+                {filteredAccesses.map((member) => (
+                  <motion.button
+                    key={member.id}
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={() => toggleMemberAccess(member.id)}
+                    className={`w-full flex items-center gap-4 p-3 rounded-2xl border transition-all duration-300 text-left group/item relative overflow-hidden ${
+                      member.canAccess
+                        ? 'bg-primary/5 border-primary/20 shadow-sm hover:bg-primary/10 hover:border-primary/30 hover:shadow-md'
+                        : 'bg-muted/10 border-border/40 hover:bg-muted/30 hover:border-border/60 hover:shadow-sm'
+                    }`}
+                  >
+                    {member.canAccess && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500" />
+                    )}
+                    
+                    {/* Avatar do membro */}
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors duration-300 relative z-10 overflow-hidden ${
+                      member.canAccess 
+                        ? 'bg-primary/15 text-primary shadow-inner border border-primary/20' 
+                        : 'bg-muted/50 text-muted-foreground border border-border/50 group-hover/item:bg-muted/80'
+                    }`}>
+                      {member.avatar ? (
+                        <img src={member.avatar} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-sm font-bold uppercase">
+                          {(member.name || member.email || '?').charAt(0)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0 relative z-10">
+                      <p className={`text-sm font-semibold truncate transition-colors duration-300 ${
+                        member.canAccess ? 'text-foreground' : 'text-muted-foreground group-hover/item:text-foreground/80'
+                      }`}>
+                        {member.name || member.email || 'Usuário'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[11px] font-medium text-muted-foreground/70 truncate">
+                          {member.email || ''}
+                        </span>
+                        {member.sector && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md border border-border/50 text-muted-foreground font-medium truncate max-w-[150px]">
+                            {member.sector}
+                          </span>
+                        )}
+                        {member.canAccess !== member.original && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-yellow-500/15 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400 font-bold uppercase tracking-wider animate-in fade-in zoom-in duration-300">
+                            alterado
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Toggle */}
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 relative z-10 border-2 ${
+                      member.canAccess
+                        ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20 scale-110'
+                        : 'bg-transparent border-muted-foreground/30 text-transparent group-hover/item:border-muted-foreground/50 scale-100'
+                    }`}>
+                      <Check className={`w-3.5 h-3.5 transition-transform duration-300 ${member.canAccess ? "scale-100" : "scale-0"}`} strokeWidth={3} />
+                    </div>
+                  </motion.button>
+                ))}
+              </AnimatePresence>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="p-5 border-t border-border/40 bg-muted/20 shrink-0 flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              {changedCount > 0 ? (
+                <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400 font-medium animate-in fade-in slide-in-from-bottom-2">
+                  <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                  {changedCount} alteraç{changedCount > 1 ? 'ões' : 'ão'} pendente{changedCount > 1 ? 's' : ''}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhuma alteração pendente</p>
+              )}
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Button variant="outline" className="rounded-xl h-10 px-4" onClick={() => setAccessModalSystem(null)}>
+                Cancelar
+              </Button>
+              <Button
+                className={`rounded-xl h-10 px-5 gap-2 transition-all duration-300 ${
+                  changedCount > 0 && !savingAccess ? "shadow-lg shadow-primary/25 hover:shadow-primary/40" : ""
+                }`}
+                onClick={handleSaveAccess}
+                disabled={savingAccess || changedCount === 0}
+              >
+                {savingAccess ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
+                {savingAccess ? 'Salvando...' : 'Salvar alterações'}
               </Button>
             </div>
-          )}
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -34,8 +34,8 @@ export default function SettingsPage() {
 
   const themes = [
     { value: 'light' as const, label: 'Claro', icon: Sun },
-    { value: 'dark' as const, label: 'Escuro', icon: Moon },
-    { value: 'full-dark' as const, label: 'Full Dark', icon: Contrast },
+    { value: 'dark' as const, label: 'Escuro', icon: Contrast },
+    { value: 'full-dark' as const, label: 'Full Dark', icon: Moon },
     { value: 'system' as const, label: 'Sistema', icon: Monitor },
   ];
 

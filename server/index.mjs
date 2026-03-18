@@ -151,6 +151,49 @@ app.get('/api/corporate-profile', async (req, res) => {
   }
 });
 
+app.get('/api/all-collaborators-sectors', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Token ausente.' });
+    }
+    const token = authHeader.slice(7);
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(500).json({ error: 'Supabase não configurado.' });
+    }
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Token inválido.' });
+    }
+
+    if (!neonUrl) {
+      return res.status(503).json({});
+    }
+
+    const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+    await client.connect();
+    try {
+      const result = await client.query('SELECT personal_email, corporate_email, email, setor_cadeira_principal FROM collaborators WHERE status = $1', ['active']);
+      const map = {};
+      result.rows.forEach(r => {
+        const sector = r.setor_cadeira_principal;
+        if (sector) {
+          if (r.corporate_email) map[r.corporate_email.toLowerCase()] = sector;
+          if (r.personal_email) map[r.personal_email.toLowerCase()] = sector;
+          if (r.email) map[r.email.toLowerCase()] = sector;
+        }
+      });
+      return res.json(map);
+    } finally {
+      await client.end();
+    }
+  } catch (err) {
+    console.error('[all-collaborators-sectors]', err);
+    return res.status(500).json({});
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`[server] API rodando em http://localhost:${PORT}`);
 });
