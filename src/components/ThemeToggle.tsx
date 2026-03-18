@@ -1,4 +1,5 @@
-import { Moon, Sun, Contrast } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
+import { FullDarkEclipseIcon } from '@/components/icons/FullDarkEclipseIcon';
 import { useThemeStore } from '@/store/themeStore';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
@@ -38,7 +39,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
               transition={{ duration: 0.2 }}
               className="absolute"
             >
-              <Contrast className="w-5 h-5" />
+              <Moon className="w-5 h-5" />
             </motion.div>
             <motion.div
               initial={false}
@@ -46,7 +47,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
               transition={{ duration: 0.2 }}
               className="absolute"
             >
-              <Moon className="w-5 h-5" />
+              <FullDarkEclipseIcon className="w-5 h-5 shrink-0" />
             </motion.div>
           </Button>
         </TooltipTrigger>
