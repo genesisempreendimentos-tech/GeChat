@@ -420,13 +420,13 @@ export default function SystemsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Sistemas</h1>
+          <h1 className="text-3xl font-bold">Aplicativos</h1>
           <p className="text-muted-foreground mt-2">
             {isAdmin 
-              ? 'Gerencie sistemas, permissões e crie novos sistemas (apenas Admin)' 
+              ? 'Gerencie aplicativos, permissões e crie novos aplicativos (apenas Admin)' 
               : isManager
-              ? 'Gerencie permissões de acesso aos sistemas'
-              : 'Acesse seus sistemas corporativos'}
+              ? 'Gerencie permissões de acesso aos aplicativos'
+              : 'Acesse seus aplicativos corporativos'}
           </p>
         </div>
         

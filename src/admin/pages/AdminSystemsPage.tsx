@@ -379,12 +379,12 @@ export default function AdminSystemsPage() {
     <div className="space-y-6">
       <AdminPageHeader
         icon={Boxes}
-        title="Apps"
-        description="Gerencie os sistemas (apps) disponíveis no GêApps."
+        title="Aplicativos"
+        description="Gerencie os aplicativos disponíveis no GêApps."
         action={
           <Button onClick={() => setIsCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Criar sistema
+            Criar Aplicativos
           </Button>
         }
       />
