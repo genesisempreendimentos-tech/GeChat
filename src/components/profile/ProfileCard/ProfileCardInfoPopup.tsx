@@ -1,7 +1,7 @@
 // ProfileCardInfoPopup.tsx
 import React, { useState, useMemo, useEffect } from 'react'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { Cake, Instagram, Linkedin, X } from 'lucide-react'
+import { Cake, Instagram, Linkedin, X, Calendar as Calendar1 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import { WhatsappIcon } from '@/components/icons/WhatsappIcon'
 import { DotLottiePlayer } from '@dotlottie/react-player'
@@ -287,9 +287,12 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
 
                   {/* Data de admissão */}
                   {data.admissionDate && (
-                    <div className="text-right flex flex-col gap-0.5">
+                    <div className="text-right flex flex-col gap-0.5 items-end">
                       <p className="text-xs text-white/35 leading-none">Desde</p>
-                      <p className="text-sm font-semibold text-white/65">{data.admissionDate}</p>
+                      <div className="flex items-center gap-1.5 text-white/55 text-sm">
+                        <span>{data.admissionDate}</span>
+                        <Calendar1 className="w-3.5 h-3.5 text-white/35" />
+                      </div>
                     </div>
                   )}
                 </div>
