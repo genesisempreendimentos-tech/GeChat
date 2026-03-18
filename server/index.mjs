@@ -4,11 +4,16 @@
  * Retorna dados do colaborador por corporate_email (email do usuário logado) ou 404.
  */
 import 'dotenv/config';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import pg from 'pg';
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.json());
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
@@ -192,6 +197,12 @@ app.get('/api/all-collaborators-sectors', async (req, res) => {
     console.error('[all-collaborators-sectors]', err);
     return res.status(500).json({});
   }
+});
+
+app.use(express.static(distPath));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 app.listen(PORT, () => {
