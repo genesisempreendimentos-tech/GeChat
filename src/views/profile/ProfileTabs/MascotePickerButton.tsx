@@ -18,8 +18,8 @@ import {
   PawPrint,
   Zap,
   Fish,
-  Crown,
 } from 'lucide-react';
+import { LionIcon } from '@/components/icons/LionIcon';
 import type { MascoteOption } from '../ProfileView';
 
 function HorseHeadIcon({ className }: { className?: string }) {
@@ -49,7 +49,7 @@ const MASCOTE_OPTIONS: MascoteOptionConfig[] = [
   { value: 'tigre', label: 'Tigre', lottieSrc: '/assets/tigre.lottie', StaticIcon: PawPrint },
   { value: 'cavalo', label: 'Cavalo', lottieSrc: '/assets/cavalo.lottie', StaticIcon: HorseHeadIcon },
   { value: 'peixe', label: 'Peixe', lottieSrc: '/assets/peixe.lottie', StaticIcon: Fish },
-  { value: 'leao', label: 'Leão', lottieSrc: '/assets/leao.lottie', StaticIcon: Crown },
+  { value: 'leao', label: 'Leão', lottieSrc: '/assets/leao.lottie', StaticIcon: LionIcon },
 ];
 
 interface MascotePickerButtonProps {

@@ -26,6 +26,7 @@ import { ptBR } from 'date-fns/locale';
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { System } from '@/types';
+import { ComingSoonModal } from '@/components/ComingSoonModal';
 
 const container = {
   hidden: { opacity: 0 },
@@ -54,6 +55,7 @@ export default function DashboardPage() {
   const [recentLogsFromApi, setRecentLogsFromApi] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoriteTogglingId, setFavoriteTogglingId] = useState<string | null>(null);
+  const [comingSoonSystem, setComingSoonSystem] = useState<System | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -201,6 +203,11 @@ export default function DashboardPage() {
   ];
 
   const handleSystemAccess = (systemId: string, url: string) => {
+    const system = systems.find(s => s.id === systemId);
+    if (system && (system.status === 'beta' || system.status === 'rascunho')) {
+      setComingSoonSystem(system);
+      return;
+    }
     if (user?.id) {
       databaseService.logAccess(user.id, systemId);
       addLog(user.id, systemId);
@@ -484,6 +491,11 @@ export default function DashboardPage() {
       </motion.div>
         </>
       )}
+      <ComingSoonModal
+        open={!!comingSoonSystem}
+        onClose={() => setComingSoonSystem(null)}
+        systemName={comingSoonSystem?.name}
+      />
     </div>
   );
 }

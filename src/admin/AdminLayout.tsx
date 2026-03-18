@@ -1,38 +1,36 @@
 import { Outlet } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { SidebarProvider } from '@/contexts/SidebarContext';
+import { SidebarProvider, useSidebarWidth } from '@/contexts/SidebarContext';
 import AdminSidebar from '@/admin/AdminSidebar';
 import Topbar from '@/components/layout/Topbar';
 import { useState, useEffect } from 'react';
 
-const SIDEBAR_COLLAPSED_WIDTH = 80;
-const MAIN_OFFSET_DESKTOP = 212;
+const TRANSITION = { duration: 0.25, ease: [0.4, 0, 0.2, 1] };
 
 function AdminMainContent() {
   const isDesktop = useMediaQuery('(min-width: 768px)');
+  const sidebarWidth = useSidebarWidth();
+  const ml = isDesktop ? sidebarWidth : 0;
 
   return (
-    <div
+    <motion.div
       className="min-h-screen min-w-0 overflow-x-hidden flex flex-col"
-      style={{
-        marginLeft: isDesktop ? SIDEBAR_COLLAPSED_WIDTH : 0,
-        width: isDesktop ? `calc(100% - ${SIDEBAR_COLLAPSED_WIDTH}px)` : '100%',
-      }}
+      animate={{ marginLeft: ml, width: isDesktop ? `calc(100% - ${ml}px)` : '100%' }}
+      transition={TRANSITION}
     >
       <Topbar />
       <motion.main
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="flex-1 min-w-0 pl-3 md:pl-4 pr-4 md:pr-6 pt-6 md:pt-8 pb-20 md:pb-8 w-full max-w-[1600px] mx-auto"
-        style={isDesktop ? { marginLeft: MAIN_OFFSET_DESKTOP } : undefined}
+        className="flex-1 min-w-0 px-4 md:px-8 pt-6 md:pt-8 pb-20 md:pb-8 w-full max-w-[1600px] mx-auto"
         role="main"
         aria-label="Painel administrativo"
       >
         <Outlet />
       </motion.main>
-    </div>
+    </motion.div>
   );
 }
 

@@ -31,6 +31,7 @@ import { databaseService, storageService } from '@/services/supabase';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { SystemCategory, Category } from '@/types';
 import { Badge } from '@/components/ui/badge';
+import { ComingSoonModal } from '@/components/ComingSoonModal';
 
 // O array CATEGORIES original agora é carregado do banco
 const STATUS_OPTIONS = [
@@ -74,6 +75,16 @@ export default function AdminSystemsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [comingSoonSystem, setComingSoonSystem] = useState<AdminSystem | null>(null);
+
+  const handleOpenSystem = (system: AdminSystem) => {
+    if (system.status === 'beta' || system.status === 'rascunho') {
+      setComingSoonSystem(system);
+      return;
+    }
+    if (system.url) window.open(system.url, '_blank');
+  };
+
   type FormStatus = 'ativo' | 'beta' | 'rascunho' | 'arquivado';
   const [form, setForm] = useState<{
     name: string;
@@ -450,7 +461,7 @@ export default function AdminSystemsPage() {
                       <Button
                         size="sm"
                         className="h-8 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 shadow-none px-3"
-                        onClick={() => window.open(system.url, '_blank')}
+                        onClick={() => handleOpenSystem(system)}
                       >
                         <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
                         Abrir
@@ -499,7 +510,7 @@ export default function AdminSystemsPage() {
                             size="sm"
                             variant="ghost"
                             className="h-8"
-                            onClick={() => window.open(system.url, '_blank')}
+                            onClick={() => handleOpenSystem(system)}
                           >
                             <ExternalLink className="w-4 h-4" />
                           </Button>
@@ -900,6 +911,12 @@ export default function AdminSystemsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ComingSoonModal
+        open={!!comingSoonSystem}
+        onClose={() => setComingSoonSystem(null)}
+        systemName={comingSoonSystem?.name}
+      />
     </div>
   );
 }

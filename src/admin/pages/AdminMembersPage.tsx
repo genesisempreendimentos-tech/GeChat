@@ -7,16 +7,23 @@ import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { databaseService } from '@/services/supabase';
-import { LoadingGifScreen } from '@/components/LoadingGif';
+import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { User } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useAuthStore } from '@/store/authStore';
+import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
 
 export default function AdminMembersPage() {
+  const { user: currentUser } = useAuthStore();
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [selectedMemberData, setSelectedMemberData] = useState<any>(null);
+  const [profilePopupOpen, setProfilePopupOpen] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -28,6 +35,16 @@ export default function AdminMembersPage() {
     };
     load();
   }, []);
+
+  const handleOpenProfile = async (memberId: string) => {
+    setLoadingProfile(memberId);
+    const { data } = await databaseService.getUserById(memberId);
+    setLoadingProfile(null);
+    if (data) {
+      setSelectedMemberData(data);
+      setProfilePopupOpen(true);
+    }
+  };
 
   const filtered = members.filter((m) => {
     const q = searchQuery.toLowerCase();
@@ -82,11 +99,16 @@ export default function AdminMembersPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
               >
-                <Card className="h-full">
+                <Card
+                  className="h-full cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 group"
+                  onClick={() => handleOpenProfile(member.id)}
+                >
                   <CardHeader className="pb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                        {member.avatar ? (
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                        {loadingProfile === member.id ? (
+                          <LoadingGif size="sm" />
+                        ) : member.avatar ? (
                           <img src={member.avatar} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-lg font-semibold text-primary">
@@ -95,7 +117,7 @@ export default function AdminMembersPage() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <CardTitle className="text-base truncate">{member.name || '—'}</CardTitle>
+                        <CardTitle className="text-base truncate group-hover:text-primary transition-colors">{member.name || '—'}</CardTitle>
                         <CardDescription className="text-xs truncate">{member.email || '—'}</CardDescription>
                       </div>
                     </div>
@@ -127,8 +149,27 @@ export default function AdminMembersPage() {
               </thead>
               <tbody>
                 {filtered.map((member) => (
-                  <tr key={member.id} className="border-b border-border/50 hover:bg-muted/30">
-                    <td className="py-2 px-2 font-medium">{member.name || '—'}</td>
+                  <tr
+                    key={member.id}
+                    className="border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors"
+                    onClick={() => handleOpenProfile(member.id)}
+                  >
+                    <td className="py-2 px-2 font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                          {loadingProfile === member.id ? (
+                            <LoadingGif size="sm" />
+                          ) : member.avatar ? (
+                            <img src={member.avatar} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xs font-semibold text-primary">
+                              {(member.name ?? '?').charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        {member.name || '—'}
+                      </div>
+                    </td>
                     <td className="py-2 px-2 text-muted-foreground">{member.email || '—'}</td>
                     <td className="py-2 px-2">{member.accessType ?? '—'}</td>
                     <td className="py-2 px-2 text-muted-foreground">
@@ -143,6 +184,13 @@ export default function AdminMembersPage() {
           </div>
         )}
       </AdminBigBox>
+
+      <ProfileCardInfoPopup
+        open={profilePopupOpen}
+        onOpenChange={setProfilePopupOpen}
+        userData={selectedMemberData}
+        currentUser={currentUser}
+      />
     </div>
   );
 }

@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SystemCategory, Category } from '@/types';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
+import { ComingSoonModal } from '@/components/ComingSoonModal';
 
 interface System {
   id: string;
@@ -48,6 +49,7 @@ interface System {
   url: string;
   category: SystemCategory;
   active: boolean;
+  status?: string;
   createdAt?: Date | string;
 }
 
@@ -93,6 +95,7 @@ export default function SystemsPage() {
   const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
   const [userToRevoke, setUserToRevoke] = useState<{ userId: string; userName: string } | null>(null);
   const [permissionLoading, setPermissionLoading] = useState(false);
+  const [comingSoonSystem, setComingSoonSystem] = useState<System | null>(null);
   
   const [newSystem, setNewSystem] = useState({
     name: '',
@@ -311,6 +314,11 @@ export default function SystemsPage() {
   };
 
   const handleSystemAccess = (url: string, systemId: string) => {
+    const system = systems.find(s => s.id === systemId);
+    if (system && (system.status === 'beta' || system.status === 'rascunho')) {
+      setComingSoonSystem(system);
+      return;
+    }
     if (currentUser?.id) {
       databaseService.logAccess(currentUser.id, systemId);
     }
@@ -867,6 +875,12 @@ export default function SystemsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ComingSoonModal
+        open={!!comingSoonSystem}
+        onClose={() => setComingSoonSystem(null)}
+        systemName={comingSoonSystem?.name}
+      />
     </div>
   );
 }

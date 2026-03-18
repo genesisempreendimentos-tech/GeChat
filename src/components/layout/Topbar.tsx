@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, LogOut, UserCircle, Settings } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
@@ -17,16 +17,38 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
 import Zoom from './Zoom';
 import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
+import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
+import { databaseService } from '@/services/supabase';
 
 export default function Topbar() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isInAdmin = location.pathname.startsWith('/admin');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profilePopupOpen, setProfilePopupOpen] = useState(false);
+  const [profileData, setProfileData] = useState<any>(null);
+
+  useEffect(() => {
+    if (profilePopupOpen && user?.id && !profileData) {
+      databaseService.getUserById(user.id).then(({ data }) => {
+        if (data) setProfileData(data);
+      });
+    }
+  }, [profilePopupOpen, user?.id]);
+
+  const handleProfileClick = () => {
+    if (isInAdmin) {
+      setProfilePopupOpen(true);
+    } else {
+      navigate('/profile');
+    }
+  };
 
   const handleLogout = () => {
     setShowLogoutModal(false);
@@ -67,7 +89,7 @@ export default function Topbar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => navigate('/profile')}>
+            <DropdownMenuItem onClick={handleProfileClick}>
               <UserCircle className="w-4 h-4 mr-2" />
               Perfil
             </DropdownMenuItem>
@@ -104,6 +126,16 @@ export default function Topbar() {
       </Dialog>
 
       <NotificationsPanel open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+
+      <ProfileCardInfoPopup
+        open={profilePopupOpen}
+        onOpenChange={(open) => {
+          setProfilePopupOpen(open);
+          if (!open) setProfileData(null);
+        }}
+        userData={profileData}
+        currentUser={user}
+      />
     </header>
   );
 }

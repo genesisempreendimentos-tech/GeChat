@@ -16,6 +16,7 @@ import { Boxes } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { System } from '@/types';
 import { BANNER_CATEGORIES } from '@/views/profile/ProfileBanner/ProfileBannerImages';
+import { ComingSoonModal } from '@/components/ComingSoonModal';
 
 const getSystemBanner = (systemId: string) => {
   const images = BANNER_CATEGORIES.genesis.images;
@@ -47,6 +48,7 @@ export default function FavoritesPage() {
   const [selectedSystem, setSelectedSystem] = useState<System | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [favoriteTogglingId, setFavoriteTogglingId] = useState<string | null>(null);
+  const [comingSoonSystem, setComingSoonSystem] = useState<System | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -112,6 +114,11 @@ export default function FavoritesPage() {
   };
 
   const handleSystemAccess = (systemId: string, url: string) => {
+    const system = systems.find(s => s.id === systemId);
+    if (system && (system.status === 'beta' || system.status === 'rascunho')) {
+      setComingSoonSystem(system);
+      return;
+    }
     addLog(user?.id || '', systemId);
     window.open(url, '_blank');
   };
@@ -321,6 +328,12 @@ export default function FavoritesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ComingSoonModal
+        open={!!comingSoonSystem}
+        onClose={() => setComingSoonSystem(null)}
+        systemName={comingSoonSystem?.name}
+      />
     </div>
   );
 }
