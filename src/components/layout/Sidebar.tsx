@@ -11,6 +11,7 @@ import {
   Check,
   UserCircle,
   Boxes,
+  Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef } from 'react';
@@ -29,6 +30,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Boxes, label: 'Aplicativos', path: '/systems' },
   { icon: Star, label: 'Favoritos', path: '/favorites' },
+  { icon: Send, label: 'Solicitações', path: '/solicitacoes' },
   // { icon: MessageCircle, label: 'Chat', path: '/chat' },
   { icon: Users, label: 'Usuários', path: '/users', adminOnly: true },
 ];
@@ -232,7 +234,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
 
           return (
             <div key={item.path} className="space-y-0.5">
-              <Link to={item.path} className="block">
+              <Link to={item.path} className="block" title={item.label} aria-label={item.label}>
                 <motion.div
                   whileHover={isActive ? undefined : { scale: 1.02 }}
                   whileTap={isActive ? undefined : { scale: 0.98 }}

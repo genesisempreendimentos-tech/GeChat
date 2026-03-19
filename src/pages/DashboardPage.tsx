@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { useAccessLogStore } from '@/store/accessLogStore';
-import { databaseService } from '@/services/supabase';
+import { databaseService, FAVORITE_LIMIT_ERROR_CODE } from '@/services/supabase';
+import { FavoriteLimitDialog } from '@/components/FavoriteLimitDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { ActivityChart, SystemUsageChart } from '@/components/Charts';
@@ -55,6 +56,7 @@ export default function DashboardPage() {
   const [recentLogsFromApi, setRecentLogsFromApi] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoriteTogglingId, setFavoriteTogglingId] = useState<string | null>(null);
+  const [favoriteLimitOpen, setFavoriteLimitOpen] = useState(false);
   const [comingSoonSystem, setComingSoonSystem] = useState<System | null>(null);
 
   useEffect(() => {
@@ -117,9 +119,13 @@ export default function DashboardPage() {
     if (!user?.id) return;
     setFavoriteTogglingId(systemId);
     const { error } = await databaseService.toggleFavorite(user.id, systemId);
-    await loadData();
+    if (error && typeof error === 'object' && (error as { code?: string }).code === FAVORITE_LIMIT_ERROR_CODE) {
+      setFavoriteLimitOpen(true);
+    } else {
+      await loadData();
+      if (error) console.error('Erro ao favoritar:', error);
+    }
     setFavoriteTogglingId(null);
-    if (error) console.error('Erro ao favoritar:', error);
   };
   const recentLogs = useMemo(() => {
     return recentLogsFromApi.map((log: any) => ({
@@ -501,6 +507,7 @@ export default function DashboardPage() {
         systemUrl={comingSoonSystem?.url}
         status={comingSoonSystem?.status}
       />
+      <FavoriteLimitDialog open={favoriteLimitOpen} onOpenChange={setFavoriteLimitOpen} />
     </div>
   );
 }

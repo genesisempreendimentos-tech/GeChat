@@ -16,6 +16,7 @@ const routeNames: Record<string, string> = {
   dashboard: "Dashboard",
   systems: "Sistemas",
   favorites: "Favoritos",
+  solicitacoes: "Solicitações",
   users: "Usuários",
   profile: "Perfil",
   settings: "Configurações",

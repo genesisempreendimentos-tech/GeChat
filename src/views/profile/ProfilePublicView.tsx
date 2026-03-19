@@ -31,13 +31,19 @@ export function ProfilePublicView({ userId }: ProfilePublicViewProps) {
           databaseService.getUserSystemAccess(userId),
           databaseService.getSystemsForMember(userId),
         ]);
-        const accessList = accessRes.data ?? [];
+        /** Linha de user_app_access como retornada pela API (campos camel/snake mistos). */
+        type UserAppAccessRow = {
+          access?: boolean;
+          can_access?: boolean;
+          is_favorite?: boolean;
+          favorite?: boolean;
+        };
+        const accessList = (accessRes.data ?? []) as UserAppAccessRow[];
         const systems = systemsRes.data ?? [];
-        const hasAccess = (row: { access?: boolean; can_access?: boolean }) =>
+        const hasAccess = (row: UserAppAccessRow) =>
           row.access !== false && row.can_access !== false;
         const favoriteCount = accessList.filter(
-          (row: { is_favorite?: boolean; favorite?: boolean }) =>
-            !!(row.is_favorite ?? row.favorite) && hasAccess(row)
+          (row) => !!(row.is_favorite ?? row.favorite) && hasAccess(row)
         ).length;
         setStats({
           totalApps: systems.length,

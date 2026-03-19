@@ -1,5 +1,15 @@
 import { useLocation, useNavigate } from "react-router-dom"
-import { Home, Boxes, Star, MessageCircle, Users, Settings, Shield } from "lucide-react"
+import {
+  Home,
+  Boxes,
+  Star,
+  MessageCircle,
+  Users,
+  Settings,
+  Shield,
+  LayoutDashboard,
+  Send,
+} from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 
@@ -33,6 +43,11 @@ export function BottomNavigation() {
       label: "Favoritos",
       path: "/favorites",
     },
+    {
+      icon: Send,
+      label: "Solicitações",
+      path: "/solicitacoes",
+    },
     // {
     //   icon: MessageCircle,
     //   label: "Chat",
@@ -60,33 +75,55 @@ export function BottomNavigation() {
   const hasAdminAccess = ['softadmin', 'appsadmin'].includes(String(user?.accessType ?? "").toLowerCase().trim())
   const isAdminPath = location.pathname.startsWith("/admin")
 
-  const filteredNavItems = navItems.filter((item) => {
-    if (isAdminPath) {
-      return item.path === "/admin/home" || item.path === "/settings"
+  /** Em < md o sidebar admin fica oculto; estes itens espelham o menu admin (incl. Solicitações). */
+  const adminMobileNavItems: NavItem[] = [
+    { icon: LayoutDashboard, label: "Início", path: "/admin/home" },
+    { icon: Boxes, label: "Apps", path: "/admin/systems" },
+    { icon: Star, label: "Favoritos", path: "/favorites" },
+    { icon: Send, label: "Solicitações", path: "/admin/solicitacoes" },
+    { icon: Settings, label: "Config", path: "/settings" },
+  ]
+
+  const filteredNavItems = isAdminPath
+    ? adminMobileNavItems
+    : navItems.filter((item) => {
+        if (item.showWhenSoftadmin) return hasAdminAccess
+        if (!item.roles) return true
+        return item.roles.includes(user?.role || "")
+      })
+
+  const isNavItemActive = (path: string) => {
+    if (path === "/admin/home") {
+      return location.pathname === "/admin/home" || location.pathname === "/admin"
     }
-    if (item.showWhenSoftadmin) return hasAdminAccess
-    if (!item.roles) return true
-    return item.roles.includes(user?.role || "")
-  })
+    return location.pathname === path
+  }
 
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-background/95 backdrop-blur-md md:hidden pb-[env(safe-area-inset-bottom)]"
       aria-label="Bottom Navigation"
     >
-      <div className="flex items-center justify-around h-16">
+      <div
+        className={cn(
+          "flex h-16 items-stretch",
+          isAdminPath
+            ? "justify-start gap-0.5 overflow-x-auto overflow-y-hidden px-1.5 [scrollbar-width:thin]"
+            : "justify-around"
+        )}
+      >
         {filteredNavItems.map((item) => {
           const Icon = item.icon
-          const isActive = item.path.startsWith("/admin")
-            ? location.pathname.startsWith("/admin")
-            : location.pathname === item.path
+          const isActive = isNavItemActive(item.path)
 
           return (
             <button
               key={item.path}
+              type="button"
               onClick={() => navigate(item.path)}
               className={cn(
-                "relative flex flex-col items-center justify-center flex-1 h-full transition-colors min-w-0",
+                "relative flex flex-col items-center justify-center h-full transition-colors shrink-0",
+                isAdminPath ? "min-w-[4.25rem] max-w-[5.5rem] flex-1 px-0.5" : "flex-1 min-w-0",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
@@ -96,12 +133,14 @@ export function BottomNavigation() {
             >
               <span
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-0.5 px-4 py-2 rounded-full transition-colors",
+                  "relative flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 rounded-full transition-colors w-full",
                   isActive && "bg-primary/10"
                 )}
               >
                 <Icon className="w-5 h-5 shrink-0" />
-                <span className="text-xs font-medium truncate max-w-[72px]">{item.label}</span>
+                <span className="text-[10px] sm:text-xs font-medium text-center leading-tight line-clamp-2 max-w-full px-0.5">
+                  {item.label}
+                </span>
               </span>
             </button>
           )

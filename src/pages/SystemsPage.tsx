@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
-import { databaseService } from '@/services/supabase';
+import { databaseService, FAVORITE_LIMIT_ERROR_CODE } from '@/services/supabase';
+import { FavoriteLimitDialog } from '@/components/FavoriteLimitDialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -40,21 +41,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { SystemCategory, Category } from '@/types';
+import type { System, SystemCategory, Category } from '@/types';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { ComingSoonModal } from '@/components/ComingSoonModal';
-
-interface System {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  url: string;
-  category: SystemCategory;
-  active: boolean;
-  status?: string;
-  createdAt?: Date | string;
-}
 
 interface User {
   id: string;
@@ -352,12 +341,17 @@ export default function SystemsPage() {
   };
 
   const [favoriteTogglingId, setFavoriteTogglingId] = useState<string | null>(null);
+  const [favoriteLimitOpen, setFavoriteLimitOpen] = useState(false);
 
   const handleToggleFavorite = async (systemId: string) => {
     if (!currentUser?.id) return;
     setFavoriteTogglingId(systemId);
-    await databaseService.toggleFavorite(currentUser.id, systemId);
-    await loadData();
+    const { error } = await databaseService.toggleFavorite(currentUser.id, systemId);
+    if (error && typeof error === 'object' && (error as { code?: string }).code === FAVORITE_LIMIT_ERROR_CODE) {
+      setFavoriteLimitOpen(true);
+    } else {
+      await loadData();
+    }
     setFavoriteTogglingId(null);
   };
 
@@ -961,6 +955,8 @@ export default function SystemsPage() {
         systemUrl={comingSoonSystem?.url}
         status={comingSoonSystem?.status}
       />
+
+      <FavoriteLimitDialog open={favoriteLimitOpen} onOpenChange={setFavoriteLimitOpen} />
 
       {/* Modal: sistema arquivado */}
       <Dialog open={!!archivedSystem} onOpenChange={(o) => { if (!o) setArchivedSystem(null); }}>

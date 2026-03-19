@@ -32,6 +32,51 @@ function createSupabaseClient(): SupabaseClient {
 
 export const supabase = createSupabaseClient();
 
+/**
+ * Tabela Supabase para canais de solicitação (criar no dashboard quando for aplicar o SQL).
+ * RLS sugerida (após migração): SELECT para autenticados; INSERT/UPDATE/DELETE apenas appsadmin.
+ */
+export const REQUEST_CHANNELS_TABLE = 'request_channels';
+
+export type RequestChannelType = 'departamento' | 'setor';
+
+export interface RequestChannel {
+  id: string;
+  name: string;
+  icon: string;
+  url: string;
+  channel_type: RequestChannelType;
+  createdAt?: Date;
+}
+
+type RequestChannelRow = {
+  id: string;
+  name: string;
+  icon_url?: string | null;
+  url?: string | null;
+  channel_type?: string | null;
+  created_at?: string;
+};
+
+function requestChannelRowToApp(row: RequestChannelRow): RequestChannel {
+  const raw = String(row.channel_type ?? 'departamento').toLowerCase();
+  const channel_type: RequestChannelType = raw === 'setor' ? 'setor' : 'departamento';
+  return {
+    id: row.id,
+    name: row.name ?? '',
+    icon: row.icon_url ?? '',
+    url: row.url ?? '',
+    channel_type,
+    createdAt: row.created_at ? new Date(row.created_at) : undefined,
+  };
+}
+
+/** Máximo de aplicativos favoritos por usuário (regra de negócio + validação em toggleFavorite). */
+export const MAX_FAVORITE_APPS_PER_USER = 5;
+
+/** Código retornado em `error` quando o usuário tenta exceder MAX_FAVORITE_APPS_PER_USER. */
+export const FAVORITE_LIMIT_ERROR_CODE = 'FAVORITE_LIMIT' as const;
+
 // Mapeamento: tabelas do Supabase (profiles, apps, user_app_access, audit_logs) <-> formato do app (User, System)
 type ProfileRow = { id?: string; user_id?: string; full_name?: string; name?: string; avatar_url?: string; avatar?: string; role?: string; role_type?: string; user_type?: string; email?: string; created_at?: string; access_type?: string };
 type UserShape = { id: string; name: string; email: string; role: string; avatar?: string; created_at?: string; createdAt?: Date; accessType?: string };
@@ -177,6 +222,33 @@ export const storageService = {
       return { url: publicUrlData.publicUrl, error: null };
     } catch (err) {
       console.error('❌ [Storage] uploadSystemImage exception:', err);
+      return { url: null, error: err };
+    }
+  },
+
+  /** Ícone de canal de solicitação — pasta dedicada no bucket GeImage. */
+  async uploadRequestChannelIcon(file: File): Promise<{ url: string | null; error: unknown }> {
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 80);
+      const fileName = `${Date.now()}-${safeName}`;
+      const filePath = `GeApps/request-channels/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from('GeImage')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (error) {
+        console.error('❌ [Storage] Request channel icon upload error:', error);
+        return { url: null, error };
+      }
+
+      const { data: publicUrlData } = supabase.storage.from('GeImage').getPublicUrl(filePath);
+      return { url: publicUrlData.publicUrl, error: null };
+    } catch (err) {
+      console.error('❌ [Storage] uploadRequestChannelIcon exception:', err);
       return { url: null, error: err };
     }
   },
@@ -837,6 +909,17 @@ export const databaseService = {
     return { data, error };
   },
 
+  /** Conta favoritos ativos: access true e is_favorite true (alinha à UI de favoritos). */
+  async countActiveFavoriteApps(userId: string): Promise<{ count: number; error: unknown }> {
+    const { count, error } = await supabase
+      .from('user_app_access')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('access', true)
+      .eq('is_favorite', true);
+    return { count: count ?? 0, error };
+  },
+
   async toggleFavorite(userId: string, systemId: string) {
     const { data: current } = await supabase
       .from('user_app_access')
@@ -846,6 +929,23 @@ export const databaseService = {
       .maybeSingle();
 
     const isFav = current ? !!(current.is_favorite ?? (current as any).favorite) : false;
+
+    // Só ao ativar favorito: validar limite antes de gravar
+    if (!isFav) {
+      const { count, error: countErr } = await this.countActiveFavoriteApps(userId);
+      if (countErr) {
+        console.warn('[toggleFavorite] countActiveFavoriteApps:', countErr);
+      }
+      if (count >= MAX_FAVORITE_APPS_PER_USER) {
+        return {
+          data: null,
+          error: {
+            code: FAVORITE_LIMIT_ERROR_CODE,
+            message: `É permitido no máximo ${MAX_FAVORITE_APPS_PER_USER} aplicativos favoritos.`,
+          },
+        };
+      }
+    }
 
     if (current) {
       const { data, error } = await supabase
@@ -980,6 +1080,51 @@ export const databaseService = {
       .delete()
       .eq('id', id);
     return { error };
+  },
+
+  /** Canais de solicitação (tabela `request_channels`). Lista vazia se a tabela ainda não existir ou houver erro. */
+  async listRequestChannels(): Promise<{ data: RequestChannel[]; error: null }> {
+    try {
+      const { data, error } = await supabase
+        .from(REQUEST_CHANNELS_TABLE)
+        .select('*')
+        .order('name', { ascending: true });
+      if (error) {
+        console.warn('[request_channels] list:', error.message ?? error);
+        return { data: [], error: null };
+      }
+      const list = (data ?? []) as RequestChannelRow[];
+      return { data: list.map(requestChannelRowToApp), error: null };
+    } catch (e) {
+      console.warn('[request_channels] list exception:', e);
+      return { data: [], error: null };
+    }
+  },
+
+  async createRequestChannel(payload: {
+    name: string;
+    icon_url?: string | null;
+    url?: string | null;
+    channel_type: RequestChannelType;
+  }): Promise<{ data: RequestChannel | null; error: unknown }> {
+    try {
+      const { data, error } = await supabase
+        .from(REQUEST_CHANNELS_TABLE)
+        .insert([
+          {
+            name: payload.name.trim(),
+            icon_url: payload.icon_url?.trim() || null,
+            url: payload.url?.trim() || null,
+            channel_type: payload.channel_type,
+          },
+        ])
+        .select()
+        .single();
+      if (error) return { data: null, error };
+      return { data: requestChannelRowToApp(data as RequestChannelRow), error: null };
+    } catch (e) {
+      return { data: null, error: e };
+    }
   },
 };
 

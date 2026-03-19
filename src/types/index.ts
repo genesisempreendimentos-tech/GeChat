@@ -26,7 +26,13 @@ export interface Category {
 
 export type SystemCategory = 'RH' | 'Financeiro' | 'Marketing' | 'Arquitetura' | 'Ferramentas' | string;
 
-export type AppStatus = 'ativo' | 'beta' | 'rascunho' | 'arquivado';
+export type AppStatus =
+  | 'ativo'
+  | 'beta'
+  | 'rascunho'
+  | 'arquivado'
+  | 'excluído'
+  | 'excluido';
 
 export interface System {
   id: string;

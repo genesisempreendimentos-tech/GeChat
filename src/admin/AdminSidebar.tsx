@@ -10,6 +10,8 @@ import {
   Check,
   UserCircle,
   Boxes,
+  Star,
+  Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
@@ -25,6 +27,8 @@ import {
 const adminMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/home' },
   { icon: Boxes, label: 'Aplicativos', path: '/admin/systems' },
+  { icon: Star, label: 'Favoritos', path: '/favorites' },
+  { icon: Send, label: 'Solicitações', path: '/admin/solicitacoes' },
   { icon: LibraryBig, label: 'Categorias', path: '/admin/categories' },
   { icon: Users, label: 'Membros', path: '/admin/members' },
   { icon: Shield, label: 'Administradores', path: '/admin/administrators' },
@@ -173,7 +177,12 @@ export default function AdminSidebar() {
 
             return (
               <div key={item.path} className="space-y-0.5">
-                <Link to={item.path} className="block">
+                <Link
+                  to={item.path}
+                  className="block"
+                  title={item.label}
+                  aria-label={item.label}
+                >
                   <motion.div
                     whileHover={isActive ? undefined : { scale: 1.02 }}
                     whileTap={isActive ? undefined : { scale: 0.98 }}
