@@ -46,6 +46,8 @@ export interface RequestChannel {
   icon: string;
   url: string;
   channel_type: RequestChannelType;
+  description?: string;
+  color?: string;
   createdAt?: Date;
 }
 
@@ -55,6 +57,8 @@ type RequestChannelRow = {
   icon_url?: string | null;
   url?: string | null;
   channel_type?: string | null;
+  description?: string | null;
+  color?: string | null;
   created_at?: string;
 };
 
@@ -67,6 +71,8 @@ function requestChannelRowToApp(row: RequestChannelRow): RequestChannel {
     icon: row.icon_url ?? '',
     url: row.url ?? '',
     channel_type,
+    description: row.description ?? undefined,
+    color: row.color ?? undefined,
     createdAt: row.created_at ? new Date(row.created_at) : undefined,
   };
 }
@@ -1012,11 +1018,11 @@ export const databaseService = {
     const list = (rows ?? []) as Array<{ actor_user_id?: string; app_id?: string; [k: string]: unknown }>;
     const userIds = [...new Set(list.map((r) => r.actor_user_id).filter(Boolean))] as string[];
     const appIds = [...new Set(list.map((r) => r.app_id).filter(Boolean))] as string[];
-    const [profilesByIdRes, profilesByUserIdRes, appsRes] = await Promise.all([
-      userIds.length ? supabase.from('profiles').select('*').in('id', userIds) : { data: [] as ProfileRow[] },
+    const [profilesByUserIdRes, appsRes] = await Promise.all([
       userIds.length ? supabase.from('profiles').select('*').in('user_id', userIds) : { data: [] as ProfileRow[] },
       appIds.length ? supabase.from('apps').select('*').in('id', appIds) : { data: [] as Record<string, unknown>[] },
     ]);
+    const profilesByIdRes = { data: [] as ProfileRow[] };
     const profileByUserId = new Map<string, ProfileRow>();
     for (const p of [...(profilesByIdRes.data ?? []), ...(profilesByUserIdRes.data ?? [])]) {
       const row = p as ProfileRow;
@@ -1106,6 +1112,8 @@ export const databaseService = {
     icon_url?: string | null;
     url?: string | null;
     channel_type: RequestChannelType;
+    description?: string | null;
+    color?: string | null;
   }): Promise<{ data: RequestChannel | null; error: unknown }> {
     try {
       const { data, error } = await supabase
@@ -1116,6 +1124,8 @@ export const databaseService = {
             icon_url: payload.icon_url?.trim() || null,
             url: payload.url?.trim() || null,
             channel_type: payload.channel_type,
+            description: payload.description?.trim() || null,
+            color: payload.color?.trim() || null,
           },
         ])
         .select()

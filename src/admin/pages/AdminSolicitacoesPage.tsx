@@ -1,17 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Plus,
-  ExternalLink,
-  Search,
-  AlertCircle,
-  Upload,
-  Send,
-  Image as ImageIcon,
-} from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, Send, RefreshCw } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -22,12 +15,8 @@ import {
 import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
-import {
-  databaseService,
-  storageService,
-  type RequestChannel,
-  type RequestChannelType,
-} from '@/services/supabase';
+import { databaseService, type RequestChannel, type RequestChannelType } from '@/services/supabase';
+import { getDepartments, type NeonDepartment } from '@/services/corporateProfile';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { useAuthStore } from '@/store/authStore';
 
@@ -64,21 +53,14 @@ export default function AdminSolicitacoesPage() {
   const [typeFilter, setTypeFilter] = useState<string>(TYPE_FILTER_ALL);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [form, setForm] = useState<{
-    name: string;
-    logo: string;
-    url: string;
-    channel_type: RequestChannelType;
-  }>({
-    name: '',
-    logo: '',
-    url: '',
-    channel_type: 'departamento',
-  });
+  const [departments, setDepartments] = useState<NeonDepartment[]>([]);
+  const [depsLoading, setDepsLoading] = useState(false);
+  const [selectedDeptId, setSelectedDeptId] = useState('');
+  const [formUrl, setFormUrl] = useState('');
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
-  const [logoUploading, setLogoUploading] = useState(false);
-  const createLogoInputRef = useRef<HTMLInputElement>(null);
+
+  const selectedDept = departments.find((d) => d.id === selectedDeptId) ?? null;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -96,33 +78,32 @@ export default function AdminSolicitacoesPage() {
     const matchSearch =
       !q ||
       c.name.toLowerCase().includes(q) ||
-      (c.url ?? '').toLowerCase().includes(q);
+      (c.url ?? '').toLowerCase().includes(q) ||
+      (c.description ?? '').toLowerCase().includes(q);
     const matchType = typeFilter === TYPE_FILTER_ALL || c.channel_type === typeFilter;
     return matchSearch && matchType;
   });
 
   const resetForm = () => {
-    setForm({
-      name: '',
-      logo: '',
-      url: '',
-      channel_type: 'departamento',
-    });
+    setSelectedDeptId('');
+    setFormUrl('');
     setFormError('');
   };
 
   const handleCreate = async () => {
     setFormError('');
-    if (!form.name.trim()) {
-      setFormError('Nome é obrigatório.');
+    if (!selectedDept) {
+      setFormError('Selecione um departamento.');
       return;
     }
     setFormLoading(true);
     const { data, error } = await databaseService.createRequestChannel({
-      name: form.name.trim(),
-      icon_url: form.logo.trim() || null,
-      url: form.url.trim() || null,
-      channel_type: form.channel_type,
+      name: selectedDept.name,
+      icon_url: selectedDept.icon ?? null,
+      url: formUrl.trim() || null,
+      channel_type: 'departamento',
+      description: selectedDept.description ?? null,
+      color: selectedDept.color ?? null,
     });
     setFormLoading(false);
     if (error) {
@@ -140,21 +121,13 @@ export default function AdminSolicitacoesPage() {
     }
   };
 
-  const handleLogoUpload = useCallback(async (file: File, setLogo: (url: string) => void) => {
-    setLogoUploading(true);
-    setFormError('');
-    const { url, error } = await storageService.uploadRequestChannelIcon(file);
-    setLogoUploading(false);
-    if (error || !url) {
-      setFormError('Falha no upload da imagem. Verifique o bucket GeImage no Supabase.');
-      return;
-    }
-    setLogo(url);
-  }, []);
-
-  const openCreate = () => {
+  const openCreate = async () => {
     resetForm();
     setIsCreateOpen(true);
+    setDepsLoading(true);
+    const deps = await getDepartments();
+    setDepartments(deps);
+    setDepsLoading(false);
   };
 
   const openChannelUrl = (c: RequestChannel) => {
@@ -166,14 +139,26 @@ export default function AdminSolicitacoesPage() {
       <AdminPageHeader
         icon={Send}
         title="Solicitações"
-        description="Envie solicitações para outros departamentos ou setores"
+        description="Envie solicitações para outros departamentos"
         action={
-          canCreate ? (
-            <Button onClick={openCreate}>
-              <Plus className="w-4 h-4 mr-2" />
-              Criar canal de solicitação
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadData}
+              disabled={loading}
+              title="Recarregar canais"
+              className="h-9 rounded-xl"
+            >
+              <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
             </Button>
-          ) : undefined
+            {canCreate && (
+              <Button onClick={openCreate}>
+                <Plus className="w-4 h-4 mr-2" />
+                Criar canal de solicitação
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -231,7 +216,14 @@ export default function AdminSolicitacoesPage() {
                 className="group relative"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
-                <div className="relative h-full flex flex-col justify-between p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-2">
+                <div
+                  className="relative h-full flex flex-col justify-between p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-2"
+                  style={
+                    channel.color && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(channel.color)
+                      ? { borderLeftWidth: 4, borderLeftColor: channel.color }
+                      : undefined
+                  }
+                >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="relative group/icon shrink-0">
@@ -257,6 +249,9 @@ export default function AdminSolicitacoesPage() {
                         >
                           {TYPE_LABELS[channel.channel_type]}
                         </span>
+                        {channel.description ? (
+                          <p className="text-xs text-muted-foreground/80 mt-2 line-clamp-2">{channel.description}</p>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -285,6 +280,7 @@ export default function AdminSolicitacoesPage() {
                 <tr className="border-b border-border">
                   <th className="text-left py-3 px-2 font-medium">Ícone</th>
                   <th className="text-left py-3 px-2 font-medium">Nome</th>
+                  <th className="text-left py-3 px-2 font-medium">Descrição</th>
                   <th className="text-left py-3 px-2 font-medium">Tipo</th>
                   <th className="text-left py-3 px-2 font-medium">URL</th>
                   <th className="text-left py-3 px-2 font-medium">Ações</th>
@@ -303,6 +299,9 @@ export default function AdminSolicitacoesPage() {
                       </div>
                     </td>
                     <td className="py-2 px-2 font-medium">{channel.name}</td>
+                    <td className="py-2 px-2 text-muted-foreground max-w-[200px] truncate" title={channel.description}>
+                      {channel.description || '—'}
+                    </td>
                     <td className="py-2 px-2">
                       <span
                         className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
@@ -357,7 +356,7 @@ export default function AdminSolicitacoesPage() {
                 <DialogTitle className="text-xl font-semibold">Novo canal de solicitação</DialogTitle>
               </div>
               <DialogDescription className="text-sm">
-                Preencha os dados do canal. Ele ficará visível para todos os membros após salvar.
+                Selecione o departamento e informe a URL do formulário. Os demais campos são preenchidos automaticamente.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -371,95 +370,113 @@ export default function AdminSolicitacoesPage() {
             )}
 
             <div className="grid grid-cols-1 gap-6">
+              {/* Dropdown de departamento */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  Nome <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  placeholder="Ex.: RH — Solicitações"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Ícone</label>
-                <div className="flex items-start gap-4 mt-1">
-                  <div className="w-16 h-16 rounded-2xl bg-muted/30 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
-                    {form.logo ? (
-                      form.logo.startsWith('http') ? (
-                        <img src={form.logo} alt="" className="w-10 h-10 object-contain drop-shadow" />
-                      ) : (
-                        <ImageIcon className="w-6 h-6 text-muted-foreground/50" />
-                      )
-                    ) : (
-                      <ImageIcon className="w-6 h-6 text-muted-foreground/50" />
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2 flex-1">
-                    <input
-                      ref={createLogoInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleLogoUpload(file, (url) => setForm((f) => ({ ...f, logo: url })));
-                        e.target.value = '';
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full h-10 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all"
-                      disabled={logoUploading}
-                      onClick={() => createLogoInputRef.current?.click()}
-                    >
-                      {logoUploading ? (
-                        <LoadingGif size="sm" className="w-4 h-4 mr-2" />
-                      ) : (
-                        <Upload className="w-4 h-4 mr-2 text-muted-foreground" />
-                      )}
-                      <span className="font-normal text-muted-foreground">
-                        {logoUploading ? 'Enviando...' : 'Clique para enviar imagem'}
-                      </span>
-                    </Button>
-                    <p className="text-[11px] text-muted-foreground/70">Recomendado: 512x512px, PNG ou SVG.</p>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-foreground">
+                    Departamento <span className="text-destructive">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setDepsLoading(true);
+                      const deps = await getDepartments();
+                      setDepartments(deps);
+                      setDepsLoading(false);
+                    }}
+                    disabled={depsLoading}
+                    title="Recarregar departamentos do GêTeams"
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={cn('w-3.5 h-3.5', depsLoading && 'animate-spin')} />
+                  </button>
                 </div>
+                {depsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <LoadingGif size="sm" />
+                    Carregando departamentos…
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Icons.Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
+                    <select
+                      value={selectedDeptId}
+                      onChange={(e) => setSelectedDeptId(e.target.value)}
+                      className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="" disabled>Selecione um departamento...</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
+              {/* Preview dos dados puxados automaticamente */}
+              {selectedDept && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">Ícone</label>
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
+                        {selectedDept.icon ? (
+                          renderIcon(selectedDept.icon, 'w-8 h-8 object-contain')
+                        ) : (
+                          <Icons.Image className="w-7 h-7 text-muted-foreground/40" />
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground font-mono">{selectedDept.icon || '—'}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">Nome</label>
+                    <div className="h-10 rounded-xl border border-border/50 bg-muted/30 px-3 flex items-center text-sm text-foreground">
+                      {selectedDept.name}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">Descrição</label>
+                    <div className={cn(
+                      'rounded-xl border border-border/50 bg-muted/30 px-3 py-2 text-sm min-h-[60px]',
+                      !selectedDept.description && 'text-muted-foreground/50 italic'
+                    )}>
+                      {selectedDept.description || 'Sem descrição'}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">Cor</label>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-lg border border-border shrink-0 shadow-inner"
+                        style={{
+                          backgroundColor:
+                            selectedDept.color && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(selectedDept.color)
+                              ? selectedDept.color
+                              : 'transparent',
+                        }}
+                        aria-hidden
+                      />
+                      <span className="text-sm text-muted-foreground font-mono">{selectedDept.color || '—'}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* URL do formulário — único campo manual */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">URL de acesso</label>
+                <label className="text-sm font-medium text-foreground">URL do formulário</label>
                 <div className="relative">
                   <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
                   <Input
                     placeholder="https://..."
-                    value={form.url}
-                    onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+                    value={formUrl}
+                    onChange={(e) => setFormUrl(e.target.value)}
                     className="pl-9 h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
                   />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Tipo</label>
-                <div className="relative">
-                  <Send className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
-                  <select
-                    className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none"
-                    value={form.channel_type}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        channel_type: e.target.value as RequestChannelType,
-                      }))
-                    }
-                  >
-                    <option value="departamento">Departamento</option>
-                    <option value="setor">Setor</option>
-                  </select>
                 </div>
               </div>
             </div>

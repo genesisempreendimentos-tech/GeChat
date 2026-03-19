@@ -81,7 +81,7 @@ export default function SolicitacoesPage() {
           Solicitações
         </h1>
         <p className="text-muted-foreground mt-2">
-          Envie solicitações para outros departamentos ou setores
+          Envie solicitações para outros departamentos
         </p>
       </div>
 

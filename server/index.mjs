@@ -199,6 +199,45 @@ app.get('/api/all-collaborators-sectors', async (req, res) => {
   }
 });
 
+app.get('/api/departments', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Token ausente. Use Authorization: Bearer <token>.' });
+    }
+    const token = authHeader.slice(7);
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(500).json({ error: 'Serviço de autenticação não configurado.' });
+    }
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Token inválido ou expirado.' });
+    }
+
+    if (!neonUrl) {
+      return res.status(503).json({ error: 'URL do banco não configurada.' });
+    }
+
+    const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+    await client.connect();
+    try {
+      const result = await client.query(
+        `SELECT id, name, icon, description, color
+         FROM departments
+         WHERE is_active = true AND deleted_at IS NULL
+         ORDER BY name ASC`
+      );
+      return res.json(result.rows);
+    } finally {
+      await client.end();
+    }
+  } catch (err) {
+    console.error('[departments]', err);
+    return res.status(500).json({ error: 'Erro ao buscar departamentos.' });
+  }
+});
+
 app.use(express.static(distPath));
 
 app.get('*', (req, res) => {
