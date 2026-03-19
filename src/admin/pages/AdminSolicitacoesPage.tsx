@@ -163,24 +163,12 @@ export default function AdminSolicitacoesPage() {
         title="Solicitações"
         description="Envie solicitações para outros departamentos"
         action={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadData}
-              disabled={loading}
-              title="Recarregar canais"
-              className="h-9 rounded-xl"
-            >
-              <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
+          canCreate ? (
+            <Button onClick={openCreate}>
+              <Plus className="w-4 h-4 mr-2" />
+              Criar canal de solicitação
             </Button>
-            {canCreate && (
-              <Button onClick={openCreate}>
-                <Plus className="w-4 h-4 mr-2" />
-                Criar canal de solicitação
-              </Button>
-            )}
-          </div>
+          ) : undefined
         }
       />
 
@@ -527,7 +515,7 @@ export default function AdminSolicitacoesPage() {
                 URL do formulário
               </label>
               <p className="text-xs text-muted-foreground -mt-1">
-                Link externo (Google Forms, Typeform, etc.) opcional neste passo.
+                Link externo do GêForms.
               </p>
               <div className="relative">
                 <ExternalLink className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none z-10" />

@@ -414,7 +414,10 @@ export default function SystemsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Aplicativos</h1>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <Boxes className="w-8 h-8 shrink-0" />
+            Aplicativos
+          </h1>
           <p className="text-muted-foreground mt-2">
             {isAdmin 
               ? 'Gerencie aplicativos, permissões e crie novos aplicativos (apenas Admin)' 

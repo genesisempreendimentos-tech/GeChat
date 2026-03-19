@@ -20,7 +20,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
 import Zoom from './Zoom';
-import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
+import { NotificationsPanel, type NotificationItem } from '@/components/notifications/NotificationsPanel';
 import HelpModal from '@/views/navbar/HelpModal';
 
 export default function Topbar() {
@@ -32,6 +32,8 @@ export default function Topbar() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(false);
+  const [notificationItems] = useState<NotificationItem[]>([]);
+  const notificationUnreadCount = notificationItems.filter((n) => !n.read).length;
 
   const handleProfileClick = () => {
     navigate(isInAdmin ? '/admin/profile' : '/profile');
@@ -69,10 +71,6 @@ export default function Topbar() {
             </p>
           </DropdownMenuContent>
         </DropdownMenu>
-        <span className="hidden lg:flex items-center border-r border-border/50 pr-1.5 mr-0.5">
-          <Zoom />
-        </span>
-        <ThemeToggle className="relative h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 shadow-sm transition-all" />
         <Button
           variant="ghost"
           size="icon"
@@ -81,9 +79,19 @@ export default function Topbar() {
           aria-label="Abrir notificações"
         >
           <Bell className="w-[18px] h-[18px]" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-destructive border-2 border-background rounded-full" />
+          {notificationUnreadCount > 0 ? (
+            <span
+              className="absolute top-1 right-1 w-2 h-2 bg-destructive border-2 border-background rounded-full"
+              aria-hidden
+            />
+          ) : null}
         </Button>
-        <div className="w-[1px] h-4 bg-border/50 mx-0.5" />
+        <div className="w-px h-4 shrink-0 self-center bg-border/60 mx-0.5" aria-hidden />
+        <ThemeToggle className="relative h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 shadow-sm transition-all" />
+        <span className="hidden lg:inline-flex items-center">
+          <Zoom />
+        </span>
+        <div className="w-px h-4 shrink-0 self-center bg-border/60 mx-0.5" aria-hidden />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-transparent hover:ring-primary/30 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-primary/50" aria-label="Menu do usuário">
@@ -141,7 +149,11 @@ export default function Topbar() {
         </DialogContent>
       </Dialog>
 
-      <NotificationsPanel open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+      <NotificationsPanel
+        open={notificationsOpen}
+        onOpenChange={setNotificationsOpen}
+        items={notificationItems}
+      />
     </header>
   );
 }

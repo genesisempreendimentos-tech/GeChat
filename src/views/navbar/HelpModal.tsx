@@ -56,18 +56,14 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
                 salve os aplicativos que você mais usa para acesso rápido.
               </li>
               <li>
-                <strong className="text-foreground font-semibold">Perfil e Configurações:</strong>{' '}
-                gerencie seus dados e personalize suas preferências.
+                <strong className="text-foreground font-semibold">Perfil:</strong>{' '}
+                gerencie seus dados pessoais e acesse seus dados corporativos.
+              </li>
+              <li>
+                <strong className="text-foreground font-semibold">Configurações:</strong>{' '}
+                configure suas preferências de de usabilidade do app.
               </li>
             </ul>
-          </section>
-
-          <section className="space-y-2">
-            <h3 className="text-base font-semibold text-foreground">Intranet</h3>
-            <p>
-              O GêApps é o seu ponto de entrada para a intranet: aqui você acessa sistemas, acompanha
-              notificações e navega pelos recursos da empresa em um só lugar.
-            </p>
           </section>
 
           <section className="space-y-2">

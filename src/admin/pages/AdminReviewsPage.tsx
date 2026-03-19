@@ -1,4 +1,4 @@
-import { Star } from 'lucide-react';
+import { MessageSquareQuote } from 'lucide-react';
 import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,7 @@ export default function AdminReviewsPage() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        icon={Star}
+        icon={MessageSquareQuote}
         title="Avaliações"
         description="Gerencie as avaliações dos apps pelos usuários."
       />

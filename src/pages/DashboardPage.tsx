@@ -4,7 +4,6 @@ import { useAccessLogStore } from '@/store/accessLogStore';
 import { databaseService, FAVORITE_LIMIT_ERROR_CODE } from '@/services/supabase';
 import { FavoriteLimitDialog } from '@/components/FavoriteLimitDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { ActivityChart, SystemUsageChart } from '@/components/Charts';
 import { EmptyFavoritesState } from '@/components/EmptyStates';
 import { LoadingGifScreen } from '@/components/LoadingGif';
@@ -78,11 +77,11 @@ export default function DashboardPage() {
       const isAdminOrManager = user.role === 'admin' || user.role === 'manager';
       if (isAdminOrManager) {
         const { data: systemsData, error: systemsError } = await databaseService.getSystems();
-        if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
+        if (systemsError) console.error('Erro ao carregar aplicativos:', systemsError);
         setSystems(systemsData || []);
       } else {
         const { data: systemsData, error: systemsError } = await databaseService.getSystemsForMember(user.id);
-        if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
+        if (systemsError) console.error('Erro ao carregar aplicativos:', systemsError);
         setSystems(systemsData || []);
       }
 
@@ -178,7 +177,7 @@ export default function DashboardPage() {
 
   const stats = [
     {
-      title: 'Sistemas Disponíveis',
+      title: 'Aplicativos Disponíveis',
       value: systems.length,
       icon: Boxes,
       color: 'text-blue-500',
@@ -202,7 +201,7 @@ export default function DashboardPage() {
       trend: null as number | null,
     },
     {
-      title: 'Sistemas Ativos',
+      title: 'Aplicativos Ativos',
       value: systems.filter((s) => s.active).length,
       icon: TrendingUp,
       color: 'text-purple-500',
@@ -253,16 +252,12 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumbs */}
-      <Breadcrumbs />
-
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">
           Bem-vindo, {user?.name?.split(' ')[0]}! 👋
         </h1>
         <p className="text-muted-foreground mt-2">
-          Aqui está um resumo dos seus sistemas e atividades recentes.
+          Aqui está um resumo dos seus aplicativos e atividades recentes.
         </p>
       </div>
 
@@ -339,10 +334,10 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Star className="w-5 h-5 text-yellow-500" />
-                Sistemas Favoritos
+                Aplicativos Favoritos
               </CardTitle>
               <CardDescription>
-                Acesso rápido aos seus sistemas mais usados
+                Acesso rápido aos seus aplicativos mais usados
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -394,7 +389,7 @@ export default function DashboardPage() {
                 <Clock className="w-5 h-5 text-blue-500" />
                 Atividade Recente
               </CardTitle>
-              <CardDescription>Seus últimos acessos aos sistemas</CardDescription>
+              <CardDescription>Seus últimos acessos aos aplicativos</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {recentLogs.length === 0 ? (
@@ -435,9 +430,9 @@ export default function DashboardPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Todos os Sistemas</CardTitle>
+                <CardTitle>Todos os Aplicativos</CardTitle>
                 <CardDescription>
-                  Clique em um sistema para acessá-lo
+                  Clique em um aplicativo para acessá-lo
                 </CardDescription>
               </div>
               <Button variant="outline" onClick={() => navigate('/systems')}>

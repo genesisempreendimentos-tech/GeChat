@@ -10,13 +10,14 @@ import {
   Check,
   UserCircle,
   Boxes,
-  Star,
   Send,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
+import { useUnviewedComunicados } from '@/hooks/useUnviewedComunicados';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +28,8 @@ import {
 const adminMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/home' },
   { icon: Boxes, label: 'Aplicativos', path: '/admin/systems' },
-  { icon: Star, label: 'Favoritos', path: '/favorites' },
   { icon: Send, label: 'Solicitações', path: '/admin/solicitacoes' },
+  { icon: Megaphone, label: 'Comunicados', path: '/admin/comunicados' },
   { icon: LibraryBig, label: 'Categorias', path: '/admin/categories' },
   { icon: Users, label: 'Membros', path: '/admin/members' },
   { icon: Shield, label: 'Administradores', path: '/admin/administrators' },
@@ -39,6 +40,7 @@ export default function AdminSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isSoftadmin } = useAdminAccess();
+  const hasUnviewedComunicados = useUnviewedComunicados();
   const isInAdmin = location.pathname.startsWith('/admin');
   const [pinned, setPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-admin-pinned');
@@ -174,6 +176,7 @@ export default function AdminSidebar() {
           {adminMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
+            const isComunicados = item.path === '/admin/comunicados';
 
             return (
               <div key={item.path} className="space-y-0.5">
@@ -196,7 +199,18 @@ export default function AdminSidebar() {
                         : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                     )}
                   >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="relative flex shrink-0 w-5 h-5 items-center justify-center">
+                      <Icon className="w-5 h-5" />
+                      {isComunicados && hasUnviewedComunicados ? (
+                        <span
+                          className={cn(
+                            'absolute right-0 top-0 h-2 w-2 rounded-full bg-destructive ring-2 pointer-events-none',
+                            isActive ? 'ring-primary-foreground' : 'ring-background'
+                          )}
+                          aria-hidden
+                        />
+                      ) : null}
+                    </span>
                     <span
                       className={cn(
                         'font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-200',

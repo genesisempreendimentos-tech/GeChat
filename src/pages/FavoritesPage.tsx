@@ -248,11 +248,6 @@ export default function FavoritesPage() {
             ))}
           </div>
 
-          <p className="text-sm text-muted-foreground text-center pt-4">
-            Você tem {favoriteSystems.length} sistema
-            {favoriteSystems.length !== 1 ? 's' : ''} favoritado
-            {favoriteSystems.length !== 1 ? 's' : ''}.
-          </p>
         </>
       )}
 

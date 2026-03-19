@@ -18,7 +18,7 @@ import {
 } from '@/services/supabase';
 import { LoadingGifScreen } from '@/components/LoadingGif';
 
-const CHANNEL_FILTER_ALL = 'all';
+const NAME_FILTER_ALL = 'all';
 const TYPE_LABELS: Record<RequestChannelType, string> = {
   departamento: 'Departamento',
   setor: 'Setor',
@@ -40,7 +40,24 @@ export default function SolicitacoesPage() {
   const [channels, setChannels] = useState<RequestChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [channelFilterId, setChannelFilterId] = useState<string>(CHANNEL_FILTER_ALL);
+  const [nameFilter, setNameFilter] = useState<string>(NAME_FILTER_ALL);
+
+  /** Nomes distintos dos canais em `request_channels` (coluna `name`), ordenados. */
+  const channelNamesFromDb = useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    for (const c of channels) {
+      const n = (c.name ?? '').trim();
+      if (n && !seen.has(n)) {
+        seen.add(n);
+        list.push(n);
+      }
+    }
+    return list.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [channels]);
+
+  const filterDropdownLabel =
+    nameFilter === NAME_FILTER_ALL ? 'Todos os canais' : nameFilter;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -54,29 +71,20 @@ export default function SolicitacoesPage() {
   }, [loadData]);
 
   useEffect(() => {
-    if (
-      channelFilterId !== CHANNEL_FILTER_ALL &&
-      !channels.some((c) => c.id === channelFilterId)
-    ) {
-      setChannelFilterId(CHANNEL_FILTER_ALL);
+    if (nameFilter !== NAME_FILTER_ALL && !channelNamesFromDb.includes(nameFilter)) {
+      setNameFilter(NAME_FILTER_ALL);
     }
-  }, [channels, channelFilterId]);
-
-  const filterTriggerLabel = useMemo(() => {
-    if (channelFilterId === CHANNEL_FILTER_ALL) return 'Todos os departamentos';
-    const ch = channels.find((c) => c.id === channelFilterId);
-    return ch?.name ?? 'Todos os departamentos';
-  }, [channelFilterId, channels]);
+  }, [channelNamesFromDb, nameFilter]);
 
   const filtered = channels.filter((c) => {
     const q = searchQuery.trim().toLowerCase();
     const matchSearch =
       !q ||
       c.name.toLowerCase().includes(q) ||
-      (c.url ?? '').toLowerCase().includes(q);
-    const matchChannel =
-      channelFilterId === CHANNEL_FILTER_ALL || c.id === channelFilterId;
-    return matchSearch && matchChannel;
+      (c.url ?? '').toLowerCase().includes(q) ||
+      (c.description ?? '').toLowerCase().includes(q);
+    const matchName = nameFilter === NAME_FILTER_ALL || c.name === nameFilter;
+    return matchSearch && matchName;
   });
 
   const openChannel = (c: RequestChannel) => {
@@ -100,7 +108,7 @@ export default function SolicitacoesPage() {
           <div className="flex-1 relative group/search">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
             <Input
-              placeholder="Buscar departamentos ou setores"
+              placeholder="Buscar canais..."
               className="pl-11 h-12 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -111,42 +119,39 @@ export default function SolicitacoesPage() {
               <Button
                 variant="outline"
                 size="lg"
-                className="min-w-[200px] h-12 justify-between border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background rounded-xl"
+                className="min-w-[min(100vw-2rem,200px)] sm:min-w-[220px] h-12 justify-between border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background rounded-xl"
               >
                 <div className="flex items-center min-w-0">
                   <Filter className="w-4 h-4 mr-2 shrink-0" />
-                  <span className="truncate">{filterTriggerLabel}</span>
+                  <span className="truncate">{filterDropdownLabel}</span>
                 </div>
-                <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
+                <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="max-h-[280px] min-w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
+              className="min-w-[min(100vw-2rem,260px)] sm:min-w-[280px] max-w-[360px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
             >
               <DropdownMenuItem
-                onClick={() => setChannelFilterId(CHANNEL_FILTER_ALL)}
+                onClick={() => setNameFilter(NAME_FILTER_ALL)}
                 className="focus:bg-primary/20 focus:text-primary cursor-pointer"
               >
-                Todos os departamentos
+                Todos os canais
               </DropdownMenuItem>
-              {channels.length === 0 ? (
+              {channelNamesFromDb.length === 0 ? (
                 <div className="px-2 py-3 text-xs text-muted-foreground text-center">
                   Nenhum departamento cadastrado ainda
                 </div>
               ) : (
-                channels
-                  .slice()
-                  .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-                  .map((c) => (
-                    <DropdownMenuItem
-                      key={c.id}
-                      onClick={() => setChannelFilterId(c.id)}
-                      className="focus:bg-primary/20 focus:text-primary cursor-pointer"
-                    >
-                      <span className="truncate">{c.name}</span>
-                    </DropdownMenuItem>
-                  ))
+                channelNamesFromDb.map((name) => (
+                  <DropdownMenuItem
+                    key={name}
+                    onClick={() => setNameFilter(name)}
+                    className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                  >
+                    <span className="truncate">{name}</span>
+                  </DropdownMenuItem>
+                ))
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -161,7 +166,7 @@ export default function SolicitacoesPage() {
             <Send className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
             <h3 className="text-lg font-semibold mb-2">Nenhum canal encontrado</h3>
             <p className="text-muted-foreground">
-              {searchQuery || channelFilterId !== CHANNEL_FILTER_ALL
+              {searchQuery || nameFilter !== NAME_FILTER_ALL
                 ? 'Tente ajustar a busca ou o filtro'
                 : 'Ainda não há canais cadastrados. Quando o administrador criar canais, eles aparecerão aqui.'}
             </p>

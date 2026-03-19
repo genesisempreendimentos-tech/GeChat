@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useThemeStore } from '@/store/themeStore';
 
 export type ThemeMode = 'light' | 'dark' | 'system' | 'full-dark';
 export type FontSize = 'small' | 'medium' | 'large';
@@ -35,6 +36,9 @@ export const useSettingsStore = create<SettingsState>()(
       setThemeMode: (mode) => {
         set({ themeMode: mode });
         applyTheme(mode);
+        if (mode === 'light' || mode === 'dark' || mode === 'full-dark') {
+          useThemeStore.getState().setTheme(mode);
+        }
       },
       
       setFontSize: (size) => {

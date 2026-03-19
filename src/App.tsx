@@ -1,7 +1,16 @@
-import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useSearchParams,
+  useLocation,
+  type Location as RouterLocation,
+} from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
+import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAdminShortcut } from '@/hooks/useAdminShortcut';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -32,6 +41,7 @@ import SettingsPage from '@/pages/SettingsPage';
 import ChatPage from '@/pages/ChatPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import SolicitacoesPage from '@/pages/SolicitacoesPage';
+import ComunicadosPage from '@/pages/ComunicadosPage';
 
 // Admin pages
 import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
@@ -47,16 +57,27 @@ import AdminSolicitacoesPage from '@/admin/pages/AdminSolicitacoesPage';
  * Caso contrário, redireciona para /dashboard ou exibe a página de login.
  */
 function LoginRoute() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, loading } = useAuthStore();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get('returnTo') ?? '';
   const validReturnTo = returnTo && isAllowedReturnToUrl(returnTo) ? returnTo : null;
+  const from = (location.state as { from?: RouterLocation } | null)?.from;
+  const internalAfterAuth = getSafeInternalReturnPath(from);
 
   useEffect(() => {
     if (isAuthenticated && validReturnTo) {
       window.location.href = validReturnTo;
     }
   }, [isAuthenticated, validReturnTo]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) return <LoginPage />;
   if (validReturnTo) {
@@ -66,7 +87,7 @@ function LoginRoute() {
       </div>
     );
   }
-  return <Navigate to="/dashboard" replace />;
+  return <Navigate to={internalAfterAuth} replace />;
 }
 
 function AppRoutes() {
@@ -119,6 +140,7 @@ function AppRoutes() {
           <Route path="/systems" element={<SystemsPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/solicitacoes" element={<SolicitacoesPage />} />
+          <Route path="/comunicados" element={<ComunicadosPage />} />
           <Route path="/users" element={<UsersPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
@@ -139,6 +161,7 @@ function AppRoutes() {
           <Route path="home" element={<AdminDashboardPage />} />
           <Route path="systems" element={<AdminSystemsPage />} />
           <Route path="solicitacoes" element={<AdminSolicitacoesPage />} />
+          <Route path="comunicados" element={<ComunicadosPage />} />
           <Route path="members" element={<AdminMembersPage />} />
           <Route path="administrators" element={<AdminAdministratorsPage />} />
           <Route path="categories" element={<AdminCategoriesPage />} />

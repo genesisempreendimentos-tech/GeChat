@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import {
+  useNavigate,
+  Link,
+  useSearchParams,
+  useLocation,
+  type Location as RouterLocation,
+} from "react-router-dom";
 import { motion } from "framer-motion";
 import { Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +28,7 @@ import {
 import { useAuthStore } from "@/store/authStore";
 import { authService } from "@/services/supabase";
 import { isAllowedReturnToUrl } from "@/services/authStorage";
+import { getSafeInternalReturnPath } from "@/lib/postLoginRedirect";
 import LogoSvg from "../../assets/logo-gen-sem-fundo-svg.svg";
 
 export default function LoginPage() {
@@ -47,6 +54,8 @@ export default function LoginPage() {
 
   const { login } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: RouterLocation } | null)?.from;
 
   const validReturnTo = returnTo && isAllowedReturnToUrl(returnTo) ? returnTo : null;
 
@@ -121,7 +130,7 @@ export default function LoginPage() {
         window.location.href = validReturnTo;
         return;
       }
-      navigate("/dashboard");
+      navigate(getSafeInternalReturnPath(from));
     } else {
       const errorMsg = result.error || "Erro ao fazer login";
       if (

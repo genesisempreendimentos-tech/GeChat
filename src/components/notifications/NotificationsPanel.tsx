@@ -6,7 +6,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Bell, CheckCheck, Info, Sparkles, X } from 'lucide-react';
+import { Bell, CheckCheck, Info, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,33 +22,15 @@ export interface NotificationItem {
   type?: 'info' | 'success' | 'warning' | 'error';
 }
 
-const MOCK_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: '1',
-    title: 'Bem-vindo ao GêApps',
-    description: 'Seu acesso foi ativado. Explore os sistemas disponíveis.',
-    date: new Date(Date.now() - 1000 * 60 * 60 * 2),
-    read: false,
-    type: 'success',
-  },
-  {
-    id: '2',
-    title: 'Novo sistema disponível',
-    description: 'GêForms está disponível na sua conta.',
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    read: true,
-    type: 'info',
-  },
-];
-
 interface NotificationsPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Fonte única com o Topbar; vazio até integração com API */
+  items?: NotificationItem[];
 }
 
-export function NotificationsPanel({ open, onOpenChange }: NotificationsPanelProps) {
+export function NotificationsPanel({ open, onOpenChange, items = [] }: NotificationsPanelProps) {
   const navigate = useNavigate();
-  const items = MOCK_NOTIFICATIONS;
   const unreadCount = items.filter((n) => !n.read).length;
 
   const handleMarkAllRead = () => {

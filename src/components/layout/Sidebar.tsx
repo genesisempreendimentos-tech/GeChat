@@ -12,6 +12,7 @@ import {
   UserCircle,
   Boxes,
   Send,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef } from 'react';
@@ -19,6 +20,7 @@ import { useAuthStore } from '@/store/authStore';
 import { databaseService } from '@/services/supabase';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
+import { useUnviewedComunicados } from '@/hooks/useUnviewedComunicados';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +33,7 @@ const menuItems = [
   { icon: Boxes, label: 'Aplicativos', path: '/systems' },
   { icon: Star, label: 'Favoritos', path: '/favorites' },
   { icon: Send, label: 'Solicitações', path: '/solicitacoes' },
+  { icon: Megaphone, label: 'Comunicados', path: '/comunicados' },
   // { icon: MessageCircle, label: 'Chat', path: '/chat' },
   { icon: Users, label: 'Usuários', path: '/users', adminOnly: true },
 ];
@@ -44,6 +47,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { isSoftadmin } = useAdminAccess();
+  const hasUnviewedComunicados = useUnviewedComunicados();
   const isInAdmin = location.pathname.startsWith('/admin');
   const [pinned, setPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-pinned');
@@ -231,6 +235,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
           const isFavorites = item.path === '/favorites';
+          const isComunicados = item.path === '/comunicados';
 
           return (
             <div key={item.path} className="space-y-0.5">
@@ -248,7 +253,18 @@ export default function Sidebar({ userRole }: SidebarProps) {
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
                 >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="relative flex shrink-0 w-5 h-5 items-center justify-center">
+                    <Icon className="w-5 h-5" />
+                    {isComunicados && hasUnviewedComunicados ? (
+                      <span
+                        className={cn(
+                          'absolute right-0 top-0 h-2 w-2 rounded-full bg-destructive ring-2 pointer-events-none',
+                          isActive ? 'ring-primary-foreground' : 'ring-background'
+                        )}
+                        aria-hidden
+                      />
+                    ) : null}
+                  </span>
                   <span
                     className={cn(
                       'font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-200',

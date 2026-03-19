@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, UserRole } from '@/types';
 import { authService, databaseService } from '@/services/supabase';
+import { useThemeStore } from '@/store/themeStore';
 
 interface AuthState {
   user: User | null;
@@ -54,6 +55,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     console.log('🔵 [Login] Dados do usuário retornados:', { userData, userError });
     
     if (userData) {
+      useThemeStore.getState().applyFromProfileThema(userData.thema);
+
       const user: User = {
         id: userData.id,
         name: userData.name,
@@ -118,6 +121,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { data: userData } = await authService.getCurrentUser();
     
     if (userData) {
+      useThemeStore.getState().applyFromProfileThema(userData.thema);
+
       const user: User = {
         id: userData.id,
         name: userData.name,

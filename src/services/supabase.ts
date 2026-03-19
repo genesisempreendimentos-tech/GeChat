@@ -1,5 +1,6 @@
 // Supabase Service Layer
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { ProfileThema } from '@/lib/themeMapping';
 import { getAuthStorage } from './authStorage';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -37,6 +38,9 @@ export const supabase = createSupabaseClient();
  * RLS sugerida (após migração): SELECT para autenticados; INSERT/UPDATE/DELETE apenas appsadmin.
  */
 export const REQUEST_CHANNELS_TABLE = 'request_channels';
+
+/** Comunicados internos (tabela `statement`). */
+export const STATEMENT_TABLE = 'statement';
 
 export type RequestChannelType = 'departamento' | 'setor';
 
@@ -77,6 +81,44 @@ function requestChannelRowToApp(row: RequestChannelRow): RequestChannel {
   };
 }
 
+export interface Statement {
+  id: string;
+  title: string;
+  imageUrl: string;
+  caption?: string;
+  tags: string[];
+  publishedAt: Date;
+  userId: string;
+  /** Vem da coluna `viewed` em `statement` (UPDATE em markStatementViewed). */
+  viewed: boolean;
+}
+
+type StatementRow = {
+  id: string;
+  title: string;
+  image_url: string;
+  caption?: string | null;
+  tags?: string[] | null;
+  published_at: string;
+  user_id: string;
+  created_at?: string;
+  /** Coluna opcional na tabela `statement` (UPDATE em markStatementViewed). */
+  viewed?: boolean | null;
+};
+
+function statementRowToApp(row: StatementRow): Statement {
+  return {
+    id: row.id,
+    title: row.title ?? '',
+    imageUrl: row.image_url ?? '',
+    caption: row.caption ?? undefined,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    publishedAt: row.published_at ? new Date(row.published_at) : new Date(),
+    userId: row.user_id,
+    viewed: row.viewed === true,
+  };
+}
+
 /** Máximo de aplicativos favoritos por usuário (regra de negócio + validação em toggleFavorite). */
 export const MAX_FAVORITE_APPS_PER_USER = 5;
 
@@ -84,8 +126,32 @@ export const MAX_FAVORITE_APPS_PER_USER = 5;
 export const FAVORITE_LIMIT_ERROR_CODE = 'FAVORITE_LIMIT' as const;
 
 // Mapeamento: tabelas do Supabase (profiles, apps, user_app_access, audit_logs) <-> formato do app (User, System)
-type ProfileRow = { id?: string; user_id?: string; full_name?: string; name?: string; avatar_url?: string; avatar?: string; role?: string; role_type?: string; user_type?: string; email?: string; created_at?: string; access_type?: string };
-type UserShape = { id: string; name: string; email: string; role: string; avatar?: string; created_at?: string; createdAt?: Date; accessType?: string };
+type ProfileRow = {
+  id?: string;
+  user_id?: string;
+  full_name?: string;
+  name?: string;
+  avatar_url?: string;
+  avatar?: string;
+  role?: string;
+  role_type?: string;
+  user_type?: string;
+  email?: string;
+  created_at?: string;
+  access_type?: string;
+  thema?: string | null;
+};
+type UserShape = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatar?: string;
+  created_at?: string;
+  createdAt?: Date;
+  accessType?: string;
+  thema?: string | null;
+};
 type CategoryRow = { id: string; name: string; description?: string; icon?: string; color?: string; created_at?: string; updated_at?: string; status?: string };
 
 function profileToUser(row: ProfileRow | null, authEmail?: string): UserShape | null {
@@ -102,6 +168,7 @@ function profileToUser(row: ProfileRow | null, authEmail?: string): UserShape | 
     created_at: row.created_at,
     createdAt: row.created_at ? new Date(row.created_at) : undefined,
     accessType: row.access_type ?? undefined,
+    thema: row.thema ?? undefined,
   };
 }
 
@@ -255,6 +322,32 @@ export const storageService = {
       return { url: publicUrlData.publicUrl, error: null };
     } catch (err) {
       console.error('❌ [Storage] uploadRequestChannelIcon exception:', err);
+      return { url: null, error: err };
+    }
+  },
+
+  /** Imagem de comunicado — bucket público `GeComunicado` (Supabase Storage). */
+  async uploadComunicadoImage(file: File, userId?: string): Promise<{ url: string | null; error: unknown }> {
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 80);
+      const fileName = `${Date.now()}-${safeName}`;
+      const prefix = userId ? `${userId}/` : 'uploads/';
+      const filePath = `${prefix}${fileName}`;
+
+      const { error } = await supabase.storage.from('GeComunicado').upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+      if (error) {
+        console.error('❌ [Storage] Comunicado image upload error:', error);
+        return { url: null, error };
+      }
+
+      const { data: publicUrlData } = supabase.storage.from('GeComunicado').getPublicUrl(filePath);
+      return { url: publicUrlData.publicUrl, error: null };
+    } catch (err) {
+      console.error('❌ [Storage] uploadComunicadoImage exception:', err);
       return { url: null, error: err };
     }
   },
@@ -447,6 +540,12 @@ export const authService = {
 };
 
 export const databaseService = {
+  /** Persiste `profiles.thema` (white | dark | fulldark) para o utilizador autenticado. */
+  async updateProfileThema(userId: string, thema: ProfileThema) {
+    const { error } = await supabase.from('profiles').update({ thema }).eq('user_id', userId);
+    return { error };
+  },
+
   // Profiles (tabela profiles no Supabase)
   async getUsers() {
     const { data, error } = await supabase
@@ -1086,6 +1185,78 @@ export const databaseService = {
       .delete()
       .eq('id', id);
     return { error };
+  },
+
+  /** Comunicados (`statement`). Lista vazia se a tabela não existir ou houver erro. */
+  async listStatements(): Promise<{ data: Statement[]; error: null }> {
+    try {
+      const { data, error } = await supabase
+        .from(STATEMENT_TABLE)
+        .select('*')
+        .order('published_at', { ascending: false });
+      if (error) {
+        console.warn('[statement] list:', error.message ?? error);
+        return { data: [], error: null };
+      }
+      const list = (data ?? []) as StatementRow[];
+      return { data: list.map((row) => statementRowToApp(row)), error: null };
+    } catch (e) {
+      console.warn('[statement] list exception:', e);
+      return { data: [], error: null };
+    }
+  },
+
+  /** Regista que o utilizador atual abriu o comunicado (idempotente). */
+  async markStatementViewed(statementId: string): Promise<{ error: unknown | null }> {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.id) return { error: new Error('Sem sessão') };
+
+      const { error: viewedUpdErr } = await supabase
+        .from(STATEMENT_TABLE)
+        .update({ viewed: true })
+        .eq('id', statementId);
+      if (viewedUpdErr) return { error: viewedUpdErr };
+      return { error: null };
+    } catch (e) {
+      return { error: e };
+    }
+  },
+
+  /** Há algum comunicado que o utilizador atual ainda não abriu? */
+  async hasUnviewedStatementsForCurrentUser(): Promise<boolean> {
+    const { data } = await this.listStatements();
+    return (data ?? []).some((s) => !s.viewed);
+  },
+
+  async createStatement(payload: {
+    title: string;
+    image_url: string;
+    caption?: string | null;
+    tags: string[];
+    user_id: string;
+  }): Promise<{ data: Statement | null; error: unknown }> {
+    try {
+      const { data, error } = await supabase
+        .from(STATEMENT_TABLE)
+        .insert([
+          {
+            title: payload.title.trim(),
+            image_url: payload.image_url.trim(),
+            caption: payload.caption?.trim() || null,
+            tags: payload.tags.length ? payload.tags : [],
+            user_id: payload.user_id,
+          },
+        ])
+        .select()
+        .single();
+      if (error) return { data: null, error };
+      return { data: statementRowToApp(data as StatementRow), error: null };
+    } catch (e) {
+      return { data: null, error: e };
+    }
   },
 
   /** Canais de solicitação (tabela `request_channels`). Lista vazia se a tabela ainda não existir ou houver erro. */
