@@ -93,7 +93,11 @@ export default function FavoritesPage() {
 
   const favoriteSystems = systems.filter((system) => {
     const access = userAccesses.find((a: any) => a.system_id === system.id);
-    return !!(access?.is_favorite ?? access?.favorite);
+    const hasAccess = access?.access !== false && access?.can_access !== false;
+    return (
+      hasAccess &&
+      !!(access?.is_favorite ?? access?.favorite)
+    );
   });
 
   const hasAccessTo = (systemId: string) =>

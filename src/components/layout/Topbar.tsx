@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, LogOut, UserCircle, Settings } from 'lucide-react';
+import { Bell, LogOut, UserCircle, Settings, LifeBuoy } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +21,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
 import Zoom from './Zoom';
 import { NotificationsPanel } from '@/components/notifications/NotificationsPanel';
+import HelpModal from '@/views/navbar/HelpModal';
 
 export default function Topbar() {
   const { user, logout } = useAuthStore();
@@ -28,6 +29,7 @@ export default function Topbar() {
   const location = useLocation();
   const isInAdmin = location.pathname.startsWith('/admin');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const handleProfileClick = () => {
@@ -81,6 +83,10 @@ export default function Topbar() {
               <Settings className="w-4 h-4 mr-2" />
               Configurações
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowHelpModal(true)}>
+              <LifeBuoy className="w-4 h-4 mr-2" />
+              Ajuda
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="text-destructive">
               <LogOut className="w-4 h-4 mr-2" />
@@ -89,6 +95,8 @@ export default function Topbar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <HelpModal open={showHelpModal} onOpenChange={setShowHelpModal} />
 
       <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
         <DialogContent className="sm:max-w-md">

@@ -105,8 +105,11 @@ export default function Sidebar({ userRole }: SidebarProps) {
     ]).then(([accessRes, systemsRes]) => {
       const accessData = accessRes.data || [];
       const systemsData = (systemsRes.data || []) as { id: string; name: string; url: string }[];
+      // Só favoritos com acesso liberado (access false / revogado não aparece — alinhado a FavoritesPage / getSystemsForMember)
+      const hasAccess = (a: any) =>
+        a.access !== false && a.can_access !== false;
       const favoriteIds = accessData
-        .filter((a: any) => a.is_favorite ?? a.favorite)
+        .filter((a: any) => !!(a.is_favorite ?? a.favorite) && hasAccess(a))
         .map((a: any) => a.system_id);
       const list = systemsData.filter((s) => favoriteIds.includes(s.id));
       setFavoriteSystems(list);

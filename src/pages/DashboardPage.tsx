@@ -104,8 +104,11 @@ export default function DashboardPage() {
   };
 
   const favoriteSystems = useMemo(() => {
+    const hasAccess = (a: any) => a.access !== false && a.can_access !== false;
     const favoriteIds = userAccesses
-      .filter((access: any) => !!(access.is_favorite ?? access.favorite))
+      .filter(
+        (access: any) => !!(access.is_favorite ?? access.favorite) && hasAccess(access)
+      )
       .map((access: any) => access.system_id);
     return systems.filter((system) => favoriteIds.includes(system.id));
   }, [systems, userAccesses]);

@@ -33,8 +33,11 @@ export function ProfilePublicView({ userId }: ProfilePublicViewProps) {
         ]);
         const accessList = accessRes.data ?? [];
         const systems = systemsRes.data ?? [];
+        const hasAccess = (row: { access?: boolean; can_access?: boolean }) =>
+          row.access !== false && row.can_access !== false;
         const favoriteCount = accessList.filter(
-          (row: { is_favorite?: boolean }) => row.is_favorite
+          (row: { is_favorite?: boolean; favorite?: boolean }) =>
+            !!(row.is_favorite ?? row.favorite) && hasAccess(row)
         ).length;
         setStats({
           totalApps: systems.length,
