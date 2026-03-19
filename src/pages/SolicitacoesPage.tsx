@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Send, ExternalLink, Filter, ChevronDown, Boxes } from 'lucide-react';
 import * as Icons from 'lucide-react';
@@ -18,16 +18,10 @@ import {
 } from '@/services/supabase';
 import { LoadingGifScreen } from '@/components/LoadingGif';
 
-const TYPE_FILTER_ALL = 'all';
+const CHANNEL_FILTER_ALL = 'all';
 const TYPE_LABELS: Record<RequestChannelType, string> = {
   departamento: 'Departamento',
   setor: 'Setor',
-};
-
-const FILTER_LABELS: Record<string, string> = {
-  [TYPE_FILTER_ALL]: 'Todos os canais',
-  departamento: 'Departamentos',
-  setor: 'Setores',
 };
 
 function renderIcon(iconPath: string, className: string = '') {
@@ -46,7 +40,7 @@ export default function SolicitacoesPage() {
   const [channels, setChannels] = useState<RequestChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>(TYPE_FILTER_ALL);
+  const [channelFilterId, setChannelFilterId] = useState<string>(CHANNEL_FILTER_ALL);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -59,14 +53,30 @@ export default function SolicitacoesPage() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (
+      channelFilterId !== CHANNEL_FILTER_ALL &&
+      !channels.some((c) => c.id === channelFilterId)
+    ) {
+      setChannelFilterId(CHANNEL_FILTER_ALL);
+    }
+  }, [channels, channelFilterId]);
+
+  const filterTriggerLabel = useMemo(() => {
+    if (channelFilterId === CHANNEL_FILTER_ALL) return 'Todos os departamentos';
+    const ch = channels.find((c) => c.id === channelFilterId);
+    return ch?.name ?? 'Todos os departamentos';
+  }, [channelFilterId, channels]);
+
   const filtered = channels.filter((c) => {
     const q = searchQuery.trim().toLowerCase();
     const matchSearch =
       !q ||
       c.name.toLowerCase().includes(q) ||
       (c.url ?? '').toLowerCase().includes(q);
-    const matchType = typeFilter === TYPE_FILTER_ALL || c.channel_type === typeFilter;
-    return matchSearch && matchType;
+    const matchChannel =
+      channelFilterId === CHANNEL_FILTER_ALL || c.id === channelFilterId;
+    return matchSearch && matchChannel;
   });
 
   const openChannel = (c: RequestChannel) => {
@@ -103,35 +113,41 @@ export default function SolicitacoesPage() {
                 size="lg"
                 className="min-w-[200px] h-12 justify-between border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background rounded-xl"
               >
-                <div className="flex items-center">
-                  <Filter className="w-4 h-4 mr-2" />
-                  {FILTER_LABELS[typeFilter] ?? 'Todos os canais'}
+                <div className="flex items-center min-w-0">
+                  <Filter className="w-4 h-4 mr-2 shrink-0" />
+                  <span className="truncate">{filterTriggerLabel}</span>
                 </div>
                 <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
+              className="max-h-[280px] min-w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
             >
               <DropdownMenuItem
-                onClick={() => setTypeFilter(TYPE_FILTER_ALL)}
+                onClick={() => setChannelFilterId(CHANNEL_FILTER_ALL)}
                 className="focus:bg-primary/20 focus:text-primary cursor-pointer"
               >
-                {FILTER_LABELS[TYPE_FILTER_ALL]}
+                Todos os departamentos
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setTypeFilter('departamento')}
-                className="focus:bg-primary/20 focus:text-primary cursor-pointer"
-              >
-                {FILTER_LABELS.departamento}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setTypeFilter('setor')}
-                className="focus:bg-primary/20 focus:text-primary cursor-pointer"
-              >
-                {FILTER_LABELS.setor}
-              </DropdownMenuItem>
+              {channels.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                  Nenhum departamento cadastrado ainda
+                </div>
+              ) : (
+                channels
+                  .slice()
+                  .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+                  .map((c) => (
+                    <DropdownMenuItem
+                      key={c.id}
+                      onClick={() => setChannelFilterId(c.id)}
+                      className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                    >
+                      <span className="truncate">{c.name}</span>
+                    </DropdownMenuItem>
+                  ))
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -145,7 +161,7 @@ export default function SolicitacoesPage() {
             <Send className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
             <h3 className="text-lg font-semibold mb-2">Nenhum canal encontrado</h3>
             <p className="text-muted-foreground">
-              {searchQuery || typeFilter !== TYPE_FILTER_ALL
+              {searchQuery || channelFilterId !== CHANNEL_FILTER_ALL
                 ? 'Tente ajustar a busca ou o filtro'
                 : 'Ainda não há canais cadastrados. Quando o administrador criar canais, eles aparecerão aqui.'}
             </p>

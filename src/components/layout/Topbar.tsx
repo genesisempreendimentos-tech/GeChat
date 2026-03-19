@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, LogOut, UserCircle, Settings, LifeBuoy } from 'lucide-react';
+import { Bell, LogOut, UserCircle, Settings, LifeBuoy, Lightbulb } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +31,7 @@ export default function Topbar() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [tipsOpen, setTipsOpen] = useState(false);
 
   const handleProfileClick = () => {
     navigate(isInAdmin ? '/admin/profile' : '/profile');
@@ -45,6 +46,29 @@ export default function Topbar() {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-end px-4 md:px-6 h-16 w-full border-b border-border/70 bg-card/60 dark:bg-card/50 backdrop-blur-xl shrink-0 transition-all duration-300">
       <div className="flex items-center gap-1.5 shrink-0 bg-muted/40 hover:bg-muted/50 border border-border/50 rounded-full p-1.5 shadow-sm transition-colors">
+        <DropdownMenu open={tipsOpen} onOpenChange={setTipsOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 shadow-sm transition-all"
+              aria-label="Novidades (em desenvolvimento)"
+            >
+              <Lightbulb className="w-[18px] h-[18px]" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            side="bottom"
+            sideOffset={8}
+            className="w-[220px] p-3 text-sm text-muted-foreground border-border/60 bg-popover shadow-md"
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+            <p className="leading-relaxed">
+              Esta função ainda está em desenvolvimento.
+            </p>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <span className="hidden lg:flex items-center border-r border-border/50 pr-1.5 mr-0.5">
           <Zoom />
         </span>

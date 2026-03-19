@@ -3,16 +3,19 @@
  * GET /api/corporate-profile — requer Authorization: Bearer <supabase_access_token>
  * Retorna dados do colaborador por corporate_email (email do usuário logado) ou 404.
  */
-import 'dotenv/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import express from 'express';
-import { createClient } from '@supabase/supabase-js';
 import pg from 'pg';
+import { getBearerJwt, resolveUserFromJwt } from './authSupabase.mjs';
 
-const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+/** Sempre lê .env na raiz do projeto (evita cwd errado ao rodar o Node). */
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+const app = express();
 const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.json());
 app.use((req, res, next) => {
@@ -28,6 +31,16 @@ const PORT = process.env.SERVER_PORT || 3001;
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 const neonUrl = process.env.NEON_GETEAMS_DATABASE_URL;
+
+if (supabaseUrl) {
+  try {
+    console.log('[server] Supabase (validação JWT):', new URL(supabaseUrl).hostname);
+  } catch {
+    /* ignore */
+  }
+} else {
+  console.warn('[server] Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env da raiz.');
+}
 
 // Mapeamento: campo do CorporativoFormData -> colunas da tabela collaborators (Neon GeTeams)
 // Colunas exatas: departamento <- department_cadeira_principal | setor <- setor_cadeira_principal
@@ -114,17 +127,15 @@ async function getCollaboratorByCorporateEmail(client, corporateEmail) {
 
 app.get('/api/corporate-profile', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = getBearerJwt(req);
+    if (!token) {
       return res.status(401).json({ error: 'Token ausente. Use Authorization: Bearer <token>.' });
     }
-    const token = authHeader.slice(7);
     if (!supabaseUrl || !supabaseAnonKey) {
       console.error('Supabase URL ou Anon Key não configurados.');
       return res.status(500).json({ error: 'Serviço de autenticação não configurado.' });
     }
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { user, error: userError } = await resolveUserFromJwt(supabaseUrl, supabaseAnonKey, token);
     if (userError || !user?.email) {
       return res.status(401).json({ error: 'Token inválido ou expirado.' });
     }
@@ -158,16 +169,14 @@ app.get('/api/corporate-profile', async (req, res) => {
 
 app.get('/api/all-collaborators-sectors', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = getBearerJwt(req);
+    if (!token) {
       return res.status(401).json({ error: 'Token ausente.' });
     }
-    const token = authHeader.slice(7);
     if (!supabaseUrl || !supabaseAnonKey) {
       return res.status(500).json({ error: 'Supabase não configurado.' });
     }
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { user, error: userError } = await resolveUserFromJwt(supabaseUrl, supabaseAnonKey, token);
     if (userError || !user) {
       return res.status(401).json({ error: 'Token inválido.' });
     }
@@ -199,18 +208,49 @@ app.get('/api/all-collaborators-sectors', async (req, res) => {
   }
 });
 
+/**
+ * Departamentos no Neon GeTeams: alguns ambientes não têm is_active/deleted_at ou usam nome de tabela diferente.
+ */
+async function queryGeTeamsDepartments(client) {
+  const strict = `SELECT id, name, icon, description, color
+    FROM departments
+    WHERE is_active = true AND deleted_at IS NULL
+    ORDER BY name ASC`;
+  try {
+    const r = await client.query(strict);
+    return r.rows;
+  } catch (e) {
+    const retryable = e.code === '42703' || e.code === '42P01';
+    if (!retryable) throw e;
+    try {
+      const r2 = await client.query(
+        `SELECT id, name, icon, description, color FROM departments ORDER BY name ASC`,
+      );
+      return r2.rows;
+    } catch (e2) {
+      if (e2.code !== '42P01') throw e2;
+      const r3 = await client.query(
+        `SELECT id, name, icon, description, color FROM departaments ORDER BY name ASC`,
+      );
+      return r3.rows;
+    }
+  }
+}
+
+function isDevServer() {
+  return process.env.NODE_ENV !== 'production';
+}
+
 app.get('/api/departments', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = getBearerJwt(req);
+    if (!token) {
       return res.status(401).json({ error: 'Token ausente. Use Authorization: Bearer <token>.' });
     }
-    const token = authHeader.slice(7);
     if (!supabaseUrl || !supabaseAnonKey) {
       return res.status(500).json({ error: 'Serviço de autenticação não configurado.' });
     }
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { user, error: userError } = await resolveUserFromJwt(supabaseUrl, supabaseAnonKey, token);
     if (userError || !user) {
       return res.status(401).json({ error: 'Token inválido ou expirado.' });
     }
@@ -222,19 +262,23 @@ app.get('/api/departments', async (req, res) => {
     const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
     await client.connect();
     try {
-      const result = await client.query(
-        `SELECT id, name, icon, description, color
-         FROM departments
-         WHERE is_active = true AND deleted_at IS NULL
-         ORDER BY name ASC`
-      );
-      return res.json(result.rows);
+      const rows = await queryGeTeamsDepartments(client);
+      return res.json(rows);
     } finally {
       await client.end();
     }
   } catch (err) {
     console.error('[departments]', err);
-    return res.status(500).json({ error: 'Erro ao buscar departamentos.' });
+    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+      return res.status(503).json({
+        error: 'Não foi possível conectar ao banco GeTeams (Neon). Verifique NEON_GETEAMS_DATABASE_URL.',
+        ...(isDevServer() ? { hint: err.message, code: err.code } : {}),
+      });
+    }
+    return res.status(500).json({
+      error: 'Erro ao buscar departamentos.',
+      ...(isDevServer() ? { hint: err.message, pgCode: err.code } : {}),
+    });
   }
 });
 

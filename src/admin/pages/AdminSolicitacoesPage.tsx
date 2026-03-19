@@ -1,9 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, ExternalLink, Search, AlertCircle, Send, RefreshCw } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -32,7 +39,7 @@ function renderIcon(iconPath: string, className: string = '') {
   return <IconComponent className={className} />;
 }
 
-const TYPE_FILTER_ALL = 'all';
+const CHANNEL_FILTER_ALL = 'all';
 const TYPE_LABELS: Record<RequestChannelType, string> = {
   departamento: 'Departamento',
   setor: 'Setor',
@@ -50,7 +57,7 @@ export default function AdminSolicitacoesPage() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>(TYPE_FILTER_ALL);
+  const [channelFilterId, setChannelFilterId] = useState<string>(CHANNEL_FILTER_ALL);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [departments, setDepartments] = useState<NeonDepartment[]>([]);
@@ -73,6 +80,20 @@ export default function AdminSolicitacoesPage() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (
+      channelFilterId !== CHANNEL_FILTER_ALL &&
+      !channels.some((c) => c.id === channelFilterId)
+    ) {
+      setChannelFilterId(CHANNEL_FILTER_ALL);
+    }
+  }, [channels, channelFilterId]);
+
+  const sortedChannels = useMemo(
+    () => [...channels].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    [channels]
+  );
+
   const filtered = channels.filter((c) => {
     const q = searchQuery.trim().toLowerCase();
     const matchSearch =
@@ -80,8 +101,9 @@ export default function AdminSolicitacoesPage() {
       c.name.toLowerCase().includes(q) ||
       (c.url ?? '').toLowerCase().includes(q) ||
       (c.description ?? '').toLowerCase().includes(q);
-    const matchType = typeFilter === TYPE_FILTER_ALL || c.channel_type === typeFilter;
-    return matchSearch && matchType;
+    const matchChannel =
+      channelFilterId === CHANNEL_FILTER_ALL || c.id === channelFilterId;
+    return matchSearch && matchChannel;
   });
 
   const resetForm = () => {
@@ -178,14 +200,22 @@ export default function AdminSolicitacoesPage() {
         }
         rightContent={
           <select
-            className="h-9 rounded-xl border border-border/60 bg-muted/50 px-3 py-1 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background cursor-pointer"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            aria-label="Filtrar por tipo de canal"
+            className="h-9 max-w-[220px] sm:max-w-[280px] rounded-xl border border-border/60 bg-muted/50 px-3 py-1 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background cursor-pointer truncate"
+            value={channelFilterId}
+            onChange={(e) => setChannelFilterId(e.target.value)}
+            aria-label="Filtrar por departamento"
+            title={
+              channelFilterId === CHANNEL_FILTER_ALL
+                ? 'Todos os departamentos'
+                : channels.find((c) => c.id === channelFilterId)?.name
+            }
           >
-            <option value={TYPE_FILTER_ALL}>Todos os canais</option>
-            <option value="departamento">Departamentos</option>
-            <option value="setor">Setores</option>
+            <option value={CHANNEL_FILTER_ALL}>Todos os departamentos</option>
+            {sortedChannels.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
           </select>
         }
         showViewToggle
@@ -346,148 +376,182 @@ export default function AdminSolicitacoesPage() {
           if (!open) resetForm();
         }}
       >
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl">
-          <div className="p-6 border-b border-border/40 bg-muted/20">
-            <DialogHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <Plus className="w-5 h-5 text-primary" />
+        <DialogContent className="sm:max-w-[520px] max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0 border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl">
+          <div className="relative overflow-hidden border-b border-border/40 px-6 pt-6 pb-5 shrink-0">
+            <div
+              className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.08] via-transparent to-violet-500/[0.06]"
+              aria-hidden
+            />
+            <DialogHeader className="relative text-left space-y-3">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shrink-0 shadow-sm">
+                  <Plus className="w-6 h-6 text-primary" />
                 </div>
-                <DialogTitle className="text-xl font-semibold">Novo canal de solicitação</DialogTitle>
+                <div className="space-y-1 pt-0.5 min-w-0">
+                  <DialogTitle className="text-xl font-semibold tracking-tight">
+                    Novo canal de solicitação
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+                    Escolha o departamento no GêTeams e informe o link do formulário. Nome, ícone e descrição vêm do cadastro.
+                  </DialogDescription>
+                </div>
               </div>
-              <DialogDescription className="text-sm">
-                Selecione o departamento e informe a URL do formulário. Os demais campos são preenchidos automaticamente.
-              </DialogDescription>
             </DialogHeader>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
             {formError && (
-              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                {formError}
+              <div
+                role="alert"
+                className="flex items-start gap-3 text-sm text-destructive bg-destructive/[0.08] px-4 py-3 rounded-2xl border border-destructive/20"
+              >
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <span className="leading-snug">{formError}</span>
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-6">
-              {/* Dropdown de departamento */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-foreground">
-                    Departamento <span className="text-destructive">*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setDepsLoading(true);
-                      const deps = await getDepartments();
-                      setDepartments(deps);
-                      setDepsLoading(false);
-                    }}
-                    disabled={depsLoading}
-                    title="Recarregar departamentos do GêTeams"
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className={cn('w-3.5 h-3.5', depsLoading && 'animate-spin')} />
-                  </button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label
+                  htmlFor="dept-select-trigger"
+                  className="text-sm font-semibold text-foreground flex items-center gap-2"
+                >
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Icons.Building2 className="w-3.5 h-3.5" />
+                  </span>
+                  Departamento
+                  <span className="text-destructive font-bold">*</span>
+                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    setDepsLoading(true);
+                    const deps = await getDepartments();
+                    setDepartments(deps);
+                    setDepsLoading(false);
+                  }}
+                  disabled={depsLoading}
+                  title="Recarregar departamentos do GêTeams"
+                  className="h-8 px-2.5 rounded-lg text-xs text-muted-foreground hover:text-primary"
+                >
+                  <RefreshCw className={cn('w-3.5 h-3.5 mr-1.5', depsLoading && 'animate-spin')} />
+                  Atualizar lista
+                </Button>
+              </div>
+              {depsLoading ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+                  <LoadingGif size="sm" />
+                  Carregando departamentos do GêTeams…
                 </div>
-                {depsLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                    <LoadingGif size="sm" />
-                    Carregando departamentos…
+              ) : departments.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-amber-500/30 bg-amber-500/[0.06] px-4 py-4 text-sm text-muted-foreground">
+                  Nenhum departamento retornado. Verifique a API e use <strong className="text-foreground">Atualizar lista</strong>.
+                </div>
+              ) : (
+                <Select
+                  value={selectedDeptId || undefined}
+                  onValueChange={setSelectedDeptId}
+                >
+                  <SelectTrigger
+                    id="dept-select-trigger"
+                    className="h-12 rounded-2xl border-border/60 bg-gradient-to-b from-background to-muted/15 pl-4 pr-3 text-left shadow-sm hover:shadow-md hover:border-primary/30 transition-shadow"
+                  >
+                    <SelectValue placeholder="Selecione um departamento…" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl max-h-[280px]">
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={d.id} className="rounded-lg cursor-pointer">
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {selectedDept && (
+              <div className="rounded-2xl border border-border/50 bg-muted/[0.35] dark:bg-muted/20 p-5 space-y-4 shadow-inner">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Pré-visualização (somente leitura)
+                </p>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-background/80 border border-border/60 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                    {selectedDept.icon ? (
+                      renderIcon(selectedDept.icon, 'w-9 h-9 object-contain')
+                    ) : (
+                      <Icons.Image className="w-8 h-8 text-muted-foreground/35" />
+                    )}
                   </div>
-                ) : (
-                  <div className="relative">
-                    <Icons.Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
-                    <select
-                      value={selectedDeptId}
-                      onChange={(e) => setSelectedDeptId(e.target.value)}
-                      className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-base font-semibold text-foreground truncate">{selectedDept.name}</p>
+                    <p
+                      className={cn(
+                        'text-sm leading-relaxed line-clamp-2',
+                        selectedDept.description ? 'text-muted-foreground' : 'text-muted-foreground/50 italic'
+                      )}
                     >
-                      <option value="" disabled>Selecione um departamento...</option>
-                      {departments.map((d) => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </select>
+                      {selectedDept.description || 'Sem descrição cadastrada'}
+                    </p>
                   </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-border/40">
+                  <span className="text-xs text-muted-foreground shrink-0">Cor do departamento</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className="w-9 h-9 rounded-xl border-2 border-background shadow-md ring-1 ring-border/50 shrink-0"
+                      style={{
+                        backgroundColor:
+                          selectedDept.color && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(selectedDept.color)
+                            ? selectedDept.color
+                            : 'hsl(var(--muted))',
+                      }}
+                      aria-hidden
+                    />
+                    <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px]">
+                      {selectedDept.color || '—'}
+                    </code>
+                  </div>
+                </div>
+                {selectedDept.icon && (
+                  <p className="text-[11px] font-mono text-muted-foreground/70 truncate" title={selectedDept.icon}>
+                    {selectedDept.icon}
+                  </p>
                 )}
               </div>
+            )}
 
-              {/* Preview dos dados puxados automaticamente */}
-              {selectedDept && (
-                <>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Ícone</label>
-                    <div className="flex items-center gap-3">
-                      <div className="w-14 h-14 rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
-                        {selectedDept.icon ? (
-                          renderIcon(selectedDept.icon, 'w-8 h-8 object-contain')
-                        ) : (
-                          <Icons.Image className="w-7 h-7 text-muted-foreground/40" />
-                        )}
-                      </div>
-                      <span className="text-sm text-muted-foreground font-mono">{selectedDept.icon || '—'}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Nome</label>
-                    <div className="h-10 rounded-xl border border-border/50 bg-muted/30 px-3 flex items-center text-sm text-foreground">
-                      {selectedDept.name}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Descrição</label>
-                    <div className={cn(
-                      'rounded-xl border border-border/50 bg-muted/30 px-3 py-2 text-sm min-h-[60px]',
-                      !selectedDept.description && 'text-muted-foreground/50 italic'
-                    )}>
-                      {selectedDept.description || 'Sem descrição'}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Cor</label>
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-lg border border-border shrink-0 shadow-inner"
-                        style={{
-                          backgroundColor:
-                            selectedDept.color && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(selectedDept.color)
-                              ? selectedDept.color
-                              : 'transparent',
-                        }}
-                        aria-hidden
-                      />
-                      <span className="text-sm text-muted-foreground font-mono">{selectedDept.color || '—'}</span>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* URL do formulário — único campo manual */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">URL do formulário</label>
-                <div className="relative">
-                  <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                  <Input
-                    placeholder="https://..."
-                    value={formUrl}
-                    onChange={(e) => setFormUrl(e.target.value)}
-                    className="pl-9 h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
-                  />
-                </div>
+            <div className="space-y-2">
+              <label htmlFor="form-url-input" className="text-sm font-semibold text-foreground">
+                URL do formulário
+              </label>
+              <p className="text-xs text-muted-foreground -mt-1">
+                Link externo (Google Forms, Typeform, etc.) opcional neste passo.
+              </p>
+              <div className="relative">
+                <ExternalLink className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none z-10" />
+                <Input
+                  id="form-url-input"
+                  placeholder="https://…"
+                  value={formUrl}
+                  onChange={(e) => setFormUrl(e.target.value)}
+                  className="pl-10 h-12 rounded-2xl border-border/60 bg-gradient-to-b from-background to-muted/10 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary/40"
+                />
               </div>
             </div>
           </div>
 
-          <div className="p-6 pt-0 mt-2 flex gap-3">
-            <Button variant="outline" className="flex-1 rounded-xl h-11" onClick={() => setIsCreateOpen(false)}>
+          <div className="shrink-0 border-t border-border/50 bg-muted/10 px-6 py-4 flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl h-11 border-border/60"
+              onClick={() => setIsCreateOpen(false)}
+            >
               Cancelar
             </Button>
-            <Button className="flex-1 rounded-xl h-11" onClick={handleCreate} disabled={formLoading}>
-              {formLoading ? <LoadingGif size="sm" className="mr-2" /> : null}
+            <Button className="flex-1 rounded-xl h-11 shadow-md shadow-primary/10" onClick={handleCreate} disabled={formLoading}>
+              {formLoading ? <LoadingGif size="sm" className="mr-2" /> : <Plus className="w-4 h-4 mr-2 opacity-90" />}
               Criar canal
             </Button>
           </div>

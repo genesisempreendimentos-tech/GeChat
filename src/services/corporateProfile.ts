@@ -46,6 +46,53 @@ export interface CorporateProfileDebug {
   hint?: string;
 }
 
+/** Cookie auxiliar para ambientes onde o header Authorization é bloqueado (ex.: LiteSpeed). */
+function setGeappsAuthCookie(token: string) {
+  if (typeof document === 'undefined') return;
+  const secure =
+    typeof window !== 'undefined' && window.location.protocol === 'https:';
+  document.cookie = `geapps_auth_token=${encodeURIComponent(token)}; path=/; SameSite=Strict${
+    secure ? '; Secure' : ''
+  }`;
+}
+
+/** Token JWT para APIs /api/* (sessão atual ou refresh). */
+async function getAccessTokenForNeonApi(): Promise<string | null> {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (!error && session?.access_token) {
+    return session.access_token;
+  }
+  const { data: refreshed } = await supabase.auth.refreshSession();
+  return refreshed.session?.access_token ?? session?.access_token ?? null;
+}
+
+/** GET em rota /api relativa com Bearer; em 401 tenta refresh e repete uma vez. */
+async function neonApiGet(path: string): Promise<Response> {
+  let token = await getAccessTokenForNeonApi();
+  if (!token) {
+    return new Response(null, { status: 401 });
+  }
+  setGeappsAuthCookie(token);
+  const init: RequestInit = {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: { Authorization: `Bearer ${token}` },
+  };
+  let res = await fetch(path, init);
+  if (res.status === 401) {
+    const { data } = await supabase.auth.refreshSession();
+    const t2 = data.session?.access_token;
+    if (t2) {
+      setGeappsAuthCookie(t2);
+      res = await fetch(path, {
+        ...init,
+        headers: { Authorization: `Bearer ${t2}` },
+      });
+    }
+  }
+  return res;
+}
+
 /**
  * Busca o perfil corporativo do usuário logado (por e-mail) no banco Neon (GeTeams).
  * Envia o token via cookie (geapps_auth_token) para contornar bloqueio do LiteSpeed
@@ -77,7 +124,7 @@ export async function getCorporateProfile(): Promise<CorporateProfileResult> {
     }
 
     // Envia o token via cookie para contornar bloqueio do LiteSpeed ao header Authorization
-    document.cookie = `geapps_auth_token=${session.access_token}; path=/; SameSite=Strict; Secure`;
+    setGeappsAuthCookie(session.access_token);
 
     const res = await fetch(requestUrl, {
       method: 'GET',
@@ -188,19 +235,7 @@ export interface NeonDepartment {
  */
 export async function getDepartments(): Promise<NeonDepartment[]> {
   try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session?.access_token) return [];
-
-    document.cookie = `geapps_auth_token=${session.access_token}; path=/; SameSite=Strict; Secure`;
-
-    const res = await fetch('/api/departments', {
-      method: 'GET',
-      credentials: 'same-origin',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    });
-
+    const res = await neonApiGet('/api/departments');
     if (!res.ok) return [];
 
     const data = await res.json();
@@ -218,19 +253,7 @@ export async function getDepartments(): Promise<NeonDepartment[]> {
  */
 export async function getAllCollaboratorsSectors(): Promise<Record<string, string>> {
   try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session?.access_token) return {};
-
-    document.cookie = `geapps_auth_token=${session.access_token}; path=/; SameSite=Strict; Secure`;
-
-    const res = await fetch('/api/all-collaborators-sectors', {
-      method: 'GET',
-      credentials: 'same-origin',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    });
-
+    const res = await neonApiGet('/api/all-collaborators-sectors');
     if (!res.ok) return {};
 
     const data = await res.json();

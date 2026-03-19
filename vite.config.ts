@@ -35,6 +35,15 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
+        /** Garante Authorization até o Node (evita 401 em dev se o proxy omitir o header). */
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            const h = req.headers;
+            const auth = h.authorization ?? h.Authorization;
+            const value = Array.isArray(auth) ? auth.join(', ') : auth;
+            if (value) proxyReq.setHeader('Authorization', value);
+          });
+        },
       },
     },
   },
