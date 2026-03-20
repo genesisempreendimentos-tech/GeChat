@@ -7,9 +7,9 @@ import {
   MessageCircle,
   Pin,
   ExternalLink,
-  Shield,
   Check,
-  UserCircle,
+  UserKey,
+  UserStar,
   Boxes,
   Send,
   Megaphone,
@@ -34,6 +34,7 @@ const menuItems = [
   { icon: Star, label: 'Favoritos', path: '/favorites' },
   { icon: Send, label: 'Solicitações', path: '/solicitacoes' },
   { icon: Megaphone, label: 'Comunicados', path: '/comunicados' },
+  { icon: Users, label: 'Equipes', path: '/equipes' },
   // { icon: MessageCircle, label: 'Chat', path: '/chat' },
   { icon: Users, label: 'Usuários', path: '/users', adminOnly: true },
 ];
@@ -153,7 +154,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
         role="navigation"
         aria-label="Navegação principal"
       >
-        {/* Logo — dropdown Painel de membro / Painel admin (somente access_type softadmin/appsadmin) */}
+        {/* Logo — dropdown Painel User / Painel Admin (somente access_type softadmin/appsadmin) */}
         {isSoftadmin ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -190,14 +191,14 @@ export default function Sidebar({ userRole }: SidebarProps) {
               <DropdownMenuItem onClick={() => navigate('/dashboard')} className="gap-2 cursor-pointer">
                 {!isInAdmin && <Check className="h-4 w-4 shrink-0" />}
                 {isInAdmin && <span className="w-4 shrink-0" />}
-                <UserCircle className="h-4 w-4 shrink-0" />
-                Painel de membro
+                <UserKey className="h-4 w-4 shrink-0" />
+                Painel User
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/admin/home')} className="gap-2 cursor-pointer">
                 {isInAdmin && <Check className="h-4 w-4 shrink-0" />}
                 {!isInAdmin && <span className="w-4 shrink-0" />}
-                <Shield className="h-4 w-4 shrink-0" />
-                Painel admin
+                <UserStar className="h-4 w-4 shrink-0" />
+                Painel Admin
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

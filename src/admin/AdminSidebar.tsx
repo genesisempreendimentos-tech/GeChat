@@ -1,14 +1,14 @@
 import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
+  type LucideIcon,
   LayoutDashboard,
   Users,
-  Shield,
+  UserKey,
   Pin,
   LibraryBig,
-  MessageSquareQuote,
   Check,
-  UserCircle,
+  UserStar,
   Boxes,
   Send,
   Megaphone,
@@ -25,15 +25,33 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const adminMenuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/home' },
-  { icon: Boxes, label: 'Aplicativos', path: '/admin/systems' },
-  { icon: Send, label: 'Solicitações', path: '/admin/solicitacoes' },
-  { icon: Megaphone, label: 'Comunicados', path: '/admin/comunicados' },
-  { icon: LibraryBig, label: 'Categorias', path: '/admin/categories' },
-  { icon: Users, label: 'Membros', path: '/admin/members' },
-  { icon: Shield, label: 'Administradores', path: '/admin/administrators' },
-  { icon: MessageSquareQuote, label: 'Avaliações', path: '/admin/reviews' },
+type AdminNavItem = {
+  icon: LucideIcon;
+  label: string;
+  path: string;
+};
+
+type AdminNavSection = { title: string; items: AdminNavItem[] };
+
+const adminMenuSections: AdminNavSection[] = [
+  {
+    title: 'GêApps',
+    items: [
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/home' },
+      { icon: Boxes, label: 'Aplicativos', path: '/admin/systems' },
+      { icon: LibraryBig, label: 'Categorias', path: '/admin/categories' },
+      { icon: UserKey, label: 'Usuários', path: '/admin/members' },
+      { icon: UserStar, label: 'Administradores', path: '/admin/administrators' },
+    ],
+  },
+  {
+    title: 'Integrações',
+    items: [
+      { icon: Users, label: 'Equipes', path: '/admin/equipes' },
+      { icon: Send, label: 'Solicitações', path: '/admin/solicitacoes' },
+      { icon: Megaphone, label: 'Comunicados', path: '/admin/comunicados' },
+    ],
+  },
 ];
 
 export default function AdminSidebar() {
@@ -94,7 +112,7 @@ export default function AdminSidebar() {
         role="navigation"
         aria-label="Navegação admin"
       >
-        {/* Logo — dropdown Painel de membro / Painel admin (somente access_type softadmin/appsadmin) */}
+        {/* Logo — dropdown Painel User / Painel Admin (somente access_type softadmin/appsadmin) */}
         {isSoftadmin ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -131,14 +149,14 @@ export default function AdminSidebar() {
               <DropdownMenuItem onClick={() => navigate('/dashboard')} className="gap-2 cursor-pointer">
                 {!isInAdmin && <Check className="h-4 w-4 shrink-0" />}
                 {isInAdmin && <span className="w-4 shrink-0" />}
-                <UserCircle className="h-4 w-4 shrink-0" />
-                Painel de membro
+                <UserKey className="h-4 w-4 shrink-0" />
+                Painel User
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/admin/home')} className="gap-2 cursor-pointer">
                 {isInAdmin && <Check className="h-4 w-4 shrink-0" />}
                 {!isInAdmin && <span className="w-4 shrink-0" />}
-                <Shield className="h-4 w-4 shrink-0" />
-                Painel admin
+                <UserStar className="h-4 w-4 shrink-0" />
+                Painel Admin
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -170,60 +188,73 @@ export default function AdminSidebar() {
         <nav
           className={cn(
             'flex-1 overflow-y-auto',
-            isExpanded ? 'px-4 py-6 space-y-2' : 'px-2 py-4 flex flex-col items-stretch gap-2'
+            isExpanded ? 'px-4 py-6 space-y-4' : 'px-2 py-4 flex flex-col items-stretch gap-2'
           )}
         >
-          {adminMenuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            const isComunicados = item.path === '/admin/comunicados';
+          {adminMenuSections.map((section, sectionIndex) => (
+            <div key={section.title} className={cn(!isExpanded && sectionIndex > 0 && 'pt-1')}>
+              {isExpanded ? (
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80 px-4 pb-2 pt-1 first:pt-0">
+                  {section.title}
+                </p>
+              ) : sectionIndex > 0 ? (
+                <div className="h-px bg-border/60 mx-1 mb-2" aria-hidden />
+              ) : null}
+              <div className="space-y-2">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  const isComunicados = item.path === '/admin/comunicados';
 
-            return (
-              <div key={item.path} className="space-y-0.5">
-                <Link
-                  to={item.path}
-                  className="block"
-                  title={item.label}
-                  aria-label={item.label}
-                >
-                  <motion.div
-                    whileHover={isActive ? undefined : { scale: 1.02 }}
-                    whileTap={isActive ? undefined : { scale: 0.98 }}
-                    transition={{ duration: 0.15 }}
-                    className={cn(
-                      'flex items-center rounded-lg cursor-pointer relative overflow-hidden',
-                      'transition-[background-color,color] duration-150 ease-out',
-                      isExpanded ? 'gap-3 px-4 py-3' : 'min-h-[48px] justify-center px-2',
-                      isActive
-                        ? 'bg-primary/90 text-primary-foreground hover:bg-primary'
-                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                    )}
-                  >
-                    <span className="relative flex shrink-0 w-5 h-5 items-center justify-center">
-                      <Icon className="w-5 h-5" />
-                      {isComunicados && hasUnviewedComunicados ? (
-                        <span
+                  return (
+                    <div key={item.path} className="space-y-0.5">
+                      <Link
+                        to={item.path}
+                        className="block"
+                        title={item.label}
+                        aria-label={item.label}
+                      >
+                        <motion.div
+                          whileHover={isActive ? undefined : { scale: 1.02 }}
+                          whileTap={isActive ? undefined : { scale: 0.98 }}
+                          transition={{ duration: 0.15 }}
                           className={cn(
-                            'absolute right-0 top-0 h-2 w-2 rounded-full bg-destructive ring-2 pointer-events-none',
-                            isActive ? 'ring-primary-foreground' : 'ring-background'
+                            'flex items-center rounded-lg cursor-pointer relative overflow-hidden',
+                            'transition-[background-color,color] duration-150 ease-out',
+                            isExpanded ? 'gap-3 px-4 py-3' : 'min-h-[48px] justify-center px-2',
+                            isActive
+                              ? 'bg-primary/90 text-primary-foreground hover:bg-primary'
+                              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                           )}
-                          aria-hidden
-                        />
-                      ) : null}
-                    </span>
-                    <span
-                      className={cn(
-                        'font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-200',
-                        isExpanded ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0'
-                      )}
-                    >
-                      {item.label}
-                    </span>
-                  </motion.div>
-                </Link>
+                        >
+                          <span className="relative flex shrink-0 w-5 h-5 items-center justify-center">
+                            <Icon className="w-5 h-5" />
+                            {isComunicados && hasUnviewedComunicados ? (
+                              <span
+                                className={cn(
+                                  'absolute right-0 top-0 h-2 w-2 rounded-full bg-destructive ring-2 pointer-events-none',
+                                  isActive ? 'ring-primary-foreground' : 'ring-background'
+                                )}
+                                aria-hidden
+                              />
+                            ) : null}
+                          </span>
+                          <span
+                            className={cn(
+                              'font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-200',
+                              isExpanded ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0'
+                            )}
+                          >
+                            {item.label}
+                          </span>
+                        </motion.div>
+                      </Link>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </nav>
 
         <div

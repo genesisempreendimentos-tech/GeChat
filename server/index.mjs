@@ -188,15 +188,18 @@ app.get('/api/all-collaborators-sectors', async (req, res) => {
     const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
     await client.connect();
     try {
-      const result = await client.query('SELECT personal_email, corporate_email, email, setor_cadeira_principal FROM collaborators WHERE status = $1', ['active']);
+      const result = await client.query(
+        'SELECT personal_email, corporate_email, email, setor_cadeira_principal, department_cadeira_principal FROM collaborators WHERE status = $1',
+        ['active']
+      );
       const map = {};
       result.rows.forEach(r => {
-        const sector = r.setor_cadeira_principal;
-        if (sector) {
-          if (r.corporate_email) map[r.corporate_email.toLowerCase()] = sector;
-          if (r.personal_email) map[r.personal_email.toLowerCase()] = sector;
-          if (r.email) map[r.email.toLowerCase()] = sector;
-        }
+        const setor = r.setor_cadeira_principal ?? '';
+        const departamento = r.department_cadeira_principal ?? '';
+        const entry = { setor, departamento };
+        if (r.corporate_email) map[r.corporate_email.toLowerCase().trim()] = entry;
+        if (r.personal_email) map[r.personal_email.toLowerCase().trim()] = entry;
+        if (r.email) map[r.email.toLowerCase().trim()] = entry;
       });
       return res.json(map);
     } finally {
@@ -205,6 +208,229 @@ app.get('/api/all-collaborators-sectors', async (req, res) => {
   } catch (err) {
     console.error('[all-collaborators-sectors]', err);
     return res.status(500).json({});
+  }
+});
+
+function normalizeDeptKey(s) {
+  return String(s ?? '')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Mapa id (texto) -> nome do departamento no Neon.
+ */
+async function queryDepartmentNamesByIds(client, ids) {
+  const uniq = [...new Set((ids || []).map((x) => String(x).trim()).filter(Boolean))];
+  if (!uniq.length) return new Map();
+  const attempts = [
+    'SELECT id::text AS id, name FROM departments WHERE id::text = ANY($1::text[])',
+    'SELECT id::text AS id, name FROM departaments WHERE id::text = ANY($1::text[])',
+  ];
+  for (const sql of attempts) {
+    try {
+      const r = await client.query(sql, [uniq]);
+      const m = new Map();
+      for (const row of r.rows) {
+        m.set(String(row.id), String(row.name ?? ''));
+      }
+      return m;
+    } catch (e) {
+      if (e.code !== '42P01' && e.code !== '42703') throw e;
+    }
+  }
+  return new Map();
+}
+
+/**
+ * Mapa department_id (texto) -> setores cadastrados na tabela sectors.
+ */
+async function queryDepartmentSectorsByIds(client, ids) {
+  const uniq = [...new Set((ids || []).map((x) => String(x).trim()).filter(Boolean))];
+  if (!uniq.length) return new Map();
+  try {
+    const r = await client.query(
+      `SELECT department_id::text AS department_id, name
+       FROM sectors
+       WHERE department_id::text = ANY($1::text[])
+         AND is_active = true
+       ORDER BY name ASC`,
+      [uniq],
+    );
+    const out = new Map();
+    for (const id of uniq) out.set(id, []);
+    for (const row of r.rows) {
+      const did = String(row.department_id ?? '').trim();
+      const name = String(row.name ?? '').trim();
+      if (!did || !name) continue;
+      if (!out.has(did)) out.set(did, []);
+      const list = out.get(did);
+      if (!list.includes(name)) list.push(name);
+    }
+    return out;
+  } catch (e) {
+    if (e.code === '42P01' || e.code === '42703') return new Map();
+    throw e;
+  }
+}
+
+async function loadCollaboratorAggregatesByDeptName(client) {
+  const result = await client.query(
+    'SELECT department_cadeira_principal, setor_cadeira_principal FROM collaborators WHERE status = $1',
+    ['active'],
+  );
+  const byNormName = new Map();
+  for (const r of result.rows) {
+    const dk = normalizeDeptKey(r.department_cadeira_principal);
+    if (!dk) continue;
+    let entry = byNormName.get(dk);
+    if (!entry) {
+      entry = { sectors: new Set(), count: 0, sectorCounts: new Map() };
+      byNormName.set(dk, entry);
+    }
+    entry.count += 1;
+    const sz = String(r.setor_cadeira_principal ?? '').trim();
+    if (sz) {
+      entry.sectors.add(sz);
+      entry.sectorCounts.set(sz, (entry.sectorCounts.get(sz) || 0) + 1);
+    }
+  }
+  return byNormName;
+}
+
+/**
+ * GET /api/department-team-stats?ids=id1,id2
+ * Retorna { [neonDepartmentId]: { sectors: string[], collaboratorCount: number } }.
+ * Setores vêm de sectors.department_id; contagem de colaboradores segue do Neon collaborators.
+ */
+app.get('/api/department-team-stats', async (req, res) => {
+  try {
+    const token = getBearerJwt(req);
+    if (!token) {
+      return res.status(401).json({ error: 'Token ausente.' });
+    }
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(500).json({ error: 'Supabase não configurado.' });
+    }
+    const { user, error: userError } = await resolveUserFromJwt(supabaseUrl, supabaseAnonKey, token);
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Token inválido.' });
+    }
+
+    const raw = req.query.ids;
+    const ids = String(raw ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!ids.length) {
+      return res.json({});
+    }
+
+    if (!neonUrl) {
+      return res.status(503).json({ error: 'URL do banco não configurada.' });
+    }
+
+    const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+    await client.connect();
+    try {
+      const idToName = await queryDepartmentNamesByIds(client, ids);
+      const sectorsByDeptId = await queryDepartmentSectorsByIds(client, ids);
+      const byNormName = await loadCollaboratorAggregatesByDeptName(client);
+      const out = {};
+      for (const id of ids) {
+        const name = idToName.get(id) ?? '';
+        const key = normalizeDeptKey(name);
+        const agg = key ? byNormName.get(key) : undefined;
+        const sectorList = sectorsByDeptId.get(id) ?? [];
+        const sectorCounts = {};
+        for (const sn of sectorList) {
+          sectorCounts[sn] = agg?.sectorCounts?.get(sn) || 0;
+        }
+        out[id] = {
+          sectors: sectorList,
+          collaboratorCount: agg ? agg.count : 0,
+          sectorCounts,
+        };
+      }
+      return res.json(out);
+    } finally {
+      await client.end();
+    }
+  } catch (err) {
+    console.error('[department-team-stats]', err);
+    return res.status(500).json({ error: 'Erro ao agregar dados do departamento.' });
+  }
+});
+
+/**
+ * Colaboradores ativos do Neon cujo department_cadeira_principal corresponde aos departamentos (ids).
+ * GET /api/teams-neon-collaborators?ids=id1,id2
+ */
+app.get('/api/teams-neon-collaborators', async (req, res) => {
+  try {
+    const token = getBearerJwt(req);
+    if (!token) {
+      return res.status(401).json({ error: 'Token ausente.' });
+    }
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(500).json({ error: 'Supabase não configurado.' });
+    }
+    const { user, error: userError } = await resolveUserFromJwt(supabaseUrl, supabaseAnonKey, token);
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Token inválido.' });
+    }
+
+    const raw = req.query.ids;
+    const ids = String(raw ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!ids.length) {
+      return res.json({ collaborators: [] });
+    }
+
+    if (!neonUrl) {
+      return res.status(503).json({ error: 'URL do banco não configurada.' });
+    }
+
+    const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+    await client.connect();
+    try {
+      const idToName = await queryDepartmentNamesByIds(client, ids);
+      const nameToNeonId = new Map();
+      for (const [nid, name] of idToName) {
+        nameToNeonId.set(normalizeDeptKey(name), nid);
+      }
+      const want = new Set(ids);
+      const result = await client.query(
+        `SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal
+         FROM collaborators WHERE status = $1`,
+        ['active'],
+      );
+      const list = [];
+      for (const r of result.rows) {
+        const nid = nameToNeonId.get(normalizeDeptKey(r.department_cadeira_principal));
+        if (!nid || !want.has(nid)) continue;
+        const emailRaw =
+          r.corporate_email?.trim() || r.email?.trim() || r.personal_email?.trim() || '';
+        if (!emailRaw) continue;
+        list.push({
+          id: emailRaw.toLowerCase(),
+          name: String(r.name ?? '').trim() || '—',
+          email: emailRaw,
+          departmentName: String(r.department_cadeira_principal ?? '').trim(),
+          sectorName: String(r.setor_cadeira_principal ?? '').trim(),
+          neonDepartmentId: nid,
+        });
+      }
+      list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      return res.json({ collaborators: list });
+    } finally {
+      await client.end();
+    }
+  } catch (err) {
+    console.error('[teams-neon-collaborators]', err);
+    return res.status(500).json({ error: 'Erro ao listar colaboradores.' });
   }
 });
 

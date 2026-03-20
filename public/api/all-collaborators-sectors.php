@@ -114,8 +114,13 @@ if (!$pg) {
     exit;
 }
 
-$query = "SELECT corporate_email, personal_email, email, setor_cadeira_principal FROM collaborators WHERE status = $1";
-$res = pg_query_params($pg, $query, ['active']);
+// UI "Departamento": department_cadeira_principal; se existir coluna departamento, usa como fallback.
+$queryWithDeptCol = "SELECT corporate_email, personal_email, email, setor_cadeira_principal, department_cadeira_principal, departamento FROM collaborators WHERE status = $1";
+$queryBase = "SELECT corporate_email, personal_email, email, setor_cadeira_principal, department_cadeira_principal FROM collaborators WHERE status = $1";
+$res = pg_query_params($pg, $queryWithDeptCol, ['active']);
+if (!$res) {
+    $res = pg_query_params($pg, $queryBase, ['active']);
+}
 
 if (!$res) {
     pg_close($pg);
@@ -126,11 +131,20 @@ if (!$res) {
 
 $map = [];
 while ($row = pg_fetch_assoc($res)) {
-    $sector = $row['setor_cadeira_principal'];
-    if ($sector) {
-        if (!empty($row['corporate_email'])) $map[strtolower(trim($row['corporate_email']))] = $sector;
-        if (!empty($row['personal_email'])) $map[strtolower(trim($row['personal_email']))] = $sector;
-        if (!empty($row['email'])) $map[strtolower(trim($row['email']))] = $sector;
+    // pg_fetch_assoc pode devolver chaves com casing diferente conforme driver/Neon — normalizar.
+    $rowLc = array_change_key_case($row, CASE_LOWER);
+    $dPrincipal = trim((string)($rowLc['department_cadeira_principal'] ?? ''));
+    $dAlt = trim((string)($rowLc['departamento'] ?? ''));
+    $departamento = $dPrincipal !== '' ? $dPrincipal : $dAlt;
+    $setor = trim((string)($rowLc['setor_cadeira_principal'] ?? ''));
+    $entry = [
+        'departamento' => $departamento,
+        'setor' => $setor,
+    ];
+    foreach (['corporate_email', 'personal_email', 'email'] as $col) {
+        if (!empty($rowLc[$col])) {
+            $map[strtolower(trim($rowLc[$col]))] = $entry;
+        }
     }
 }
 

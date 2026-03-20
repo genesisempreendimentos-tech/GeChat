@@ -77,6 +77,7 @@ async function neonApiGet(path: string): Promise<Response> {
     method: 'GET',
     credentials: 'same-origin',
     headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
   };
   let res = await fetch(path, init);
   if (res.status === 401) {
@@ -245,21 +246,162 @@ export async function getDepartments(): Promise<NeonDepartment[]> {
   }
 }
 
+/** Dados agregados do Neon (GeTeams) por e-mail normalizado (lowercase). */
+export interface CollaboratorNeonMeta {
+  /** Texto de `collaborators.department_cadeira_principal` (status active); exibido como "Departamento" no admin. */
+  departamento: string;
+  setor: string;
+}
+
+function parseAllCollaboratorsPayload(data: unknown): Record<string, CollaboratorNeonMeta> {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const out: Record<string, CollaboratorNeonMeta> = {};
+  for (const [email, v] of Object.entries(data as Record<string, unknown>)) {
+    const key = email.toLowerCase().trim();
+    if (!key) continue;
+    if (typeof v === 'string') {
+      out[key] = { departamento: '', setor: v.trim() };
+      continue;
+    }
+    if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>;
+      const dept = String(
+        o.departamento ?? o.department_cadeira_principal ?? o.department ?? ''
+      ).trim();
+      const set = String(o.setor ?? o.setor_cadeira_principal ?? '').trim();
+      out[key] = {
+        departamento: dept,
+        setor: set,
+      };
+    }
+  }
+  return out;
+}
+
 /**
- * Busca os setores de todos os colaboradores a partir do banco Neon.
- * Utilizado na listagem de membros do painel admin.
- * Usa sempre URL relativa /api/... para funcionar tanto via proxy Vite (dev)
- * quanto via PHP em produção.
+ * Busca departamento e setor (Neon GeTeams) para colaboradores ativos.
+ * GET /api/all-collaborators-sectors — resposta: `{ [email]: { departamento, setor } }`.
  */
-export async function getAllCollaboratorsSectors(): Promise<Record<string, string>> {
+export async function getAllCollaboratorsNeonMeta(): Promise<Record<string, CollaboratorNeonMeta>> {
   try {
     const res = await neonApiGet('/api/all-collaborators-sectors');
     if (!res.ok) return {};
-
     const data = await res.json();
-    return data || {};
+    return parseAllCollaboratorsPayload(data);
   } catch (error) {
-    console.error('Erro ao buscar setores dos colaboradores:', error);
+    console.error('Erro ao buscar metadados Neon dos colaboradores:', error);
     return {};
+  }
+}
+
+/**
+ * Mapa e-mail → nome do setor (compatível com telas que só precisam do setor).
+ * Usa o mesmo endpoint que `getAllCollaboratorsNeonMeta`.
+ */
+export async function getAllCollaboratorsSectors(): Promise<Record<string, string>> {
+  const meta = await getAllCollaboratorsNeonMeta();
+  const map: Record<string, string> = {};
+  for (const [k, m] of Object.entries(meta)) {
+    if (m.setor) map[k] = m.setor;
+  }
+  return map;
+}
+
+export interface DepartmentTeamStatEntry {
+  sectors: string[];
+  collaboratorCount: number;
+  /** Colaboradores ativos por nome de setor (mesmo critério que `sectors`). */
+  sectorCounts: Record<string, number>;
+}
+
+export type DepartmentTeamStatsMap = Record<string, DepartmentTeamStatEntry>;
+
+/**
+ * Setores distintos e total de colaboradores ativos por id de departamento no Neon
+ * (cruzamento por nome do departamento em collaborators.department_cadeira_principal).
+ */
+export async function getDepartmentTeamStats(departmentIds: string[]): Promise<DepartmentTeamStatsMap> {
+  const uniq = [...new Set(departmentIds.map((s) => String(s).trim()).filter(Boolean))];
+  if (!uniq.length || !API_CONFIGURED) return {};
+  const params = new URLSearchParams();
+  params.set('ids', uniq.join(','));
+  try {
+    const res = await neonApiGet(`/api/department-team-stats?${params.toString()}`);
+    if (!res.ok) return {};
+    const data = (await res.json()) as unknown;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+    const out: DepartmentTeamStatsMap = {};
+    for (const [id, v] of Object.entries(data as Record<string, unknown>)) {
+      if (!v || typeof v !== 'object') continue;
+      const o = v as { sectors?: unknown; collaboratorCount?: unknown; sectorCounts?: unknown };
+      const sectors = Array.isArray(o.sectors)
+        ? o.sectors.filter((x): x is string => typeof x === 'string')
+        : [];
+      const collaboratorCount =
+        typeof o.collaboratorCount === 'number' && Number.isFinite(o.collaboratorCount)
+          ? o.collaboratorCount
+          : 0;
+      const sectorCounts: Record<string, number> = {};
+      if (o.sectorCounts && typeof o.sectorCounts === 'object' && !Array.isArray(o.sectorCounts)) {
+        for (const [sk, sv] of Object.entries(o.sectorCounts as Record<string, unknown>)) {
+          if (typeof sv === 'number' && Number.isFinite(sv)) sectorCounts[sk] = sv;
+        }
+      }
+      out[id] = { sectors, collaboratorCount, sectorCounts };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export interface NeonTeamCollaborator {
+  id: string;
+  name: string;
+  email: string;
+  departmentName: string;
+  sectorName: string;
+  neonDepartmentId: string;
+}
+
+/**
+ * Colaboradores ativos no Neon alinhados aos departamentos das equipes (ids Neon).
+ */
+export async function getNeonCollaboratorsForTeamDepartments(
+  departmentIds: string[],
+): Promise<NeonTeamCollaborator[]> {
+  const uniq = [...new Set(departmentIds.map((s) => String(s).trim()).filter(Boolean))];
+  if (!uniq.length || !API_CONFIGURED) return [];
+  const params = new URLSearchParams();
+  params.set('ids', uniq.join(','));
+  try {
+    const res = await neonApiGet(`/api/teams-neon-collaborators?${params.toString()}`);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { collaborators?: unknown };
+    const raw = data.collaborators;
+    if (!Array.isArray(raw)) return [];
+    const out: NeonTeamCollaborator[] = [];
+    for (const item of raw) {
+      if (!item || typeof item !== 'object') continue;
+      const o = item as Record<string, unknown>;
+      const id = typeof o.id === 'string' ? o.id : '';
+      const name = typeof o.name === 'string' ? o.name : '—';
+      const email = typeof o.email === 'string' ? o.email : '';
+      const departmentName = typeof o.departmentName === 'string' ? o.departmentName : '';
+      const sectorName = typeof o.sectorName === 'string' ? o.sectorName : '';
+      const neonDepartmentId = typeof o.neonDepartmentId === 'string' ? o.neonDepartmentId : '';
+      if (!email || !neonDepartmentId) continue;
+      out.push({
+        id: id || email.toLowerCase(),
+        name,
+        email,
+        departmentName,
+        sectorName,
+        neonDepartmentId,
+      });
+    }
+    return out;
+  } catch {
+    return [];
   }
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Search, ShieldCheck, Check, X, Loader2, Boxes, ChevronDown } from 'lucide-react';
+import { UserKey, Search, ShieldCheck, Check, X, Loader2, Boxes, ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import { User } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuthStore } from '@/store/authStore';
-import { getAllCollaboratorsSectors } from '@/services/corporateProfile';
+import { getAllCollaboratorsNeonMeta, type CollaboratorNeonMeta } from '@/services/corporateProfile';
 import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
 import * as Icons from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -29,13 +29,30 @@ interface SystemAccess {
   original: boolean; // estado original para detectar mudanças
 }
 
+function emailNeonKey(email: string | undefined): string {
+  return (email ?? '').toLowerCase().trim();
+}
+
+function memberAccessLabel(member: User): 'Admin' | 'User' {
+  const at = (member.accessType ?? '').toLowerCase();
+  if (at === 'softadmin' || at === 'appsadmin') return 'Admin';
+  if (member.role === 'admin') return 'Admin';
+  return 'User';
+}
+
+/** Conta no GeApps — `profiles.created_at` (Supabase). */
+function formatProfileCreatedAt(createdAt: Date | undefined): string {
+  if (!createdAt || !(createdAt instanceof Date) || Number.isNaN(createdAt.getTime())) return '—';
+  return format(createdAt, 'dd/MM/yyyy', { locale: ptBR });
+}
+
 export default function AdminMembersPage() {
   const { user: currentUser } = useAuthStore();
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sectors, setSectors] = useState<Record<string, string>>({});
+  const [neonMeta, setNeonMeta] = useState<Record<string, CollaboratorNeonMeta>>({});
 
   const [selectedMemberData, setSelectedMemberData] = useState<any>(null);
   const [profilePopupOpen, setProfilePopupOpen] = useState(false);
@@ -53,13 +70,13 @@ export default function AdminMembersPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const [usersRes, sectorsData] = await Promise.all([
+      const [usersRes, neonData] = await Promise.all([
         databaseService.getUsers(),
-        getAllCollaboratorsSectors()
+        getAllCollaboratorsNeonMeta(),
       ]);
       if (usersRes.error) console.error(usersRes.error);
       setMembers((usersRes.data ?? []) as User[]);
-      setSectors(sectorsData);
+      setNeonMeta(neonData);
       setLoading(false);
     };
     load();
@@ -158,20 +175,23 @@ export default function AdminMembersPage() {
 
   const filtered = members.filter((m) => {
     const q = searchQuery.toLowerCase();
+    if (!q) return true;
+    const neon = neonMeta[emailNeonKey(m.email)];
     return (
-      !q ||
       (m.name ?? '').toLowerCase().includes(q) ||
       (m.email ?? '').toLowerCase().includes(q) ||
       (m.role ?? '').toLowerCase().includes(q) ||
-      (m.accessType ?? '').toLowerCase().includes(q)
+      (m.accessType ?? '').toLowerCase().includes(q) ||
+      (neon?.departamento ?? '').toLowerCase().includes(q) ||
+      (neon?.setor ?? '').toLowerCase().includes(q)
     );
   });
 
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        icon={Users}
-        title="Membros"
+        icon={UserKey}
+        title="Usuários"
         description="Usuários que criaram conta no GeApps. Exibindo dados cadastrais disponíveis."
       />
 
@@ -182,7 +202,7 @@ export default function AdminMembersPage() {
           <div className="relative group/search">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
             <Input
-              placeholder="Buscar por nome, e-mail, role..."
+              placeholder="Buscar por nome, e-mail, departamento, setor..."
               className="pl-8 w-60 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -197,12 +217,14 @@ export default function AdminMembersPage() {
           <LoadingGifScreen className="h-64" />
         ) : filtered.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground">
-            <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <UserKey className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p>Nenhum membro encontrado.</p>
           </div>
         ) : viewMode === 'cards' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map((member, index) => (
+            {filtered.map((member, index) => {
+              const neon = neonMeta[emailNeonKey(member.email)];
+              return (
               <motion.div
                 key={member.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -234,16 +256,32 @@ export default function AdminMembersPage() {
                   </CardHeader>
                   <CardContent className="pt-0 text-sm">
                     <div className="space-y-1.5 mb-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground text-xs">Acesso</span>
-                        <span className="font-medium text-xs">
-                          {(member.accessType?.toLowerCase().includes('admin') || member.role?.toLowerCase().includes('admin')) ? 'Admin' : 'Membro'}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground text-xs shrink-0">Acesso</span>
+                        <span className="font-medium text-xs text-right">{memberAccessLabel(member)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground text-xs shrink-0">Departamento</span>
+                        <span
+                          className="font-medium text-xs truncate max-w-[58%] text-right"
+                          title={neon?.departamento || undefined}
+                        >
+                          {neon?.departamento || '—'}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground text-xs">Setor</span>
-                        <span className="font-medium text-xs truncate max-w-[120px]" title={sectors[member.email?.toLowerCase()] || '—'}>
-                          {sectors[member.email?.toLowerCase()] || '—'}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground text-xs shrink-0">Setor</span>
+                        <span
+                          className="font-medium text-xs truncate max-w-[58%] text-right"
+                          title={neon?.setor || undefined}
+                        >
+                          {neon?.setor || '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground text-xs shrink-0">Criado</span>
+                        <span className="font-medium text-xs text-right tabular-nums" title="profiles.created_at (Supabase)">
+                          {formatProfileCreatedAt(member.createdAt)}
                         </span>
                       </div>
                     </div>
@@ -259,7 +297,8 @@ export default function AdminMembersPage() {
                   </CardContent>
                 </Card>
               </motion.div>
-            ))}
+            );
+            })}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -269,12 +308,16 @@ export default function AdminMembersPage() {
                   <th className="text-left py-3 px-2 font-medium">Nome</th>
                   <th className="text-left py-3 px-2 font-medium">E-mail</th>
                   <th className="text-left py-3 px-2 font-medium">Acesso</th>
+                  <th className="text-left py-3 px-2 font-medium">Departamento</th>
                   <th className="text-left py-3 px-2 font-medium">Setor</th>
+                  <th className="text-left py-3 px-2 font-medium">Criado</th>
                   <th className="text-left py-3 px-2 font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((member) => (
+                {filtered.map((member) => {
+                  const neon = neonMeta[emailNeonKey(member.email)];
+                  return (
                   <tr
                     key={member.id}
                     className="border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors"
@@ -297,9 +340,15 @@ export default function AdminMembersPage() {
                       </div>
                     </td>
                     <td className="py-2 px-2 text-muted-foreground">{member.email || '—'}</td>
-                    <td className="py-2 px-2">{(member.accessType?.toLowerCase().includes('admin') || member.role?.toLowerCase().includes('admin')) ? 'Admin' : 'Membro'}</td>
-                    <td className="py-2 px-2 text-muted-foreground truncate max-w-[150px]" title={sectors[member.email?.toLowerCase()] || '—'}>
-                      {sectors[member.email?.toLowerCase()] || '—'}
+                    <td className="py-2 px-2">{memberAccessLabel(member)}</td>
+                    <td className="py-2 px-2 text-muted-foreground truncate max-w-[140px]" title={neon?.departamento || undefined}>
+                      {neon?.departamento || '—'}
+                    </td>
+                    <td className="py-2 px-2 text-muted-foreground truncate max-w-[140px]" title={neon?.setor || undefined}>
+                      {neon?.setor || '—'}
+                    </td>
+                    <td className="py-2 px-2 text-muted-foreground tabular-nums whitespace-nowrap" title="profiles.created_at (Supabase)">
+                      {formatProfileCreatedAt(member.createdAt)}
                     </td>
                     <td className="py-2 px-2">
                       <Button
@@ -316,7 +365,8 @@ export default function AdminMembersPage() {
                       </Button>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>

@@ -7,7 +7,8 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
-  createdAt: Date;
+  /** `profiles.created_at` no Supabase (via `profileToUser` em `getUsers`). */
+  createdAt?: Date;
   /** Tipo de acesso: 'softadmin' | 'member' (coluna access_type em profiles) */
   accessType?: string;
 }

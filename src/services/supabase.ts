@@ -39,6 +39,9 @@ export const supabase = createSupabaseClient();
  */
 export const REQUEST_CHANNELS_TABLE = 'request_channels';
 
+/** Equipes (tabela `teams`) — ver migration-teams-table.sql */
+export const TEAMS_TABLE = 'teams';
+
 /** Comunicados internos (tabela `statement`). */
 export const STATEMENT_TABLE = 'statement';
 
@@ -65,6 +68,47 @@ type RequestChannelRow = {
   color?: string | null;
   created_at?: string;
 };
+
+/** Ciclo de vida da equipe no GêApps (coluna `teams.status`). */
+export type TeamLifecycleStatus = 'active' | 'archived' | 'deleted';
+
+export interface Team {
+  id: string;
+  name: string;
+  status: TeamLifecycleStatus;
+  neonDepartmentId: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+type TeamRow = {
+  id: string;
+  name: string;
+  status?: string | null;
+  /** Legado (antes de migration-teams-status-upgrade.sql). */
+  is_active?: boolean | null;
+  neon_department_id: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+function normalizeTeamStatus(row: TeamRow): TeamLifecycleStatus {
+  const raw = String(row.status ?? '').trim().toLowerCase();
+  if (raw === 'active' || raw === 'archived' || raw === 'deleted') return raw;
+  if (row.is_active === false) return 'archived';
+  return 'active';
+}
+
+function teamRowToApp(row: TeamRow): Team {
+  return {
+    id: row.id,
+    name: row.name ?? '',
+    status: normalizeTeamStatus(row),
+    neonDepartmentId: row.neon_department_id ?? '',
+    createdAt: row.created_at ? new Date(row.created_at) : undefined,
+    updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+  };
+}
 
 function requestChannelRowToApp(row: RequestChannelRow): RequestChannel {
   const raw = String(row.channel_type ?? 'departamento').toLowerCase();
@@ -1303,6 +1347,73 @@ export const databaseService = {
         .single();
       if (error) return { data: null, error };
       return { data: requestChannelRowToApp(data as RequestChannelRow), error: null };
+    } catch (e) {
+      return { data: null, error: e };
+    }
+  },
+
+  /** Equipes cadastradas no Supabase. */
+  async listTeams(options?: { activeOnly?: boolean }): Promise<{ data: Team[]; error: null }> {
+    const activeOnly = options?.activeOnly === true;
+    try {
+      let q = supabase.from(TEAMS_TABLE).select('*').order('name', { ascending: true });
+      if (activeOnly) {
+        q = q.eq('status', 'active');
+      }
+      const { data, error } = await q;
+      if (error) {
+        console.warn('[teams] list:', error.message ?? error);
+        return { data: [], error: null };
+      }
+      const list = (data ?? []) as TeamRow[];
+      return { data: list.map(teamRowToApp), error: null };
+    } catch (e) {
+      console.warn('[teams] list exception:', e);
+      return { data: [], error: null };
+    }
+  },
+
+  async createTeam(payload: {
+    name: string;
+    neon_department_id: string;
+    status?: TeamLifecycleStatus;
+  }): Promise<{ data: Team | null; error: unknown }> {
+    try {
+      const status: TeamLifecycleStatus = payload.status ?? 'active';
+      const { data, error } = await supabase
+        .from(TEAMS_TABLE)
+        .insert([
+          {
+            name: payload.name.trim(),
+            neon_department_id: payload.neon_department_id.trim(),
+            status,
+          },
+        ])
+        .select()
+        .single();
+      if (error) return { data: null, error };
+      return { data: teamRowToApp(data as TeamRow), error: null };
+    } catch (e) {
+      return { data: null, error: e };
+    }
+  },
+
+  async updateTeamStatus(
+    teamId: string,
+    status: TeamLifecycleStatus,
+  ): Promise<{ data: Team | null; error: unknown }> {
+    try {
+      const { data, error } = await supabase
+        .from(TEAMS_TABLE)
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', teamId)
+        .select()
+        .single();
+      if (error) return { data: null, error };
+      return { data: teamRowToApp(data as TeamRow), error: null };
     } catch (e) {
       return { data: null, error: e };
     }

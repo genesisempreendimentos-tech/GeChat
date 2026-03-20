@@ -359,7 +359,9 @@ export default function UsersPage() {
                     {getRoleLabel(user.role)}
                   </span>
                   <span className="hidden sm:inline shrink-0 text-sm text-muted-foreground">
-                    {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                    {user.createdAt
+                      ? user.createdAt.toLocaleDateString('pt-BR')
+                      : '—'}
                   </span>
                   <Button
                     variant="ghost"
