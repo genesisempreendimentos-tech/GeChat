@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { User, UserRole } from '@/types';
 import { authService, databaseService } from '@/services/supabase';
 import { useThemeStore } from '@/store/themeStore';
+import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 
 interface AuthState {
   user: User | null;
@@ -56,6 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     
     if (userData) {
       useThemeStore.getState().applyFromProfileThema(userData.thema);
+      useSidebarLayoutStore.getState().applyFromProfile(userData.sidebar);
 
       const user: User = {
         id: userData.id,
@@ -65,6 +67,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         avatar: userData.avatar,
         createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
         accessType: userData.accessType,
+        sidebar: userData.sidebar,
       };
       
       console.log('✅ [Login] Login completo! Usuário:', user);
@@ -108,6 +111,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     await authService.signOut();
+    useSidebarLayoutStore.getState().applyFromProfile(undefined);
     set({ user: null, isAuthenticated: false });
   },
 
@@ -122,6 +126,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     
     if (userData) {
       useThemeStore.getState().applyFromProfileThema(userData.thema);
+      useSidebarLayoutStore.getState().applyFromProfile(userData.sidebar);
 
       const user: User = {
         id: userData.id,
@@ -131,6 +136,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         avatar: userData.avatar,
         createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
         accessType: userData.accessType,
+        sidebar: userData.sidebar,
       };
       set({ user, isAuthenticated: true, loading: false });
     } else {

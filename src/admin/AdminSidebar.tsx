@@ -14,10 +14,12 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useUnviewedComunicados } from '@/hooks/useUnviewedComunicados';
+import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
+import { SidebarFooterControl } from '@/components/layout/SidebarFooterControl';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,37 +62,25 @@ export default function AdminSidebar() {
   const { isSoftadmin } = useAdminAccess();
   const hasUnviewedComunicados = useUnviewedComunicados();
   const isInAdmin = location.pathname.startsWith('/admin');
+  const layoutMode = useSidebarLayoutStore((s) => s.mode);
   const [pinned, setPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-admin-pinned');
     return saved ? JSON.parse(saved) : false;
   });
   const [isHovered, setIsHovered] = useState(false);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const SIDEBAR_CLOSE_DELAY_MS = 2000;
-
-  const clearCloseTimer = () => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-  };
-
-  const scheduleClose = () => {
-    clearCloseTimer();
-    if (pinned) return;
-    closeTimerRef.current = setTimeout(() => {
-      setIsHovered(false);
-      closeTimerRef.current = null;
-    }, SIDEBAR_CLOSE_DELAY_MS);
-  };
 
   useEffect(() => {
     localStorage.setItem('sidebar-admin-pinned', JSON.stringify(pinned));
   }, [pinned]);
 
-  useEffect(() => () => clearCloseTimer(), []);
+  useEffect(() => {
+    if (layoutMode === 'expanded' || layoutMode === 'collapsed') {
+      setPinned(false);
+    }
+  }, [layoutMode]);
 
-  const isExpanded = pinned || isHovered;
+  const isExpanded =
+    layoutMode === 'expanded' ? true : layoutMode === 'collapsed' ? false : pinned || isHovered;
   const setSidebarWidth = useSetSidebarWidth();
 
   useEffect(() => {
@@ -104,10 +94,13 @@ export default function AdminSidebar() {
         animate={{ width: isExpanded ? 280 : 80 }}
         transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
         onMouseEnter={() => {
-          clearCloseTimer();
+          if (layoutMode !== 'hover') return;
           if (!pinned) setIsHovered(true);
         }}
-        onMouseLeave={() => scheduleClose()}
+        onMouseLeave={() => {
+          if (layoutMode !== 'hover') return;
+          if (!pinned) setIsHovered(false);
+        }}
         className="hidden md:flex fixed left-0 top-0 h-screen bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
         role="navigation"
         aria-label="Navegação admin"
@@ -257,39 +250,34 @@ export default function AdminSidebar() {
           ))}
         </nav>
 
-        <div
-          className={cn(
-            'p-4 border-t border-border/70 overflow-hidden transition-all duration-200 shrink-0',
-            isExpanded ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0 py-0'
-          )}
-        >
-          <p className="text-xs text-muted-foreground text-center">
-            GêApps Admin v1.0.0
-          </p>
+        <div className="p-2 border-t border-border/70 shrink-0">
+          <SidebarFooterControl showLabel={isExpanded} />
         </div>
       </motion.aside>
 
-      <motion.button
-        initial={false}
-        animate={{ x: isExpanded ? 264 : 72 }}
-        transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-        onClick={() => setPinned(!pinned)}
-        className={cn(
-          'fixed top-4 z-50 p-2 rounded-full shadow-lg transition-all duration-200',
-          'hover:scale-110 active:scale-95',
-          pinned
-            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-            : 'bg-card/70 dark:bg-card/60 backdrop-blur-lg border border-border/80 hover:bg-accent/80'
-        )}
-        title={pinned ? 'Desafixar menu' : 'Fixar menu'}
-      >
-        <Pin
+      {layoutMode === 'hover' ? (
+        <motion.button
+          initial={false}
+          animate={{ x: isExpanded ? 264 : 72 }}
+          transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+          onClick={() => setPinned(!pinned)}
           className={cn(
-            'w-4 h-4 transition-all duration-200',
-            pinned ? 'rotate-0' : 'rotate-45'
+            'fixed top-4 z-50 p-2 rounded-full shadow-lg transition-all duration-200',
+            'hover:scale-110 active:scale-95',
+            pinned
+              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+              : 'bg-card/70 dark:bg-card/60 backdrop-blur-lg border border-border/80 hover:bg-accent/80'
           )}
-        />
-      </motion.button>
+          title={pinned ? 'Desafixar menu' : 'Fixar menu'}
+        >
+          <Pin
+            className={cn(
+              'w-4 h-4 transition-all duration-200',
+              pinned ? 'rotate-0' : 'rotate-45'
+            )}
+          />
+        </motion.button>
+      ) : null}
 
     </>
   );

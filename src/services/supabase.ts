@@ -1,6 +1,8 @@
 // Supabase Service Layer
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ProfileThema } from '@/lib/themeMapping';
+import type { SidebarMode } from '@/lib/sidebarMode';
+import { parseSidebarMode } from '@/lib/sidebarMode';
 import { getAuthStorage } from './authStorage';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -184,6 +186,7 @@ type ProfileRow = {
   created_at?: string;
   access_type?: string;
   thema?: string | null;
+  sidebar?: string | null;
 };
 type UserShape = {
   id: string;
@@ -195,6 +198,7 @@ type UserShape = {
   createdAt?: Date;
   accessType?: string;
   thema?: string | null;
+  sidebar?: SidebarMode;
 };
 type CategoryRow = { id: string; name: string; description?: string; icon?: string; color?: string; created_at?: string; updated_at?: string; status?: string };
 
@@ -213,6 +217,7 @@ function profileToUser(row: ProfileRow | null, authEmail?: string): UserShape | 
     createdAt: row.created_at ? new Date(row.created_at) : undefined,
     accessType: row.access_type ?? undefined,
     thema: row.thema ?? undefined,
+    sidebar: parseSidebarMode(row.sidebar ?? undefined),
   };
 }
 
@@ -587,6 +592,11 @@ export const databaseService = {
   /** Persiste `profiles.thema` (white | dark | fulldark) para o utilizador autenticado. */
   async updateProfileThema(userId: string, thema: ProfileThema) {
     const { error } = await supabase.from('profiles').update({ thema }).eq('user_id', userId);
+    return { error };
+  },
+
+  async updateProfileSidebar(userId: string, sidebar: SidebarMode) {
+    const { error } = await supabase.from('profiles').update({ sidebar }).eq('user_id', userId);
     return { error };
   },
 

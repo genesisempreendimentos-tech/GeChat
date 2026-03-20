@@ -1,5 +1,9 @@
 // User types
+import type { SidebarMode } from '@/lib/sidebarMode';
+
 export type UserRole = 'admin' | 'manager' | 'user';
+
+export type { SidebarMode };
 
 export interface User {
   id: string;
@@ -11,6 +15,8 @@ export interface User {
   createdAt?: Date;
   /** Tipo de acesso: 'softadmin' | 'member' (coluna access_type em profiles) */
   accessType?: string;
+  /** `profiles.sidebar`: hover | expanded | collapsed */
+  sidebar?: SidebarMode;
 }
 
 // System types
