@@ -1541,7 +1541,7 @@ export const databaseService = {
     try {
       const { error } = await supabase
         .from('statement_comment')
-        .update({ deleted_at: new Date().toISOString(), is_active: false })
+        .delete()
         .eq('id', commentId);
       return { error };
     } catch (e) {
