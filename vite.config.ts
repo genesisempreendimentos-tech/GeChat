@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'fs'
 import path from 'path'
 
 // https://vitejs.dev/config/
@@ -34,6 +35,20 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
+        router: () => {
+          const activePortFile = path.resolve(__dirname, '.server-port')
+          try {
+            const raw = fs.readFileSync(activePortFile, 'utf8').trim()
+            const port = Number(raw)
+            if (Number.isInteger(port) && port > 0) {
+              return `http://localhost:${port}`
+            }
+          } catch {
+            // fallback para porta padrão
+          }
+          const fallbackPort = Number(process.env.SERVER_PORT || 3001)
+          return `http://localhost:${fallbackPort}`
+        },
         changeOrigin: true,
         /** Garante Authorization até o Node (evita 401 em dev se o proxy omitir o header). */
         configure: (proxy) => {

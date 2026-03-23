@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"vite\"",
-    "dev:vite": "vite",
+    "dev": "concurrently \"npm run server\" \"npm run dev:vite\"",
+    "dev:vite": "node scripts/start-vite.mjs",
     "server": "node server/index.mjs",
     "dev:all": "npm run dev",
     "dev-all": "concurrently \"npm run server\" \"npm run dev\"",
