@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { AnimatedEmoji } from '@/components/ui/animated-emoji';
 
 const DEFAULT_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '👏', '🎉', '🔥', '🚀', '🥂', '🥳'] as const;
 
@@ -28,7 +29,7 @@ export default function StatementReactionPicker({
             disabled={disabled}
             onClick={() => onReact?.(isActive ? null : emoji)}
             className={cn(
-              'h-8 min-w-8 rounded-full border px-2 text-sm transition-colors',
+              'h-8 min-w-8 rounded-full border px-2 text-sm transition-colors flex items-center justify-center',
               'hover:bg-accent disabled:opacity-60 disabled:pointer-events-none',
               isActive
                 ? 'border-primary bg-primary/15 text-primary'
@@ -38,7 +39,11 @@ export default function StatementReactionPicker({
             aria-label={`Reagir com ${emoji}`}
             title={isActive ? `Remover reação ${emoji}` : `Reagir com ${emoji}`}
           >
-            {emoji}
+            <AnimatedEmoji 
+              emoji={emoji} 
+              className="w-5 h-5" 
+              isActive={isActive}
+            />
           </button>
         );
       })}

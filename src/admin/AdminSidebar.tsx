@@ -249,8 +249,8 @@ export default function AdminSidebar() {
           ))}
         </nav>
 
-        <div className="p-2 border-t border-border/70 shrink-0">
-          <SidebarFooterControl showLabel={isExpanded} />
+        <div className="border-t border-border/70 shrink-0">
+          <SidebarFooterControl isExpanded={isExpanded} />
         </div>
       </motion.aside>
 

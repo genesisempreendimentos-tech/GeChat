@@ -17,7 +17,12 @@ import {
   Calendar,
   Maximize2,
   SmilePlus,
+  MessageCircle,
+  CalendarDays,
+  Clock8,
+  MapPin,
 } from 'lucide-react';
+import { AnimatedEmoji } from '@/components/ui/animated-emoji';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -589,64 +594,126 @@ export default function ComunicadosPage() {
             >
               <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
               <div className="relative h-full flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-1 text-left">
-                <div className="px-4 pt-4 shrink-0">
-                  <div className="aspect-[2/1] w-full rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden bg-muted/20">
-                    {s.imageUrl ? (
-                      <img
-                        src={s.imageUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        onDoubleClick={() => handleOpenPost(s)}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                        <ImagePlus className="w-12 h-12 opacity-30" />
-                      </div>
+                {/* Header do Card (Estilo Instagram) */}
+                <div className="flex items-center justify-between p-3 border-b border-slate-100 dark:border-white/5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                      <img src="/assets/logo-gen-sem-fundo-svg.svg" alt="GêApps" className="w-4 h-4 object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)' }} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-foreground leading-none">
+                        GêApps
+                      </span>
+                      <span className="text-[11px] text-muted-foreground mt-0.5" title={formatPublishedAt(s.publishedAt)}>
+                        {formatPublishedAtOneLine(s.publishedAt)}
+                      </span>
+                    </div>
+                  </div>
+                  {!s.viewed && (
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full bg-destructive ring-2 ring-white dark:ring-[#0d1520] shadow-sm mr-1"
+                      title="Ainda não visto"
+                      aria-label="Comunicado ainda não visto"
+                    />
+                  )}
+                </div>
+
+                {/* Imagem */}
+                <div className="w-full aspect-square bg-muted/20 relative cursor-pointer overflow-hidden" onClick={() => handleOpenPost(s)}>
+                  {s.imageUrl ? (
+                    <img
+                      src={s.imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                      <ImagePlus className="w-12 h-12 opacity-30" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Barra de Ações */}
+                <div className="px-3 pt-3 pb-1 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenReactionsModal(s)}
+                    className="flex items-center justify-center hover:opacity-70 transition-opacity"
+                    title="Reações"
+                  >
+                    {(() => {
+                      const summary = reactionSummaryByStatementId.get(s.id);
+                      const emojis = summary?.uniqueEmojis?.slice(0, 3) ?? [];
+                      const total = summary?.total ?? 0;
+                      if (!total) {
+                        return <SmilePlus className="w-6 h-6 text-foreground" strokeWidth={1.5} />;
+                      }
+                      return (
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex -space-x-1">
+                            {emojis.map((emoji, idx) => (
+                              <span 
+                                key={idx} 
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-background border border-background shadow-sm z-[1]"
+                                style={{ zIndex: emojis.length - idx }}
+                              >
+                                <AnimatedEmoji emoji={emoji} className="w-4 h-4" playOnHover={false} />
+                              </span>
+                            ))}
+                          </div>
+                          <span className="text-sm font-semibold text-foreground">{total}</span>
+                        </div>
+                      );
+                    })()}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPost(s)}
+                    className="flex items-center justify-center hover:opacity-70 transition-opacity"
+                    title="Comentar / Ver detalhes"
+                  >
+                    <MessageCircle className="w-6 h-6 text-foreground" strokeWidth={1.5} />
+                  </button>
+                </div>
+
+                {/* Área de Texto */}
+                <div className="px-3 pb-4 flex flex-col flex-1 min-h-0">
+                  <div className="mt-1 space-y-1">
+                    <p className="text-sm text-foreground leading-relaxed">
+                      <span className="font-semibold mr-1.5 cursor-pointer hover:underline" onClick={() => handleOpenPost(s)}>
+                        {s.title}
+                      </span>
+                      {s.caption ? (
+                        <span
+                          className={cn(
+                            'font-light text-muted-foreground whitespace-pre-wrap',
+                            !captionExpanded[s.id] && (s.caption.length > CAPTION_COLLAPSE_CHARS || s.caption.split('\n').length > 3)
+                              ? 'line-clamp-2 [display:-webkit-inline-box]'
+                              : ''
+                          )}
+                        >
+                          {s.caption}
+                        </span>
+                      ) : null}
+                    </p>
+                    
+                    {s.caption && (s.caption.length > CAPTION_COLLAPSE_CHARS || s.caption.split('\n').length > 3) && (
+                      <button
+                        type="button"
+                        onClick={() => toggleCaptionExpand(s.id)}
+                        className="text-xs font-medium text-primary hover:text-primary/80 hover:underline mt-1 transition-colors"
+                      >
+                        {captionExpanded[s.id] ? 'Ver menos' : 'Ver mais'}
+                      </button>
                     )}
                   </div>
-                </div>
-                <div className="p-4 pt-3 pb-2 flex flex-col flex-1 min-h-0">
-                  <div className="flex items-start gap-2 min-w-0">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors duration-300 line-clamp-2 min-w-0 flex-1">
-                      {s.title}
-                    </h3>
-                    {!s.viewed ? (
-                      <span
-                        className="mt-2 h-2 w-2 shrink-0 rounded-full bg-destructive ring-2 ring-white dark:ring-[#0d1520] shadow-sm"
-                        title="Ainda não visto"
-                        aria-label="Comunicado ainda não visto"
-                      />
-                    ) : null}
-                  </div>
-                  {s.caption ? (
-                    <div className="mt-2 space-y-1">
-                      <p
-                        className={cn(
-                          'text-sm font-light text-muted-foreground leading-relaxed whitespace-pre-wrap',
-                          !captionExpanded[s.id] && (s.caption.length > CAPTION_COLLAPSE_CHARS || s.caption.split('\n').length > 3)
-                            ? 'line-clamp-3'
-                            : ''
-                        )}
-                      >
-                        {s.caption}
-                      </p>
-                      {(s.caption.length > CAPTION_COLLAPSE_CHARS || s.caption.split('\n').length > 3) && (
-                        <button
-                          type="button"
-                          onClick={() => toggleCaptionExpand(s.id)}
-                          className="text-xs font-semibold text-primary hover:underline"
-                        >
-                          {captionExpanded[s.id] ? 'Ler menos' : 'Ler mais'}
-                        </button>
-                      )}
-                    </div>
-                  ) : null}
+
                   {s.tags.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       {s.tags.map((t) => (
                         <span
                           key={t}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-primary/10 border-primary/25 text-primary"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground"
                         >
                           <Tag className="w-3 h-3 shrink-0" />
                           {t}
@@ -654,49 +721,6 @@ export default function ComunicadosPage() {
                       ))}
                     </div>
                   ) : null}
-                  <div className="mt-auto pt-2 flex flex-col gap-2">
-                    <span className="flex w-full min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-                      <Calendar className="w-3.5 h-3.5 shrink-0" />
-                      <span
-                        className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                        title={formatPublishedAt(s.publishedAt)}
-                      >
-                        {formatPublishedAtOneLine(s.publishedAt)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenReactionsModal(s)}
-                        className="ml-2 inline-flex max-w-[45%] items-center gap-1 rounded-full border border-border/70 bg-background/90 px-2 py-0.5 text-[11px] text-foreground shadow-sm backdrop-blur hover:bg-accent/80 transition-colors"
-                        title="Ver reações"
-                        aria-label="Ver reações do post"
-                      >
-                        {(() => {
-                          const summary = reactionSummaryByStatementId.get(s.id);
-                          const emojis = summary?.uniqueEmojis?.slice(0, 4) ?? [];
-                          const total = summary?.total ?? 0;
-                          if (!total) {
-                            return <SmilePlus className="w-3.5 h-3.5 shrink-0" />;
-                          }
-                          return (
-                            <>
-                              <span className="truncate">{emojis.join(' ')}</span>
-                              <span className="font-semibold">{total}</span>
-                            </>
-                          );
-                        })()}
-                      </button>
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-full rounded-xl border-primary/30 text-primary hover:bg-primary/10"
-                      onClick={() => handleOpenPost(s)}
-                    >
-                      <Maximize2 className="w-3.5 h-3.5 mr-2" />
-                      Abrir o post
-                    </Button>
-                  </div>
                 </div>
               </div>
             </motion.div>
@@ -730,7 +754,7 @@ export default function ComunicadosPage() {
                     <button
                       type="button"
                       onClick={() => handleOpenReactionsModal(detailStatement)}
-                      className="ml-auto inline-flex max-w-[45%] items-center gap-1 rounded-full border border-border/70 bg-background/90 px-2 py-0.5 text-[11px] text-foreground shadow-sm backdrop-blur hover:bg-accent/80 transition-colors"
+                      className="ml-auto inline-flex max-w-[45%] items-center gap-1.5 rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm backdrop-blur hover:bg-accent/80 transition-colors"
                       title="Ver reações"
                       aria-label="Ver reações do post"
                     >
@@ -741,7 +765,17 @@ export default function ComunicadosPage() {
                         if (!total) return <SmilePlus className="w-3.5 h-3.5 shrink-0" />;
                         return (
                           <>
-                            <span className="truncate">{emojis.join(' ')}</span>
+                            <div className="flex -space-x-1">
+                              {emojis.map((emoji, idx) => (
+                                <span 
+                                  key={idx} 
+                                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-background border border-background shadow-sm z-[1]"
+                                  style={{ zIndex: emojis.length - idx }}
+                                >
+                                  <AnimatedEmoji emoji={emoji} className="w-3 h-3" playOnHover={false} />
+                                </span>
+                              ))}
+                            </div>
                             <span className="font-semibold">{total}</span>
                           </>
                         );
@@ -765,7 +799,28 @@ export default function ComunicadosPage() {
                 {detailStatement.caption ? (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Legenda</p>
-                    <p className="text-sm font-light text-foreground leading-relaxed whitespace-pre-wrap">{detailStatement.caption}</p>
+                    <div className="text-sm font-light text-foreground leading-relaxed whitespace-pre-wrap space-y-2">
+                      {detailStatement.caption.split('\n').map((line, i) => {
+                        // Substituir emojis por ícones
+                        let parsedLine = line;
+                        const hasCalendar = parsedLine.includes('📅');
+                        const hasClock = parsedLine.includes('⏰');
+                        const hasPin = parsedLine.includes('📍');
+                        
+                        if (!hasCalendar && !hasClock && !hasPin) {
+                          return <p key={i}>{line}</p>;
+                        }
+                        
+                        return (
+                          <p key={i} className="flex items-start gap-2">
+                            {hasCalendar && <CalendarDays className="w-4 h-4 mt-0.5 shrink-0 text-primary" />}
+                            {hasClock && <Clock8 className="w-4 h-4 mt-0.5 shrink-0 text-primary" />}
+                            {hasPin && <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-primary" />}
+                            <span>{line.replace(/[📅⏰📍]/g, '').trim()}</span>
+                          </p>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">Sem legenda.</p>

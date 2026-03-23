@@ -3,6 +3,7 @@
  * GET /api/corporate-profile — requer Authorization: Bearer <supabase_access_token>
  * Retorna dados do colaborador por corporate_email (email do usuário logado) ou 404.
  */
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -26,7 +27,9 @@ app.use((req, res, next) => {
   next();
 });
 
-const PORT = process.env.SERVER_PORT || 3001;
+const DEFAULT_PORT = Number(process.env.SERVER_PORT) || 3001;
+const MAX_PORT_RETRIES = Number(process.env.SERVER_PORT_RETRY_COUNT) || 30;
+const ACTIVE_PORT_FILE = path.join(__dirname, '..', '.server-port');
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
@@ -514,6 +517,29 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`[server] API rodando em http://localhost:${PORT}`);
-});
+function persistActivePort(port) {
+  try {
+    fs.writeFileSync(ACTIVE_PORT_FILE, String(port), 'utf8');
+  } catch (err) {
+    console.warn('[server] Não foi possível salvar .server-port:', err?.message ?? err);
+  }
+}
+
+function startServerWithFallback(port, retriesLeft) {
+  const server = app.listen(port, () => {
+    persistActivePort(port);
+    console.log(`[server] API rodando em http://localhost:${port}`);
+  });
+
+  server.on('error', (err) => {
+    if (err?.code === 'EADDRINUSE' && retriesLeft > 0) {
+      const nextPort = port + 1;
+      console.warn(`[server] Porta ${port} ocupada. Tentando ${nextPort}...`);
+      return startServerWithFallback(nextPort, retriesLeft - 1);
+    }
+    console.error('[server] Falha ao iniciar API:', err);
+    process.exit(1);
+  });
+}
+
+startServerWithFallback(DEFAULT_PORT, MAX_PORT_RETRIES);
