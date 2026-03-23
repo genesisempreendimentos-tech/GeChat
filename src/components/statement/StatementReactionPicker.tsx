@@ -43,6 +43,7 @@ export default function StatementReactionPicker({
               emoji={emoji} 
               className="w-5 h-5" 
               isActive={isActive}
+              loop={true}
             />
           </button>
         );
