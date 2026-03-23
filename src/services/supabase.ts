@@ -253,8 +253,9 @@ type CategoryRow = { id: string; name: string; description?: string; icon?: stri
 function profileToUser(row: ProfileRow | null, authEmail?: string): UserShape | null {
   if (!row) return null;
   const id = row.id ?? row.user_id ?? '';
-  const rawRole = (row.role ?? row.role_type ?? row.user_type ?? 'user').toString().trim();
-  const role = rawRole ? rawRole.toLowerCase() : 'user';
+  const rawAccessType = (row.access_type ?? row.role ?? row.role_type ?? row.user_type ?? 'user').toString().trim();
+  const normalizedAccessType = rawAccessType ? rawAccessType.toLowerCase() : 'user';
+  const role = normalizedAccessType === 'manager' ? 'user' : normalizedAccessType;
   return {
     id,
     name: (row.full_name ?? row.name) ?? '',
@@ -263,7 +264,7 @@ function profileToUser(row: ProfileRow | null, authEmail?: string): UserShape | 
     avatar: row.avatar_url ?? row.avatar,
     created_at: row.created_at,
     createdAt: row.created_at ? new Date(row.created_at) : undefined,
-    accessType: row.access_type ?? undefined,
+    accessType: role,
     thema: row.thema ?? undefined,
     sidebar: parseSidebarMode(row.sidebar ?? undefined),
   };
@@ -273,7 +274,7 @@ function userToProfilePayload(user: { name: string; email: string; role: string;
   return {
     full_name: user.name,
     avatar_url: user.avatar,
-    role: user.role,
+    access_type: user.role,
     email: user.email,
   };
 }
@@ -474,7 +475,7 @@ export const authService = {
     }
   },
 
-  async signUp(email: string, password: string, fullName: string, role: 'admin' | 'manager' | 'user' = 'user') {
+  async signUp(email: string, password: string, fullName: string, role: 'admin' | 'creator' | 'user' = 'user') {
     try {
       console.log('🔵 [SignUp] Iniciando cadastro:', { email, fullName, role });
       
@@ -532,8 +533,8 @@ export const authService = {
       const userId = authData.user.id;
 
       // Tenta com coluna "id" (padrão); se a tabela usar "user_id" como PK, tenta com user_id
-      const payloadWithId = { id: userId, full_name: fullName, avatar_url: avatarUrl, role, email };
-      const payloadWithUserId = { user_id: userId, full_name: fullName, avatar_url: avatarUrl, role, email };
+      const payloadWithId = { id: userId, full_name: fullName, avatar_url: avatarUrl, access_type: role, email };
+      const payloadWithUserId = { user_id: userId, full_name: fullName, avatar_url: avatarUrl, access_type: role, email };
 
       let profileError: Error | null = null;
       let lastError: { message?: string; code?: string } | null = null;
@@ -663,19 +664,19 @@ export const databaseService = {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .ilike('access_type', 'softadmin')
+      .ilike('access_type', 'admin')
       .order('created_at', { ascending: false });
     if (error) return { data: null, error };
     const mapped = (data ?? []).map((row) => profileToUser(row as ProfileRow));
     return { data: mapped, error: null };
   },
 
-  /** Usuários com access_type === 'appsadmin' na tabela profiles (acesso ao painel admin). */
+  /** Usuários com access_type === 'admin' na tabela profiles (acesso ao painel admin). */
   async getAppsAdmins() {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .ilike('access_type', 'appsadmin')
+      .ilike('access_type', 'admin')
       .order('created_at', { ascending: false });
     if (error) return { data: null, error };
     const mapped = (data ?? []).map((row) => profileToUser(row as ProfileRow));
@@ -730,7 +731,7 @@ export const databaseService = {
     try {
       const [usersRes, adminsRes, appsRes, activeAppsRes] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).ilike('access_type', 'softadmin'),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).ilike('access_type', 'admin'),
         supabase.from('apps').select('*', { count: 'exact', head: true }),
         supabase.from('apps').select('*', { count: 'exact', head: true }).in('status', ['ativo', 'active', 'beta']),
       ]);
@@ -837,7 +838,8 @@ export const databaseService = {
     const payload: Record<string, unknown> = {};
     if (userData.name != null) payload.full_name = userData.name;
     if (userData.avatar != null) payload.avatar_url = userData.avatar;
-    if (userData.role != null) payload.role = userData.role;
+    if (userData.accessType != null) payload.access_type = userData.accessType;
+    if (userData.role != null) payload.access_type = userData.role;
     if (userData.email != null) payload.email = userData.email;
     if (userData.apelido != null) payload.apelido = userData.apelido;
     if (userData.username != null) payload.username = userData.username;

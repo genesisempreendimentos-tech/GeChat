@@ -47,6 +47,7 @@ import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
 import StatementReactionPicker from '@/components/statement/StatementReactionPicker';
 import { getAllCollaboratorsNeonMeta } from '@/services/corporateProfile';
+import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
 
 const TAG_FILTER_ALL = 'all';
 
@@ -93,6 +94,7 @@ export default function ComunicadosPage() {
   const { pathname } = useLocation();
   const isAdminPanel = pathname.startsWith('/admin/');
   const user = useAuthStore((s) => s.user);
+  const canCreateStatements = user?.accessType === 'admin' || user?.accessType === 'creator' || isAdminPanel;
 
   const [statements, setStatements] = useState<Statement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +108,9 @@ export default function ComunicadosPage() {
   const [reactionsModalStatementId, setReactionsModalStatementId] = useState<string | null>(null);
   const [reactionsModalLoading, setReactionsModalLoading] = useState(false);
   const [reactionsModalItems, setReactionsModalItems] = useState<ReactionViewer[]>([]);
+  const [reactionsProfilePopupOpen, setReactionsProfilePopupOpen] = useState(false);
+  const [reactionsProfileUserData, setReactionsProfileUserData] = useState<any>(null);
+  const [reactionsProfileLoadingId, setReactionsProfileLoadingId] = useState<string | null>(null);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -255,6 +260,10 @@ export default function ComunicadosPage() {
 
   const handleCreate = async () => {
     setFormError('');
+    if (!canCreateStatements) {
+      setFormError('Você não tem permissão para criar comunicados.');
+      return;
+    }
     if (!title.trim()) {
       setFormError('Informe o título.');
       return;
@@ -462,6 +471,18 @@ export default function ComunicadosPage() {
     setReactionsModalLoading(false);
   }, []);
 
+  const handleOpenReactionUserProfile = useCallback(async (userId: string) => {
+    setReactionsProfileLoadingId(userId);
+    const { data, error } = await databaseService.getUserById(userId);
+    setReactionsProfileLoadingId(null);
+    if (error || !data) {
+      toast.error('Não foi possível carregar o perfil deste usuário.');
+      return;
+    }
+    setReactionsProfileUserData(data);
+    setReactionsProfilePopupOpen(true);
+  }, []);
+
   const toggleCaptionExpand = (id: string) => {
     setCaptionExpanded((prev: Record<string, boolean>) => ({ ...prev, [id]: !prev[id] }));
   };
@@ -478,7 +499,7 @@ export default function ComunicadosPage() {
             Avisos e informações importantes da empresa
           </p>
         </div>
-        {isAdminPanel && (
+        {canCreateStatements && (
           <Button className="shrink-0 w-full sm:w-auto" onClick={() => setIsCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Adicionar comunicado
@@ -790,30 +811,45 @@ export default function ComunicadosPage() {
               <p className="text-sm text-muted-foreground">Ainda não há reações neste comunicado.</p>
             ) : (
               reactionsModalItems.map((item) => (
-                <div
+                <button
                   key={`${item.userId}-${item.reaction}`}
-                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2"
+                  type="button"
+                  onClick={() => void handleOpenReactionUserProfile(item.userId)}
+                  className={cn(
+                    'group flex w-full items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-left',
+                    'cursor-pointer transition-all duration-200 hover:border-primary/30 hover:bg-muted/35 hover:shadow-sm'
+                  )}
                 >
-                  <img
-                    src={item.userAvatar || DEFAULT_AVATAR}
-                    alt={item.userName}
-                    className="w-9 h-9 rounded-full object-cover border border-border/70"
-                  />
+                  <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-muted/30">
+                    {reactionsProfileLoadingId === item.userId ? (
+                      <LoadingGif size="sm" />
+                    ) : (
+                      <img
+                        src={item.userAvatar || DEFAULT_AVATAR}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    )}
+                  </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{item.userName}</p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
+                      {item.userName}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
                       {item.department || 'Departamento não informado'}
                     </p>
                   </div>
-                  <span className="text-xl leading-none">{item.reaction}</span>
-                </div>
+                  <span className="text-xl leading-none shrink-0" aria-hidden>
+                    {item.reaction}
+                  </span>
+                </button>
               ))
             )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {isAdminPanel && (
+      {canCreateStatements && (
         <Dialog
           open={isCreateOpen}
           onOpenChange={(open) => {
@@ -968,6 +1004,16 @@ export default function ComunicadosPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      <ProfileCardInfoPopup
+        open={reactionsProfilePopupOpen}
+        onOpenChange={(open) => {
+          setReactionsProfilePopupOpen(open);
+          if (!open) setReactionsProfileUserData(null);
+        }}
+        userData={reactionsProfileUserData}
+        currentUser={user}
+      />
     </div>
   );
 }

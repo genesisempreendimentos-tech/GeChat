@@ -35,7 +35,6 @@ import AccessDeniedPage from '@/pages/AccessDeniedPage';
 import DashboardPage from '@/pages/DashboardPage';
 import SystemsPage from '@/pages/SystemsPage';
 import FavoritesPage from '@/pages/FavoritesPage';
-import UsersPage from '@/pages/UsersPage';
 import ProfilePage from '@/pages/ProfilePage';
 import SettingsPage from '@/pages/SettingsPage';
 import ChatPage from '@/pages/ChatPage';
@@ -48,7 +47,6 @@ import ComunicadosPage from '@/pages/ComunicadosPage';
 import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
 import AdminSystemsPage from '@/admin/pages/AdminSystemsPage';
 import AdminMembersPage from '@/admin/pages/AdminMembersPage';
-import AdminAdministratorsPage from '@/admin/pages/AdminAdministratorsPage';
 import AdminCategoriesPage from '@/admin/pages/AdminCategoriesPage';
 import AdminReviewsPage from '@/admin/pages/AdminReviewsPage';
 import AdminSolicitacoesPage from '@/admin/pages/AdminSolicitacoesPage';
@@ -144,7 +142,6 @@ function AppRoutes() {
           <Route path="/solicitacoes" element={<SolicitacoesPage />} />
           <Route path="/equipes" element={<EquipesPage />} />
           <Route path="/comunicados" element={<ComunicadosPage />} />
-          <Route path="/users" element={<UsersPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
@@ -167,7 +164,7 @@ function AppRoutes() {
           <Route path="equipes" element={<AdminEquipesPage />} />
           <Route path="comunicados" element={<ComunicadosPage />} />
           <Route path="members" element={<AdminMembersPage />} />
-          <Route path="administrators" element={<AdminAdministratorsPage />} />
+          <Route path="administrators" element={<Navigate to="/admin/members" replace />} />
           <Route path="categories" element={<AdminCategoriesPage />} />
           <Route path="reviews" element={<AdminReviewsPage />} />
           <Route path="profile" element={<ProfilePage />} />

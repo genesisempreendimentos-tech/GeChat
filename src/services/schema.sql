@@ -9,7 +9,7 @@ CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
-  role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'manager', 'user')),
+  role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'creator', 'user')),
   avatar VARCHAR(500),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

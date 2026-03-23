@@ -37,7 +37,6 @@ const menuItems = [
   { icon: Megaphone, label: 'Comunicados', path: '/comunicados' },
   { icon: Users, label: 'Equipes', path: '/equipes' },
   // { icon: MessageCircle, label: 'Chat', path: '/chat' },
-  { icon: Users, label: 'Usuários', path: '/users', adminOnly: true },
 ];
 
 interface SidebarProps {
@@ -82,9 +81,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
     setSidebarWidth(isExpanded ? 280 : 80);
   }, [isExpanded, setSidebarWidth]);
 
-  const filteredMenu = menuItems.filter(
-    (item) => !item.adminOnly || userRole === 'admin' || userRole === 'gerente'
-  );
+  const filteredMenu = menuItems;
 
   return (
     <>

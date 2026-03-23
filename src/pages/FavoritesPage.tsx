@@ -66,8 +66,8 @@ export default function FavoritesPage() {
     
     try {
       setLoading(true);
-      const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
-      // Membros veem apenas apps com acesso liberado; admin/manager veem todos
+      const isAdminOrManager = user?.accessType === 'admin';
+      // Membros veem apenas apps com acesso liberado; admin veem todos
       if (isAdminOrManager) {
         const { data: systemsData, error: systemsError } = await databaseService.getSystems();
         if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
@@ -101,7 +101,7 @@ export default function FavoritesPage() {
   });
 
   const hasAccessTo = (systemId: string) =>
-    user?.role === 'admin' || user?.role === 'manager'
+    user?.accessType === 'admin'
       ? true
       : userAccesses.some((a: any) => a.system_id === systemId && a.can_access);
 

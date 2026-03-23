@@ -14,7 +14,6 @@ import {
   Boxes,
   Star,
   MessageCircle,
-  Users,
   UserCircle,
   Settings,
   ExternalLink,
@@ -110,13 +109,7 @@ export function CommandPalette() {
             <MessageCircle className="mr-2 h-4 w-4" />
             <span>Chat</span>
           </CommandItem>
-          {user?.role === "admin" || user?.role === "manager" ? (
-            <CommandItem onSelect={() => runCommand(() => navigate("/users"))}>
-              <Users className="mr-2 h-4 w-4" />
-              <span>Usuários</span>
-            </CommandItem>
-          ) : null}
-          {!isAdminPath && ['softadmin', 'appsadmin'].includes(String(user?.accessType ?? "").toLowerCase().trim()) ? (
+          {!isAdminPath && user?.accessType === "admin" ? (
             <CommandItem onSelect={() => runCommand(() => navigate("/admin/home"))}>
               <Shield className="mr-2 h-4 w-4" />
               <span>Painel Admin</span>

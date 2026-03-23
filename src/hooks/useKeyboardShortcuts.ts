@@ -43,8 +43,8 @@ export function useKeyboardShortcuts() {
     {
       key: "u",
       altKey: true,
-      action: () => navigate("/users"),
-      description: "Ir para Usuários",
+      action: () => navigate("/admin/members"),
+      description: "Ir para Membros (painel admin)",
     },
     {
       key: "p",

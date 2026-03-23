@@ -63,7 +63,7 @@ export default function MainLayout() {
           width: '100%',
         }}
       >
-        <Sidebar userRole={user?.role} />
+        <Sidebar userRole={user?.accessType} />
         <MainContent />
       </div>
     </SidebarProvider>

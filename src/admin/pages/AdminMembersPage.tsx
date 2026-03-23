@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserKey, Search, ShieldCheck, Check, X, Loader2, Boxes, ChevronDown } from 'lucide-react';
+import { UserKey, Search, ShieldCheck, Check, Loader2, Boxes, UserPen, UserStar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,8 @@ import { getAllCollaboratorsNeonMeta, type CollaboratorNeonMeta } from '@/servic
 import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
 import * as Icons from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
 interface SystemAccess {
   id: string;
@@ -33,10 +35,9 @@ function emailNeonKey(email: string | undefined): string {
   return (email ?? '').toLowerCase().trim();
 }
 
-function memberAccessLabel(member: User): 'Admin' | 'User' {
-  const at = (member.accessType ?? '').toLowerCase();
-  if (at === 'softadmin' || at === 'appsadmin') return 'Admin';
-  if (member.role === 'admin') return 'Admin';
+function memberAccessLabel(member: User): 'Admin' | 'Creator' | 'User' {
+  if (member.accessType === 'admin') return 'Admin';
+  if (member.accessType === 'creator') return 'Creator';
   return 'User';
 }
 
@@ -66,21 +67,28 @@ export default function AdminMembersPage() {
   const [savingAccess, setSavingAccess] = useState(false);
   const [accessSearch, setAccessSearch] = useState('');
   const [accessFilter, setAccessFilter] = useState<'all' | 'granted' | 'denied'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'user' | 'creator' | 'admin'>('all');
+
+  const [manageUsersOpen, setManageUsersOpen] = useState(false);
+  const [promoteTab, setPromoteTab] = useState<'creators' | 'admin'>('creators');
+  const [promotionSelection, setPromotionSelection] = useState<Record<string, boolean>>({});
+  const [promotionSaving, setPromotionSaving] = useState(false);
+
+  const loadMembers = useCallback(async () => {
+    setLoading(true);
+    const [usersRes, neonData] = await Promise.all([
+      databaseService.getUsers(),
+      getAllCollaboratorsNeonMeta(),
+    ]);
+    if (usersRes.error) console.error(usersRes.error);
+    setMembers((usersRes.data ?? []) as User[]);
+    setNeonMeta(neonData);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const [usersRes, neonData] = await Promise.all([
-        databaseService.getUsers(),
-        getAllCollaboratorsNeonMeta(),
-      ]);
-      if (usersRes.error) console.error(usersRes.error);
-      setMembers((usersRes.data ?? []) as User[]);
-      setNeonMeta(neonData);
-      setLoading(false);
-    };
-    load();
-  }, []);
+    loadMembers();
+  }, [loadMembers]);
 
   const handleOpenProfile = async (memberId: string) => {
     setLoadingProfile(memberId);
@@ -186,6 +194,51 @@ export default function AdminMembersPage() {
       (neon?.setor ?? '').toLowerCase().includes(q)
     );
   });
+  const filteredByType = filtered.filter((m) => typeFilter === 'all' || m.accessType === typeFilter);
+
+  const promotionCandidates = members.filter((m) =>
+    promoteTab === 'creators'
+      ? m.accessType === 'user'
+      : m.accessType === 'user' || m.accessType === 'creator'
+  );
+
+  const selectedPromotionIds = Object.entries(promotionSelection)
+    .filter(([, selected]) => selected)
+    .map(([id]) => id);
+
+  const togglePromotionSelection = (userId: string) => {
+    setPromotionSelection((prev) => ({ ...prev, [userId]: !prev[userId] }));
+  };
+
+  const handleCloseManageUsers = (open: boolean) => {
+    setManageUsersOpen(open);
+    if (!open) {
+      setPromotionSelection({});
+      setPromoteTab('creators');
+      setPromotionSaving(false);
+    }
+  };
+
+  const handleConfirmPromotions = async () => {
+    if (selectedPromotionIds.length === 0) return;
+    const nextRole = promoteTab === 'creators' ? 'creator' : 'admin';
+    setPromotionSaving(true);
+    try {
+      const results = await Promise.all(
+        selectedPromotionIds.map((id) => databaseService.updateUser(id, { accessType: nextRole }))
+      );
+      const errors = results.filter((r) => r.error);
+      if (errors.length > 0) {
+        toast.error(`Falha ao promover ${errors.length} usuário(s).`);
+      } else {
+        toast.success(`Usuários promovidos para ${nextRole === 'creator' ? 'creator' : 'admin'}.`);
+      }
+      await loadMembers();
+      handleCloseManageUsers(false);
+    } finally {
+      setPromotionSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -193,6 +246,7 @@ export default function AdminMembersPage() {
         icon={UserKey}
         title="Usuários"
         description="Usuários que criaram conta no GeApps. Exibindo dados cadastrais disponíveis."
+        action={<Button onClick={() => setManageUsersOpen(true)}>Gerenciar usuários</Button>}
       />
 
       <AdminControlLine
@@ -212,17 +266,35 @@ export default function AdminMembersPage() {
         showViewToggle
       />
 
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-card/40 p-2">
+        <Button variant={typeFilter === 'all' ? 'default' : 'ghost'} size="sm" onClick={() => setTypeFilter('all')}>
+          Todos
+        </Button>
+        <Button variant={typeFilter === 'user' ? 'default' : 'ghost'} size="sm" onClick={() => setTypeFilter('user')}>
+          <UserKey className="w-4 h-4 mr-1.5" />
+          Users
+        </Button>
+        <Button variant={typeFilter === 'creator' ? 'default' : 'ghost'} size="sm" onClick={() => setTypeFilter('creator')}>
+          <UserPen className="w-4 h-4 mr-1.5" />
+          Creators
+        </Button>
+        <Button variant={typeFilter === 'admin' ? 'default' : 'ghost'} size="sm" onClick={() => setTypeFilter('admin')}>
+          <UserStar className="w-4 h-4 mr-1.5" />
+          Admins
+        </Button>
+      </div>
+
       <AdminBigBox>
         {loading ? (
           <LoadingGifScreen className="h-64" />
-        ) : filtered.length === 0 ? (
+        ) : filteredByType.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground">
             <UserKey className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p>Nenhum membro encontrado.</p>
           </div>
         ) : viewMode === 'cards' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map((member, index) => {
+            {filteredByType.map((member, index) => {
               const neon = neonMeta[emailNeonKey(member.email)];
               return (
               <motion.div
@@ -315,7 +387,7 @@ export default function AdminMembersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((member) => {
+                {filteredByType.map((member) => {
                   const neon = neonMeta[emailNeonKey(member.email)];
                   return (
                   <tr
@@ -373,6 +445,67 @@ export default function AdminMembersPage() {
         )}
       </AdminBigBox>
 
+      <Dialog open={manageUsersOpen} onOpenChange={handleCloseManageUsers}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Gerenciar usuários</DialogTitle>
+            <DialogDescription>Promova usuários para creators ou admins.</DialogDescription>
+          </DialogHeader>
+
+          <Tabs
+            value={promoteTab}
+            onValueChange={(v) => {
+              setPromoteTab(v as 'creators' | 'admin');
+              setPromotionSelection({});
+            }}
+            className="flex-1 min-h-0 flex flex-col"
+          >
+            <TabsList className="w-fit">
+              <TabsTrigger value="creators">Creators</TabsTrigger>
+              <TabsTrigger value="admin">Admin</TabsTrigger>
+            </TabsList>
+
+            <div className="mt-4 flex-1 overflow-y-auto rounded-xl border border-border/60 p-3 space-y-2">
+              {promotionCandidates.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">Nenhum usuário elegível nesta aba.</p>
+              ) : (
+                promotionCandidates.map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    onClick={() => togglePromotionSelection(candidate.id)}
+                    className={cn(
+                      'w-full rounded-lg border px-3 py-2 text-left flex items-center justify-between transition-colors',
+                      promotionSelection[candidate.id]
+                        ? 'border-primary/40 bg-primary/5'
+                        : 'border-border hover:bg-muted/30'
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{candidate.name || '—'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{candidate.email || '—'}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{memberAccessLabel(candidate)}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </Tabs>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
+            <Button variant="outline" onClick={() => handleCloseManageUsers(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmPromotions}
+              disabled={promotionSaving || selectedPromotionIds.length === 0}
+            >
+              {promotionSaving ? 'Confirmando...' : 'Confirmar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal: Gerenciar Acessos em Massa */}
       <Dialog open={!!accessModal} onOpenChange={(o) => { if (!o) setAccessModal(null); }}>
         <DialogContent className="sm:max-w-lg rounded-3xl border border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
@@ -390,7 +523,7 @@ export default function AdminMembersPage() {
                   <div>
                     <DialogTitle className="text-xl font-semibold tracking-tight">{accessModal?.member.name || '—'}</DialogTitle>
                     <DialogDescription className="text-sm mt-1">
-                      Gerencie os sistemas que este membro pode acessar
+                      Gerencie os aplicativos que este membro pode acessar
                     </DialogDescription>
                   </div>
                 </div>

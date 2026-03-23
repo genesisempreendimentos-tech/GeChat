@@ -1,7 +1,7 @@
 // User types
 import type { SidebarMode } from '@/lib/sidebarMode';
 
-export type UserRole = 'admin' | 'manager' | 'user';
+export type UserRole = 'admin' | 'creator' | 'user';
 
 export type { SidebarMode };
 

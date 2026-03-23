@@ -63,7 +63,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         id: userData.id,
         name: userData.name,
         email: userData.email,
-        role: (userData.role as UserRole) || 'user',
+        role: (userData.accessType as UserRole) || 'user',
         avatar: userData.avatar,
         createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
         accessType: userData.accessType,
@@ -75,8 +75,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         role: user.role,
         roleType: typeof user.role,
         roleLength: user.role?.length,
-        isAdmin: user.role === 'admin',
-        isManager: user.role === 'manager',
+        isAdmin: user.accessType === 'admin',
+        isCreator: user.accessType === 'creator',
         roleRaw: JSON.stringify(user.role)
       });
       set({ user, isAuthenticated: true });
@@ -132,7 +132,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         id: userData.id,
         name: userData.name,
         email: userData.email,
-        role: (userData.role as UserRole) || 'user',
+        role: (userData.accessType as UserRole) || 'user',
         avatar: userData.avatar,
         createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
         accessType: userData.accessType,

@@ -18,8 +18,7 @@ const routeNames: Record<string, string> = {
   favorites: "Favoritos",
   solicitacoes: "Solicitações",
   equipes: "Equipes",
-  members: "Usuários",
-  users: "Usuários",
+  members: "Membros",
   profile: "Perfil",
   settings: "Configurações",
 }

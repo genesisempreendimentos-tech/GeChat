@@ -45,13 +45,14 @@ const TYPE_LABELS: Record<RequestChannelType, string> = {
   setor: 'Setor',
 };
 
-function isAppsAdmin(accessType: string | undefined) {
-  return String(accessType ?? '').toLowerCase().trim() === 'appsadmin';
+/** Apenas perfil `admin` em `profiles.access_type` pode criar canais de solicitação. */
+function canCreateRequestChannels(accessType: string | undefined) {
+  return String(accessType ?? '').toLowerCase().trim() === 'admin';
 }
 
 export default function AdminSolicitacoesPage() {
   const user = useAuthStore((s) => s.user);
-  const canCreate = isAppsAdmin(user?.accessType);
+  const canCreate = canCreateRequestChannels(user?.accessType);
 
   const [channels, setChannels] = useState<RequestChannel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,7 +167,7 @@ export default function AdminSolicitacoesPage() {
           canCreate ? (
             <Button onClick={openCreate}>
               <Plus className="w-4 h-4 mr-2" />
-              Criar canal de solicitação
+              Adicionar equipes
             </Button>
           ) : undefined
         }
@@ -218,8 +219,9 @@ export default function AdminSolicitacoesPage() {
             <p>Nenhum canal encontrado.</p>
             {channels.length === 0 && (
               <p className="text-xs mt-2 max-w-md mx-auto">
-                Quando a tabela for criada no Supabase, os canais aparecerão aqui. Appsadmins podem cadastrar novos
-                canais.
+                Quando a tabela for criada no Supabase, os canais aparecerão aqui. Administradores podem{' '}
+                <strong className="text-foreground">Adicionar equipes</strong> para vincular departamentos do GêTeams ao
+                link do GêForms.
               </p>
             )}
           </div>
@@ -377,10 +379,11 @@ export default function AdminSolicitacoesPage() {
                 </div>
                 <div className="space-y-1 pt-0.5 min-w-0">
                   <DialogTitle className="text-xl font-semibold tracking-tight">
-                    Novo canal de solicitação
+                    Adicionar equipe ao canal de solicitações
                   </DialogTitle>
                   <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-                    Escolha o departamento no GêTeams e informe o link do formulário. Nome, ícone e descrição vêm do cadastro.
+                    Selecione um departamento existente no Neon (GêTeams) e informe o link do formulário no GêForms. Nome,
+                    ícone e descrição vêm do cadastro.
                   </DialogDescription>
                 </div>
               </div>
@@ -540,7 +543,7 @@ export default function AdminSolicitacoesPage() {
             </Button>
             <Button className="flex-1 rounded-xl h-11 shadow-md shadow-primary/10" onClick={handleCreate} disabled={formLoading}>
               {formLoading ? <LoadingGif size="sm" className="mr-2" /> : <Plus className="w-4 h-4 mr-2 opacity-90" />}
-              Criar canal
+              Criar canal de solicitação
             </Button>
           </div>
         </DialogContent>

@@ -18,8 +18,8 @@ interface NavItem {
   label: string
   path: string
   roles?: string[]
-  /** Mostrar apenas quando accessType === 'softadmin' ou 'appsadmin' */
-  showWhenSoftadmin?: boolean
+  /** Mostrar apenas quando role === 'admin' */
+  showWhenAdmin?: boolean
 }
 
 export function BottomNavigation() {
@@ -54,16 +54,10 @@ export function BottomNavigation() {
     //   path: "/chat",
     // },
     {
-      icon: Users,
-      label: "Usuários",
-      path: "/users",
-      roles: ["admin", "manager"],
-    },
-    {
       icon: Shield,
       label: "Admin",
       path: "/admin/home",
-      showWhenSoftadmin: true,
+      showWhenAdmin: true,
     },
     {
       icon: Settings,
@@ -72,7 +66,7 @@ export function BottomNavigation() {
     },
   ]
 
-  const hasAdminAccess = ['softadmin', 'appsadmin'].includes(String(user?.accessType ?? "").toLowerCase().trim())
+  const hasAdminAccess = user?.accessType === "admin"
   const isAdminPath = location.pathname.startsWith("/admin")
 
   /** Em < md o sidebar admin fica oculto; estes itens espelham o menu admin (incl. Solicitações). */
@@ -81,15 +75,16 @@ export function BottomNavigation() {
     { icon: Boxes, label: "Apps", path: "/admin/systems" },
     { icon: Star, label: "Favoritos", path: "/favorites" },
     { icon: Send, label: "Solicitações", path: "/admin/solicitacoes" },
+    { icon: Users, label: "Membros", path: "/admin/members" },
     { icon: Settings, label: "Config", path: "/settings" },
   ]
 
   const filteredNavItems = isAdminPath
     ? adminMobileNavItems
     : navItems.filter((item) => {
-        if (item.showWhenSoftadmin) return hasAdminAccess
+        if (item.showWhenAdmin) return hasAdminAccess
         if (!item.roles) return true
-        return item.roles.includes(user?.role || "")
+        return item.roles.includes(user?.accessType || "")
       })
 
   const isNavItemActive = (path: string) => {

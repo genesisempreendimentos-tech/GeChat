@@ -101,10 +101,9 @@ export default function SystemsPage() {
   });
   const [formError, setFormError] = useState('');
 
-  const role = (currentUser?.role ?? '').toString().toLowerCase();
+  const role = (currentUser?.accessType ?? '').toString().toLowerCase();
   const isAdmin = role === 'admin';
-  const isManager = role === 'manager';
-  const isAdminOrManager = isAdmin || isManager;
+  const isAdminOrManager = isAdmin;
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -117,8 +116,8 @@ export default function SystemsPage() {
     
     setLoading(true);
 
-    const userIsAdminOrManager = currentUser.role === 'admin' || currentUser.role === 'manager';
-    // Membros veem apenas apps ativo/beta com acesso liberado; admin/manager veem todos para gerenciar
+    const userIsAdminOrManager = currentUser.accessType === 'admin';
+    // Membros veem apenas apps ativo/beta com acesso liberado; admin veem todos para gerenciar
     if (userIsAdminOrManager) {
       const { data: systemsData } = await databaseService.getSystems();
       if (systemsData) setSystems(systemsData as System[]);
@@ -289,10 +288,8 @@ export default function SystemsPage() {
   };
 
   const canModifyUserPermissions = (userRole: string) => {
-    // Gerente pode modificar permissões de qualquer um
-    if (isManager) return true;
-    // Admin pode modificar apenas permissões de usuários comuns (não admin ou gerente)
-    if (isAdmin && userRole !== 'admin' && userRole !== 'manager') return true;
+    // Admin pode modificar apenas permissões de usuários comuns (não admin).
+    if (isAdmin && userRole !== 'admin') return true;
     return false;
   };
 
@@ -372,7 +369,7 @@ export default function SystemsPage() {
     }
   }, [selectedCategory, categoriesForDropdown]);
 
-  // Lista exibida: sistemas já restritos por acesso (membros) ou todos (admin/manager), filtrados por busca e categoria
+  // Lista exibida: sistemas já restritos por acesso (membros) ou todos (admin), filtrados por busca e categoria
   const STATUS_ORDER: Record<string, number> = {
     ativo: 0, beta: 1, rascunho: 2, arquivado: 3, excluído: 4, excluido: 4,
   };
@@ -421,8 +418,6 @@ export default function SystemsPage() {
           <p className="text-muted-foreground mt-2">
             {isAdmin 
               ? 'Gerencie aplicativos, permissões e crie novos aplicativos (apenas Admin)' 
-              : isManager
-              ? 'Gerencie permissões de acesso aos aplicativos'
               : 'Acesse seus aplicativos corporativos'}
           </p>
         </div>
@@ -840,7 +835,7 @@ export default function SystemsPage() {
                   const access = getUserAccess(user.id, selectedSystem?.id || '');
                   const hasPermission = access?.can_access || false;
                   const canModify = canModifyUserPermissions(user.role);
-                  const isUserAdminOrManager = user.role === 'admin' || user.role === 'manager';
+                  const isUserAdminOrManager = user.role === 'admin';
 
                   return (
                     <div
@@ -856,9 +851,9 @@ export default function SystemsPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-sm">{user.name}</p>
-                            {user.role === 'manager' && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 font-medium">
-                                Gerente
+                            {user.role === 'creator' && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 font-medium">
+                                Creator
                               </span>
                             )}
                             {user.role === 'admin' && (

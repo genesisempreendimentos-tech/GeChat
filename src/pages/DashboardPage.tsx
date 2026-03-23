@@ -74,7 +74,7 @@ export default function DashboardPage() {
 
     try {
       setLoading(true);
-      const isAdminOrManager = user.role === 'admin' || user.role === 'manager';
+      const isAdminOrManager = user.accessType === 'admin';
       if (isAdminOrManager) {
         const { data: systemsData, error: systemsError } = await databaseService.getSystems();
         if (systemsError) console.error('Erro ao carregar aplicativos:', systemsError);
