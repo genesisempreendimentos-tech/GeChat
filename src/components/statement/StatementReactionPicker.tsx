@@ -19,7 +19,7 @@ export default function StatementReactionPicker({
   reactions = DEFAULT_REACTIONS,
 }: StatementReactionPickerProps) {
   return (
-    <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
+    <div className={cn('flex flex-wrap items-center gap-2.5', className)}>
       {reactions.map((emoji) => {
         const isActive = currentReaction === emoji;
         return (
