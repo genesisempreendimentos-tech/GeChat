@@ -191,13 +191,14 @@ export function TeamsEnrichedView({
             initial={{ opacity: 0, y: isUserCards ? 20 : 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * (isUserCards ? 0.05 : 0.03) }}
+            whileHover={{ y: isAdminCards ? -8 : -4, transition: { duration: 0.2, ease: [0.4, 0, 0.2, 1] } }}
             className="group relative"
           >
             {isAdminCards ? (
               <>
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
                 <div
-                  className="relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-2"
+                  className="relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5"
                   style={
                     team.color && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(team.color)
                       ? { borderLeftWidth: 4, borderLeftColor: team.color }
@@ -272,7 +273,7 @@ export function TeamsEnrichedView({
               <>
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
                 <div
-                  className="relative h-full flex flex-col p-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-1"
+                  className="relative h-full flex flex-col p-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5"
                   style={
                     team.color && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(team.color)
                       ? { borderLeftWidth: 4, borderLeftColor: team.color }

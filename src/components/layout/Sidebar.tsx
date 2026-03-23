@@ -14,7 +14,7 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { databaseService } from '@/services/supabase';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
@@ -52,6 +52,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
   const isInAdmin = location.pathname.startsWith('/admin');
   const layoutMode = useSidebarLayoutStore((s) => s.mode);
   const [isHovered, setIsHovered] = useState(false);
+  const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [favoriteSystems, setFavoriteSystems] = useState<{ id: string; name: string; url: string }[]>([]);
 
   useEffect(() => {
@@ -91,11 +92,17 @@ export default function Sidebar({ userRole }: SidebarProps) {
         transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
         onMouseEnter={() => {
           if (layoutMode !== 'hover') return;
+          if (hoverCloseTimer.current) {
+            clearTimeout(hoverCloseTimer.current);
+            hoverCloseTimer.current = null;
+          }
           setIsHovered(true);
         }}
         onMouseLeave={() => {
           if (layoutMode !== 'hover') return;
-          setIsHovered(false);
+          hoverCloseTimer.current = setTimeout(() => {
+            setIsHovered(false);
+          }, 1000);
         }}
         className="hidden md:flex fixed left-0 top-0 bottom-0 bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
         role="navigation"
