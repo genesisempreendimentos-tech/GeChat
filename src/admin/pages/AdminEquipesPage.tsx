@@ -54,6 +54,43 @@ const TOPIC_DEPARTMENTS: EquipesTopicTab = 'departments';
 const TOPIC_SECTORS: EquipesTopicTab = 'sectors';
 const TOPIC_COLLABORATORS: EquipesTopicTab = 'collaborators';
 
+/** Curvas e spring compartilhados — troca de painel mais orgânica (sem “corte seco”). */
+const EASE_MODAL: [number, number, number, number] = [0.2, 0.85, 0.35, 1];
+const EASE_MODAL_OUT: [number, number, number, number] = [0.45, 0, 0.55, 1];
+
+const MODAL_FILTER_SPRING = { type: 'spring' as const, stiffness: 420, damping: 32, mass: 0.72 };
+
+const MODAL_PANEL_INITIAL = { opacity: 0, y: 18, scale: 0.96 };
+const MODAL_PANEL_ANIMATE = { opacity: 1, y: 0, scale: 1 };
+const MODAL_PANEL_TRANSITION = {
+  opacity: { duration: 0.4, ease: EASE_MODAL },
+  y: { type: 'spring' as const, stiffness: 280, damping: 22, mass: 0.78 },
+  scale: { type: 'spring' as const, stiffness: 380, damping: 28 },
+};
+const MODAL_PANEL_EXIT = {
+  opacity: 0,
+  y: -10,
+  scale: 0.98,
+  transition: { duration: 0.26, ease: EASE_MODAL_OUT },
+};
+
+const MODAL_LIST_STAGGER_CONTAINER = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.04, delayChildren: 0.09 } },
+};
+
+const MODAL_LIST_STAGGER_ITEM = {
+  hidden: { opacity: 0, y: 14 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      opacity: { duration: 0.34, ease: EASE_MODAL },
+      y: { type: 'spring' as const, stiffness: 300, damping: 24, mass: 0.72 },
+    },
+  },
+};
+
 function buildDisplayRows(
   teams: Team[],
   deptById: Map<string, NeonDepartment>,
@@ -107,6 +144,8 @@ export default function AdminEquipesPage() {
   const [deptModalSaving, setDeptModalSaving] = useState(false);
   const [deptSystemSearch, setDeptSystemSearch] = useState('');
   const [deptSystemFilter, setDeptSystemFilter] = useState<'all' | 'granted' | 'denied'>('all');
+  /** No modal de dept: sistemas (padrão) ou lista de colaboradores do departamento */
+  const [deptModalPanel, setDeptModalPanel] = useState<'systems' | 'collaborators'>('systems');
 
   // Modal de setor — acesso a sistemas (apenas colaboradores daquele setor)
   const [sectorModalRow, setSectorModalRow] = useState<SectorTopicRow | null>(null);
@@ -118,6 +157,7 @@ export default function AdminEquipesPage() {
   const [sectorModalSaving, setSectorModalSaving] = useState(false);
   const [sectorSystemSearch, setSectorSystemSearch] = useState('');
   const [sectorSystemFilter, setSectorSystemFilter] = useState<'all' | 'granted' | 'denied'>('all');
+  const [sectorModalPanel, setSectorModalPanel] = useState<'systems' | 'collaborators'>('systems');
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [modalDepartments, setModalDepartments] = useState<NeonDepartment[]>([]);
@@ -343,6 +383,7 @@ export default function AdminEquipesPage() {
     setDeptModalRow(row);
     setDeptSystemSearch('');
     setDeptSystemFilter('all');
+    setDeptModalPanel('systems');
     setDeptModalLoading(true);
 
     // Busca todos os sistemas e verifica quais os colaboradores do dept têm acesso
@@ -416,6 +457,7 @@ export default function AdminEquipesPage() {
       setSectorModalRow(sector);
       setSectorSystemSearch('');
       setSectorSystemFilter('all');
+      setSectorModalPanel('systems');
       setSectorModalLoading(true);
 
       const { data: allSystems } = await databaseService.getSystems();
@@ -496,6 +538,24 @@ export default function AdminEquipesPage() {
         email: collab.email,
         avatar_url: collab.avatar,
         profession: collab.sectorName || collab.departmentName,
+      });
+      setProfilePopupOpen(true);
+    }
+  }, []);
+
+  const openProfileFromPreview = useCallback(async (c: TeamCollaboratorPreview) => {
+    setLoadingCollaboratorId(c.id);
+    const { data } = await databaseService.getRawProfileByEmail(c.email);
+    setLoadingCollaboratorId(null);
+    if (data) {
+      setSelectedProfileData(data);
+      setProfilePopupOpen(true);
+    } else {
+      setSelectedProfileData({
+        full_name: c.name,
+        email: c.email,
+        avatar_url: c.avatar,
+        profession: '',
       });
       setProfilePopupOpen(true);
     }
@@ -730,7 +790,15 @@ export default function AdminEquipesPage() {
       </Dialog>
 
       {/* Modal: Acesso a sistemas por departamento */}
-      <Dialog open={!!deptModalRow} onOpenChange={(o) => { if (!o) setDeptModalRow(null); }}>
+      <Dialog
+        open={!!deptModalRow}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeptModalRow(null);
+            setDeptModalPanel('systems');
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-lg rounded-3xl border border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
           {/* Header */}
           <div className="p-6 border-b border-border/40 bg-muted/20 shrink-0">
@@ -778,145 +846,284 @@ export default function AdminEquipesPage() {
               </div>
             </DialogHeader>
 
-            {/* Busca + filtro */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 mt-5">
-              <div className="relative w-full sm:flex-1 group/search">
+            {/* Busca + alternância sistemas/colaboradores + filtro de sistemas */}
+            <div className="flex flex-col gap-3 mt-5">
+              <div className="relative w-full group/search">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 group-focus-within/search:text-primary transition-colors duration-200" />
                 <Input
-                  placeholder="Buscar sistema..."
+                  placeholder={deptModalPanel === 'systems' ? 'Buscar sistema…' : 'Buscar colaborador…'}
                   className="pl-9 h-10 rounded-xl bg-background/50 border-border/60 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 w-full"
                   value={deptSystemSearch}
                   onChange={(e) => setDeptSystemSearch(e.target.value)}
                 />
               </div>
-              <div className="flex gap-1 w-full sm:w-auto p-1 rounded-xl bg-muted/40 border border-border/40 shrink-0">
-                {(['all', 'granted', 'denied'] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setDeptSystemFilter(f)}
-                    className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
-                      deptSystemFilter === f
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                    }`}
-                  >
-                    {f === 'all' ? 'Todos' : f === 'granted' ? 'Liberados' : 'Bloqueados'}
-                  </button>
-                ))}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
+                <div className="flex gap-1 w-full sm:w-auto p-1 rounded-xl bg-muted/40 border border-border/40 shrink-0">
+                  {(['systems', 'collaborators'] as const).map((panel) => (
+                    <button
+                      key={panel}
+                      type="button"
+                      onClick={() => setDeptModalPanel(panel)}
+                      className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
+                        deptModalPanel === panel
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                      }`}
+                    >
+                      {panel === 'systems' ? 'Sistemas' : 'Colaboradores'}
+                    </button>
+                  ))}
+                </div>
+                <AnimatePresence initial={false}>
+                  {deptModalPanel === 'systems' && (
+                    <motion.div
+                      key="dept-sys-filters"
+                      initial={{ opacity: 0, x: -12, scale: 0.97 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: -8, scale: 0.98, transition: { duration: 0.2, ease: EASE_MODAL_OUT } }}
+                      transition={MODAL_FILTER_SPRING}
+                      className="flex gap-1 w-full sm:w-auto p-1 rounded-xl bg-muted/40 border border-border/40 shrink-0"
+                    >
+                      {(['all', 'granted', 'denied'] as const).map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setDeptSystemFilter(f)}
+                          className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
+                            deptSystemFilter === f
+                              ? 'bg-background text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                          }`}
+                        >
+                          {f === 'all' ? 'Todos' : f === 'granted' ? 'Liberados' : 'Bloqueados'}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
 
-          {/* Lista de sistemas */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-2.5 min-h-0 bg-background/50">
-            {deptModalLoading ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
-                <span className="text-sm text-muted-foreground animate-pulse">Carregando sistemas...</span>
-              </div>
-            ) : (() => {
-              const q = deptSystemSearch.trim().toLowerCase();
-              const filtered = deptModalSystems.filter((s) => {
-                const matchSearch = !q || s.name.toLowerCase().includes(q);
-                const matchFilter =
-                  deptSystemFilter === 'all' ||
-                  (deptSystemFilter === 'granted' && s.canAccess) ||
-                  (deptSystemFilter === 'denied' && !s.canAccess);
-                return matchSearch && matchFilter;
-              });
-              if (filtered.length === 0) {
-                return (
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
-                      <Search className="w-5 h-5 text-muted-foreground/50" />
-                    </div>
-                    <p className="text-sm text-muted-foreground font-medium">Nenhum sistema encontrado.</p>
-                  </div>
-                );
-              }
-              return (
-                <AnimatePresence initial={false}>
-                  {filtered.map((sys) => (
-                    <motion.button
-                      key={sys.id}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      onClick={() =>
-                        setDeptModalSystems((prev) =>
-                          prev.map((s) => s.id === sys.id ? { ...s, canAccess: !s.canAccess } : s)
-                        )
-                      }
-                      className={`w-full flex items-center gap-4 p-3 rounded-2xl border transition-all duration-300 text-left group/item relative overflow-hidden ${
-                        sys.canAccess
-                          ? 'bg-primary/5 border-primary/20 shadow-sm hover:bg-primary/10 hover:border-primary/30 hover:shadow-md'
-                          : 'bg-muted/10 border-border/40 hover:bg-muted/30 hover:border-border/60 hover:shadow-sm'
-                      }`}
-                    >
-                      {sys.canAccess && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500" />
-                      )}
-                      {/* Ícone do sistema */}
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300 relative z-10 overflow-hidden border ${
-                        sys.canAccess
-                          ? 'bg-primary/15 text-primary border-primary/20'
-                          : 'bg-muted/50 text-muted-foreground border-border/50'
-                      }`}>
-                        {renderSystemIcon(sys.icon, 'w-6 h-6 object-contain')}
-                      </div>
-                      {/* Info */}
-                      <div className="flex-1 min-w-0 relative z-10">
-                        <p className={`text-sm font-semibold truncate transition-colors duration-300 ${
-                          sys.canAccess ? 'text-foreground' : 'text-muted-foreground group-hover/item:text-foreground/80'
-                        }`}>
-                          {sys.name}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-md border font-medium ${
-                            sys.canAccess
-                              ? 'bg-primary/10 border-primary/20 text-primary'
-                              : 'bg-muted/50 border-border/40 text-muted-foreground'
-                          }`}>
-                            {sys.canAccess ? 'Liberado' : 'Bloqueado'}
-                          </span>
-                          {sys.canAccess !== sys.original && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-yellow-500/15 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400 font-bold uppercase tracking-wider animate-in fade-in zoom-in duration-300">
-                              alterado
-                            </span>
-                          )}
+          {/* Lista: crossfade suave (sync) + spring no painel; stagger nos itens */}
+          <div className="flex-1 overflow-y-auto p-6 min-h-0 bg-background/50">
+            <AnimatePresence mode="sync" initial={false}>
+              <motion.div
+                key={
+                  deptModalPanel === 'collaborators'
+                    ? 'dept-collab'
+                    : deptModalLoading
+                      ? 'dept-load'
+                      : 'dept-sys'
+                }
+                initial={MODAL_PANEL_INITIAL}
+                animate={MODAL_PANEL_ANIMATE}
+                exit={MODAL_PANEL_EXIT}
+                transition={MODAL_PANEL_TRANSITION}
+                className="space-y-2.5"
+              >
+                {deptModalPanel === 'collaborators' ? (() => {
+                  const q = deptSystemSearch.trim().toLowerCase();
+                  const collabs = deptModalRow?.collaborators ?? [];
+                  const filtered = collabs.filter(
+                    (c) =>
+                      !q ||
+                      c.name.toLowerCase().includes(q) ||
+                      c.email.toLowerCase().includes(q),
+                  );
+                  if (filtered.length === 0) {
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, ease: EASE_MODAL, delay: 0.06 }}
+                        className="flex flex-col items-center justify-center py-16 gap-3"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
+                          <Users className="w-5 h-5 text-muted-foreground/50" />
                         </div>
-                      </div>
-                      {/* Toggle */}
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 relative z-10 border-2 ${
-                        sys.canAccess
-                          ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20 scale-110'
-                          : 'bg-transparent border-muted-foreground/30 text-transparent group-hover/item:border-muted-foreground/50 scale-100'
-                      }`}>
-                        <Check className={`w-3.5 h-3.5 transition-transform duration-300 ${sys.canAccess ? 'scale-100' : 'scale-0'}`} strokeWidth={3} />
-                      </div>
-                    </motion.button>
-                  ))}
-                </AnimatePresence>
-              );
-            })()}
+                        <p className="text-sm text-muted-foreground font-medium text-center px-4">
+                          {collabs.length === 0
+                            ? 'Nenhum colaborador vinculado a este departamento.'
+                            : 'Nenhum colaborador encontrado para a busca.'}
+                        </p>
+                      </motion.div>
+                    );
+                  }
+                  return (
+                    <motion.div
+                      className="space-y-2.5"
+                      variants={MODAL_LIST_STAGGER_CONTAINER}
+                      initial="hidden"
+                      animate="show"
+                    >
+                      {filtered.map((c) => (
+                        <motion.div key={c.id} variants={MODAL_LIST_STAGGER_ITEM}>
+                          <button
+                            type="button"
+                            onClick={() => openProfileFromPreview(c)}
+                            disabled={loadingCollaboratorId === c.id}
+                            className="w-full flex items-center gap-4 p-3 rounded-2xl border border-border/40 bg-muted/10 hover:bg-muted/25 hover:border-border/60 transition-colors duration-200 text-left"
+                          >
+                            <Avatar className="w-10 h-10 border border-border/50 shrink-0">
+                              <AvatarImage src={c.avatar} alt={c.name} />
+                              <AvatarFallback className="text-xs bg-primary/15 text-primary font-semibold">
+                                {c.name
+                                  .split(' ')
+                                  .map((n) => n[0])
+                                  .join('')
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold truncate">{c.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{c.email}</p>
+                            </div>
+                            {loadingCollaboratorId === c.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                            ) : null}
+                          </button>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  );
+                })() : deptModalLoading ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.35, ease: EASE_MODAL }}
+                    className="flex flex-col items-center justify-center py-16 gap-3"
+                  >
+                    <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+                    <span className="text-sm text-muted-foreground animate-pulse">Carregando sistemas...</span>
+                  </motion.div>
+                ) : (() => {
+                  const q = deptSystemSearch.trim().toLowerCase();
+                  const filtered = deptModalSystems.filter((s) => {
+                    const matchSearch = !q || s.name.toLowerCase().includes(q);
+                    const matchFilter =
+                      deptSystemFilter === 'all' ||
+                      (deptSystemFilter === 'granted' && s.canAccess) ||
+                      (deptSystemFilter === 'denied' && !s.canAccess);
+                    return matchSearch && matchFilter;
+                  });
+                  if (filtered.length === 0) {
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, ease: EASE_MODAL, delay: 0.06 }}
+                        className="flex flex-col items-center justify-center py-16 gap-3"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
+                          <Search className="w-5 h-5 text-muted-foreground/50" />
+                        </div>
+                        <p className="text-sm text-muted-foreground font-medium">Nenhum sistema encontrado.</p>
+                      </motion.div>
+                    );
+                  }
+                  return (
+                    <motion.div
+                      className="space-y-2.5"
+                      variants={MODAL_LIST_STAGGER_CONTAINER}
+                      initial="hidden"
+                      animate="show"
+                    >
+                      {filtered.map((sys) => (
+                        <motion.div key={sys.id} variants={MODAL_LIST_STAGGER_ITEM}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDeptModalSystems((prev) =>
+                                prev.map((s) => (s.id === sys.id ? { ...s, canAccess: !s.canAccess } : s)),
+                              )
+                            }
+                            className={`w-full flex items-center gap-4 p-3 rounded-2xl border transition-colors duration-200 text-left group/item relative overflow-hidden ${
+                              sys.canAccess
+                                ? 'bg-primary/5 border-primary/20 shadow-sm hover:bg-primary/10 hover:border-primary/30 hover:shadow-md'
+                                : 'bg-muted/10 border-border/40 hover:bg-muted/30 hover:border-border/60 hover:shadow-sm'
+                            }`}
+                          >
+                            {sys.canAccess && (
+                              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500" />
+                            )}
+                            <div
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-200 relative z-10 overflow-hidden border ${
+                                sys.canAccess
+                                  ? 'bg-primary/15 text-primary border-primary/20'
+                                  : 'bg-muted/50 text-muted-foreground border-border/50'
+                              }`}
+                            >
+                              {renderSystemIcon(sys.icon, 'w-6 h-6 object-contain')}
+                            </div>
+                            <div className="flex-1 min-w-0 relative z-10">
+                              <p
+                                className={`text-sm font-semibold truncate transition-colors duration-200 ${
+                                  sys.canAccess
+                                    ? 'text-foreground'
+                                    : 'text-muted-foreground group-hover/item:text-foreground/80'
+                                }`}
+                              >
+                                {sys.name}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span
+                                  className={`text-[10px] px-1.5 py-0.5 rounded-md border font-medium ${
+                                    sys.canAccess
+                                      ? 'bg-primary/10 border-primary/20 text-primary'
+                                      : 'bg-muted/50 border-border/40 text-muted-foreground'
+                                  }`}
+                                >
+                                  {sys.canAccess ? 'Liberado' : 'Bloqueado'}
+                                </span>
+                                {sys.canAccess !== sys.original && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-yellow-500/15 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400 font-bold uppercase tracking-wider animate-in fade-in zoom-in duration-300">
+                                    alterado
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 relative z-10 border-2 ${
+                                sys.canAccess
+                                  ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20 scale-110'
+                                  : 'bg-transparent border-muted-foreground/30 text-transparent group-hover/item:border-muted-foreground/50 scale-100'
+                              }`}
+                            >
+                              <Check
+                                className={`w-3.5 h-3.5 transition-transform duration-200 ${sys.canAccess ? 'scale-100' : 'scale-0'}`}
+                                strokeWidth={3}
+                              />
+                            </div>
+                          </button>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  );
+                })()}
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           {/* Footer */}
           <div className="p-5 border-t border-border/40 bg-muted/20 shrink-0 flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
-              {(() => {
-                const changedCount = deptModalSystems.filter((s) => s.canAccess !== s.original).length;
-                return changedCount > 0 ? (
-                  <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400 font-medium animate-in fade-in slide-in-from-bottom-2">
-                    <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                    {changedCount} alteraç{changedCount > 1 ? 'ões' : 'ão'} pendente{changedCount > 1 ? 's' : ''}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Nenhuma alteração pendente</p>
-                );
-              })()}
+              {deptModalPanel === 'collaborators' ? (
+                <p className="text-sm text-muted-foreground">Visualização de colaboradores — volte a Sistemas para editar acessos.</p>
+              ) : (
+                (() => {
+                  const changedCount = deptModalSystems.filter((s) => s.canAccess !== s.original).length;
+                  return changedCount > 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400 font-medium animate-in fade-in slide-in-from-bottom-2">
+                      <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                      {changedCount} alteraç{changedCount > 1 ? 'ões' : 'ão'} pendente{changedCount > 1 ? 's' : ''}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Nenhuma alteração pendente</p>
+                  );
+                })()
+              )}
             </div>
             <div className="flex gap-2 shrink-0">
               <Button variant="outline" className="rounded-xl h-10 px-4" onClick={() => setDeptModalRow(null)}>
@@ -924,12 +1131,18 @@ export default function AdminEquipesPage() {
               </Button>
               <Button
                 className={`rounded-xl h-10 px-5 gap-2 transition-all duration-300 ${
-                  deptModalSystems.some((s) => s.canAccess !== s.original) && !deptModalSaving
+                  deptModalPanel === 'systems' &&
+                  deptModalSystems.some((s) => s.canAccess !== s.original) &&
+                  !deptModalSaving
                     ? 'shadow-lg shadow-primary/25 hover:shadow-primary/40'
                     : ''
                 }`}
                 onClick={handleSaveDeptAccess}
-                disabled={deptModalSaving || !deptModalSystems.some((s) => s.canAccess !== s.original)}
+                disabled={
+                  deptModalPanel !== 'systems' ||
+                  deptModalSaving ||
+                  !deptModalSystems.some((s) => s.canAccess !== s.original)
+                }
               >
                 {deptModalSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
                 {deptModalSaving ? 'Salvando...' : 'Salvar alterações'}
@@ -940,7 +1153,15 @@ export default function AdminEquipesPage() {
       </Dialog>
 
       {/* Modal: Acesso a sistemas por setor (somente colaboradores deste setor) */}
-      <Dialog open={!!sectorModalRow} onOpenChange={(o) => { if (!o) setSectorModalRow(null); }}>
+      <Dialog
+        open={!!sectorModalRow}
+        onOpenChange={(o) => {
+          if (!o) {
+            setSectorModalRow(null);
+            setSectorModalPanel('systems');
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-lg rounded-3xl border border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
           <div className="p-6 border-b border-border/40 bg-muted/20 shrink-0">
             <DialogHeader>
@@ -989,157 +1210,289 @@ export default function AdminEquipesPage() {
               </div>
             </DialogHeader>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3 mt-5">
-              <div className="relative w-full sm:flex-1 group/search">
+            <div className="flex flex-col gap-3 mt-5">
+              <div className="relative w-full group/search">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 group-focus-within/search:text-primary transition-colors duration-200" />
                 <Input
-                  placeholder="Buscar sistema..."
+                  placeholder={sectorModalPanel === 'systems' ? 'Buscar sistema…' : 'Buscar colaborador…'}
                   className="pl-9 h-10 rounded-xl bg-background/50 border-border/60 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 w-full"
                   value={sectorSystemSearch}
                   onChange={(e) => setSectorSystemSearch(e.target.value)}
                 />
               </div>
-              <div className="flex gap-1 w-full sm:w-auto p-1 rounded-xl bg-muted/40 border border-border/40 shrink-0">
-                {(['all', 'granted', 'denied'] as const).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setSectorSystemFilter(f)}
-                    className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
-                      sectorSystemFilter === f
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                    }`}
-                  >
-                    {f === 'all' ? 'Todos' : f === 'granted' ? 'Liberados' : 'Bloqueados'}
-                  </button>
-                ))}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
+                <div className="flex gap-1 w-full sm:w-auto p-1 rounded-xl bg-muted/40 border border-border/40 shrink-0">
+                  {(['systems', 'collaborators'] as const).map((panel) => (
+                    <button
+                      key={panel}
+                      type="button"
+                      onClick={() => setSectorModalPanel(panel)}
+                      className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
+                        sectorModalPanel === panel
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                      }`}
+                    >
+                      {panel === 'systems' ? 'Sistemas' : 'Colaboradores'}
+                    </button>
+                  ))}
+                </div>
+                <AnimatePresence initial={false}>
+                  {sectorModalPanel === 'systems' && (
+                    <motion.div
+                      key="sector-sys-filters"
+                      initial={{ opacity: 0, x: -12, scale: 0.97 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: -8, scale: 0.98, transition: { duration: 0.2, ease: EASE_MODAL_OUT } }}
+                      transition={MODAL_FILTER_SPRING}
+                      className="flex gap-1 w-full sm:w-auto p-1 rounded-xl bg-muted/40 border border-border/40 shrink-0"
+                    >
+                      {(['all', 'granted', 'denied'] as const).map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setSectorSystemFilter(f)}
+                          className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
+                            sectorSystemFilter === f
+                              ? 'bg-background text-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                          }`}
+                        >
+                          {f === 'all' ? 'Todos' : f === 'granted' ? 'Liberados' : 'Bloqueados'}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-2.5 min-h-0 bg-background/50">
-            {sectorModalLoading ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
-                <span className="text-sm text-muted-foreground animate-pulse">Carregando sistemas...</span>
-              </div>
-            ) : (() => {
-              const q = sectorSystemSearch.trim().toLowerCase();
-              const filtered = sectorModalSystems.filter((s) => {
-                const matchSearch = !q || s.name.toLowerCase().includes(q);
-                const matchFilter =
-                  sectorSystemFilter === 'all' ||
-                  (sectorSystemFilter === 'granted' && s.canAccess) ||
-                  (sectorSystemFilter === 'denied' && !s.canAccess);
-                return matchSearch && matchFilter;
-              });
-              if (filtered.length === 0) {
-                return (
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
-                      <Search className="w-5 h-5 text-muted-foreground/50" />
-                    </div>
-                    <p className="text-sm text-muted-foreground font-medium">Nenhum sistema encontrado.</p>
-                  </div>
-                );
-              }
-              return (
-                <AnimatePresence initial={false}>
-                  {filtered.map((sys) => (
-                    <motion.button
-                      key={sys.id}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      type="button"
-                      onClick={() =>
-                        setSectorModalSystems((prev) =>
-                          prev.map((s) => (s.id === sys.id ? { ...s, canAccess: !s.canAccess } : s)),
-                        )
-                      }
-                      className={`w-full flex items-center gap-4 p-3 rounded-2xl border transition-all duration-300 text-left group/item relative overflow-hidden ${
-                        sys.canAccess
-                          ? 'bg-primary/5 border-primary/20 shadow-sm hover:bg-primary/10 hover:border-primary/30 hover:shadow-md'
-                          : 'bg-muted/10 border-border/40 hover:bg-muted/30 hover:border-border/60 hover:shadow-sm'
-                      }`}
-                    >
-                      {sys.canAccess && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500" />
-                      )}
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300 relative z-10 overflow-hidden border ${
-                          sys.canAccess
-                            ? 'bg-primary/15 text-primary border-primary/20'
-                            : 'bg-muted/50 text-muted-foreground border-border/50'
-                        }`}
+          <div className="flex-1 overflow-y-auto p-6 min-h-0 bg-background/50">
+            <AnimatePresence mode="sync" initial={false}>
+              <motion.div
+                key={
+                  sectorModalPanel === 'collaborators'
+                    ? 'sector-collab'
+                    : sectorModalLoading
+                      ? 'sector-load'
+                      : 'sector-sys'
+                }
+                initial={MODAL_PANEL_INITIAL}
+                animate={MODAL_PANEL_ANIMATE}
+                exit={MODAL_PANEL_EXIT}
+                transition={MODAL_PANEL_TRANSITION}
+                className="space-y-2.5"
+              >
+                {sectorModalPanel === 'collaborators' ? (() => {
+                  const q = sectorSystemSearch.trim().toLowerCase();
+                  const collabs = sectorModalRow?.collaborators ?? [];
+                  const filtered = collabs.filter(
+                    (c) =>
+                      !q ||
+                      c.name.toLowerCase().includes(q) ||
+                      c.email.toLowerCase().includes(q),
+                  );
+                  if (filtered.length === 0) {
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, ease: EASE_MODAL, delay: 0.06 }}
+                        className="flex flex-col items-center justify-center py-16 gap-3"
                       >
-                        {renderSystemIcon(sys.icon, 'w-6 h-6 object-contain')}
-                      </div>
-                      <div className="flex-1 min-w-0 relative z-10">
-                        <p
-                          className={`text-sm font-semibold truncate transition-colors duration-300 ${
-                            sys.canAccess ? 'text-foreground' : 'text-muted-foreground group-hover/item:text-foreground/80'
-                          }`}
-                        >
-                          {sys.name}
+                        <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
+                          <Users className="w-5 h-5 text-muted-foreground/50" />
+                        </div>
+                        <p className="text-sm text-muted-foreground font-medium text-center px-4">
+                          {collabs.length === 0
+                            ? 'Nenhum colaborador com perfil neste setor.'
+                            : 'Nenhum colaborador encontrado para a busca.'}
                         </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded-md border font-medium ${
+                      </motion.div>
+                    );
+                  }
+                  return (
+                    <motion.div
+                      className="space-y-2.5"
+                      variants={MODAL_LIST_STAGGER_CONTAINER}
+                      initial="hidden"
+                      animate="show"
+                    >
+                      {filtered.map((c) => (
+                        <motion.div key={c.id} variants={MODAL_LIST_STAGGER_ITEM}>
+                          <button
+                            type="button"
+                            onClick={() => openProfileFromPreview(c)}
+                            disabled={loadingCollaboratorId === c.id}
+                            className="w-full flex items-center gap-4 p-3 rounded-2xl border border-border/40 bg-muted/10 hover:bg-muted/25 hover:border-border/60 transition-colors duration-200 text-left"
+                          >
+                            <Avatar className="w-10 h-10 border border-border/50 shrink-0">
+                              <AvatarImage src={c.avatar} alt={c.name} />
+                              <AvatarFallback className="text-xs bg-primary/15 text-primary font-semibold">
+                                {c.name
+                                  .split(' ')
+                                  .map((n) => n[0])
+                                  .join('')
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold truncate">{c.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{c.email}</p>
+                            </div>
+                            {loadingCollaboratorId === c.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                            ) : null}
+                          </button>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  );
+                })() : sectorModalLoading ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.35, ease: EASE_MODAL }}
+                    className="flex flex-col items-center justify-center py-16 gap-3"
+                  >
+                    <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+                    <span className="text-sm text-muted-foreground animate-pulse">Carregando sistemas...</span>
+                  </motion.div>
+                ) : (() => {
+                  const q = sectorSystemSearch.trim().toLowerCase();
+                  const filtered = sectorModalSystems.filter((s) => {
+                    const matchSearch = !q || s.name.toLowerCase().includes(q);
+                    const matchFilter =
+                      sectorSystemFilter === 'all' ||
+                      (sectorSystemFilter === 'granted' && s.canAccess) ||
+                      (sectorSystemFilter === 'denied' && !s.canAccess);
+                    return matchSearch && matchFilter;
+                  });
+                  if (filtered.length === 0) {
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, ease: EASE_MODAL, delay: 0.06 }}
+                        className="flex flex-col items-center justify-center py-16 gap-3"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
+                          <Search className="w-5 h-5 text-muted-foreground/50" />
+                        </div>
+                        <p className="text-sm text-muted-foreground font-medium">Nenhum sistema encontrado.</p>
+                      </motion.div>
+                    );
+                  }
+                  return (
+                    <motion.div
+                      className="space-y-2.5"
+                      variants={MODAL_LIST_STAGGER_CONTAINER}
+                      initial="hidden"
+                      animate="show"
+                    >
+                      {filtered.map((sys) => (
+                        <motion.div key={sys.id} variants={MODAL_LIST_STAGGER_ITEM}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSectorModalSystems((prev) =>
+                                prev.map((s) => (s.id === sys.id ? { ...s, canAccess: !s.canAccess } : s)),
+                              )
+                            }
+                            className={`w-full flex items-center gap-4 p-3 rounded-2xl border transition-colors duration-200 text-left group/item relative overflow-hidden ${
                               sys.canAccess
-                                ? 'bg-primary/10 border-primary/20 text-primary'
-                                : 'bg-muted/50 border-border/40 text-muted-foreground'
+                                ? 'bg-primary/5 border-primary/20 shadow-sm hover:bg-primary/10 hover:border-primary/30 hover:shadow-md'
+                                : 'bg-muted/10 border-border/40 hover:bg-muted/30 hover:border-border/60 hover:shadow-sm'
                             }`}
                           >
-                            {sys.canAccess ? 'Liberado' : 'Bloqueado'}
-                          </span>
-                          {sys.canAccess !== sys.original && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-yellow-500/15 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400 font-bold uppercase tracking-wider animate-in fade-in zoom-in duration-300">
-                              alterado
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 relative z-10 border-2 ${
-                          sys.canAccess
-                            ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20 scale-110'
-                            : 'bg-transparent border-muted-foreground/30 text-transparent group-hover/item:border-muted-foreground/50 scale-100'
-                        }`}
-                      >
-                        <Check className={`w-3.5 h-3.5 transition-transform duration-300 ${sys.canAccess ? 'scale-100' : 'scale-0'}`} strokeWidth={3} />
-                      </div>
-                    </motion.button>
-                  ))}
-                </AnimatePresence>
-              );
-            })()}
+                            {sys.canAccess && (
+                              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500" />
+                            )}
+                            <div
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-200 relative z-10 overflow-hidden border ${
+                                sys.canAccess
+                                  ? 'bg-primary/15 text-primary border-primary/20'
+                                  : 'bg-muted/50 text-muted-foreground border-border/50'
+                              }`}
+                            >
+                              {renderSystemIcon(sys.icon, 'w-6 h-6 object-contain')}
+                            </div>
+                            <div className="flex-1 min-w-0 relative z-10">
+                              <p
+                                className={`text-sm font-semibold truncate transition-colors duration-200 ${
+                                  sys.canAccess
+                                    ? 'text-foreground'
+                                    : 'text-muted-foreground group-hover/item:text-foreground/80'
+                                }`}
+                              >
+                                {sys.name}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span
+                                  className={`text-[10px] px-1.5 py-0.5 rounded-md border font-medium ${
+                                    sys.canAccess
+                                      ? 'bg-primary/10 border-primary/20 text-primary'
+                                      : 'bg-muted/50 border-border/40 text-muted-foreground'
+                                  }`}
+                                >
+                                  {sys.canAccess ? 'Liberado' : 'Bloqueado'}
+                                </span>
+                                {sys.canAccess !== sys.original && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-yellow-500/15 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400 font-bold uppercase tracking-wider animate-in fade-in zoom-in duration-300">
+                                    alterado
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 relative z-10 border-2 ${
+                                sys.canAccess
+                                  ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20 scale-110'
+                                  : 'bg-transparent border-muted-foreground/30 text-transparent group-hover/item:border-muted-foreground/50 scale-100'
+                              }`}
+                            >
+                              <Check
+                                className={`w-3.5 h-3.5 transition-transform duration-200 ${sys.canAccess ? 'scale-100' : 'scale-0'}`}
+                                strokeWidth={3}
+                              />
+                            </div>
+                          </button>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  );
+                })()}
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           <div className="p-5 border-t border-border/40 bg-muted/20 shrink-0 flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
-              {(() => {
-                const changedCount = sectorModalSystems.filter((s) => s.canAccess !== s.original).length;
-                const noProfiles = (sectorModalRow?.collaborators ?? []).length === 0;
-                if (noProfiles && !sectorModalLoading) {
-                  return (
-                    <p className="text-sm text-amber-600 dark:text-amber-400">
-                      Nenhum colaborador com perfil GêApps neste setor — cadastre ou vincule e-mails para aplicar acessos.
-                    </p>
+              {sectorModalPanel === 'collaborators' ? (
+                <p className="text-sm text-muted-foreground">Visualização de colaboradores — volte a Sistemas para editar acessos.</p>
+              ) : (
+                (() => {
+                  const changedCount = sectorModalSystems.filter((s) => s.canAccess !== s.original).length;
+                  const noProfiles = (sectorModalRow?.collaborators ?? []).length === 0;
+                  if (noProfiles && !sectorModalLoading) {
+                    return (
+                      <p className="text-sm text-amber-600 dark:text-amber-400">
+                        Nenhum colaborador com perfil GêApps neste setor — cadastre ou vincule e-mails para aplicar acessos.
+                      </p>
+                    );
+                  }
+                  return changedCount > 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400 font-medium animate-in fade-in slide-in-from-bottom-2">
+                      <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                      {changedCount} alteraç{changedCount > 1 ? 'ões' : 'ão'} pendente{changedCount > 1 ? 's' : ''}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Nenhuma alteração pendente</p>
                   );
-                }
-                return changedCount > 0 ? (
-                  <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400 font-medium animate-in fade-in slide-in-from-bottom-2">
-                    <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                    {changedCount} alteraç{changedCount > 1 ? 'ões' : 'ão'} pendente{changedCount > 1 ? 's' : ''}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Nenhuma alteração pendente</p>
-                );
-              })()}
+                })()
+              )}
             </div>
             <div className="flex gap-2 shrink-0">
               <Button variant="outline" className="rounded-xl h-10 px-4" onClick={() => setSectorModalRow(null)}>
@@ -1147,12 +1500,15 @@ export default function AdminEquipesPage() {
               </Button>
               <Button
                 className={`rounded-xl h-10 px-5 gap-2 transition-all duration-300 ${
-                  sectorModalSystems.some((s) => s.canAccess !== s.original) && !sectorModalSaving
+                  sectorModalPanel === 'systems' &&
+                  sectorModalSystems.some((s) => s.canAccess !== s.original) &&
+                  !sectorModalSaving
                     ? 'shadow-lg shadow-primary/25 hover:shadow-primary/40'
                     : ''
                 }`}
                 onClick={handleSaveSectorAccess}
                 disabled={
+                  sectorModalPanel !== 'systems' ||
                   sectorModalSaving ||
                   !sectorModalSystems.some((s) => s.canAccess !== s.original) ||
                   (sectorModalRow?.collaborators ?? []).length === 0

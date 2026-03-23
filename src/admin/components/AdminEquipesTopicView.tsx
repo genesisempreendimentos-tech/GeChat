@@ -1,13 +1,14 @@
 import type { ElementType } from 'react';
 import { motion } from 'framer-motion';
 import * as Icons from 'lucide-react';
-import { Layers, UserCircle, Loader2, Users } from 'lucide-react';
+import { Building2, Layers, Mail, UserCircle, Loader2, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { LoadingGifScreen } from '@/components/LoadingGif';
 import type { TeamsViewMode, TeamCollaboratorPreview } from '@/components/teams/TeamsEnrichedView';
 import type { NeonTeamCollaborator } from '@/services/corporateProfile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AvatarGroup, AvatarGroupTooltip } from '@/components/ui/avatar-group';
+import { cn } from '@/lib/utils';
 
 export interface SectorTopicRow {
   id: string;
@@ -282,43 +283,85 @@ export function AdminEquipesTopicView({
           return (
             <motion.div
               key={c.id}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.03 }}
-              whileHover={{ y: -4, transition: { duration: 0.2, ease: [0.4, 0, 0.2, 1] } }}
-              className="group relative cursor-pointer"
+              transition={{ delay: index * 0.03, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              whileHover={{ y: -3, transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] } }}
+              className="group relative h-full cursor-pointer"
               onClick={() => onCollaboratorClick?.(c)}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
-              <div className="relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5">
-                <div className="flex items-start gap-4 mb-3">
-                  <div className="relative shrink-0">
-                    <Avatar className="w-12 h-12 rounded-xl border border-white/10">
-                      <AvatarImage src={c.avatar} alt={c.name} className="object-cover" />
-                      <AvatarFallback className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 text-primary font-bold text-base">
-                        {c.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    {isLoading && (
-                      <div className="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
-                        <Loader2 className="w-5 h-5 text-white animate-spin" />
+              <div className="absolute -inset-px rounded-[1.15rem] bg-gradient-to-br from-primary/25 via-primary/5 to-transparent opacity-0 blur-sm transition-opacity duration-500 group-hover:opacity-100 -z-10" />
+              <div
+                className={cn(
+                  'relative flex h-full min-h-[168px] flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-sm',
+                  'transition-all duration-300',
+                  'hover:border-primary/35 hover:bg-card hover:shadow-md hover:shadow-primary/5',
+                  'dark:border-white/10 dark:bg-[#0d1520]/85 dark:backdrop-blur-md dark:hover:border-primary/40 dark:hover:bg-[#0d1520]/95',
+                )}
+              >
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/50 via-primary/20 to-transparent opacity-80" />
+                <div className="flex min-h-0 flex-1 flex-col p-5 pt-6">
+                  <div className="flex shrink-0 gap-4">
+                    <div className="relative shrink-0">
+                      <div className="rounded-2xl p-0.5 ring-2 ring-primary/15 ring-offset-2 ring-offset-background transition-all duration-300 group-hover:ring-primary/30 dark:ring-offset-[#0d1520]">
+                        <Avatar className="h-14 w-14 rounded-[0.65rem] border border-border/40 shadow-inner dark:border-white/10">
+                          <AvatarImage src={c.avatar} alt={c.name} className="object-cover" />
+                          <AvatarFallback className="rounded-[0.65rem] bg-gradient-to-br from-primary/20 to-primary/5 text-base font-bold text-primary">
+                            {c.name
+                              .split(' ')
+                              .map((n) => n[0])
+                              .join('')
+                              .slice(0, 2)
+                              .toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
                       </div>
-                    )}
+                      {isLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded-[0.65rem] bg-background/70 backdrop-blur-[2px] dark:bg-black/55">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <h3 className="truncate text-[0.95rem] font-semibold leading-snug tracking-tight text-foreground">
+                        {c.name}
+                      </h3>
+                      <div className="mt-2 flex items-start gap-1.5 text-muted-foreground">
+                        <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+                        <p className="line-clamp-2 text-[11px] leading-relaxed break-all sm:text-xs" title={c.email}>
+                          {c.email}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-base font-bold text-white tracking-tight truncate">{c.name}</h3>
-                    <p className="text-xs text-muted-foreground/90 mt-1 truncate" title={c.email}>
-                      {c.email}
-                    </p>
+                  <div className="mt-auto flex shrink-0 flex-col gap-2 border-t border-border/50 pt-4 dark:border-white/10">
+                    <div
+                      className="flex items-center gap-2 rounded-xl bg-muted/40 px-2.5 py-2 dark:bg-white/[0.06]"
+                      title={c.departmentName || undefined}
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-background/80 text-primary shadow-sm dark:bg-black/25">
+                        <Building2 className="h-3.5 w-3.5" aria-hidden />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
+                          Departamento
+                        </p>
+                        <p className="truncate text-xs font-medium text-foreground">{c.departmentName || '—'}</p>
+                      </div>
+                    </div>
+                    <div
+                      className="flex items-center gap-2 rounded-xl bg-muted/40 px-2.5 py-2 dark:bg-white/[0.06]"
+                      title={c.sectorName || undefined}
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-background/80 text-primary shadow-sm dark:bg-black/25">
+                        <Layers className="h-3.5 w-3.5" aria-hidden />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">Setor</p>
+                        <p className="truncate text-xs font-medium text-foreground">{c.sectorName || '—'}</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-1 text-xs text-muted-foreground border-t border-white/5 pt-3 mt-auto">
-                  <p className="truncate" title={c.departmentName}>
-                    <span className="text-white/50">Departamento:</span> {c.departmentName || '—'}
-                  </p>
-                  <p className="truncate" title={c.sectorName}>
-                    <span className="text-white/50">Setor:</span> {c.sectorName || '—'}
-                  </p>
                 </div>
               </div>
             </motion.div>
