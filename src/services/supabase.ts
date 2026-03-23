@@ -135,8 +135,15 @@ export interface Statement {
   imageUrl: string;
   caption?: string;
   tags: string[];
+  /** Data de criação do registo (`statement.created_at`). */
   publishedAt: Date;
   userId: string;
+  /** Nome do autor (`statement.creator_name`, espelho de `profiles.name`). */
+  creatorName?: string;
+  /** Avatar do autor (via `profiles` em `listStatements`). */
+  creatorAvatarUrl?: string;
+  /** Soft-archive (`statement.is_archived`). */
+  isArchived?: boolean;
   /** Vem da relação por utilizador na tabela `statement_reaction`. */
   viewed: boolean;
 }
@@ -147,9 +154,12 @@ type StatementRow = {
   image_url: string;
   caption?: string | null;
   tags?: string[] | null;
-  published_at: string;
-  user_id: string;
-  created_at?: string;
+  /** Autor do post (`created_by` na base; `user_id` legado). */
+  user_id?: string;
+  created_by?: string;
+  created_at?: string | null;
+  creator_name?: string | null;
+  is_archived?: boolean | null;
   /** Coluna legado opcional na tabela `statement` (não usada no fluxo novo). */
   viewed?: boolean | null;
 };
@@ -215,16 +225,85 @@ type StatementCommentRow = {
 };
 
 function statementRowToApp(row: StatementRow): Statement {
+  const creatorId = (row.created_by ?? row.user_id ?? '').toString();
   return {
     id: row.id,
     title: row.title ?? '',
     imageUrl: row.image_url ?? '',
     caption: row.caption ?? undefined,
     tags: Array.isArray(row.tags) ? row.tags : [],
-    publishedAt: row.published_at ? new Date(row.published_at) : new Date(),
-    userId: row.user_id,
+    publishedAt: row.created_at ? new Date(row.created_at) : new Date(),
+    userId: creatorId,
+    creatorName: row.creator_name?.trim() || undefined,
+    isArchived: row.is_archived === true,
     viewed: row.viewed === true,
   };
+}
+
+/**
+ * Resolve `avatar_url` em `profiles` para cada ID de autor (ex.: `statement.created_by`).
+ * 1) RPC `profile_avatars_for_ids` (SECURITY DEFINER) — contorna RLS quando só o próprio user pode ler profiles.
+ * 2) Fallback: SELECT direto com a mesma chave dupla (user_id + id).
+ * Prioridade de URL: `avatar_url`, depois `avatar` legado.
+ */
+async function fetchProfileAvatarsByUserIds(userIds: string[]): Promise<Map<string, string>> {
+  const ids = [...new Set(userIds.map((id) => String(id).trim()).filter(Boolean))];
+  const out = new Map<string, string>();
+  if (!ids.length) return out;
+
+  const pickUrl = (row: { avatar_url?: string | null; avatar?: string | null }) => {
+    const fromUrl = String(row.avatar_url ?? '').trim();
+    if (fromUrl) return fromUrl;
+    return String(row.avatar ?? '').trim();
+  };
+
+  const registerRow = (row: ProfileRow & { user_id?: string; id?: string }) => {
+    const url = pickUrl(row);
+    if (!url) return;
+    const u = String(row.user_id ?? '').trim();
+    const i = String(row.id ?? '').trim();
+    if (u) out.set(u, url);
+    if (i) out.set(i, url);
+  };
+
+  const uuidList = ids.filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id));
+
+  if (uuidList.length) {
+    const { data: rpcRows, error: rpcErr } = await supabase.rpc('profile_avatars_for_ids', {
+      ids: uuidList,
+    });
+    if (!rpcErr && rpcRows && Array.isArray(rpcRows)) {
+      for (const row of rpcRows as Array<{ lookup_key?: string; avatar_url?: string }>) {
+        const k = String(row.lookup_key ?? '').trim();
+        const u = String(row.avatar_url ?? '').trim();
+        if (k && u) out.set(k, u);
+      }
+    }
+  }
+
+  const missing = ids.filter((id) => !out.has(id));
+  if (!missing.length) return out;
+
+  const { data: byUserId } = await supabase
+    .from('profiles')
+    .select('user_id, id, avatar_url, avatar')
+    .in('user_id', missing);
+  for (const row of (byUserId ?? []) as Array<ProfileRow & { user_id?: string; id?: string }>) {
+    registerRow(row);
+  }
+
+  const stillMissing = ids.filter((id) => !out.has(id));
+  if (stillMissing.length) {
+    const { data: byId } = await supabase
+      .from('profiles')
+      .select('user_id, id, avatar_url, avatar')
+      .in('id', stillMissing);
+    for (const row of (byId ?? []) as Array<ProfileRow & { user_id?: string; id?: string }>) {
+      registerRow(row);
+    }
+  }
+
+  return out;
 }
 
 function statementReactionRowToApp(row: StatementReactionRow): StatementReaction {
@@ -1358,13 +1437,21 @@ export const databaseService = {
       const { data, error } = await supabase
         .from(STATEMENT_TABLE)
         .select('*')
-        .order('published_at', { ascending: false });
+        .order('created_at', { ascending: false });
       if (error) {
         console.warn('[statement] list:', error.message ?? error);
         return { data: [], error: null };
       }
       const list = (data ?? []) as StatementRow[];
-      const mapped = list.map((row) => statementRowToApp(row));
+      const notArchived = list.filter((row) => row.is_archived !== true);
+      let mapped = notArchived.map((row) => statementRowToApp(row));
+
+      const creatorIds = mapped.map((s) => s.userId).filter(Boolean);
+      const avatarByUserId = await fetchProfileAvatarsByUserIds(creatorIds);
+      mapped = mapped.map((s) => ({
+        ...s,
+        creatorAvatarUrl: avatarByUserId.get(s.userId) || undefined,
+      }));
 
       const {
         data: { user },
@@ -1603,25 +1690,58 @@ export const databaseService = {
     caption?: string | null;
     tags: string[];
     user_id: string;
+    creator_name?: string | null;
   }): Promise<{ data: Statement | null; error: unknown }> {
     try {
-      const { data, error } = await supabase
-        .from(STATEMENT_TABLE)
-        .insert([
-          {
-            title: payload.title.trim(),
-            image_url: payload.image_url.trim(),
-            caption: payload.caption?.trim() || null,
-            tags: payload.tags.length ? payload.tags : [],
-            user_id: payload.user_id,
-          },
-        ])
-        .select()
-        .single();
+      const insertRow: Record<string, unknown> = {
+        title: payload.title.trim(),
+        image_url: payload.image_url.trim(),
+        caption: payload.caption?.trim() || null,
+        tags: payload.tags.length ? payload.tags : [],
+        created_by: payload.user_id,
+      };
+      if (payload.creator_name != null && String(payload.creator_name).trim() !== '') {
+        insertRow.creator_name = String(payload.creator_name).trim();
+      }
+      const { data, error } = await supabase.from(STATEMENT_TABLE).insert([insertRow]).select().single();
       if (error) return { data: null, error };
       return { data: statementRowToApp(data as StatementRow), error: null };
     } catch (e) {
       return { data: null, error: e };
+    }
+  },
+
+  async updateStatement(
+    id: string,
+    payload: {
+      title?: string;
+      image_url?: string;
+      caption?: string | null;
+      tags?: string[];
+      is_archived?: boolean;
+    }
+  ): Promise<{ data: Statement | null; error: unknown }> {
+    try {
+      const patch: Record<string, unknown> = {};
+      if (payload.title !== undefined) patch.title = payload.title.trim();
+      if (payload.image_url !== undefined) patch.image_url = payload.image_url.trim();
+      if (payload.caption !== undefined) patch.caption = payload.caption?.trim() || null;
+      if (payload.tags !== undefined) patch.tags = payload.tags.length ? payload.tags : [];
+      if (payload.is_archived !== undefined) patch.is_archived = payload.is_archived;
+      const { data, error } = await supabase.from(STATEMENT_TABLE).update(patch).eq('id', id).select().single();
+      if (error) return { data: null, error };
+      return { data: statementRowToApp(data as StatementRow), error: null };
+    } catch (e) {
+      return { data: null, error: e };
+    }
+  },
+
+  async deleteStatement(id: string): Promise<{ error: unknown | null }> {
+    try {
+      const { error } = await supabase.from(STATEMENT_TABLE).delete().eq('id', id);
+      return { error: error ?? null };
+    } catch (e) {
+      return { error: e };
     }
   },
 

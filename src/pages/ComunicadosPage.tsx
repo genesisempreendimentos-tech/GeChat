@@ -14,7 +14,6 @@ import {
   AlignLeft,
   Tag,
   Tags,
-  Calendar,
   Maximize2,
   SmilePlus,
   MessageCircle,
@@ -24,6 +23,9 @@ import {
   Send,
   Trash2,
   MessageCircleMore,
+  MoreVertical,
+  Pencil,
+  Archive,
 } from 'lucide-react';
 import { AnimatedEmoji } from '@/components/ui/animated-emoji';
 import { Input } from '@/components/ui/input';
@@ -99,11 +101,28 @@ function formatPublishedAtOneLine(d: Date) {
   });
 }
 
+function statementAvatarUrl(s: Statement) {
+  const u = s.creatorAvatarUrl?.trim();
+  if (u) return u;
+  const seed = encodeURIComponent((s.creatorName || s.userId || 'G').slice(0, 48));
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}`;
+}
+
 export default function ComunicadosPage() {
   const { pathname } = useLocation();
   const isAdminPanel = pathname.startsWith('/admin/');
   const user = useAuthStore((s) => s.user);
   const canCreateStatements = user?.accessType === 'admin' || user?.accessType === 'creator' || isAdminPanel;
+
+  const canManageStatement = useCallback(
+    (s: Statement) => {
+      if (!user?.id) return false;
+      if (isAdminPanel || user.accessType === 'admin' || user.role === 'admin') return true;
+      if (canCreateStatements && s.userId === user.id) return true;
+      return false;
+    },
+    [user, isAdminPanel, canCreateStatements]
+  );
 
   const [statements, setStatements] = useState<Statement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,6 +151,17 @@ export default function ComunicadosPage() {
   const [formLoading, setFormLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef('');
+
+  const [editStatement, setEditStatement] = useState<Statement | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCaption, setEditCaption] = useState('');
+  const [editTagsRaw, setEditTagsRaw] = useState('');
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState('');
+  const [editFormError, setEditFormError] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const editPreviewUrlRef = useRef('');
 
   const tagOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -251,6 +281,38 @@ export default function ComunicadosPage() {
     };
   }, []);
 
+  useEffect(() => {
+    editPreviewUrlRef.current = editImagePreview;
+  }, [editImagePreview]);
+
+  useEffect(() => {
+    return () => {
+      if (editPreviewUrlRef.current && editPreviewUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(editPreviewUrlRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!editStatement) {
+      setEditTitle('');
+      setEditCaption('');
+      setEditTagsRaw('');
+      setEditImageFile(null);
+      setEditImagePreview('');
+      setEditFormError('');
+      if (editFileInputRef.current) editFileInputRef.current.value = '';
+      return;
+    }
+    setEditTitle(editStatement.title);
+    setEditCaption(editStatement.caption ?? '');
+    setEditTagsRaw(editStatement.tags.join(', '));
+    setEditImageFile(null);
+    setEditImagePreview(editStatement.imageUrl);
+    setEditFormError('');
+    if (editFileInputRef.current) editFileInputRef.current.value = '';
+  }, [editStatement]);
+
   const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     setFormError('');
@@ -321,6 +383,7 @@ export default function ComunicadosPage() {
       caption: caption.trim() || null,
       tags,
       user_id: user.id,
+      creator_name: user.name?.trim() || null,
     });
     setFormLoading(false);
 
@@ -338,6 +401,125 @@ export default function ComunicadosPage() {
     });
     setIsCreateOpen(false);
     resetForm();
+    await loadData();
+    emitCommunicadosUnreadChanged();
+  };
+
+  const onEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    setEditFormError('');
+    if (!f) {
+      setEditImageFile(null);
+      setEditImagePreview((prev) => {
+        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return editStatement?.imageUrl ?? '';
+      });
+      return;
+    }
+    if (!f.type.startsWith('image/')) {
+      setEditFormError('Selecione um arquivo de imagem (PNG, JPG, etc.).');
+      e.target.value = '';
+      return;
+    }
+    setEditImageFile(f);
+    setEditImagePreview((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(f);
+    });
+  };
+
+  const handleEditSave = async () => {
+    if (!editStatement || !user?.id) return;
+    setEditFormError('');
+    if (!editTitle.trim()) {
+      setEditFormError('Informe o título.');
+      return;
+    }
+
+    setEditLoading(true);
+    let imageUrl = editStatement.imageUrl;
+    if (editImageFile) {
+      const { url, error: upErr } = await storageService.uploadComunicadoImage(editImageFile, user.id);
+      if (upErr || !url) {
+        setEditLoading(false);
+        setEditFormError(
+          upErr && typeof upErr === 'object' && 'message' in upErr
+            ? String((upErr as { message: string }).message)
+            : 'Não foi possível enviar a imagem.'
+        );
+        return;
+      }
+      imageUrl = url;
+    }
+
+    const tags = editTagsRaw
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const { error: dbErr } = await databaseService.updateStatement(editStatement.id, {
+      title: editTitle.trim(),
+      image_url: imageUrl,
+      caption: editCaption.trim() || null,
+      tags,
+    });
+    setEditLoading(false);
+
+    if (dbErr) {
+      const msg =
+        dbErr && typeof dbErr === 'object' && 'message' in dbErr
+          ? String((dbErr as { message: string }).message)
+          : 'Não foi possível atualizar o comunicado.';
+      setEditFormError(msg);
+      return;
+    }
+
+    toast.success('Comunicado atualizado');
+    setEditStatement(null);
+    await loadData();
+    setDetailStatement((prev) =>
+      prev?.id === editStatement.id
+        ? {
+            ...prev,
+            title: editTitle.trim(),
+            imageUrl,
+            caption: editCaption.trim() || undefined,
+            tags,
+          }
+        : prev
+    );
+  };
+
+  const handleArchiveStatement = async (s: Statement) => {
+    if (!window.confirm('Arquivar este comunicado? Ele deixará de aparecer na lista para todos.')) return;
+    const { error } = await databaseService.updateStatement(s.id, { is_archived: true });
+    if (error) {
+      toast.error(
+        typeof error === 'object' && error && 'message' in error
+          ? String((error as { message: string }).message)
+          : 'Não foi possível arquivar.'
+      );
+      return;
+    }
+    toast.success('Comunicado arquivado');
+    setDetailStatement((prev) => (prev?.id === s.id ? null : prev));
+    await loadData();
+    emitCommunicadosUnreadChanged();
+  };
+
+  const handleDeleteStatement = async (s: Statement) => {
+    if (!window.confirm('Excluir este comunicado permanentemente? Esta ação não pode ser desfeita.')) return;
+    const { error } = await databaseService.deleteStatement(s.id);
+    if (error) {
+      toast.error(
+        typeof error === 'object' && error && 'message' in error
+          ? String((error as { message: string }).message)
+          : 'Não foi possível excluir.'
+      );
+      return;
+    }
+    toast.success('Comunicado excluído');
+    setDetailStatement((prev) => (prev?.id === s.id ? null : prev));
     await loadData();
     emitCommunicadosUnreadChanged();
   };
@@ -671,27 +853,87 @@ export default function ComunicadosPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
               <div className="relative h-full flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-1 text-left">
                 {/* Header do Card (Estilo Instagram) */}
-                <div className="flex items-center justify-between p-3 border-b border-slate-100 dark:border-white/5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                      <img src="/assets/logo-gen-sem-fundo-svg.svg" alt="GêApps" className="w-4 h-4 object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)' }} />
+                <div className="flex items-center justify-between gap-2 p-3 border-b border-slate-100 dark:border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => void handleOpenReactionUserProfile(s.userId)}
+                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-primary/30 -m-1 p-1"
+                  >
+                    <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-primary/20 bg-primary/10">
+                      <img
+                        src={statementAvatarUrl(s)}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          el.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(s.creatorName || s.userId || 'U')}`;
+                        }}
+                      />
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-foreground leading-none">
-                        GêApps
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm font-semibold leading-none text-foreground" title={s.creatorName || 'Autor'}>
+                        {s.creatorName?.trim() || 'Autor'}
                       </span>
-                      <span className="text-[11px] text-muted-foreground mt-0.5" title={formatPublishedAt(s.publishedAt)}>
+                      <span className="mt-0.5 text-[11px] text-muted-foreground" title={formatPublishedAt(s.publishedAt)}>
                         {formatPublishedAtOneLine(s.publishedAt)}
                       </span>
                     </div>
+                  </button>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    {!s.viewed && (
+                      <span
+                        className="mr-0.5 h-2 w-2 shrink-0 rounded-full bg-destructive ring-2 ring-white dark:ring-[#0d1520] shadow-sm"
+                        title="Ainda não visto"
+                        aria-label="Comunicado ainda não visto"
+                      />
+                    )}
+                    {canManageStatement(s) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            aria-label="Opções do comunicado"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditStatement(s);
+                            }}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleArchiveStatement(s);
+                            }}
+                          >
+                            <Archive className="mr-2 h-4 w-4" />
+                            Arquivar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleDeleteStatement(s);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
-                  {!s.viewed && (
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full bg-destructive ring-2 ring-white dark:ring-[#0d1520] shadow-sm mr-1"
-                      title="Ainda não visto"
-                      aria-label="Comunicado ainda não visto"
-                    />
-                  )}
                 </div>
 
                 {/* Imagem */}
@@ -825,17 +1067,85 @@ export default function ComunicadosPage() {
                 )}
               </div>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-6 py-6 space-y-4">
-                <DialogHeader className="text-left space-y-2 p-0">
-                  <DialogTitle className="text-2xl font-bold tracking-tight pr-8">
+                <DialogHeader className="text-left space-y-3 p-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenReactionUserProfile(detailStatement.userId)}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-primary/30 -m-1 p-1"
+                    >
+                      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-primary/20 bg-primary/10">
+                        <img
+                          src={statementAvatarUrl(detailStatement)}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                              detailStatement.creatorName || detailStatement.userId || 'U'
+                            )}`;
+                          }}
+                        />
+                      </div>
+                      <div className="min-w-0 flex flex-col">
+                        <span className="truncate text-sm font-semibold text-foreground">
+                          {detailStatement.creatorName?.trim() || 'Autor'}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground" title={formatPublishedAt(detailStatement.publishedAt)}>
+                          {formatPublishedAtOneLine(detailStatement.publishedAt)}
+                        </span>
+                      </div>
+                    </button>
+                    {canManageStatement(detailStatement) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                            aria-label="Opções do comunicado"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditStatement(detailStatement);
+                            }}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              void handleArchiveStatement(detailStatement);
+                            }}
+                          >
+                            <Archive className="mr-2 h-4 w-4" />
+                            Arquivar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => {
+                              void handleDeleteStatement(detailStatement);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+                  <DialogTitle className="text-2xl font-bold tracking-tight pr-2">
                     {detailStatement.title}
                   </DialogTitle>
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="w-4 h-4 shrink-0" />
-                    <span className="min-w-0 flex-1">{formatPublishedAt(detailStatement.publishedAt)}</span>
+                  <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-muted-foreground">
                     <button
                       type="button"
                       onClick={() => handleOpenReactionsModal(detailStatement)}
-                      className="ml-auto inline-flex max-w-[45%] items-center gap-1.5 rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm backdrop-blur hover:bg-accent/80 transition-colors"
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm backdrop-blur hover:bg-accent/80 transition-colors"
                       title="Ver reações"
                       aria-label="Ver reações do post"
                     >
@@ -1230,6 +1540,147 @@ export default function ComunicadosPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      <Dialog
+        open={!!editStatement}
+        onOpenChange={(open) => {
+          if (!open) setEditStatement(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px] max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0 border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl">
+          <div className="relative overflow-hidden border-b border-border/40 px-6 pt-6 pb-5 shrink-0">
+            <div
+              className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.08] via-transparent to-violet-500/[0.06]"
+              aria-hidden
+            />
+            <DialogHeader className="relative text-left space-y-3">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shrink-0 shadow-sm">
+                  <Pencil className="w-6 h-6 text-primary" />
+                </div>
+                <div className="space-y-1 pt-0.5 min-w-0">
+                  <DialogTitle className="text-xl font-semibold tracking-tight">Editar comunicado</DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+                    Atualize o título, legenda, tags ou substitua a imagem.
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+            {editFormError && (
+              <div
+                role="alert"
+                className="flex items-start gap-3 text-sm text-destructive bg-destructive/[0.08] px-4 py-3 rounded-2xl border border-destructive/20"
+              >
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <span className="leading-snug">{editFormError}</span>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label htmlFor="edit-comunicado-titulo" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Type className="w-3.5 h-3.5" />
+                </span>
+                Título
+                <span className="text-destructive font-bold">*</span>
+              </label>
+              <Input
+                id="edit-comunicado-titulo"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="h-12 rounded-2xl border-border/60 bg-gradient-to-b from-background to-muted/10 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary/40"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <ImagePlus className="w-3.5 h-3.5" />
+                </span>
+                Imagem
+              </label>
+              <p className="text-xs text-muted-foreground -mt-1">Opcional: escolha uma nova imagem para substituir a atual.</p>
+              <input
+                ref={editFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={onEditImageChange}
+              />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={() => editFileInputRef.current?.click()}
+                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-dashed border-border/70 px-4 text-sm font-medium text-foreground hover:bg-muted/40 transition-colors"
+                >
+                  Escolher arquivo
+                </button>
+                {editImagePreview ? (
+                  <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-border/60 bg-muted/20">
+                    <img src={editImagePreview} alt="" className="h-full w-full object-cover" />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="edit-comunicado-legenda" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <AlignLeft className="w-3.5 h-3.5" />
+                </span>
+                Legenda
+              </label>
+              <textarea
+                id="edit-comunicado-legenda"
+                value={editCaption}
+                onChange={(e) => setEditCaption(e.target.value)}
+                rows={3}
+                className={cn(
+                  'w-full min-h-[88px] resize-y rounded-2xl border border-border/60 px-3 py-2.5 text-sm font-light text-foreground shadow-sm transition-colors',
+                  'placeholder:text-muted-foreground/50',
+                  'bg-gradient-to-b from-background to-muted/10',
+                  'dark:bg-none dark:bg-muted/40 dark:border-border/60 dark:[color-scheme:dark]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:border-primary/40'
+                )}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="edit-comunicado-tags" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Tags className="w-3.5 h-3.5" />
+                </span>
+                Tags
+              </label>
+              <Input
+                id="edit-comunicado-tags"
+                placeholder="tag1, tag2, tag3"
+                value={editTagsRaw}
+                onChange={(e) => setEditTagsRaw(e.target.value)}
+                className="h-12 rounded-2xl border-border/60 bg-gradient-to-b from-background to-muted/10 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary/40"
+              />
+            </div>
+          </div>
+
+          <div className="shrink-0 border-t border-border/50 bg-muted/10 px-6 py-4 flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl h-11 border-border/60"
+              onClick={() => setEditStatement(null)}
+              disabled={editLoading}
+            >
+              Cancelar
+            </Button>
+            <Button className="flex-1 rounded-xl h-11 shadow-md shadow-primary/10" onClick={() => void handleEditSave()} disabled={editLoading}>
+              {editLoading ? <LoadingGif size="sm" className="mr-2" /> : <Pencil className="w-4 h-4 mr-2 opacity-90" />}
+              Salvar alterações
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ProfileCardInfoPopup
         open={reactionsProfilePopupOpen}
