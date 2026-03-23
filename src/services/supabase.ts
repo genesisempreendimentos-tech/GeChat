@@ -1446,7 +1446,7 @@ export const databaseService = {
   /** Lista comentários de um comunicado com dados do usuário. */
   async listStatementComments(statementId: string): Promise<{ data: StatementCommentWithUser[]; error: unknown | null }> {
     try {
-      const { data: rows, error } = await this.client
+      const { data: rows, error } = await supabase
         .from('statement_comment')
         .select('*')
         .eq('statement_id', statementId)
@@ -1464,12 +1464,12 @@ export const databaseService = {
 
       const comments = rows.map(statementCommentRowToApp);
       const userIds = [...new Set(comments.map((c) => c.userId))];
-      
+
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, name, full_name, email, avatar_url, avatar')
         .in('user_id', userIds);
-        
+
       const profileByUserId = new Map<string, any>();
       for (const row of (profiles ?? [])) {
         if (!row.user_id) continue;
@@ -1496,10 +1496,10 @@ export const databaseService = {
   /** Adiciona um comentário a um comunicado. */
   async addStatementComment(statementId: string, content: string): Promise<{ data: StatementComment | null; error: unknown | null }> {
     try {
-      const user = await this.getCurrentUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { data: null, error: new Error('Não autenticado') };
 
-      const { data, error } = await this.client
+      const { data, error } = await supabase
         .from('statement_comment')
         .insert({
           statement_id: statementId,
@@ -1520,7 +1520,7 @@ export const databaseService = {
   /** Deleta (soft delete) um comentário. */
   async deleteStatementComment(commentId: string): Promise<{ error: unknown | null }> {
     try {
-      const { error } = await this.client
+      const { error } = await supabase
         .from('statement_comment')
         .update({ deleted_at: new Date().toISOString(), is_active: false })
         .eq('id', commentId);
