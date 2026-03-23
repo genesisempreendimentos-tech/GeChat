@@ -21,6 +21,8 @@ import {
   CalendarDays,
   Clock8,
   MapPin,
+  Send,
+  Trash2,
 } from 'lucide-react';
 import { AnimatedEmoji } from '@/components/ui/animated-emoji';
 import { Input } from '@/components/ui/input';
@@ -45,6 +47,7 @@ import {
   type Statement,
   type StatementReaction,
   type StatementReactionWithUser,
+  type StatementCommentWithUser,
 } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { emitCommunicadosUnreadChanged } from '@/lib/communicadosEvents';
@@ -108,6 +111,7 @@ export default function ComunicadosPage() {
   const [captionExpanded, setCaptionExpanded] = useState<Record<string, boolean>>({});
   const [detailStatement, setDetailStatement] = useState<Statement | null>(null);
   const [statementReactions, setStatementReactions] = useState<StatementReaction[]>([]);
+  const [commentCountByStatementId, setCommentCountByStatementId] = useState<Map<string, number>>(new Map());
   const [isReactionsModalOpen, setIsReactionsModalOpen] = useState(false);
   const [reactionsModalTitle, setReactionsModalTitle] = useState('');
   const [reactionsModalStatementId, setReactionsModalStatementId] = useState<string | null>(null);
@@ -183,6 +187,17 @@ export default function ComunicadosPage() {
     const statementIds = statementsList.map((s) => s.id);
     const { data: reactionsData } = await databaseService.listStatementReactions(statementIds);
     setStatementReactions(reactionsData ?? []);
+
+    // Buscar contagem de comentários para todos os posts
+    const countMap = new Map<string, number>();
+    await Promise.all(
+      statementIds.map(async (id) => {
+        const { data: cmts } = await databaseService.listStatementComments(id);
+        countMap.set(id, cmts?.length ?? 0);
+      })
+    );
+    setCommentCountByStatementId(new Map(countMap));
+
     setLoading(false);
   }, []);
 
@@ -326,8 +341,68 @@ export default function ComunicadosPage() {
     emitCommunicadosUnreadChanged();
   };
 
+  const [comments, setComments] = useState<StatementCommentWithUser[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  const loadComments = useCallback(async (statementId: string) => {
+    setCommentsLoading(true);
+    const { data } = await databaseService.listStatementComments(statementId);
+    setComments(data || []);
+    setCommentsLoading(false);
+  }, []);
+
+  const handleAddComment = async () => {
+    if (!detailStatement || !newComment.trim()) return;
+    
+    setSubmittingComment(true);
+    const { data, error } = await databaseService.addStatementComment(detailStatement.id, newComment);
+    setSubmittingComment(false);
+    
+    if (error) {
+      toast.error('Erro ao adicionar comentário');
+      return;
+    }
+    
+    if (data) {
+      setNewComment('');
+      // Recarregar comentários para obter os dados do usuário (nome, avatar)
+      loadComments(detailStatement.id);
+      // Atualizar o contador no card
+      setCommentCountByStatementId(prev => {
+        const next = new Map(prev);
+        next.set(detailStatement.id, (prev.get(detailStatement.id) ?? 0) + 1);
+        return next;
+      });
+      toast.success('Comentário adicionado!');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!detailStatement) return;
+    
+    const { error } = await databaseService.deleteStatementComment(commentId);
+    if (error) {
+      toast.error('Erro ao excluir comentário');
+      return;
+    }
+    
+    setComments(prev => prev.filter(c => c.id !== commentId));
+    // Atualizar o contador no card
+    if (detailStatement) {
+      setCommentCountByStatementId(prev => {
+        const next = new Map(prev);
+        next.set(detailStatement.id, Math.max(0, (prev.get(detailStatement.id) ?? 1) - 1));
+        return next;
+      });
+    }
+    toast.success('Comentário excluído');
+  };
+
   const handleOpenPost = (s: Statement) => {
     setDetailStatement({ ...s, viewed: true });
+    loadComments(s.id);
     setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, viewed: true } : x)));
     emitCommunicadosUnreadChanged();
     void databaseService.markStatementViewed(s.id).then(({ error }) => {
@@ -657,7 +732,7 @@ export default function ComunicadosPage() {
                                 className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-background border border-background shadow-sm z-[1]"
                                 style={{ zIndex: emojis.length - idx }}
                               >
-                                <AnimatedEmoji emoji={emoji} className="w-4 h-4" playOnHover={false} />
+                                <AnimatedEmoji emoji={emoji} className="w-4 h-4" loop={true} />
                               </span>
                             ))}
                           </div>
@@ -669,10 +744,15 @@ export default function ComunicadosPage() {
                   <button
                     type="button"
                     onClick={() => handleOpenPost(s)}
-                    className="flex items-center justify-center hover:opacity-70 transition-opacity"
+                    className="flex items-center gap-1.5 hover:opacity-70 transition-opacity"
                     title="Comentar / Ver detalhes"
                   >
                     <MessageCircle className="w-6 h-6 text-foreground" strokeWidth={1.5} />
+                    {(commentCountByStatementId.get(s.id) ?? 0) > 0 && (
+                      <span className="text-sm font-semibold text-foreground">
+                        {commentCountByStatementId.get(s.id)}
+                      </span>
+                    )}
                   </button>
                 </div>
 
@@ -772,7 +852,7 @@ export default function ComunicadosPage() {
                                   className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-background border border-background shadow-sm z-[1]"
                                   style={{ zIndex: emojis.length - idx }}
                                 >
-                                  <AnimatedEmoji emoji={emoji} className="w-3 h-3" playOnHover={false} />
+                                  <AnimatedEmoji emoji={emoji} className="w-3 h-3" loop={true} />
                                 </span>
                               ))}
                             </div>
@@ -825,6 +905,98 @@ export default function ComunicadosPage() {
                 ) : (
                   <p className="text-sm text-muted-foreground italic">Sem legenda.</p>
                 )}
+
+                {/* Comentários */}
+                <div className="mt-8 pt-6 border-t border-border/50 flex flex-col min-h-[300px]">
+                  <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4" />
+                    Comentários ({comments.length})
+                  </h3>
+
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4">
+                    {commentsLoading ? (
+                      <div className="flex justify-center py-4">
+                        <LoadingGif size="sm" />
+                      </div>
+                    ) : comments.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        Nenhum comentário ainda. Seja o primeiro a comentar!
+                      </p>
+                    ) : (
+                      comments.map((comment) => (
+                        <div key={comment.id} className="flex gap-3 group">
+                          <img
+                            src={comment.userAvatar || DEFAULT_AVATAR}
+                            alt=""
+                            className="w-8 h-8 rounded-full object-cover shrink-0 border border-border/50"
+                          />
+                          <div className="flex-1 bg-muted/30 rounded-2xl rounded-tl-none p-3 relative">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className="text-sm font-medium text-foreground">
+                                {comment.userName}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(comment.createdAt).toLocaleDateString('pt-BR', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground/90 whitespace-pre-wrap">
+                              {comment.content}
+                            </p>
+                            
+                            {user?.id === comment.userId && (
+                              <button
+                                onClick={() => handleDeleteComment(comment.id)}
+                                className="absolute -right-2 -top-2 p-1.5 bg-background border border-border/50 rounded-full text-destructive opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-destructive hover:text-destructive-foreground"
+                                title="Excluir comentário"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 mt-auto pt-2 bg-background/95 backdrop-blur sticky bottom-0">
+                    <img
+                      src={user?.avatar || DEFAULT_AVATAR}
+                      alt=""
+                      className="w-10 h-10 rounded-full object-cover shrink-0 border border-border/50"
+                    />
+                    <div className="flex-1 relative">
+                      <Input
+                        placeholder="Escreva um comentário..."
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleAddComment();
+                          }
+                        }}
+                        className="pr-12 rounded-full bg-muted/50 border-border/50 focus-visible:ring-primary/30"
+                        disabled={submittingComment}
+                      />
+                      <button
+                        onClick={handleAddComment}
+                        disabled={!newComment.trim() || submittingComment}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-primary hover:bg-primary/10 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+                      >
+                        {submittingComment ? (
+                          <LoadingGif size="sm" className="w-4 h-4" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}
@@ -847,7 +1019,7 @@ export default function ComunicadosPage() {
             <DialogDescription className="line-clamp-2">{reactionsModalTitle}</DialogDescription>
           </DialogHeader>
           {reactionsModalStatementId ? (
-            <div className="mt-2 space-y-2">
+            <div className="mt-2 space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Sua reação
               </p>
@@ -859,7 +1031,7 @@ export default function ComunicadosPage() {
               />
             </div>
           ) : null}
-          <div className="mt-2 min-h-[180px] max-h-[55vh] overflow-y-auto space-y-2 pr-1">
+          <div className="mt-4 min-h-[180px] max-h-[55vh] overflow-y-auto space-y-2 pr-1">
             {reactionsModalLoading ? (
               <LoadingGifScreen className="h-40" />
             ) : reactionsModalItems.length === 0 ? (
@@ -894,9 +1066,7 @@ export default function ComunicadosPage() {
                       {item.department || 'Departamento não informado'}
                     </p>
                   </div>
-                  <span className="text-xl leading-none shrink-0" aria-hidden>
-                    {item.reaction}
-                  </span>
+                  <AnimatedEmoji emoji={item.reaction} className="w-6 h-6 shrink-0" loop={true} />
                 </button>
               ))
             )}
