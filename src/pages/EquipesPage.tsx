@@ -9,9 +9,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { databaseService, type Team } from '@/services/supabase';
-import { getDepartments, getDepartmentTeamStats, type NeonDepartment } from '@/services/corporateProfile';
-import { TeamsEnrichedView, type TeamDisplayRow, type TeamsViewMode } from '@/components/teams/TeamsEnrichedView';
+import { databaseService, supabase, type Team } from '@/services/supabase';
+import { getDepartments, getDepartmentTeamStats, getNeonCollaboratorsForTeamDepartments, type NeonDepartment, type NeonTeamCollaborator } from '@/services/corporateProfile';
+import { TeamsEnrichedView, type TeamDisplayRow, type TeamCollaboratorPreview, type TeamsViewMode } from '@/components/teams/TeamsEnrichedView';
 import { cn } from '@/lib/utils';
 
 const FILTER_ALL = 'all';
@@ -20,6 +20,7 @@ function buildDisplayRows(
   teams: Team[],
   deptById: Map<string, NeonDepartment>,
   stats: Awaited<ReturnType<typeof getDepartmentTeamStats>>,
+  collaboratorsByDeptId: Map<string, TeamCollaboratorPreview[]>,
 ): TeamDisplayRow[] {
   return teams.map((t) => {
     const neon = deptById.get(t.neonDepartmentId);
@@ -33,6 +34,7 @@ function buildDisplayRows(
       color: neon?.color ?? null,
       sectors: st.sectors,
       collaboratorCount: st.collaboratorCount,
+      collaborators: collaboratorsByDeptId.get(t.neonDepartmentId) ?? [],
     };
   });
 }
@@ -45,6 +47,7 @@ export default function EquipesPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [departments, setDepartments] = useState<NeonDepartment[]>([]);
   const [stats, setStats] = useState<Awaited<ReturnType<typeof getDepartmentTeamStats>>>({});
+  const [collaboratorsByDeptId, setCollaboratorsByDeptId] = useState<Map<string, TeamCollaboratorPreview[]>>(new Map());
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -53,9 +56,48 @@ export default function EquipesPage() {
     const deptList = await getDepartments();
     const ids = teamsList.map((x) => x.neonDepartmentId);
     const statsMap = await getDepartmentTeamStats(ids);
+
+    // Buscar colaboradores do Neon e cruzar com perfis do Supabase para obter avatares
+    const neonCollaborators: NeonTeamCollaborator[] = await getNeonCollaboratorsForTeamDepartments(ids);
+    const collabMap = new Map<string, TeamCollaboratorPreview[]>();
+    if (neonCollaborators.length > 0) {
+      const emails = [...new Set(neonCollaborators.map((c) => c.email.toLowerCase()).filter(Boolean))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, name, email, avatar_url, avatar')
+        .in('email', emails);
+      const profileByEmail = new Map<string, { id: string; name: string; avatar?: string }>();
+      if (profiles) {
+        for (const p of profiles) {
+          const email = (p.email ?? '').toLowerCase();
+          if (email) {
+            profileByEmail.set(email, {
+              id: p.user_id ?? email,
+              name: (p.full_name ?? p.name ?? '').toString(),
+              avatar: p.avatar_url ?? p.avatar ?? undefined,
+            });
+          }
+        }
+      }
+      for (const c of neonCollaborators) {
+        const deptId = c.neonDepartmentId;
+        const profile = profileByEmail.get(c.email.toLowerCase());
+        const preview: TeamCollaboratorPreview = {
+          id: profile?.id ?? c.id,
+          name: profile?.name || c.name,
+          email: c.email,
+          avatar: profile?.avatar,
+        };
+        const list = collabMap.get(deptId) ?? [];
+        list.push(preview);
+        collabMap.set(deptId, list);
+      }
+    }
+
     setTeams(teamsList);
     setDepartments(deptList);
     setStats(statsMap);
+    setCollaboratorsByDeptId(collabMap);
     setLoading(false);
   }, []);
 
@@ -86,8 +128,8 @@ export default function EquipesPage() {
   }, [teamNamesFromDb, nameFilter]);
 
   const displayRowsAll = useMemo(
-    () => buildDisplayRows(teams, deptById, stats),
-    [teams, deptById, stats],
+    () => buildDisplayRows(teams, deptById, stats, collaboratorsByDeptId),
+    [teams, deptById, stats, collaboratorsByDeptId],
   );
 
   const filteredRows = useMemo(() => {

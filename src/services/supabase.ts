@@ -939,6 +939,16 @@ export const databaseService = {
     return { data: null, error: { message: 'Profile not found' } };
   },
 
+  async getRawProfileByEmail(email: string) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+    if (error) return { data: null, error };
+    return { data, error: null };
+  },
+
   async getUserByEmail(email: string) {
     console.log('🔍 [getUserByEmail] Verificando email:', email);
     const { data, error } = await supabase

@@ -13,8 +13,17 @@ import {
 import { LoadingGifScreen } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
 import type { TeamLifecycleStatus } from '@/services/supabase';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AvatarGroup, AvatarGroupTooltip } from '@/components/ui/avatar-group';
 
 export type TeamsViewMode = 'cards' | 'table';
+
+export interface TeamCollaboratorPreview {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+}
 
 export interface TeamDisplayRow {
   id: string;
@@ -25,6 +34,7 @@ export interface TeamDisplayRow {
   color: string | null;
   sectors: string[];
   collaboratorCount: number;
+  collaborators?: TeamCollaboratorPreview[];
 }
 
 const STATUS_OPTIONS: { value: TeamLifecycleStatus; label: string }[] = [
@@ -139,6 +149,8 @@ interface TeamsEnrichedViewProps {
   showAdminActions?: boolean;
   onTeamStatusChange?: (teamId: string, status: TeamLifecycleStatus) => void;
   pendingTeamId?: string | null;
+  /** Clique no card do departamento (abre modal de detalhes/acesso). */
+  onCardClick?: (row: TeamDisplayRow) => void;
 }
 
 export function TeamsEnrichedView({
@@ -152,6 +164,7 @@ export function TeamsEnrichedView({
   showAdminActions = false,
   onTeamStatusChange,
   pendingTeamId = null,
+  onCardClick,
 }: TeamsEnrichedViewProps) {
   const handleChange = (id: string, status: TeamLifecycleStatus) => {
     onTeamStatusChange?.(id, status);
@@ -198,7 +211,11 @@ export function TeamsEnrichedView({
               <>
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
                 <div
-                  className="relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5"
+                  className={cn(
+                    "relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5",
+                    onCardClick && "cursor-pointer"
+                  )}
+                  onClick={() => onCardClick?.(team)}
                   style={
                     team.color && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(team.color)
                       ? { borderLeftWidth: 4, borderLeftColor: team.color }
@@ -206,7 +223,7 @@ export function TeamsEnrichedView({
                   }
                 >
                   {showAdminActions && onTeamStatusChange ? (
-                    <div className="absolute top-2 right-2 z-20">
+                    <div className="absolute top-2 right-2 z-20" onClick={(e) => e.stopPropagation()}>
                       <TeamStatusActionsMenu
                         teamId={team.id}
                         current={team.status}
@@ -245,27 +262,62 @@ export function TeamsEnrichedView({
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 min-h-[1.5rem]">
-                    {team.sectors.length === 0 ? (
-                      <span className="text-[10px] text-muted-foreground/50 italic">Nenhum setor listado</span>
-                    ) : (
-                      team.sectors.slice(0, 6).map((s) => (
-                        <span
-                          key={s}
-                          className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-medium bg-primary/10 border border-primary/20 text-primary truncate max-w-full"
-                          title={s}
-                        >
-                          {s}
+                  <div className="flex flex-col flex-1 mt-4">
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {team.sectors.length === 0 ? (
+                        <span className="text-[10px] text-muted-foreground/50 italic">Nenhum setor listado</span>
+                      ) : (
+                        team.sectors.slice(0, 6).map((s) => (
+                          <span
+                            key={s}
+                            className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-medium bg-primary/10 border border-primary/20 text-primary truncate max-w-full"
+                            title={s}
+                          >
+                            {s}
+                          </span>
+                        ))
+                      )}
+                      {team.sectors.length > 6 ? (
+                        <span className="text-[10px] text-muted-foreground">+{team.sectors.length - 6}</span>
+                      ) : null}
+                    </div>
+                    <div className="pt-4 mt-auto border-t border-white/5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                      {team.collaborators && team.collaborators.length > 0 ? (
+                        <AvatarGroup className="justify-start">
+                          {team.collaborators.slice(0, 5).map((c) => (
+                            <div key={c.id} className="relative">
+                              <Avatar className="w-8 h-8 border-2 border-[#0d1520] ring-0 shadow-sm">
+                                <AvatarImage src={c.avatar} alt={c.name} className="object-cover" />
+                                <AvatarFallback className="text-[10px] bg-primary/20 text-primary font-bold">
+                                  {c.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <AvatarGroupTooltip>{c.name}</AvatarGroupTooltip>
+                            </div>
+                          ))}
+                          {team.collaborators.length > 5 && (
+                            <div className="relative">
+                              <Avatar className="w-8 h-8 border-2 border-[#0d1520] shadow-sm">
+                                <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-bold">
+                                  +{team.collaborators.length - 5}
+                                </AvatarFallback>
+                              </Avatar>
+                              <AvatarGroupTooltip>
+                                {team.collaborators.slice(5).map((c) => c.name).join(', ')}
+                              </AvatarGroupTooltip>
+                            </div>
+                          )}
+                        </AvatarGroup>
+                      ) : (
+                        <span className="text-white/40 italic text-[11px]">Sem colaboradores</span>
+                      )}
+                      <div className="flex flex-col items-end shrink-0">
+                        <span className="font-semibold text-white/90 text-sm">{team.collaboratorCount}</span>
+                        <span className="text-[10px] text-white/50 uppercase tracking-wider">
+                          colaborador{team.collaboratorCount === 1 ? '' : 'es'}
                         </span>
-                      ))
-                    )}
-                    {team.sectors.length > 6 ? (
-                      <span className="text-[10px] text-muted-foreground">+{team.sectors.length - 6}</span>
-                    ) : null}
-                  </div>
-                  <div className="pt-4 mt-auto border-t border-white/5 flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="font-semibold text-white/90">{team.collaboratorCount}</span>
-                    <span>colaborador{team.collaboratorCount === 1 ? '' : 'es'}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </>
@@ -273,7 +325,11 @@ export function TeamsEnrichedView({
               <>
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
                 <div
-                  className="relative h-full flex flex-col p-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5"
+                  className={cn(
+                    "relative h-full flex flex-col p-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5",
+                    onCardClick && "cursor-pointer"
+                  )}
+                  onClick={() => onCardClick?.(team)}
                   style={
                     team.color && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(team.color)
                       ? { borderLeftWidth: 4, borderLeftColor: team.color }
@@ -299,27 +355,62 @@ export function TeamsEnrichedView({
                       ) : null}
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 min-h-[1.5rem]">
-                    {team.sectors.length === 0 ? (
-                      <span className="text-[10px] text-muted-foreground italic">Nenhum setor listado</span>
-                    ) : (
-                      team.sectors.slice(0, 6).map((s) => (
-                        <span
-                          key={s}
-                          className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-medium bg-primary/10 border border-primary/20 text-primary truncate max-w-full"
-                          title={s}
-                        >
-                          {s}
+                  <div className="flex flex-col flex-1 mt-4">
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {team.sectors.length === 0 ? (
+                        <span className="text-[10px] text-muted-foreground italic">Nenhum setor listado</span>
+                      ) : (
+                        team.sectors.slice(0, 6).map((s) => (
+                          <span
+                            key={s}
+                            className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-medium bg-primary/10 border border-primary/20 text-primary truncate max-w-full"
+                            title={s}
+                          >
+                            {s}
+                          </span>
+                        ))
+                      )}
+                      {team.sectors.length > 6 ? (
+                        <span className="text-[10px] text-muted-foreground">+{team.sectors.length - 6}</span>
+                      ) : null}
+                    </div>
+                    <div className="pt-4 mt-auto border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                      {team.collaborators && team.collaborators.length > 0 ? (
+                        <AvatarGroup className="justify-start">
+                          {team.collaborators.slice(0, 5).map((c) => (
+                            <div key={c.id} className="relative">
+                              <Avatar className="w-8 h-8 border-2 border-white dark:border-[#0d1520] ring-0 shadow-sm">
+                                <AvatarImage src={c.avatar} alt={c.name} className="object-cover" />
+                                <AvatarFallback className="text-[10px] bg-primary/20 text-primary font-bold">
+                                  {c.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <AvatarGroupTooltip>{c.name}</AvatarGroupTooltip>
+                            </div>
+                          ))}
+                          {team.collaborators.length > 5 && (
+                            <div className="relative">
+                              <Avatar className="w-8 h-8 border-2 border-white dark:border-[#0d1520] shadow-sm">
+                                <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-bold">
+                                  +{team.collaborators.length - 5}
+                                </AvatarFallback>
+                              </Avatar>
+                              <AvatarGroupTooltip>
+                                {team.collaborators.slice(5).map((c) => c.name).join(', ')}
+                              </AvatarGroupTooltip>
+                            </div>
+                          )}
+                        </AvatarGroup>
+                      ) : (
+                        <span className="text-muted-foreground/50 italic text-[11px]">Sem colaboradores</span>
+                      )}
+                      <div className="flex flex-col items-end shrink-0">
+                        <span className="font-semibold text-foreground text-sm">{team.collaboratorCount}</span>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                          colaborador{team.collaboratorCount === 1 ? '' : 'es'}
                         </span>
-                      ))
-                    )}
-                    {team.sectors.length > 6 ? (
-                      <span className="text-[10px] text-muted-foreground">+{team.sectors.length - 6}</span>
-                    ) : null}
-                  </div>
-                  <div className="pt-4 mt-auto border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="font-semibold text-foreground">{team.collaboratorCount}</span>
-                    <span>colaborador{team.collaboratorCount === 1 ? '' : 'es'}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </>

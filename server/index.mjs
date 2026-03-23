@@ -217,7 +217,9 @@ app.get('/api/all-collaborators-sectors', async (req, res) => {
 function normalizeDeptKey(s) {
   return String(s ?? '')
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 /**
@@ -253,13 +255,14 @@ async function queryDepartmentSectorsByIds(client, ids) {
   if (!uniq.length) return new Map();
   try {
     const r = await client.query(
-      `SELECT department_id::text AS department_id, name
+      `SELECT department_id::text AS department_id, name, icon, color
        FROM sectors
        WHERE department_id::text = ANY($1::text[])
          AND is_active = true
        ORDER BY name ASC`,
       [uniq],
     );
+    // Retorna Map<deptId, Array<{ name, icon, color }>>
     const out = new Map();
     for (const id of uniq) out.set(id, []);
     for (const row of r.rows) {
@@ -268,7 +271,13 @@ async function queryDepartmentSectorsByIds(client, ids) {
       if (!did || !name) continue;
       if (!out.has(did)) out.set(did, []);
       const list = out.get(did);
-      if (!list.includes(name)) list.push(name);
+      if (!list.find((s) => s.name === name)) {
+        list.push({
+          name,
+          icon: row.icon ? String(row.icon).trim() : null,
+          color: row.color ? String(row.color).trim() : null,
+        });
+      }
     }
     return out;
   } catch (e) {
@@ -344,15 +353,23 @@ app.get('/api/department-team-stats', async (req, res) => {
         const name = idToName.get(id) ?? '';
         const key = normalizeDeptKey(name);
         const agg = key ? byNormName.get(key) : undefined;
-        const sectorList = sectorsByDeptId.get(id) ?? [];
+        // sectorsByDeptId agora retorna Array<{ name, icon, color }>
+        const sectorObjs = sectorsByDeptId.get(id) ?? [];
+        const sectorList = sectorObjs.map((s) => s.name);
         const sectorCounts = {};
-        for (const sn of sectorList) {
-          sectorCounts[sn] = agg?.sectorCounts?.get(sn) || 0;
+        const sectorIcons = {};
+        const sectorColors = {};
+        for (const s of sectorObjs) {
+          sectorCounts[s.name] = agg?.sectorCounts?.get(s.name) || 0;
+          if (s.icon) sectorIcons[s.name] = s.icon;
+          if (s.color) sectorColors[s.name] = s.color;
         }
         out[id] = {
           sectors: sectorList,
           collaboratorCount: agg ? agg.count : 0,
           sectorCounts,
+          sectorIcons,
+          sectorColors,
         };
       }
       return res.json(out);
@@ -400,20 +417,56 @@ app.get('/api/teams-neon-collaborators', async (req, res) => {
     await client.connect();
     try {
       const idToName = await queryDepartmentNamesByIds(client, ids);
+      console.log('[teams-neon-collaborators] idToName:', [...idToName.entries()]);
+
       const nameToNeonId = new Map();
       for (const [nid, name] of idToName) {
         nameToNeonId.set(normalizeDeptKey(name), nid);
       }
+
       const want = new Set(ids);
-      const result = await client.query(
-        `SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal
-         FROM collaborators WHERE status = $1`,
-        ['active'],
-      );
+
+      // Tenta buscar colaboradores com coluna department_id (match direto por ID)
+      let result = null;
+      let hasDeptIdCol = false;
+      try {
+        result = await client.query(
+          `SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal, department_id::text AS dept_id
+           FROM collaborators WHERE status = $1`,
+          ['active'],
+        );
+        hasDeptIdCol = true;
+      } catch (e) {
+        if (e.code === '42703') {
+          // coluna department_id não existe, usa só nome
+          result = await client.query(
+            `SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal
+             FROM collaborators WHERE status = $1`,
+            ['active'],
+          );
+        } else {
+          throw e;
+        }
+      }
+
+      console.log('[teams-neon-collaborators] total collaborators from Neon:', result.rows.length, '| hasDeptIdCol:', hasDeptIdCol);
+
       const list = [];
       for (const r of result.rows) {
-        const nid = nameToNeonId.get(normalizeDeptKey(r.department_cadeira_principal));
+        let nid = null;
+
+        // Tenta match direto por department_id (mais confiável)
+        if (hasDeptIdCol && r.dept_id && want.has(r.dept_id)) {
+          nid = r.dept_id;
+        }
+
+        // Fallback: match por nome normalizado
+        if (!nid) {
+          nid = nameToNeonId.get(normalizeDeptKey(r.department_cadeira_principal)) ?? null;
+        }
+
         if (!nid || !want.has(nid)) continue;
+
         const emailRaw =
           r.corporate_email?.trim() || r.email?.trim() || r.personal_email?.trim() || '';
         if (!emailRaw) continue;
@@ -427,6 +480,7 @@ app.get('/api/teams-neon-collaborators', async (req, res) => {
         });
       }
       list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      console.log('[teams-neon-collaborators] matched collaborators:', list.length);
       return res.json({ collaborators: list });
     } finally {
       await client.end();

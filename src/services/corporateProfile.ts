@@ -312,6 +312,10 @@ export interface DepartmentTeamStatEntry {
   collaboratorCount: number;
   /** Colaboradores ativos por nome de setor (mesmo critério que `sectors`). */
   sectorCounts: Record<string, number>;
+  /** Ícone do setor cadastrado no Neon (sectors.icon). */
+  sectorIcons: Record<string, string>;
+  /** Cor do setor cadastrado no Neon (sectors.color). */
+  sectorColors: Record<string, string>;
 }
 
 export type DepartmentTeamStatsMap = Record<string, DepartmentTeamStatEntry>;
@@ -333,7 +337,13 @@ export async function getDepartmentTeamStats(departmentIds: string[]): Promise<D
     const out: DepartmentTeamStatsMap = {};
     for (const [id, v] of Object.entries(data as Record<string, unknown>)) {
       if (!v || typeof v !== 'object') continue;
-      const o = v as { sectors?: unknown; collaboratorCount?: unknown; sectorCounts?: unknown };
+      const o = v as {
+        sectors?: unknown;
+        collaboratorCount?: unknown;
+        sectorCounts?: unknown;
+        sectorIcons?: unknown;
+        sectorColors?: unknown;
+      };
       const sectors = Array.isArray(o.sectors)
         ? o.sectors.filter((x): x is string => typeof x === 'string')
         : [];
@@ -347,7 +357,19 @@ export async function getDepartmentTeamStats(departmentIds: string[]): Promise<D
           if (typeof sv === 'number' && Number.isFinite(sv)) sectorCounts[sk] = sv;
         }
       }
-      out[id] = { sectors, collaboratorCount, sectorCounts };
+      const sectorIcons: Record<string, string> = {};
+      if (o.sectorIcons && typeof o.sectorIcons === 'object' && !Array.isArray(o.sectorIcons)) {
+        for (const [sk, sv] of Object.entries(o.sectorIcons as Record<string, unknown>)) {
+          if (typeof sv === 'string' && sv) sectorIcons[sk] = sv;
+        }
+      }
+      const sectorColors: Record<string, string> = {};
+      if (o.sectorColors && typeof o.sectorColors === 'object' && !Array.isArray(o.sectorColors)) {
+        for (const [sk, sv] of Object.entries(o.sectorColors as Record<string, unknown>)) {
+          if (typeof sv === 'string' && sv) sectorColors[sk] = sv;
+        }
+      }
+      out[id] = { sectors, collaboratorCount, sectorCounts, sectorIcons, sectorColors };
     }
     return out;
   } catch {
