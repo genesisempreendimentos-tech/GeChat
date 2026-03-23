@@ -11,6 +11,10 @@ import { AvatarGroup, AvatarGroupTooltip } from '@/components/ui/avatar-group';
 
 export interface SectorTopicRow {
   id: string;
+  /** Equipe (team) no Supabase — usado no modal de acesso por setor */
+  teamId: string;
+  /** Departamento Neon vinculado à equipe */
+  neonDepartmentId: string;
   sectorName: string;
   departmentName: string;
   collaboratorCount: number;
