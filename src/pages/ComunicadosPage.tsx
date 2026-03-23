@@ -847,7 +847,7 @@ export default function ComunicadosPage() {
             <DialogDescription className="line-clamp-2">{reactionsModalTitle}</DialogDescription>
           </DialogHeader>
           {reactionsModalStatementId ? (
-            <div className="mt-2 space-y-2">
+            <div className="mt-2 space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Sua reação
               </p>
@@ -859,7 +859,7 @@ export default function ComunicadosPage() {
               />
             </div>
           ) : null}
-          <div className="mt-2 min-h-[180px] max-h-[55vh] overflow-y-auto space-y-2 pr-1">
+          <div className="mt-4 min-h-[180px] max-h-[55vh] overflow-y-auto space-y-2 pr-1">
             {reactionsModalLoading ? (
               <LoadingGifScreen className="h-40" />
             ) : reactionsModalItems.length === 0 ? (
