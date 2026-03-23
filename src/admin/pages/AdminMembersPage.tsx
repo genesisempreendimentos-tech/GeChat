@@ -47,6 +47,18 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 
+/** Filtro por tipo de acesso — segment control na mesma linha do AdminControlLine. */
+const MEMBER_TYPE_FILTER_SEGMENTS: {
+  value: 'all' | 'user' | 'creator' | 'admin';
+  label: string;
+  Icon: ComponentType<{ className?: string }>;
+}[] = [
+  { value: 'all', label: 'Todos', Icon: UserIconLucide },
+  { value: 'user', label: 'Users', Icon: UserKey },
+  { value: 'creator', label: 'Creators', Icon: UserPen },
+  { value: 'admin', label: 'Admins', Icon: UserStar },
+];
+
 interface SystemAccess {
   id: string;
   name: string;
@@ -456,11 +468,51 @@ export default function AdminMembersPage() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         leftContent={
-          <div className="relative group/search">
+          <div className="flex max-w-full rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80">
+            {MEMBER_TYPE_FILTER_SEGMENTS.map(({ value, label, Icon }) => {
+              const active = typeFilter === value;
+              return (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-8 rounded-lg text-sm font-medium transition-all duration-300 flex items-center',
+                    active
+                      ? 'bg-primary text-primary-foreground shadow-md px-3'
+                      : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                  )}
+                  onClick={() => setTypeFilter(value)}
+                  aria-pressed={active}
+                  aria-label={label}
+                  title={label}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <AnimatePresence initial={false}>
+                    {active && (
+                      <motion.span
+                        initial={{ width: 0, opacity: 0, marginLeft: 0 }}
+                        animate={{ width: 'auto', opacity: 1, marginLeft: 6 }}
+                        exit={{ width: 0, opacity: 0, marginLeft: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeInOut' }}
+                        className="overflow-hidden whitespace-nowrap"
+                      >
+                        {label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </Button>
+              );
+            })}
+          </div>
+        }
+        centerContent={
+          <div className="relative group/search w-full max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
             <Input
               placeholder="Buscar por nome, e-mail, departamento, setor..."
-              className="pl-8 w-60 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
+              className="pl-8 w-full min-w-0 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -468,25 +520,6 @@ export default function AdminMembersPage() {
         }
         showViewToggle
       />
-
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-card/40 p-2">
-        <Button variant={typeFilter === 'all' ? 'default' : 'ghost'} size="sm" onClick={() => setTypeFilter('all')}>
-          <UserIconLucide className="w-4 h-4 mr-1.5" />
-          Todos
-        </Button>
-        <Button variant={typeFilter === 'user' ? 'default' : 'ghost'} size="sm" onClick={() => setTypeFilter('user')}>
-          <UserKey className="w-4 h-4 mr-1.5" />
-          Users
-        </Button>
-        <Button variant={typeFilter === 'creator' ? 'default' : 'ghost'} size="sm" onClick={() => setTypeFilter('creator')}>
-          <UserPen className="w-4 h-4 mr-1.5" />
-          Creators
-        </Button>
-        <Button variant={typeFilter === 'admin' ? 'default' : 'ghost'} size="sm" onClick={() => setTypeFilter('admin')}>
-          <UserStar className="w-4 h-4 mr-1.5" />
-          Admins
-        </Button>
-      </div>
 
       <AdminBigBox>
         {loading ? (

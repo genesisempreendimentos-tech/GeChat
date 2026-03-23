@@ -1,17 +1,18 @@
-import { PanelLeft, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
+import { PanelRightClose, PanelRightDashed, PanelRightOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 import type { SidebarMode } from '@/lib/sidebarMode';
 
+/** Ordem no controlo: expandido → hover → recolhido (ícones por modo, não pelo nome Lucide). */
 const MODES: { value: SidebarMode; Icon: React.ElementType; label: string }[] = [
-  { value: 'collapsed', Icon: PanelLeft,      label: 'Menu sempre recolhido' },
-  { value: 'hover',     Icon: PanelLeftOpen,  label: 'Expandir ao passar o mouse' },
-  { value: 'expanded',  Icon: PanelLeftClose, label: 'Menu sempre expandido' },
+  { value: 'expanded', Icon: PanelRightClose, label: 'Menu sempre expandido' },
+  { value: 'hover', Icon: PanelRightDashed, label: 'Expandir ao passar o mouse' },
+  { value: 'collapsed', Icon: PanelRightOpen, label: 'Menu sempre recolhido' },
 ];
 
 function modeIcon(mode: SidebarMode): React.ElementType {
-  return MODES.find((m) => m.value === mode)?.Icon ?? PanelLeftOpen;
+  return MODES.find((m) => m.value === mode)?.Icon ?? PanelRightDashed;
 }
 
 type Props = {
