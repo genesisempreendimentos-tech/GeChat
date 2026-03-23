@@ -233,9 +233,20 @@ type ProfileRow = {
   email?: string;
   created_at?: string;
   access_type?: string;
+  /** Conta ativa ou arquivada (soft) no painel admin. */
+  profile_status?: string | null;
   thema?: string | null;
   sidebar?: string | null;
 };
+
+function normalizeProfileStatus(raw: string | null | undefined): 'active' | 'archived' | 'deleted' {
+  const v = String(raw ?? '')
+    .trim()
+    .toLowerCase();
+  if (v === 'archived' || v === 'arquivado') return 'archived';
+  if (v === 'deleted' || v === 'excluido' || v === 'excluído') return 'deleted';
+  return 'active';
+}
 type UserShape = {
   id: string;
   name: string;
@@ -245,6 +256,7 @@ type UserShape = {
   created_at?: string;
   createdAt?: Date;
   accessType?: string;
+  profileStatus?: 'active' | 'archived' | 'deleted';
   thema?: string | null;
   sidebar?: SidebarMode;
 };
@@ -265,6 +277,7 @@ function profileToUser(row: ProfileRow | null, authEmail?: string): UserShape | 
     created_at: row.created_at,
     createdAt: row.created_at ? new Date(row.created_at) : undefined,
     accessType: role,
+    profileStatus: normalizeProfileStatus(row.profile_status),
     thema: row.thema ?? undefined,
     sidebar: parseSidebarMode(row.sidebar ?? undefined),
   };
@@ -853,6 +866,12 @@ export const databaseService = {
     if (userData.banner_url != null) payload.banner_url = userData.banner_url;
     if (userData.mascote != null) payload.mascote = userData.mascote;
     if (userData.access_type != null) payload.access_type = userData.access_type;
+    if (userData.profileStatus != null) {
+      const ps = String(userData.profileStatus).toLowerCase();
+      if (ps === 'archived' || ps === 'arquivado') payload.profile_status = 'archived';
+      else if (ps === 'deleted' || ps === 'excluido' || ps === 'excluído') payload.profile_status = 'deleted';
+      else payload.profile_status = 'active';
+    }
     for (const key of ['user_id']) {
       const { data, error } = await supabase
         .from('profiles')

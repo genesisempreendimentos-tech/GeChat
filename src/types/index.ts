@@ -13,8 +13,10 @@ export interface User {
   avatar?: string;
   /** `profiles.created_at` no Supabase (via `profileToUser` em `getUsers`). */
   createdAt?: Date;
-  /** Tipo de acesso: 'softadmin' | 'member' (coluna access_type em profiles) */
+  /** Tipo de acesso: 'admin' | 'creator' | 'user' (coluna access_type em profiles) */
   accessType?: string;
+  /** Ciclo de vida da conta no painel admin (`profiles.profile_status`). */
+  profileStatus?: 'active' | 'archived' | 'deleted';
   /** `profiles.sidebar`: hover | expanded | collapsed */
   sidebar?: SidebarMode;
 }

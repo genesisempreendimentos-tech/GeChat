@@ -1,6 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type MouseEvent, type ComponentType } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserKey, Search, ShieldCheck, Check, Loader2, Boxes, UserPen, UserStar } from 'lucide-react';
+import {
+  User as UserIconLucide,
+  UserKey,
+  Search,
+  ShieldCheck,
+  Check,
+  Loader2,
+  Boxes,
+  UserPen,
+  UserStar,
+  ShieldUser,
+  Zap,
+  Power,
+  Archive,
+  Trash,
+  MoreVertical,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +35,16 @@ import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardIn
 import * as Icons from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 
 interface SystemAccess {
@@ -61,7 +87,6 @@ export default function AdminMembersPage() {
 
   // Modal de liberação em massa
   const [accessModal, setAccessModal] = useState<{ member: User } | null>(null);
-  const [allSystems, setAllSystems] = useState<any[]>([]);
   const [systemAccesses, setSystemAccesses] = useState<SystemAccess[]>([]);
   const [loadingAccess, setLoadingAccess] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
@@ -73,6 +98,7 @@ export default function AdminMembersPage() {
   const [promoteTab, setPromoteTab] = useState<'creators' | 'admin'>('creators');
   const [promotionSelection, setPromotionSelection] = useState<Record<string, boolean>>({});
   const [promotionSaving, setPromotionSaving] = useState(false);
+  const [memberActionsLoadingId, setMemberActionsLoadingId] = useState<string | null>(null);
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -100,8 +126,7 @@ export default function AdminMembersPage() {
     }
   };
 
-  const handleOpenAccessModal = useCallback(async (member: User, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const openAccessModalForMember = useCallback(async (member: User) => {
     setAccessModal({ member });
     setAccessSearch('');
     setAccessFilter('all');
@@ -128,7 +153,6 @@ export default function AdminMembersPage() {
       original: accessMap.get(s.id) ?? false,
     }));
 
-    // Ordenar: com acesso primeiro, depois por nome
     mapped.sort((a, b) => {
       if (a.canAccess !== b.canAccess) return a.canAccess ? -1 : 1;
       return a.name.localeCompare(b.name, 'pt-BR');
@@ -137,6 +161,50 @@ export default function AdminMembersPage() {
     setSystemAccesses(mapped);
     setLoadingAccess(false);
   }, []);
+
+  const handleSetMemberAccessType = useCallback(
+    async (member: User, accessType: 'user' | 'creator' | 'admin') => {
+      setMemberActionsLoadingId(member.id);
+      const { error } = await databaseService.updateUser(member.id, { accessType });
+      setMemberActionsLoadingId(null);
+      if (error) {
+        toast.error('Não foi possível atualizar o tipo de acesso.');
+        return;
+      }
+      toast.success(
+        accessType === 'admin'
+          ? 'Utilizador promovido a administrador.'
+          : accessType === 'creator'
+            ? 'Utilizador promovido a creator.'
+            : 'Utilizador rebaixado para user.'
+      );
+      await loadMembers();
+    },
+    [loadMembers]
+  );
+
+  const handleSetMemberLifecycleStatus = useCallback(
+    async (member: User, profileStatus: 'active' | 'archived' | 'deleted') => {
+      setMemberActionsLoadingId(member.id);
+      const { error } = await databaseService.updateUser(member.id, { profileStatus });
+      setMemberActionsLoadingId(null);
+      if (error) {
+        toast.error(
+          'Não foi possível atualizar o status. Confirme a coluna profile_status no Supabase (ver migration-profiles-profile-status.sql).'
+        );
+        return;
+      }
+      const msg =
+        profileStatus === 'archived'
+          ? 'Conta arquivada.'
+          : profileStatus === 'deleted'
+            ? 'Conta marcada como excluída.'
+            : 'Conta ativa.';
+      toast.success(msg);
+      await loadMembers();
+    },
+    [loadMembers]
+  );
 
   const toggleAccess = (systemId: string) => {
     setSystemAccesses(prev =>
@@ -180,6 +248,141 @@ export default function AdminMembersPage() {
 
   const changedCount = systemAccesses.filter(s => s.canAccess !== s.original).length;
   const grantedCount = systemAccesses.filter(s => s.canAccess).length;
+
+  /** Menu ⋯ (card e tabela): Aplicativos, Acessos, Status (submenus). */
+  const renderMemberOverflowMenu = (member: User) => {
+    const isSelf = member.id === currentUser?.id;
+    const loading = memberActionsLoadingId === member.id;
+    const at = (member.accessType ?? 'user').toLowerCase();
+    const lifecycle = member.profileStatus ?? 'active';
+
+    const isAccessCurrent = (role: 'admin' | 'creator' | 'user') => at === role;
+    /** Próprio utilizador: não pode mudar papel/status; outros: não repetir o valor atual. */
+    const accessOptionDisabled = (role: 'admin' | 'creator' | 'user') =>
+      isSelf || isAccessCurrent(role);
+
+    const accessRowClass = (role: 'admin' | 'creator' | 'user') =>
+      cn(
+        accessOptionDisabled(role) &&
+          isAccessCurrent(role) &&
+          'bg-primary/10 text-primary/80 data-[disabled]:pointer-events-none data-[disabled]:opacity-100',
+        isSelf && !isAccessCurrent(role) && 'text-muted-foreground/60 data-[disabled]:opacity-60'
+      );
+
+    const isLifecycleCurrent = (s: 'active' | 'archived' | 'deleted') => lifecycle === s;
+    const statusOptionDisabled = (s: 'active' | 'archived' | 'deleted') =>
+      isSelf || isLifecycleCurrent(s);
+
+    const statusRowClass = (s: 'active' | 'archived' | 'deleted') =>
+      cn(
+        statusOptionDisabled(s) &&
+          isLifecycleCurrent(s) &&
+          'bg-primary/10 text-primary/80 data-[disabled]:pointer-events-none data-[disabled]:opacity-100',
+        isSelf && !isLifecycleCurrent(s) && 'text-muted-foreground/60 data-[disabled]:opacity-60'
+      );
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground hover:text-foreground"
+            onClick={(e) => e.stopPropagation()}
+            disabled={loading}
+            aria-label="Mais ações"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52" onClick={(e: MouseEvent) => e.stopPropagation()}>
+          <DropdownMenuItem
+            onSelect={() => {
+              void openAccessModalForMember(member);
+            }}
+          >
+            <Boxes className="mr-2 h-4 w-4" />
+            Aplicativos
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <ShieldUser className="mr-2 h-4 w-4" />
+              Acessos
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-52">
+              <DropdownMenuItem
+                disabled={accessOptionDisabled('admin')}
+                className={accessRowClass('admin')}
+                onSelect={() => void handleSetMemberAccessType(member, 'admin')}
+              >
+                <UserStar className="mr-2 h-4 w-4 shrink-0" />
+                <span className="flex-1">Admin</span>
+                {isAccessCurrent('admin') ? <Check className="h-4 w-4 shrink-0 opacity-70" /> : null}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={accessOptionDisabled('creator')}
+                className={accessRowClass('creator')}
+                onSelect={() => void handleSetMemberAccessType(member, 'creator')}
+              >
+                <UserPen className="mr-2 h-4 w-4 shrink-0" />
+                <span className="flex-1">Creator</span>
+                {isAccessCurrent('creator') ? <Check className="h-4 w-4 shrink-0 opacity-70" /> : null}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={accessOptionDisabled('user')}
+                className={accessRowClass('user')}
+                onSelect={() => void handleSetMemberAccessType(member, 'user')}
+              >
+                <UserKey className="mr-2 h-4 w-4 shrink-0" />
+                <span className="flex-1">User</span>
+                {isAccessCurrent('user') ? <Check className="h-4 w-4 shrink-0 opacity-70" /> : null}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Zap className="mr-2 h-4 w-4" />
+              Status
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-52">
+              <DropdownMenuItem
+                disabled={statusOptionDisabled('active')}
+                className={statusRowClass('active')}
+                onSelect={() => void handleSetMemberLifecycleStatus(member, 'active')}
+              >
+                <Power className="mr-2 h-4 w-4 shrink-0" />
+                <span className="flex-1">Ativo</span>
+                {isLifecycleCurrent('active') ? <Check className="h-4 w-4 shrink-0 opacity-70" /> : null}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={statusOptionDisabled('archived')}
+                className={statusRowClass('archived')}
+                onSelect={() => void handleSetMemberLifecycleStatus(member, 'archived')}
+              >
+                <Archive className="mr-2 h-4 w-4 shrink-0" />
+                <span className="flex-1">Arquivado</span>
+                {isLifecycleCurrent('archived') ? <Check className="h-4 w-4 shrink-0 opacity-70" /> : null}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={statusOptionDisabled('deleted')}
+                className={statusRowClass('deleted')}
+                onSelect={() => void handleSetMemberLifecycleStatus(member, 'deleted')}
+              >
+                <Trash className="mr-2 h-4 w-4 shrink-0" />
+                <span className="flex-1">Excluído</span>
+                {isLifecycleCurrent('deleted') ? <Check className="h-4 w-4 shrink-0 opacity-70" /> : null}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   const filtered = members.filter((m) => {
     const q = searchQuery.toLowerCase();
@@ -268,6 +471,7 @@ export default function AdminMembersPage() {
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-card/40 p-2">
         <Button variant={typeFilter === 'all' ? 'default' : 'ghost'} size="sm" onClick={() => setTypeFilter('all')}>
+          <UserIconLucide className="w-4 h-4 mr-1.5" />
           Todos
         </Button>
         <Button variant={typeFilter === 'user' ? 'default' : 'ghost'} size="sm" onClick={() => setTypeFilter('user')}>
@@ -288,10 +492,24 @@ export default function AdminMembersPage() {
         {loading ? (
           <LoadingGifScreen className="h-64" />
         ) : filteredByType.length === 0 ? (
-          <div className="py-12 text-center text-muted-foreground">
-            <UserKey className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>Nenhum membro encontrado.</p>
-          </div>
+          (() => {
+            const emptyByFilter: Record<
+              'all' | 'user' | 'creator' | 'admin',
+              { Icon: ComponentType<{ className?: string }>; message: string }
+            > = {
+              all: { Icon: UserIconLucide, message: 'Nenhum usuário encontrado.' },
+              user: { Icon: UserKey, message: 'Nenhum user encontrado.' },
+              creator: { Icon: UserPen, message: 'Nenhum creator encontrado.' },
+              admin: { Icon: UserStar, message: 'Nenhum user encontrado.' },
+            };
+            const { Icon: EmptyIcon, message } = emptyByFilter[typeFilter];
+            return (
+              <div className="py-12 text-center text-muted-foreground">
+                <EmptyIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>{message}</p>
+              </div>
+            );
+          })()
         ) : viewMode === 'cards' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredByType.map((member, index) => {
@@ -304,25 +522,44 @@ export default function AdminMembersPage() {
                 transition={{ delay: index * 0.03 }}
               >
                 <Card
-                  className="h-full cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 group"
+                  className="relative h-full cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 group"
                   onClick={() => handleOpenProfile(member.id)}
                 >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
-                        {loadingProfile === member.id ? (
-                          <LoadingGif size="sm" />
-                        ) : member.avatar ? (
-                          <img src={member.avatar} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-lg font-semibold text-primary">
-                            {(member.name ?? '?').charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <CardTitle className="text-base truncate group-hover:text-primary transition-colors">{member.name || '—'}</CardTitle>
-                        <CardDescription className="text-xs truncate">{member.email || '—'}</CardDescription>
+                  <div className="absolute right-1.5 top-1.5 z-10" onClick={(e) => e.stopPropagation()}>
+                    {renderMemberOverflowMenu(member)}
+                  </div>
+                  <CardHeader className="pb-2 pr-10 pt-4">
+                    <div className="flex items-start gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                          {loadingProfile === member.id ? (
+                            <LoadingGif size="sm" />
+                          ) : member.avatar ? (
+                            <img src={member.avatar} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-lg font-semibold text-primary">
+                              {(member.name ?? '?').charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <CardTitle className="text-base truncate group-hover:text-primary transition-colors">
+                              {member.name || '—'}
+                            </CardTitle>
+                            {member.profileStatus === 'archived' ? (
+                              <span className="shrink-0 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                                Arquivado
+                              </span>
+                            ) : null}
+                            {member.profileStatus === 'deleted' ? (
+                              <span className="shrink-0 rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">
+                                Excluído
+                              </span>
+                            ) : null}
+                          </div>
+                          <CardDescription className="text-xs truncate">{member.email || '—'}</CardDescription>
+                        </div>
                       </div>
                     </div>
                   </CardHeader>
@@ -357,15 +594,6 @@ export default function AdminMembersPage() {
                         </span>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full mt-2 h-8 rounded-lg text-xs gap-1.5 border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40"
-                      onClick={(e) => handleOpenAccessModal(member, e)}
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      Gerenciar Acessos
-                    </Button>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -396,7 +624,7 @@ export default function AdminMembersPage() {
                     onClick={() => handleOpenProfile(member.id)}
                   >
                     <td className="py-2 px-2 font-medium">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
                           {loadingProfile === member.id ? (
                             <LoadingGif size="sm" />
@@ -408,7 +636,17 @@ export default function AdminMembersPage() {
                             </span>
                           )}
                         </div>
-                        {member.name || '—'}
+                        <span className="truncate">{member.name || '—'}</span>
+                        {member.profileStatus === 'archived' ? (
+                          <span className="shrink-0 rounded border border-amber-500/30 bg-amber-500/10 px-1 py-0.5 text-[9px] font-semibold uppercase text-amber-700 dark:text-amber-400">
+                            Arquivado
+                          </span>
+                        ) : null}
+                        {member.profileStatus === 'deleted' ? (
+                          <span className="shrink-0 rounded border border-destructive/30 bg-destructive/10 px-1 py-0.5 text-[9px] font-semibold uppercase text-destructive">
+                            Excluído
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td className="py-2 px-2 text-muted-foreground">{member.email || '—'}</td>
@@ -422,19 +660,8 @@ export default function AdminMembersPage() {
                     <td className="py-2 px-2 text-muted-foreground tabular-nums whitespace-nowrap" title="profiles.created_at (Supabase)">
                       {formatProfileCreatedAt(member.createdAt)}
                     </td>
-                    <td className="py-2 px-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 rounded-lg text-xs gap-1.5 border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenAccessModal(member, e);
-                        }}
-                      >
-                        <ShieldCheck className="w-3 h-3" />
-                        Acessos
-                      </Button>
+                    <td className="py-2 px-2 w-[52px] text-right" onClick={(e) => e.stopPropagation()}>
+                      {renderMemberOverflowMenu(member)}
                     </td>
                   </tr>
                 );
@@ -523,7 +750,7 @@ export default function AdminMembersPage() {
                   <div>
                     <DialogTitle className="text-xl font-semibold tracking-tight">{accessModal?.member.name || '—'}</DialogTitle>
                     <DialogDescription className="text-sm mt-1">
-                      Gerencie os aplicativos que este membro pode acessar
+                      Gerencie os aplicativos que este usuário pode acessar
                     </DialogDescription>
                   </div>
                 </div>
