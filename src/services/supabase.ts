@@ -185,6 +185,35 @@ export interface StatementReactionWithUser extends StatementReaction {
   userAvatar?: string;
 }
 
+export interface StatementComment {
+  id: string;
+  statementId: string;
+  userId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+  isActive: boolean;
+}
+
+export interface StatementCommentWithUser extends StatementComment {
+  userName: string;
+  userEmail?: string;
+  userAvatar?: string;
+  department?: string;
+}
+
+type StatementCommentRow = {
+  id: string;
+  statement_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  is_active: boolean;
+};
+
 function statementRowToApp(row: StatementRow): Statement {
   return {
     id: row.id,
@@ -208,6 +237,19 @@ function statementReactionRowToApp(row: StatementReactionRow): StatementReaction
     reaction: row.reaction ?? undefined,
     createdAt: row.created_at ? new Date(row.created_at) : undefined,
     updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
+    isActive: row.is_active !== false,
+  };
+}
+
+function statementCommentRowToApp(row: StatementCommentRow): StatementComment {
+  return {
+    id: row.id,
+    statementId: row.statement_id,
+    userId: row.user_id,
+    content: row.content,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
     deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
     isActive: row.is_active !== false,
   };
@@ -1399,6 +1441,94 @@ export const databaseService = {
       }),
       error: null,
     };
+  },
+
+  /** Lista comentários de um comunicado com dados do usuário. */
+  async listStatementComments(statementId: string): Promise<{ data: StatementCommentWithUser[]; error: unknown | null }> {
+    try {
+      const { data: rows, error } = await this.client
+        .from('statement_comment')
+        .select('*')
+        .eq('statement_id', statementId)
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        // Se a tabela não existir, retorna array vazio sem quebrar
+        if (error.code === '42P01') return { data: [], error: null };
+        return { data: [], error };
+      }
+
+      if (!rows || rows.length === 0) return { data: [], error: null };
+
+      const comments = rows.map(statementCommentRowToApp);
+      const userIds = [...new Set(comments.map((c) => c.userId))];
+      
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, name, full_name, email, avatar_url, avatar')
+        .in('user_id', userIds);
+        
+      const profileByUserId = new Map<string, any>();
+      for (const row of (profiles ?? [])) {
+        if (!row.user_id) continue;
+        profileByUserId.set(row.user_id, row);
+      }
+
+      const enriched = comments.map((c) => {
+        const p = profileByUserId.get(c.userId);
+        return {
+          ...c,
+          userName: p?.name || p?.full_name || 'Usuário',
+          userEmail: p?.email,
+          userAvatar: p?.avatar || p?.avatar_url,
+        };
+      });
+
+      return { data: enriched, error: null };
+    } catch (e) {
+      console.warn('[statement_comment] list exception:', e);
+      return { data: [], error: e };
+    }
+  },
+
+  /** Adiciona um comentário a um comunicado. */
+  async addStatementComment(statementId: string, content: string): Promise<{ data: StatementComment | null; error: unknown | null }> {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) return { data: null, error: new Error('Não autenticado') };
+
+      const { data, error } = await this.client
+        .from('statement_comment')
+        .insert({
+          statement_id: statementId,
+          user_id: user.id,
+          content: content.trim(),
+        })
+        .select()
+        .single();
+
+      if (error) return { data: null, error };
+      return { data: data ? statementCommentRowToApp(data) : null, error: null };
+    } catch (e) {
+      console.warn('[statement_comment] add exception:', e);
+      return { data: null, error: e };
+    }
+  },
+
+  /** Deleta (soft delete) um comentário. */
+  async deleteStatementComment(commentId: string): Promise<{ error: unknown | null }> {
+    try {
+      const { error } = await this.client
+        .from('statement_comment')
+        .update({ deleted_at: new Date().toISOString(), is_active: false })
+        .eq('id', commentId);
+      return { error };
+    } catch (e) {
+      console.warn('[statement_comment] delete exception:', e);
+      return { error: e };
+    }
   },
 
   /**
