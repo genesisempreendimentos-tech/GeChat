@@ -23,6 +23,7 @@ import {
   MapPin,
   Send,
   Trash2,
+  MessageCircleMore,
 } from 'lucide-react';
 import { AnimatedEmoji } from '@/components/ui/animated-emoji';
 import { Input } from '@/components/ui/input';
@@ -744,15 +745,15 @@ export default function ComunicadosPage() {
                   <button
                     type="button"
                     onClick={() => handleOpenPost(s)}
-                    className="flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+                    className="ml-auto flex items-center gap-1.5 hover:opacity-70 transition-opacity"
                     title="Comentar / Ver detalhes"
                   >
-                    <MessageCircle className="w-6 h-6 text-foreground" strokeWidth={1.5} />
                     {(commentCountByStatementId.get(s.id) ?? 0) > 0 && (
                       <span className="text-sm font-semibold text-foreground">
                         {commentCountByStatementId.get(s.id)}
                       </span>
                     )}
+                    <MessageCircleMore className="w-6 h-6 text-foreground" strokeWidth={1.5} />
                   </button>
                 </div>
 
