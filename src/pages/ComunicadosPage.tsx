@@ -111,6 +111,7 @@ export default function ComunicadosPage() {
   const [captionExpanded, setCaptionExpanded] = useState<Record<string, boolean>>({});
   const [detailStatement, setDetailStatement] = useState<Statement | null>(null);
   const [statementReactions, setStatementReactions] = useState<StatementReaction[]>([]);
+  const [commentCountByStatementId, setCommentCountByStatementId] = useState<Map<string, number>>(new Map());
   const [isReactionsModalOpen, setIsReactionsModalOpen] = useState(false);
   const [reactionsModalTitle, setReactionsModalTitle] = useState('');
   const [reactionsModalStatementId, setReactionsModalStatementId] = useState<string | null>(null);
@@ -186,6 +187,17 @@ export default function ComunicadosPage() {
     const statementIds = statementsList.map((s) => s.id);
     const { data: reactionsData } = await databaseService.listStatementReactions(statementIds);
     setStatementReactions(reactionsData ?? []);
+
+    // Buscar contagem de comentários para todos os posts
+    const countMap = new Map<string, number>();
+    await Promise.all(
+      statementIds.map(async (id) => {
+        const { data: cmts } = await databaseService.listStatementComments(id);
+        countMap.set(id, cmts?.length ?? 0);
+      })
+    );
+    setCommentCountByStatementId(new Map(countMap));
+
     setLoading(false);
   }, []);
 
@@ -357,6 +369,12 @@ export default function ComunicadosPage() {
       setNewComment('');
       // Recarregar comentários para obter os dados do usuário (nome, avatar)
       loadComments(detailStatement.id);
+      // Atualizar o contador no card
+      setCommentCountByStatementId(prev => {
+        const next = new Map(prev);
+        next.set(detailStatement.id, (prev.get(detailStatement.id) ?? 0) + 1);
+        return next;
+      });
       toast.success('Comentário adicionado!');
     }
   };
@@ -371,6 +389,14 @@ export default function ComunicadosPage() {
     }
     
     setComments(prev => prev.filter(c => c.id !== commentId));
+    // Atualizar o contador no card
+    if (detailStatement) {
+      setCommentCountByStatementId(prev => {
+        const next = new Map(prev);
+        next.set(detailStatement.id, Math.max(0, (prev.get(detailStatement.id) ?? 1) - 1));
+        return next;
+      });
+    }
     toast.success('Comentário excluído');
   };
 
@@ -718,10 +744,15 @@ export default function ComunicadosPage() {
                   <button
                     type="button"
                     onClick={() => handleOpenPost(s)}
-                    className="flex items-center justify-center hover:opacity-70 transition-opacity"
+                    className="flex items-center gap-1.5 hover:opacity-70 transition-opacity"
                     title="Comentar / Ver detalhes"
                   >
                     <MessageCircle className="w-6 h-6 text-foreground" strokeWidth={1.5} />
+                    {(commentCountByStatementId.get(s.id) ?? 0) > 0 && (
+                      <span className="text-sm font-semibold text-foreground">
+                        {commentCountByStatementId.get(s.id)}
+                      </span>
+                    )}
                   </button>
                 </div>
 
