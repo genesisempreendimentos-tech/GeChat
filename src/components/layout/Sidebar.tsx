@@ -32,10 +32,10 @@ import {
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Boxes, label: 'Aplicativos', path: '/systems' },
-  { icon: Star, label: 'Favoritos', path: '/favorites' },
   { icon: Send, label: 'Solicitações', path: '/solicitacoes' },
   { icon: Megaphone, label: 'Comunicados', path: '/comunicados' },
   { icon: Users, label: 'Equipes', path: '/equipes' },
+  { icon: Star, label: 'Favoritos', path: '/favorites' },
   // { icon: MessageCircle, label: 'Chat', path: '/chat' },
 ];
 
