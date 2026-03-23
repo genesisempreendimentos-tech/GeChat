@@ -46,6 +46,8 @@ export const TEAMS_TABLE = 'teams';
 
 /** Comunicados internos (tabela `statement`). */
 export const STATEMENT_TABLE = 'statement';
+/** Reações/visualização por utilizador em comunicados (tabela `statement_reaction`). */
+export const STATEMENT_REACTION_TABLE = 'statement_reaction';
 
 export type RequestChannelType = 'departamento' | 'setor';
 
@@ -135,7 +137,7 @@ export interface Statement {
   tags: string[];
   publishedAt: Date;
   userId: string;
-  /** Vem da coluna `viewed` em `statement` (UPDATE em markStatementViewed). */
+  /** Vem da relação por utilizador na tabela `statement_reaction`. */
   viewed: boolean;
 }
 
@@ -148,9 +150,40 @@ type StatementRow = {
   published_at: string;
   user_id: string;
   created_at?: string;
-  /** Coluna opcional na tabela `statement` (UPDATE em markStatementViewed). */
+  /** Coluna legado opcional na tabela `statement` (não usada no fluxo novo). */
   viewed?: boolean | null;
 };
+
+export interface StatementReaction {
+  id: string;
+  statementId: string;
+  userId: string;
+  userName: string;
+  viewed: boolean;
+  reaction?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  deletedAt?: Date | null;
+  isActive: boolean;
+}
+
+type StatementReactionRow = {
+  id: string;
+  statement_id: string;
+  user_id: string;
+  user_name?: string | null;
+  viewed?: boolean | null;
+  reaction?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  deleted_at?: string | null;
+  is_active?: boolean | null;
+};
+
+export interface StatementReactionWithUser extends StatementReaction {
+  userEmail?: string;
+  userAvatar?: string;
+}
 
 function statementRowToApp(row: StatementRow): Statement {
   return {
@@ -162,6 +195,21 @@ function statementRowToApp(row: StatementRow): Statement {
     publishedAt: row.published_at ? new Date(row.published_at) : new Date(),
     userId: row.user_id,
     viewed: row.viewed === true,
+  };
+}
+
+function statementReactionRowToApp(row: StatementReactionRow): StatementReaction {
+  return {
+    id: row.id,
+    statementId: row.statement_id,
+    userId: row.user_id,
+    userName: (row.user_name ?? '').trim(),
+    viewed: row.viewed === true,
+    reaction: row.reaction ?? undefined,
+    createdAt: row.created_at ? new Date(row.created_at) : undefined,
+    updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
+    isActive: row.is_active !== false,
   };
 }
 
@@ -1253,7 +1301,37 @@ export const databaseService = {
         return { data: [], error: null };
       }
       const list = (data ?? []) as StatementRow[];
-      return { data: list.map((row) => statementRowToApp(row)), error: null };
+      const mapped = list.map((row) => statementRowToApp(row));
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.id || !mapped.length) return { data: mapped, error: null };
+
+      const statementIds = mapped.map((s) => s.id);
+      const { data: reactions, error: reactionsErr } = await supabase
+        .from(STATEMENT_REACTION_TABLE)
+        .select('statement_id, viewed, deleted_at, is_active')
+        .eq('user_id', user.id)
+        .in('statement_id', statementIds);
+      if (reactionsErr) {
+        console.warn('[statement_reaction] list user viewed:', reactionsErr.message ?? reactionsErr);
+        return { data: mapped, error: null };
+      }
+
+      const viewedByStatementId = new Map<string, boolean>();
+      for (const raw of ((reactions ?? []) as Array<Pick<StatementReactionRow, 'statement_id' | 'viewed' | 'deleted_at' | 'is_active'>>)) {
+        if (raw.deleted_at || raw.is_active === false) continue;
+        viewedByStatementId.set(raw.statement_id, raw.viewed === true);
+      }
+
+      return {
+        data: mapped.map((s) => ({
+          ...s,
+          viewed: viewedByStatementId.get(s.id) === true,
+        })),
+        error: null,
+      };
     } catch (e) {
       console.warn('[statement] list exception:', e);
       return { data: [], error: null };
@@ -1262,27 +1340,110 @@ export const databaseService = {
 
   /** Regista que o utilizador atual abriu o comunicado (idempotente). */
   async markStatementViewed(statementId: string): Promise<{ error: unknown | null }> {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.id) return { error: new Error('Sem sessão') };
-
-      const { error: viewedUpdErr } = await supabase
-        .from(STATEMENT_TABLE)
-        .update({ viewed: true })
-        .eq('id', statementId);
-      if (viewedUpdErr) return { error: viewedUpdErr };
-      return { error: null };
-    } catch (e) {
-      return { error: e };
-    }
+    return this.upsertStatementReaction(statementId, { viewed: true });
   },
 
   /** Há algum comunicado que o utilizador atual ainda não abriu? */
   async hasUnviewedStatementsForCurrentUser(): Promise<boolean> {
     const { data } = await this.listStatements();
     return (data ?? []).some((s) => !s.viewed);
+  },
+
+  /** Lista interações de comunicado, opcionalmente filtrando por ids de statement. */
+  async listStatementReactions(statementIds?: string[]): Promise<{ data: StatementReaction[]; error: unknown | null }> {
+    try {
+      let query = supabase
+        .from(STATEMENT_REACTION_TABLE)
+        .select('*')
+        .is('deleted_at', null)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true });
+      const ids = (statementIds ?? []).map((id) => String(id).trim()).filter(Boolean);
+      if (ids.length) query = query.in('statement_id', ids);
+      const { data, error } = await query;
+      if (error) return { data: [], error };
+      const rows = (data ?? []) as StatementReactionRow[];
+      return { data: rows.map(statementReactionRowToApp), error: null };
+    } catch (e) {
+      return { data: [], error: e };
+    }
+  },
+
+  /** Lista reações de um statement com dados básicos do profile para renderização em modal. */
+  async listStatementReactionsWithUsers(statementId: string): Promise<{ data: StatementReactionWithUser[]; error: unknown | null }> {
+    const { data: reactions, error } = await this.listStatementReactions([statementId]);
+    if (error) return { data: [], error };
+    if (!reactions.length) return { data: [], error: null };
+
+    const userIds = [...new Set(reactions.map((r) => r.userId).filter(Boolean))];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, email, avatar_url, avatar')
+      .in('user_id', userIds);
+    const profileByUserId = new Map<string, { email?: string | null; avatar_url?: string | null; avatar?: string | null }>();
+    for (const row of (profiles ?? []) as Array<{ user_id?: string; email?: string | null; avatar_url?: string | null; avatar?: string | null }>) {
+      if (!row.user_id) continue;
+      profileByUserId.set(row.user_id, row);
+    }
+
+    return {
+      data: reactions.map((r) => {
+        const profile = profileByUserId.get(r.userId);
+        return {
+          ...r,
+          userEmail: profile?.email ?? undefined,
+          userAvatar: profile?.avatar_url ?? profile?.avatar ?? undefined,
+        };
+      }),
+      error: null,
+    };
+  },
+
+  /**
+   * Cria/atualiza interação do utilizador autenticado com o comunicado.
+   * Usa upsert com constraint única (statement_id, user_id).
+   */
+  async upsertStatementReaction(
+    statementId: string,
+    payload: { viewed?: boolean; reaction?: string | null }
+  ): Promise<{ error: unknown | null }> {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.id) return { error: new Error('Sem sessão') };
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, name')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const userName =
+        String((profile as { full_name?: string; name?: string } | null)?.full_name ?? '').trim() ||
+        String((profile as { full_name?: string; name?: string } | null)?.name ?? '').trim() ||
+        'Usuário';
+
+      const reaction = payload.reaction == null ? null : String(payload.reaction).trim() || null;
+      const viewed = payload.viewed === true;
+      const insertPayload: Record<string, unknown> = {
+        statement_id: statementId,
+        user_id: user.id,
+        user_name: userName,
+        is_active: true,
+        deleted_at: null,
+      };
+      if (payload.viewed !== undefined) insertPayload.viewed = viewed;
+      if (payload.reaction !== undefined) insertPayload.reaction = reaction;
+      if (reaction != null) insertPayload.viewed = true;
+
+      const { error } = await supabase
+        .from(STATEMENT_REACTION_TABLE)
+        .upsert(insertPayload, { onConflict: 'statement_id,user_id' });
+      if (error) return { error };
+      return { error: null };
+    } catch (e) {
+      return { error: e };
+    }
   },
 
   async createStatement(payload: {

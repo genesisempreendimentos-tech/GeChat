@@ -12,9 +12,11 @@ import {
   Type,
   ImagePlus,
   AlignLeft,
+  Tag,
   Tags,
   Calendar,
   Maximize2,
+  SmilePlus,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -32,16 +34,39 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { storageService, databaseService, type Statement } from '@/services/supabase';
+import {
+  storageService,
+  databaseService,
+  type Statement,
+  type StatementReaction,
+  type StatementReactionWithUser,
+} from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { emitCommunicadosUnreadChanged } from '@/lib/communicadosEvents';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
+import StatementReactionPicker from '@/components/statement/StatementReactionPicker';
+import { getAllCollaboratorsNeonMeta } from '@/services/corporateProfile';
 
 const TAG_FILTER_ALL = 'all';
 
 /** Acima disto, mostramos "Ler mais" no card (legenda colapsada ~3 linhas). */
 const CAPTION_COLLAPSE_CHARS = 140;
+const DEFAULT_AVATAR =
+  'https://api.dicebear.com/7.x/initials/svg?seed=GeApps';
+
+type StatementReactionSummary = {
+  uniqueEmojis: string[];
+  total: number;
+};
+
+type ReactionViewer = {
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  department?: string;
+  reaction: string;
+};
 
 function formatPublishedAt(d: Date) {
   return d.toLocaleString('pt-BR', {
@@ -75,6 +100,12 @@ export default function ComunicadosPage() {
   const [tagFilter, setTagFilter] = useState<string>(TAG_FILTER_ALL);
   const [captionExpanded, setCaptionExpanded] = useState<Record<string, boolean>>({});
   const [detailStatement, setDetailStatement] = useState<Statement | null>(null);
+  const [statementReactions, setStatementReactions] = useState<StatementReaction[]>([]);
+  const [isReactionsModalOpen, setIsReactionsModalOpen] = useState(false);
+  const [reactionsModalTitle, setReactionsModalTitle] = useState('');
+  const [reactionsModalStatementId, setReactionsModalStatementId] = useState<string | null>(null);
+  const [reactionsModalLoading, setReactionsModalLoading] = useState(false);
+  const [reactionsModalItems, setReactionsModalItems] = useState<ReactionViewer[]>([]);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -104,10 +135,44 @@ export default function ComunicadosPage() {
 
   const filterLabel = tagFilter === TAG_FILTER_ALL ? 'Todas as tags' : tagFilter;
 
+  const reactionsByStatementId = useMemo(() => {
+    const map = new Map<string, StatementReaction[]>();
+    for (const item of statementReactions) {
+      if (!item.isActive || item.deletedAt) continue;
+      const bucket = map.get(item.statementId);
+      if (bucket) bucket.push(item);
+      else map.set(item.statementId, [item]);
+    }
+    return map;
+  }, [statementReactions]);
+
+  const reactionSummaryByStatementId = useMemo(() => {
+    const out = new Map<string, StatementReactionSummary>();
+    for (const [statementId, rows] of reactionsByStatementId.entries()) {
+      const uniqueEmojis = [...new Set(rows.map((r) => (r.reaction ?? '').trim()).filter(Boolean))];
+      const total = rows.filter((r) => !!(r.reaction ?? '').trim()).length;
+      out.set(statementId, { uniqueEmojis, total });
+    }
+    return out;
+  }, [reactionsByStatementId]);
+
+  const myReactionByStatementId = useMemo(() => {
+    const out = new Map<string, string | null>();
+    for (const row of statementReactions) {
+      if (row.userId !== user?.id || !row.isActive || row.deletedAt) continue;
+      out.set(row.statementId, row.reaction ?? null);
+    }
+    return out;
+  }, [statementReactions, user?.id]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     const { data } = await databaseService.listStatements();
-    setStatements(data ?? []);
+    const statementsList = data ?? [];
+    setStatements(statementsList);
+    const statementIds = statementsList.map((s) => s.id);
+    const { data: reactionsData } = await databaseService.listStatementReactions(statementIds);
+    setStatementReactions(reactionsData ?? []);
     setLoading(false);
   }, []);
 
@@ -257,9 +322,145 @@ export default function ComunicadosPage() {
         setDetailStatement((prev) => (prev?.id === s.id ? { ...prev, viewed: false } : prev));
         emitCommunicadosUnreadChanged();
         toast.error('Não foi possível registar a visualização.');
+        return;
       }
+      void loadData();
     });
   };
+
+  const handleReactToStatement = useCallback(
+    async (statementId: string, reaction: string | null) => {
+      if (!user?.id) {
+        toast.error('Sessão inválida. Faça login novamente.');
+        return;
+      }
+
+      const nextReaction = reaction && reaction.trim() ? reaction.trim() : null;
+
+      // Atualização otimista: reflete imediatamente no card, no "Sua reação"
+      // e na lista de reagentes no modal (quando aberto no mesmo post).
+      setStatementReactions((prev) => {
+        const idx = prev.findIndex(
+          (r) => r.statementId === statementId && r.userId === user.id && r.isActive && !r.deletedAt
+        );
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = {
+            ...copy[idx],
+            viewed: true,
+            reaction: nextReaction ?? undefined,
+            updatedAt: new Date(),
+          };
+          return copy;
+        }
+        return [
+          ...prev,
+          {
+            id: `optimistic-${statementId}-${user.id}`,
+            statementId,
+            userId: user.id,
+            userName: user.name?.trim() || 'Você',
+            viewed: true,
+            reaction: nextReaction ?? undefined,
+            isActive: true,
+            deletedAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ];
+      });
+
+      if (isReactionsModalOpen && reactionsModalStatementId === statementId) {
+        setReactionsModalItems((prev) => {
+          const idx = prev.findIndex((item) => item.userId === user.id);
+          if (!nextReaction) {
+            if (idx < 0) return prev;
+            const copy = [...prev];
+            copy.splice(idx, 1);
+            return copy;
+          }
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = { ...copy[idx], reaction: nextReaction };
+            return copy;
+          }
+          return [
+            ...prev,
+            {
+              userId: user.id,
+              userName: user.name?.trim() || 'Você',
+              userAvatar: user.avatar || undefined,
+              department: undefined,
+              reaction: nextReaction,
+            },
+          ];
+        });
+      }
+
+      setStatements((prev) =>
+        prev.map((s) => (s.id === statementId ? { ...s, viewed: true } : s))
+      );
+      setDetailStatement((prev) =>
+        prev?.id === statementId ? { ...prev, viewed: true } : prev
+      );
+      emitCommunicadosUnreadChanged();
+
+      const { error } = await databaseService.upsertStatementReaction(statementId, {
+        viewed: true,
+        reaction: nextReaction,
+      });
+      if (error) {
+        toast.error('Não foi possível guardar sua reação.');
+        // Re-sincroniza estado com backend em caso de falha.
+        await loadData();
+        return;
+      }
+
+      // Persistiu com sucesso; recarrega em background para garantir consistência total.
+      void loadData();
+    },
+    [
+      isReactionsModalOpen,
+      loadData,
+      reactionsModalStatementId,
+      user?.avatar,
+      user?.id,
+      user?.name,
+    ]
+  );
+
+  const handleOpenReactionsModal = useCallback(async (statement: Statement) => {
+    setIsReactionsModalOpen(true);
+    setReactionsModalTitle(statement.title);
+    setReactionsModalStatementId(statement.id);
+    setReactionsModalLoading(true);
+    setReactionsModalItems([]);
+
+    const { data, error } = await databaseService.listStatementReactionsWithUsers(statement.id);
+    if (error) {
+      setReactionsModalLoading(false);
+      toast.error('Não foi possível carregar as reações.');
+      return;
+    }
+
+    const onlyWithReaction = (data ?? []).filter((r) => !!(r.reaction ?? '').trim());
+    const neonMetaByEmail = await getAllCollaboratorsNeonMeta();
+
+    const rows = onlyWithReaction.map((r: StatementReactionWithUser) => {
+      const emailKey = (r.userEmail ?? '').toLowerCase().trim();
+      const neon = emailKey ? neonMetaByEmail[emailKey] : undefined;
+      return {
+        userId: r.userId,
+        userName: r.userName || 'Usuário',
+        userAvatar: r.userAvatar ?? undefined,
+        department: neon?.departamento || undefined,
+        reaction: String(r.reaction ?? ''),
+      };
+    });
+
+    setReactionsModalItems(rows);
+    setReactionsModalLoading(false);
+  }, []);
 
   const toggleCaptionExpand = (id: string) => {
     setCaptionExpanded((prev: Record<string, boolean>) => ({ ...prev, [id]: !prev[id] }));
@@ -331,6 +532,7 @@ export default function ComunicadosPage() {
                     onClick={() => setTagFilter(name)}
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer"
                   >
+                    <Tag className="w-3.5 h-3.5 mr-2 shrink-0" />
                     <span className="truncate">{name}</span>
                   </DropdownMenuItem>
                 ))
@@ -367,12 +569,13 @@ export default function ComunicadosPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
               <div className="relative h-full flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-1 text-left">
                 <div className="px-4 pt-4 shrink-0">
-                  <div className="aspect-square w-full rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden bg-muted/20">
+                  <div className="aspect-[2/1] w-full rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden bg-muted/20">
                     {s.imageUrl ? (
                       <img
                         src={s.imageUrl}
                         alt=""
                         className="h-full w-full object-cover"
+                        onDoubleClick={() => handleOpenPost(s)}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-muted-foreground">
@@ -381,7 +584,7 @@ export default function ComunicadosPage() {
                     )}
                   </div>
                 </div>
-                <div className="p-5 pt-4 flex flex-col flex-1 min-h-0">
+                <div className="p-4 pt-3 pb-2 flex flex-col flex-1 min-h-0">
                   <div className="flex items-start gap-2 min-w-0">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors duration-300 line-clamp-2 min-w-0 flex-1">
                       {s.title}
@@ -398,7 +601,7 @@ export default function ComunicadosPage() {
                     <div className="mt-2 space-y-1">
                       <p
                         className={cn(
-                          'text-sm text-muted-foreground leading-relaxed',
+                          'text-sm font-light text-muted-foreground leading-relaxed whitespace-pre-wrap',
                           !captionExpanded[s.id] && (s.caption.length > CAPTION_COLLAPSE_CHARS || s.caption.split('\n').length > 3)
                             ? 'line-clamp-3'
                             : ''
@@ -422,14 +625,15 @@ export default function ComunicadosPage() {
                       {s.tags.map((t) => (
                         <span
                           key={t}
-                          className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-primary/10 border-primary/25 text-primary"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-primary/10 border-primary/25 text-primary"
                         >
+                          <Tag className="w-3 h-3 shrink-0" />
                           {t}
                         </span>
                       ))}
                     </div>
                   ) : null}
-                  <div className="mt-auto pt-4 border-t border-slate-100 dark:border-white/5 flex flex-col gap-3">
+                  <div className="mt-auto pt-2 flex flex-col gap-2">
                     <span className="flex w-full min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
                       <Calendar className="w-3.5 h-3.5 shrink-0" />
                       <span
@@ -438,12 +642,34 @@ export default function ComunicadosPage() {
                       >
                         {formatPublishedAtOneLine(s.publishedAt)}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReactionsModal(s)}
+                        className="ml-2 inline-flex max-w-[45%] items-center gap-1 rounded-full border border-border/70 bg-background/90 px-2 py-0.5 text-[11px] text-foreground shadow-sm backdrop-blur hover:bg-accent/80 transition-colors"
+                        title="Ver reações"
+                        aria-label="Ver reações do post"
+                      >
+                        {(() => {
+                          const summary = reactionSummaryByStatementId.get(s.id);
+                          const emojis = summary?.uniqueEmojis?.slice(0, 4) ?? [];
+                          const total = summary?.total ?? 0;
+                          if (!total) {
+                            return <SmilePlus className="w-3.5 h-3.5 shrink-0" />;
+                          }
+                          return (
+                            <>
+                              <span className="truncate">{emojis.join(' ')}</span>
+                              <span className="font-semibold">{total}</span>
+                            </>
+                          );
+                        })()}
+                      </button>
                     </span>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-9 w-full rounded-xl border-primary/30 text-primary hover:bg-primary/10"
+                      className="h-8 w-full rounded-xl border-primary/30 text-primary hover:bg-primary/10"
                       onClick={() => handleOpenPost(s)}
                     >
                       <Maximize2 className="w-3.5 h-3.5 mr-2" />
@@ -461,12 +687,12 @@ export default function ComunicadosPage() {
         <DialogContent className="max-w-[min(100vw-2rem,68rem)] max-h-[92vh] sm:h-[min(92vh,860px)] overflow-hidden p-0 gap-0 border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl flex flex-col">
           {detailStatement ? (
             <div className="flex min-h-0 flex-1 flex-col sm:flex-row overflow-hidden">
-              <div className="relative flex w-full min-w-0 items-center justify-center bg-muted/30 p-4 sm:p-6 min-h-[200px] max-h-[42vh] sm:max-h-full sm:w-1/2 sm:flex-1 border-b sm:border-b-0 sm:border-r border-border/50 overflow-y-auto">
+              <div className="relative flex w-full min-w-0 items-center justify-center bg-muted/30 min-h-[200px] max-h-[42vh] sm:max-h-full sm:w-1/2 sm:flex-1 border-b sm:border-b-0 sm:border-r border-border/50 overflow-hidden">
                 {detailStatement.imageUrl ? (
                   <img
                     src={detailStatement.imageUrl}
                     alt=""
-                    className="max-h-[min(38vh,520px)] w-full max-w-full object-contain rounded-xl sm:max-h-full"
+                    className="h-full w-full object-contain"
                   />
                 ) : (
                   <ImagePlus className="w-16 h-16 text-muted-foreground/30" />
@@ -479,7 +705,27 @@ export default function ComunicadosPage() {
                   </DialogTitle>
                   <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="w-4 h-4 shrink-0" />
-                    <span>{formatPublishedAt(detailStatement.publishedAt)}</span>
+                    <span className="min-w-0 flex-1">{formatPublishedAt(detailStatement.publishedAt)}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenReactionsModal(detailStatement)}
+                      className="ml-auto inline-flex max-w-[45%] items-center gap-1 rounded-full border border-border/70 bg-background/90 px-2 py-0.5 text-[11px] text-foreground shadow-sm backdrop-blur hover:bg-accent/80 transition-colors"
+                      title="Ver reações"
+                      aria-label="Ver reações do post"
+                    >
+                      {(() => {
+                        const summary = reactionSummaryByStatementId.get(detailStatement.id);
+                        const emojis = summary?.uniqueEmojis?.slice(0, 4) ?? [];
+                        const total = summary?.total ?? 0;
+                        if (!total) return <SmilePlus className="w-3.5 h-3.5 shrink-0" />;
+                        return (
+                          <>
+                            <span className="truncate">{emojis.join(' ')}</span>
+                            <span className="font-semibold">{total}</span>
+                          </>
+                        );
+                      })()}
+                    </button>
                   </div>
                 </DialogHeader>
                 {detailStatement.tags.length > 0 ? (
@@ -487,8 +733,9 @@ export default function ComunicadosPage() {
                     {detailStatement.tags.map((t) => (
                       <span
                         key={t}
-                        className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold border bg-primary/10 border-primary/25 text-primary"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border bg-primary/10 border-primary/25 text-primary"
                       >
+                        <Tag className="w-3.5 h-3.5 shrink-0" />
                         {t}
                       </span>
                     ))}
@@ -497,7 +744,7 @@ export default function ComunicadosPage() {
                 {detailStatement.caption ? (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Legenda</p>
-                    <p className="text-base text-foreground leading-relaxed whitespace-pre-wrap">{detailStatement.caption}</p>
+                    <p className="text-sm font-light text-foreground leading-relaxed whitespace-pre-wrap">{detailStatement.caption}</p>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">Sem legenda.</p>
@@ -505,6 +752,64 @@ export default function ComunicadosPage() {
               </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isReactionsModalOpen}
+        onOpenChange={(open) => {
+          setIsReactionsModalOpen(open);
+          if (!open) {
+            setReactionsModalItems([]);
+            setReactionsModalStatementId(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Reações do post</DialogTitle>
+            <DialogDescription className="line-clamp-2">{reactionsModalTitle}</DialogDescription>
+          </DialogHeader>
+          {reactionsModalStatementId ? (
+            <div className="mt-2 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Sua reação
+              </p>
+              <StatementReactionPicker
+                currentReaction={myReactionByStatementId.get(reactionsModalStatementId) ?? null}
+                onReact={(emoji) => {
+                  void handleReactToStatement(reactionsModalStatementId, emoji);
+                }}
+              />
+            </div>
+          ) : null}
+          <div className="mt-2 min-h-[180px] max-h-[55vh] overflow-y-auto space-y-2 pr-1">
+            {reactionsModalLoading ? (
+              <LoadingGifScreen className="h-40" />
+            ) : reactionsModalItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Ainda não há reações neste comunicado.</p>
+            ) : (
+              reactionsModalItems.map((item) => (
+                <div
+                  key={`${item.userId}-${item.reaction}`}
+                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2"
+                >
+                  <img
+                    src={item.userAvatar || DEFAULT_AVATAR}
+                    alt={item.userName}
+                    className="w-9 h-9 rounded-full object-cover border border-border/70"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{item.userName}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {item.department || 'Departamento não informado'}
+                    </p>
+                  </div>
+                  <span className="text-xl leading-none">{item.reaction}</span>
+                </div>
+              ))
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -619,7 +924,7 @@ export default function ComunicadosPage() {
                   onChange={(e) => setCaption(e.target.value)}
                   rows={3}
                   className={cn(
-                    'w-full min-h-[88px] resize-y rounded-2xl border border-border/60 px-3 py-2.5 text-sm text-foreground shadow-sm transition-colors',
+                    'w-full min-h-[88px] resize-y rounded-2xl border border-border/60 px-3 py-2.5 text-sm font-light text-foreground shadow-sm transition-colors',
                     'placeholder:text-muted-foreground/50',
                     'bg-gradient-to-b from-background to-muted/10',
                     'dark:bg-none dark:bg-muted/40 dark:border-border/60 dark:[color-scheme:dark]',

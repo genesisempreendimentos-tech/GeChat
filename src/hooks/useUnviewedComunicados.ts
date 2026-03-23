@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { databaseService } from '@/services/supabase';
 import { COMMUNICADOS_UNREAD_CHANGED_EVENT } from '@/lib/communicadosEvents';
 
-/** True se existir comunicado que o utilizador atual ainda não abriu (Abrir o post). */
+/** True se existir comunicado sem interação viewed=true do utilizador atual em statement_reaction. */
 export function useUnviewedComunicados() {
   const { user } = useAuthStore();
   const { pathname } = useLocation();

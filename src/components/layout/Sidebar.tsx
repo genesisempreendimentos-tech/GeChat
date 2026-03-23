@@ -5,7 +5,6 @@ import {
   Star,
   Users,
   MessageCircle,
-  Pin,
   ExternalLink,
   Check,
   UserKey,
@@ -15,7 +14,7 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { databaseService } from '@/services/supabase';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
@@ -53,45 +52,8 @@ export default function Sidebar({ userRole }: SidebarProps) {
   const hasUnviewedComunicados = useUnviewedComunicados();
   const isInAdmin = location.pathname.startsWith('/admin');
   const layoutMode = useSidebarLayoutStore((s) => s.mode);
-  const [pinned, setPinned] = useState(() => {
-    const saved = localStorage.getItem('sidebar-pinned');
-    return saved ? JSON.parse(saved) : false;
-  });
   const [isHovered, setIsHovered] = useState(false);
-  const [showPin, setShowPin] = useState(true);
-  const pinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [favoriteSystems, setFavoriteSystems] = useState<{ id: string; name: string; url: string }[]>([]);
-
-  const clearPinTimer = () => {
-    if (pinTimerRef.current) {
-      clearTimeout(pinTimerRef.current);
-      pinTimerRef.current = null;
-    }
-  };
-
-  const schedulePinHide = () => {
-    clearPinTimer();
-    pinTimerRef.current = setTimeout(() => {
-      setShowPin(false);
-    }, 2000);
-  };
-
-  useEffect(() => {
-    localStorage.setItem('sidebar-pinned', JSON.stringify(pinned));
-  }, [pinned]);
-
-  useEffect(() => {
-    if (layoutMode === 'expanded' || layoutMode === 'collapsed') {
-      setPinned(false);
-    }
-  }, [layoutMode]);
-
-  useEffect(() => {
-    schedulePinHide();
-    return () => {
-      clearPinTimer();
-    };
-  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -113,7 +75,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
   }, [user?.id, location.pathname]);
 
   const isExpanded =
-    layoutMode === 'expanded' ? true : layoutMode === 'collapsed' ? false : pinned || isHovered;
+    layoutMode === 'expanded' ? true : layoutMode === 'collapsed' ? false : isHovered;
   const setSidebarWidth = useSetSidebarWidth();
 
   useEffect(() => {
@@ -132,14 +94,11 @@ export default function Sidebar({ userRole }: SidebarProps) {
         transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
         onMouseEnter={() => {
           if (layoutMode !== 'hover') return;
-          if (!pinned) setIsHovered(true);
-          setShowPin(true);
-          clearPinTimer();
+          setIsHovered(true);
         }}
         onMouseLeave={() => {
           if (layoutMode !== 'hover') return;
-          if (!pinned) setIsHovered(false);
-          schedulePinHide();
+          setIsHovered(false);
         }}
         className="hidden md:flex fixed left-0 top-0 bottom-0 bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
         role="navigation"
@@ -299,41 +258,6 @@ export default function Sidebar({ userRole }: SidebarProps) {
         <SidebarFooterControl showLabel={isExpanded} />
       </div>
     </motion.aside>
-
-    {layoutMode === 'hover' ? (
-      <motion.button
-        initial={false}
-        animate={{
-          x: isExpanded ? 264 : 72,
-          opacity: showPin ? 1 : 0,
-          scale: showPin ? 1 : 0.8,
-        }}
-        transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-        onMouseEnter={() => {
-          setShowPin(true);
-          clearPinTimer();
-        }}
-        onMouseLeave={() => {
-          schedulePinHide();
-        }}
-        onClick={() => setPinned(!pinned)}
-        className={cn(
-          'fixed top-4 z-50 p-2 rounded-full shadow-lg transition-all duration-200',
-          showPin ? 'pointer-events-auto hover:scale-110 active:scale-95' : 'pointer-events-none',
-          pinned
-            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-            : 'bg-card/70 dark:bg-card/60 backdrop-blur-lg border border-border/80 hover:bg-accent/80'
-        )}
-        title={pinned ? 'Desafixar menu' : 'Fixar menu'}
-      >
-        <Pin
-          className={cn(
-            'w-4 h-4 transition-all duration-200',
-            pinned ? 'rotate-0' : 'rotate-45'
-          )}
-        />
-      </motion.button>
-    ) : null}
 
   </>
   );
