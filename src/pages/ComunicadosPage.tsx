@@ -17,9 +17,6 @@ import {
   Maximize2,
   SmilePlus,
   MessageCircle,
-  CalendarDays,
-  Clock8,
-  MapPin,
   Send,
   Trash2,
   MessageCircleMore,
@@ -59,6 +56,16 @@ import { cn } from '@/lib/utils';
 import StatementReactionPicker from '@/components/statement/StatementReactionPicker';
 import { getAllCollaboratorsNeonMeta } from '@/services/corporateProfile';
 import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
+import {
+  MAX_COMMENT_CONTENT_LENGTH,
+  MAX_COMMENTS_PER_STATEMENT,
+  MAX_STATEMENT_CAPTION_LENGTH,
+  MAX_STATEMENT_TITLE_LENGTH,
+  statementLimitMessages,
+  validateCommentContentTrimmed,
+  validateStatementCaption,
+  validateStatementTitle,
+} from '@/constants/statementLimits';
 
 const TAG_FILTER_ALL = 'all';
 
@@ -351,6 +358,16 @@ export default function ComunicadosPage() {
       setFormError('Informe o título.');
       return;
     }
+    const titleLimitErr = validateStatementTitle(title.trim());
+    if (titleLimitErr) {
+      setFormError(titleLimitErr);
+      return;
+    }
+    const captionLimitErr = validateStatementCaption(caption);
+    if (captionLimitErr) {
+      setFormError(captionLimitErr);
+      return;
+    }
     if (!imageFile) {
       setFormError('Selecione uma imagem para o comunicado.');
       return;
@@ -433,6 +450,16 @@ export default function ComunicadosPage() {
     setEditFormError('');
     if (!editTitle.trim()) {
       setEditFormError('Informe o título.');
+      return;
+    }
+    const editTitleErr = validateStatementTitle(editTitle.trim());
+    if (editTitleErr) {
+      setEditFormError(editTitleErr);
+      return;
+    }
+    const editCaptionErr = validateStatementCaption(editCaption);
+    if (editCaptionErr) {
+      setEditFormError(editCaptionErr);
       return;
     }
 
@@ -538,13 +565,30 @@ export default function ComunicadosPage() {
 
   const handleAddComment = async () => {
     if (!detailStatement || !newComment.trim()) return;
-    
+
+    const trimmed = newComment.trim();
+    const lenErr = validateCommentContentTrimmed(trimmed);
+    if (lenErr) {
+      toast.error(lenErr);
+      return;
+    }
+    if (comments.length >= MAX_COMMENTS_PER_STATEMENT) {
+      toast.error(statementLimitMessages.commentCountExceeded);
+      return;
+    }
+
     setSubmittingComment(true);
     const { data, error } = await databaseService.addStatementComment(detailStatement.id, newComment);
     setSubmittingComment(false);
-    
+
     if (error) {
-      toast.error('Erro ao adicionar comentário');
+      const msg =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object' && error !== null && 'message' in error
+            ? String((error as { message: string }).message)
+            : 'Erro ao adicionar comentário';
+      toast.error(msg);
       return;
     }
     
@@ -887,7 +931,7 @@ export default function ComunicadosPage() {
                         aria-label="Comunicado ainda não visto"
                       />
                     )}
-                    {canManageStatement(s) && (
+                    {user?.id === s.userId ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -932,7 +976,7 @@ export default function ComunicadosPage() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
@@ -987,15 +1031,15 @@ export default function ComunicadosPage() {
                   <button
                     type="button"
                     onClick={() => handleOpenPost(s)}
-                    className="ml-auto flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+                    className="ml-auto flex items-center gap-1 hover:opacity-70 transition-opacity"
                     title="Comentar / Ver detalhes"
                   >
+                    <MessageCircleMore className="h-5 w-5 shrink-0 text-foreground" strokeWidth={1.5} />
                     {(commentCountByStatementId.get(s.id) ?? 0) > 0 && (
-                      <span className="text-sm font-semibold text-foreground">
+                      <span className="text-sm font-semibold text-foreground tabular-nums">
                         {commentCountByStatementId.get(s.id)}
                       </span>
                     )}
-                    <MessageCircleMore className="w-6 h-6 text-foreground" strokeWidth={1.5} />
                   </button>
                 </div>
 
@@ -1066,7 +1110,9 @@ export default function ComunicadosPage() {
                   <ImagePlus className="w-16 h-16 text-muted-foreground/30" />
                 )}
               </div>
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-6 py-6 space-y-4">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                {/* Scroll único: post + comentários; rodapé só o input (irmão abaixo) */}
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 pt-6">
                 <DialogHeader className="text-left space-y-3 p-0">
                   <div className="flex items-center justify-between gap-2">
                     <button
@@ -1141,11 +1187,42 @@ export default function ComunicadosPage() {
                   <DialogTitle className="text-2xl font-bold tracking-tight pr-2">
                     {detailStatement.title}
                   </DialogTitle>
-                  <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-muted-foreground">
+                </DialogHeader>
+                {detailStatement.caption ? (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Legenda</p>
+                    <p className="text-sm font-light leading-relaxed text-foreground whitespace-pre-wrap">
+                      {detailStatement.caption}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Sem legenda.</p>
+                )}
+                {detailStatement.tags.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {detailStatement.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary"
+                      >
+                        <Tag className="h-3.5 w-3.5 shrink-0" />
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border/50 pb-3 pt-5">
+                    <h3 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-foreground">
+                      <MessageCircle className="h-4 w-4 shrink-0" />
+                      <span className="truncate">
+                        Comentários ({comments.length}/{MAX_COMMENTS_PER_STATEMENT})
+                      </span>
+                    </h3>
                     <button
                       type="button"
                       onClick={() => handleOpenReactionsModal(detailStatement)}
-                      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm backdrop-blur hover:bg-accent/80 transition-colors"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[11px] text-foreground shadow-sm backdrop-blur transition-colors hover:bg-accent/80"
                       title="Ver reações"
                       aria-label="Ver reações do post"
                     >
@@ -1153,17 +1230,17 @@ export default function ComunicadosPage() {
                         const summary = reactionSummaryByStatementId.get(detailStatement.id);
                         const emojis = summary?.uniqueEmojis?.slice(0, 4) ?? [];
                         const total = summary?.total ?? 0;
-                        if (!total) return <SmilePlus className="w-3.5 h-3.5 shrink-0" />;
+                        if (!total) return <SmilePlus className="h-3.5 w-3.5 shrink-0" />;
                         return (
                           <>
                             <div className="flex -space-x-1">
                               {emojis.map((emoji, idx) => (
-                                <span 
-                                  key={idx} 
-                                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-background border border-background shadow-sm z-[1]"
+                                <span
+                                  key={idx}
+                                  className="z-[1] inline-flex h-4 w-4 items-center justify-center rounded-full border border-background bg-background shadow-sm"
                                   style={{ zIndex: emojis.length - idx }}
                                 >
-                                  <AnimatedEmoji emoji={emoji} className="w-3 h-3" loop={true} />
+                                  <AnimatedEmoji emoji={emoji} className="h-3 w-3" loop={true} />
                                 </span>
                               ))}
                             </div>
@@ -1173,141 +1250,124 @@ export default function ComunicadosPage() {
                       })()}
                     </button>
                   </div>
-                </DialogHeader>
-                {detailStatement.tags.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {detailStatement.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border bg-primary/10 border-primary/25 text-primary"
-                      >
-                        <Tag className="w-3.5 h-3.5 shrink-0" />
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                {detailStatement.caption ? (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Legenda</p>
-                    <div className="text-sm font-light text-foreground leading-relaxed whitespace-pre-wrap space-y-2">
-                      {detailStatement.caption.split('\n').map((line, i) => {
-                        // Substituir emojis por ícones
-                        let parsedLine = line;
-                        const hasCalendar = parsedLine.includes('📅');
-                        const hasClock = parsedLine.includes('⏰');
-                        const hasPin = parsedLine.includes('📍');
-                        
-                        if (!hasCalendar && !hasClock && !hasPin) {
-                          return <p key={i}>{line}</p>;
-                        }
-                        
-                        return (
-                          <p key={i} className="flex items-start gap-2">
-                            {hasCalendar && <CalendarDays className="w-4 h-4 mt-0.5 shrink-0 text-primary" />}
-                            {hasClock && <Clock8 className="w-4 h-4 mt-0.5 shrink-0 text-primary" />}
-                            {hasPin && <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-primary" />}
-                            <span>{line.replace(/[📅⏰📍]/g, '').trim()}</span>
-                          </p>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">Sem legenda.</p>
-                )}
 
-                {/* Comentários */}
-                <div className="mt-8 pt-6 border-t border-border/50 flex flex-col min-h-[300px]">
-                  <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <MessageCircle className="w-4 h-4" />
-                    Comentários ({comments.length})
-                  </h3>
-
-                  <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4">
+                  <div className="min-h-0 pr-1">
                     {commentsLoading ? (
                       <div className="flex justify-center py-4">
                         <LoadingGif size="sm" />
                       </div>
                     ) : comments.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-8">
+                      <p className="py-8 text-center text-sm text-muted-foreground">
                         Nenhum comentário ainda. Seja o primeiro a comentar!
                       </p>
                     ) : (
-                      comments.map((comment) => (
-                        <div key={comment.id} className="flex gap-3 group">
-                          <img
-                            src={comment.userAvatar || DEFAULT_AVATAR}
-                            alt=""
-                            className="w-8 h-8 rounded-full object-cover shrink-0 border border-border/50"
-                          />
-                          <div className="flex-1 bg-muted/30 rounded-2xl rounded-tl-none p-3 relative">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <span className="text-sm font-medium text-foreground">
-                                {comment.userName}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {new Date(comment.createdAt).toLocaleDateString('pt-BR', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
+                      <div className="space-y-4">
+                        {comments.map((comment) => (
+                          <div key={comment.id} className="group flex gap-3">
+                            <button
+                              type="button"
+                              onClick={() => void handleOpenReactionUserProfile(comment.userId)}
+                              className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/50 outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/30"
+                              aria-label={`Ver perfil de ${comment.userName}`}
+                            >
+                              {reactionsProfileLoadingId === comment.userId ? (
+                                <LoadingGif size="sm" />
+                              ) : (
+                                <img
+                                  src={comment.userAvatar || DEFAULT_AVATAR}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              )}
+                            </button>
+                            <div className="relative flex-1 rounded-2xl rounded-tl-none bg-muted/30 p-3">
+                              <div className="mb-1 flex items-center justify-between gap-2">
+                                <span className="text-sm font-medium text-foreground">{comment.userName}</span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {new Date(comment.createdAt).toLocaleDateString('pt-BR', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                              </div>
+                              <p className="whitespace-pre-wrap text-sm text-foreground/90">{comment.content}</p>
+                              {user?.id === comment.userId && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="absolute -right-2 -top-2 rounded-full border border-border/50 bg-background p-1.5 text-destructive opacity-0 shadow-sm transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
+                                  title="Excluir comentário"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              )}
                             </div>
-                            <p className="text-sm text-foreground/90 whitespace-pre-wrap">
-                              {comment.content}
-                            </p>
-                            
-                            {user?.id === comment.userId && (
-                              <button
-                                onClick={() => handleDeleteComment(comment.id)}
-                                className="absolute -right-2 -top-2 p-1.5 bg-background border border-border/50 rounded-full text-destructive opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-destructive hover:text-destructive-foreground"
-                                title="Excluir comentário"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            )}
                           </div>
-                        </div>
-                      ))
+                        ))}
+                      </div>
                     )}
                   </div>
 
-                  <div className="flex gap-2 mt-auto pt-2 bg-background/95 backdrop-blur sticky bottom-0">
-                    <img
-                      src={user?.avatar || DEFAULT_AVATAR}
-                      alt=""
-                      className="w-10 h-10 rounded-full object-cover shrink-0 border border-border/50"
-                    />
-                    <div className="flex-1 relative">
-                      <Input
-                        placeholder="Escreva um comentário..."
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAddComment();
-                          }
-                        }}
-                        className="pr-12 rounded-full bg-muted/50 border-border/50 focus-visible:ring-primary/30"
-                        disabled={submittingComment}
-                      />
-                      <button
-                        onClick={handleAddComment}
-                        disabled={!newComment.trim() || submittingComment}
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-primary hover:bg-primary/10 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
-                      >
-                        {submittingComment ? (
-                          <LoadingGif size="sm" className="w-4 h-4" />
-                        ) : (
-                          <Send className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                <div className="h-5 shrink-0" aria-hidden />
+
                 </div>
+
+                  <div className="shrink-0 border-t border-border/60 bg-background px-6 py-4 dark:bg-[#0d1520]">
+                    {comments.length >= MAX_COMMENTS_PER_STATEMENT ? (
+                      <p className="mb-3 text-xs font-medium text-destructive" role="status">
+                        {statementLimitMessages.commentCountExceeded}
+                      </p>
+                    ) : null}
+                    <div className="flex w-full max-w-full items-center gap-3">
+                      <img
+                        src={user?.avatar || DEFAULT_AVATAR}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-full border border-border/50 object-cover"
+                      />
+                      <div className="relative min-w-0 flex-1">
+                        <Input
+                          placeholder="Escreva um comentário..."
+                          value={newComment}
+                          maxLength={MAX_COMMENT_CONTENT_LENGTH}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              if (comments.length < MAX_COMMENTS_PER_STATEMENT) handleAddComment();
+                            }
+                          }}
+                          className="w-full rounded-full border-border/50 bg-muted/50 pr-12 focus-visible:ring-primary/30"
+                          disabled={
+                            submittingComment || comments.length >= MAX_COMMENTS_PER_STATEMENT
+                          }
+                          aria-label="Texto do comentário"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddComment}
+                          disabled={
+                            !newComment.trim() ||
+                            submittingComment ||
+                            comments.length >= MAX_COMMENTS_PER_STATEMENT
+                          }
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-primary transition-colors hover:bg-primary/10 disabled:opacity-50 disabled:hover:bg-transparent"
+                        >
+                          {submittingComment ? (
+                            <LoadingGif size="sm" className="h-4 w-4" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    {comments.length < MAX_COMMENTS_PER_STATEMENT ? (
+                      <p className="mt-2 text-[10px] text-muted-foreground text-right tabular-nums">
+                        {newComment.length}/{MAX_COMMENT_CONTENT_LENGTH}
+                      </p>
+                    ) : null}
+                  </div>
               </div>
             </div>
           ) : null}
@@ -1437,9 +1497,13 @@ export default function ComunicadosPage() {
                   id="comunicado-titulo"
                   placeholder="Ex.: Fechamento do escritório em feriado"
                   value={title}
+                  maxLength={MAX_STATEMENT_TITLE_LENGTH}
                   onChange={(e) => setTitle(e.target.value)}
                   className="h-12 rounded-2xl border-border/60 bg-gradient-to-b from-background to-muted/10 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary/40"
                 />
+                <p className="text-xs text-muted-foreground text-right tabular-nums">
+                  {title.length}/{MAX_STATEMENT_TITLE_LENGTH}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -1493,6 +1557,7 @@ export default function ComunicadosPage() {
                   id="comunicado-legenda"
                   placeholder="Texto que acompanha o comunicado…"
                   value={caption}
+                  maxLength={MAX_STATEMENT_CAPTION_LENGTH}
                   onChange={(e) => setCaption(e.target.value)}
                   rows={3}
                   className={cn(
@@ -1503,6 +1568,9 @@ export default function ComunicadosPage() {
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:border-primary/40'
                   )}
                 />
+                <p className="text-xs text-muted-foreground text-right tabular-nums">
+                  {caption.length}/{MAX_STATEMENT_CAPTION_LENGTH}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -1590,9 +1658,13 @@ export default function ComunicadosPage() {
               <Input
                 id="edit-comunicado-titulo"
                 value={editTitle}
+                maxLength={MAX_STATEMENT_TITLE_LENGTH}
                 onChange={(e) => setEditTitle(e.target.value)}
                 className="h-12 rounded-2xl border-border/60 bg-gradient-to-b from-background to-muted/10 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary/40"
               />
+              <p className="text-xs text-muted-foreground text-right tabular-nums">
+                {editTitle.length}/{MAX_STATEMENT_TITLE_LENGTH}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -1636,6 +1708,7 @@ export default function ComunicadosPage() {
               <textarea
                 id="edit-comunicado-legenda"
                 value={editCaption}
+                maxLength={MAX_STATEMENT_CAPTION_LENGTH}
                 onChange={(e) => setEditCaption(e.target.value)}
                 rows={3}
                 className={cn(
@@ -1646,6 +1719,9 @@ export default function ComunicadosPage() {
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:border-primary/40'
                 )}
               />
+              <p className="text-xs text-muted-foreground text-right tabular-nums">
+                {editCaption.length}/{MAX_STATEMENT_CAPTION_LENGTH}
+              </p>
             </div>
 
             <div className="space-y-2">

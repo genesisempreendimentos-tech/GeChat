@@ -4,6 +4,13 @@ import type { ProfileThema } from '@/lib/themeMapping';
 import type { SidebarMode } from '@/lib/sidebarMode';
 import { parseSidebarMode } from '@/lib/sidebarMode';
 import { getAuthStorage } from './authStorage';
+import {
+  MAX_COMMENTS_PER_STATEMENT,
+  statementLimitMessages,
+  validateCommentContentTrimmed,
+  validateStatementCaption,
+  validateStatementTitle,
+} from '@/constants/statementLimits';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1549,6 +1556,22 @@ export const databaseService = {
     };
   },
 
+  /** Contagem de comentários ativos por comunicado (mesmos filtros que `listStatementComments`). */
+  async countActiveStatementComments(statementId: string): Promise<{ count: number; error: unknown | null }> {
+    try {
+      const { count, error } = await supabase
+        .from('statement_comment')
+        .select('id', { count: 'exact', head: true })
+        .eq('statement_id', statementId)
+        .eq('is_active', true)
+        .is('deleted_at', null);
+      if (error) return { count: 0, error };
+      return { count: count ?? 0, error: null };
+    } catch (e) {
+      return { count: 0, error: e };
+    }
+  },
+
   /** Lista comentários de um comunicado com dados do usuário. */
   async listStatementComments(statementId: string): Promise<{ data: StatementCommentWithUser[]; error: unknown | null }> {
     try {
@@ -1605,12 +1628,24 @@ export const databaseService = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { data: null, error: new Error('Não autenticado') };
 
+      const trimmed = content.trim();
+      if (!trimmed) return { data: null, error: new Error('Comentário vazio') };
+
+      const lenErr = validateCommentContentTrimmed(trimmed);
+      if (lenErr) return { data: null, error: new Error(lenErr) };
+
+      const { count: existingCount, error: countErr } = await this.countActiveStatementComments(statementId);
+      if (countErr) return { data: null, error: countErr };
+      if (existingCount >= MAX_COMMENTS_PER_STATEMENT) {
+        return { data: null, error: new Error(statementLimitMessages.commentCountExceeded) };
+      }
+
       const { data, error } = await supabase
         .from('statement_comment')
         .insert({
           statement_id: statementId,
           user_id: user.id,
-          content: content.trim(),
+          content: trimmed,
         })
         .select()
         .single();
@@ -1693,10 +1728,18 @@ export const databaseService = {
     creator_name?: string | null;
   }): Promise<{ data: Statement | null; error: unknown }> {
     try {
+      const titleTrim = payload.title.trim();
+      const titleErr = validateStatementTitle(titleTrim);
+      if (titleErr) return { data: null, error: new Error(titleErr) };
+
+      const captionTrimmed = payload.caption?.trim() ?? '';
+      const capErr = validateStatementCaption(captionTrimmed || null);
+      if (capErr) return { data: null, error: new Error(capErr) };
+
       const insertRow: Record<string, unknown> = {
-        title: payload.title.trim(),
+        title: titleTrim,
         image_url: payload.image_url.trim(),
-        caption: payload.caption?.trim() || null,
+        caption: captionTrimmed || null,
         tags: payload.tags.length ? payload.tags : [],
         created_by: payload.user_id,
       };
@@ -1722,6 +1765,16 @@ export const databaseService = {
     }
   ): Promise<{ data: Statement | null; error: unknown }> {
     try {
+      if (payload.title !== undefined) {
+        const tErr = validateStatementTitle(payload.title.trim());
+        if (tErr) return { data: null, error: new Error(tErr) };
+      }
+      if (payload.caption !== undefined) {
+        const cap = payload.caption?.trim() ?? '';
+        const cErr = validateStatementCaption(cap || null);
+        if (cErr) return { data: null, error: new Error(cErr) };
+      }
+
       const patch: Record<string, unknown> = {};
       if (payload.title !== undefined) patch.title = payload.title.trim();
       if (payload.image_url !== undefined) patch.image_url = payload.image_url.trim();
