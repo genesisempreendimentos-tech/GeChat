@@ -11,13 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import {
   Star,
   Activity,
-  TrendingUp,
   ExternalLink,
   Clock,
   Minus,
   ArrowUpRight,
   ArrowDownRight,
   Boxes,
+  Monitor,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -201,9 +201,10 @@ export default function DashboardPage() {
       trend: null as number | null,
     },
     {
-      title: 'Aplicativos Ativos',
-      value: systems.filter((s) => s.active).length,
-      icon: TrendingUp,
+      title: 'Tempo de Tela',
+      /** Mock até existir tabela/fonte de dados real */
+      value: '00h 00m',
+      icon: Monitor,
       color: 'text-purple-500',
       bgColor: 'bg-purple-500/10',
       trend: null as number | null,

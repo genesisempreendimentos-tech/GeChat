@@ -42,18 +42,19 @@ export default function SolicitacoesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [nameFilter, setNameFilter] = useState<string>(NAME_FILTER_ALL);
 
-  /** Nomes distintos dos canais em `request_channels` (coluna `name`), ordenados. */
-  const channelNamesFromDb = useMemo(() => {
-    const seen = new Set<string>();
-    const list: string[] = [];
+  /**
+   * Um item por nome distinto de canal; `icon` vem do BD (`icon_url`), alinhado ao ícone do departamento no GêTeams.
+   */
+  const channelFilterOptions = useMemo(() => {
+    const byName = new Map<string, string>();
     for (const c of channels) {
       const n = (c.name ?? '').trim();
-      if (n && !seen.has(n)) {
-        seen.add(n);
-        list.push(n);
-      }
+      if (!n || byName.has(n)) continue;
+      byName.set(n, (c.icon ?? '').trim());
     }
-    return list.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [...byName.entries()]
+      .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+      .map(([name, icon]) => ({ name, icon }));
   }, [channels]);
 
   const filterDropdownLabel =
@@ -71,10 +72,10 @@ export default function SolicitacoesPage() {
   }, [loadData]);
 
   useEffect(() => {
-    if (nameFilter !== NAME_FILTER_ALL && !channelNamesFromDb.includes(nameFilter)) {
+    if (nameFilter !== NAME_FILTER_ALL && !channelFilterOptions.some((o) => o.name === nameFilter)) {
       setNameFilter(NAME_FILTER_ALL);
     }
-  }, [channelNamesFromDb, nameFilter]);
+  }, [channelFilterOptions, nameFilter]);
 
   const filtered = channels.filter((c) => {
     const q = searchQuery.trim().toLowerCase();
@@ -138,18 +139,25 @@ export default function SolicitacoesPage() {
               >
                 Todos os canais
               </DropdownMenuItem>
-              {channelNamesFromDb.length === 0 ? (
+              {channelFilterOptions.length === 0 ? (
                 <div className="px-2 py-3 text-xs text-muted-foreground text-center">
                   Nenhum departamento cadastrado ainda
                 </div>
               ) : (
-                channelNamesFromDb.map((name) => (
+                channelFilterOptions.map(({ name, icon }) => (
                   <DropdownMenuItem
                     key={name}
                     onClick={() => setNameFilter(name)}
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer"
                   >
-                    <span className="truncate">{name}</span>
+                    <span className="flex min-w-0 w-full items-center gap-2">
+                      {icon ? (
+                        renderIcon(icon, 'h-4 w-4 shrink-0 object-contain')
+                      ) : (
+                        <Boxes className="h-4 w-4 shrink-0 text-muted-foreground opacity-70" />
+                      )}
+                      <span className="truncate">{name}</span>
+                    </span>
                   </DropdownMenuItem>
                 ))
               )}
