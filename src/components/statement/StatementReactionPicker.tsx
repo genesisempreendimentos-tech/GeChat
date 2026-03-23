@@ -19,7 +19,7 @@ export default function StatementReactionPicker({
   reactions = DEFAULT_REACTIONS,
 }: StatementReactionPickerProps) {
   return (
-    <div className={cn('flex flex-wrap items-center gap-2.5', className)}>
+    <div className={cn('flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-hide', className)}>
       {reactions.map((emoji) => {
         const isActive = currentReaction === emoji;
         return (
@@ -29,7 +29,7 @@ export default function StatementReactionPicker({
             disabled={disabled}
             onClick={() => onReact?.(isActive ? null : emoji)}
             className={cn(
-              'h-8 min-w-8 rounded-full border px-2 text-sm transition-colors flex items-center justify-center',
+              'h-8 min-w-8 shrink-0 rounded-full border px-2 text-sm transition-colors flex items-center justify-center',
               'hover:bg-accent disabled:opacity-60 disabled:pointer-events-none',
               isActive
                 ? 'border-primary bg-primary/15 text-primary'
