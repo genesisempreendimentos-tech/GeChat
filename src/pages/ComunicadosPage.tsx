@@ -657,7 +657,7 @@ export default function ComunicadosPage() {
                                 className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-background border border-background shadow-sm z-[1]"
                                 style={{ zIndex: emojis.length - idx }}
                               >
-                                <AnimatedEmoji emoji={emoji} className="w-4 h-4" playOnHover={false} />
+                                <AnimatedEmoji emoji={emoji} className="w-4 h-4" loop={true} />
                               </span>
                             ))}
                           </div>
@@ -772,7 +772,7 @@ export default function ComunicadosPage() {
                                   className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-background border border-background shadow-sm z-[1]"
                                   style={{ zIndex: emojis.length - idx }}
                                 >
-                                  <AnimatedEmoji emoji={emoji} className="w-3 h-3" playOnHover={false} />
+                                  <AnimatedEmoji emoji={emoji} className="w-3 h-3" loop={true} />
                                 </span>
                               ))}
                             </div>
@@ -894,9 +894,7 @@ export default function ComunicadosPage() {
                       {item.department || 'Departamento não informado'}
                     </p>
                   </div>
-                  <span className="text-xl leading-none shrink-0" aria-hidden>
-                    {item.reaction}
-                  </span>
+                  <AnimatedEmoji emoji={item.reaction} className="w-6 h-6 shrink-0" loop={true} />
                 </button>
               ))
             )}

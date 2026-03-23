@@ -6,6 +6,7 @@ import { useState } from 'react';
 export const EMOJI_ANIMATIONS: Record<string, string> = {
   '👍': '/assets/icons/joia.json',
   '❤️': '/assets/icons/coracao.json',
+  '❤': '/assets/icons/coracao.json', // Fallback sem variation selector
   '😂': '/assets/icons/rindo.json',
   '😮': '/assets/icons/surpreso.json',
   '😢': '/assets/icons/triste.json',
@@ -34,14 +35,21 @@ export function AnimatedEmoji({
   loop = false
 }: AnimatedEmojiProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const animationUrl = EMOJI_ANIMATIONS[emoji];
+  // Remove espaços e variation selectors (U+FE0F) para garantir o match
+  const cleanEmoji = emoji?.trim().replace(/\uFE0F/g, '') || '';
+  
+  // Como removemos o U+FE0F do input, precisamos garantir que as chaves do mapa
+  // também sejam comparadas sem ele, ou simplesmente buscar no mapa
+  // O mapa já tem '❤️' (com FE0F) e '❤' (sem FE0F).
+  // Para ser seguro, vamos tentar o exato, depois sem FE0F.
+  const animationUrl = EMOJI_ANIMATIONS[emoji?.trim() || ''] || EMOJI_ANIMATIONS[cleanEmoji];
 
   if (!animationUrl) {
     return <span className={cn('inline-flex items-center justify-center', className)}>{emoji}</span>;
   }
 
-  // Se estiver ativo ou em hover (e playOnHover for true), a animação toca
-  const shouldPlay = isActive || (playOnHover && isHovered);
+  // Se estiver ativo, em hover (e playOnHover for true) ou loop for true, a animação toca
+  const shouldPlay = isActive || loop || (playOnHover && isHovered);
 
   return (
     <div 
@@ -52,7 +60,7 @@ export function AnimatedEmoji({
       <DotLottiePlayer
         src={animationUrl}
         autoplay={shouldPlay}
-        loop={loop || isActive}
+        loop={loop || isActive || shouldPlay}
         className="w-full h-full object-contain"
       />
     </div>
