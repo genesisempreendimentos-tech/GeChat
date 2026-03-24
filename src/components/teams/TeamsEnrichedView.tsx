@@ -10,6 +10,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { LoadingGifScreen } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
 import type { TeamLifecycleStatus } from '@/services/supabase';
@@ -271,6 +276,76 @@ function TeamStatusActionsMenu({
   );
 }
 
+function DepartmentCardCollaboratorAvatar({
+  c,
+  team,
+  variant,
+  onPreviewClick,
+  loadingCollaboratorId,
+}: {
+  c: TeamCollaboratorPreview;
+  team: TeamDisplayRow;
+  variant: 'admin' | 'user';
+  onPreviewClick?: (preview: TeamCollaboratorPreview, row: TeamDisplayRow) => void;
+  loadingCollaboratorId: string | null;
+}) {
+  const borderClass =
+    variant === 'admin' ? 'border-2 border-[#0d1520]' : 'border-2 border-white dark:border-[#0d1520]';
+  const loading = loadingCollaboratorId === c.id;
+  const avatar = (
+    <Avatar className={cn('w-8 h-8 ring-0 shadow-sm', borderClass)}>
+      <AvatarImage src={c.avatar} alt={c.name} className="object-cover" />
+      <AvatarFallback className="text-[10px] bg-primary/20 text-primary font-bold">
+        {c.name
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase()}
+      </AvatarFallback>
+    </Avatar>
+  );
+
+  if (onPreviewClick) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            disabled={loading}
+            className={cn(
+              'relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0d1520]',
+              loading && 'opacity-70',
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPreviewClick(c, team);
+            }}
+            aria-label={`Ver perfil de ${c.name}`}
+          >
+            {avatar}
+            {loading ? (
+              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/60">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
+              </span>
+            ) : null}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {c.name}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <div className="relative">
+      {avatar}
+      <AvatarGroupTooltip>{c.name}</AvatarGroupTooltip>
+    </div>
+  );
+}
+
 interface TeamsEnrichedViewProps {
   loading: boolean;
   rows: TeamDisplayRow[];
@@ -287,6 +362,10 @@ interface TeamsEnrichedViewProps {
   onCardClick?: (row: TeamDisplayRow) => void;
   /** Clique no badge de contagem de colaboradores (ex.: lista em modal). */
   onCollaboratorBadgeClick?: (row: TeamDisplayRow) => void;
+  /** Clique no avatar de um colaborador no rodapé do card (abre popup de perfil). */
+  onCollaboratorPreviewClick?: (preview: TeamCollaboratorPreview, row: TeamDisplayRow) => void;
+  /** Enquanto o perfil carrega (mesmo id do preview). */
+  loadingCollaboratorId?: string | null;
 }
 
 export function TeamsEnrichedView({
@@ -302,6 +381,8 @@ export function TeamsEnrichedView({
   pendingTeamId = null,
   onCardClick,
   onCollaboratorBadgeClick,
+  onCollaboratorPreviewClick,
+  loadingCollaboratorId = null,
 }: TeamsEnrichedViewProps) {
   const handleChange = (id: string, status: TeamLifecycleStatus) => {
     onTeamStatusChange?.(id, status);
@@ -406,28 +487,51 @@ export function TeamsEnrichedView({
                       {team.collaborators && team.collaborators.length > 0 ? (
                         <AvatarGroup className="justify-start">
                           {team.collaborators.slice(0, 5).map((c) => (
-                            <div key={c.id} className="relative">
-                              <Avatar className="w-8 h-8 border-2 border-[#0d1520] ring-0 shadow-sm">
-                                <AvatarImage src={c.avatar} alt={c.name} className="object-cover" />
-                                <AvatarFallback className="text-[10px] bg-primary/20 text-primary font-bold">
-                                  {c.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <AvatarGroupTooltip>{c.name}</AvatarGroupTooltip>
-                            </div>
+                            <DepartmentCardCollaboratorAvatar
+                              key={c.id}
+                              c={c}
+                              team={team}
+                              variant="admin"
+                              onPreviewClick={onCollaboratorPreviewClick}
+                              loadingCollaboratorId={loadingCollaboratorId}
+                            />
                           ))}
-                          {team.collaborators.length > 5 && (
-                            <div className="relative">
-                              <Avatar className="w-8 h-8 border-2 border-[#0d1520] shadow-sm">
-                                <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-bold">
-                                  +{team.collaborators.length - 5}
-                                </AvatarFallback>
-                              </Avatar>
-                              <AvatarGroupTooltip>
-                                {team.collaborators.slice(5).map((c) => c.name).join(', ')}
-                              </AvatarGroupTooltip>
-                            </div>
-                          )}
+                          {team.collaborators.length > 5 &&
+                            (onCollaboratorBadgeClick ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1520]"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onCollaboratorBadgeClick(team);
+                                    }}
+                                    aria-label={`Ver mais ${team.collaborators.length - 5} colaboradores`}
+                                  >
+                                    <Avatar className="w-8 h-8 border-2 border-[#0d1520] shadow-sm">
+                                      <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-bold">
+                                        +{team.collaborators.length - 5}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs max-w-xs">
+                                  {team.collaborators.slice(5).map((x) => x.name).join(', ')}
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <div className="relative">
+                                <Avatar className="w-8 h-8 border-2 border-[#0d1520] shadow-sm">
+                                  <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-bold">
+                                    +{team.collaborators.length - 5}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <AvatarGroupTooltip>
+                                  {team.collaborators.slice(5).map((x) => x.name).join(', ')}
+                                </AvatarGroupTooltip>
+                              </div>
+                            ))}
                         </AvatarGroup>
                       ) : (
                         <span className="text-white/40 italic text-[11px]">Sem colaboradores</span>
@@ -497,28 +601,51 @@ export function TeamsEnrichedView({
                       {team.collaborators && team.collaborators.length > 0 ? (
                         <AvatarGroup className="justify-start">
                           {team.collaborators.slice(0, 5).map((c) => (
-                            <div key={c.id} className="relative">
-                              <Avatar className="w-8 h-8 border-2 border-white dark:border-[#0d1520] ring-0 shadow-sm">
-                                <AvatarImage src={c.avatar} alt={c.name} className="object-cover" />
-                                <AvatarFallback className="text-[10px] bg-primary/20 text-primary font-bold">
-                                  {c.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <AvatarGroupTooltip>{c.name}</AvatarGroupTooltip>
-                            </div>
+                            <DepartmentCardCollaboratorAvatar
+                              key={c.id}
+                              c={c}
+                              team={team}
+                              variant="user"
+                              onPreviewClick={onCollaboratorPreviewClick}
+                              loadingCollaboratorId={loadingCollaboratorId}
+                            />
                           ))}
-                          {team.collaborators.length > 5 && (
-                            <div className="relative">
-                              <Avatar className="w-8 h-8 border-2 border-white dark:border-[#0d1520] shadow-sm">
-                                <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-bold">
-                                  +{team.collaborators.length - 5}
-                                </AvatarFallback>
-                              </Avatar>
-                              <AvatarGroupTooltip>
-                                {team.collaborators.slice(5).map((c) => c.name).join(', ')}
-                              </AvatarGroupTooltip>
-                            </div>
-                          )}
+                          {team.collaborators.length > 5 &&
+                            (onCollaboratorBadgeClick ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onCollaboratorBadgeClick(team);
+                                    }}
+                                    aria-label={`Ver mais ${team.collaborators.length - 5} colaboradores`}
+                                  >
+                                    <Avatar className="w-8 h-8 border-2 border-white dark:border-[#0d1520] shadow-sm">
+                                      <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-bold">
+                                        +{team.collaborators.length - 5}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs max-w-xs">
+                                  {team.collaborators.slice(5).map((x) => x.name).join(', ')}
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <div className="relative">
+                                <Avatar className="w-8 h-8 border-2 border-white dark:border-[#0d1520] shadow-sm">
+                                  <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-bold">
+                                    +{team.collaborators.length - 5}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <AvatarGroupTooltip>
+                                  {team.collaborators.slice(5).map((x) => x.name).join(', ')}
+                                </AvatarGroupTooltip>
+                              </div>
+                            ))}
                         </AvatarGroup>
                       ) : (
                         <span className="text-muted-foreground/50 italic text-[11px]">Sem colaboradores</span>

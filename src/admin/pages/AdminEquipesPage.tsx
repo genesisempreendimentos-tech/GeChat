@@ -688,6 +688,10 @@ export default function AdminEquipesPage() {
             onTeamStatusChange={handleTeamStatusChange}
             pendingTeamId={pendingStatusTeamId}
             onCardClick={handleDeptCardClick}
+            onCollaboratorPreviewClick={(c) => {
+              void openProfileFromPreview(c);
+            }}
+            loadingCollaboratorId={loadingCollaboratorId}
             emptyTitle="Nenhuma equipe encontrada"
             emptyHint={
               teams.length === 0

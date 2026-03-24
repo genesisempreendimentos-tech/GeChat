@@ -380,6 +380,23 @@ export default function EquipesPage() {
     [handleCollaboratorClick, neonDeptIdForModal, profileContextForModal.departmentName, profileContextForModal.sectorName],
   );
 
+  const handleDepartmentCardCollaboratorClick = useCallback(
+    (c: TeamCollaboratorPreview, row: TeamDisplayRow) => {
+      const neonDepartmentId = teams.find((x) => x.id === row.id)?.neonDepartmentId ?? '';
+      const collab: CollaboratorWithAvatar = {
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        departmentName: row.name,
+        sectorName: row.sectors.length ? row.sectors.join(', ') : '—',
+        neonDepartmentId,
+        avatar: c.avatar,
+      };
+      void handleCollaboratorClick(collab);
+    },
+    [handleCollaboratorClick, teams],
+  );
+
   const searchPlaceholder =
     topicView === TOPIC_DEPARTMENTS
       ? 'Buscar departamentos…'
@@ -442,6 +459,8 @@ export default function EquipesPage() {
           variant="user"
           showStatusColumn={false}
           onCollaboratorBadgeClick={openCollaboratorsModalDepartment}
+          onCollaboratorPreviewClick={handleDepartmentCardCollaboratorClick}
+          loadingCollaboratorId={loadingCollaboratorId}
           emptyTitle="Nenhuma equipe para exibir"
           emptyHint={
             searchQuery
