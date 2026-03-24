@@ -19,9 +19,6 @@ import {
   ExternalLink,
   Filter,
   Plus,
-  Users,
-  Check,
-  X,
   AlertCircle,
   RefreshCw,
   Star,
@@ -46,13 +43,6 @@ import type { ViewMode } from '@/admin/components/AdminControlLine';
 import type { System, SystemCategory, Category } from '@/types';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { ComingSoonModal } from '@/components/ComingSoonModal';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
 
 interface UserSystemAccess {
   user_id: string;
@@ -80,16 +70,11 @@ export default function SystemsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [categories, setCategories] = useState<Category[]>([]);
   const [systems, setSystems] = useState<System[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [userAccesses, setUserAccesses] = useState<UserSystemAccess[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSystem, setSelectedSystem] = useState<System | null>(null);
-  const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isAddSystemDialogOpen, setIsAddSystemDialogOpen] = useState(false);
-  const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
-  const [userToRevoke, setUserToRevoke] = useState<{ userId: string; userName: string } | null>(null);
-  const [permissionLoading, setPermissionLoading] = useState(false);
   const [comingSoonSystem, setComingSoonSystem] = useState<System | null>(null);
   const [archivedSystem, setArchivedSystem] = useState<System | null>(null);
   const [deletedSystem, setDeletedSystem] = useState<System | null>(null);
@@ -106,7 +91,6 @@ export default function SystemsPage() {
 
   const role = (currentUser?.accessType ?? '').toString().toLowerCase();
   const isAdmin = role === 'admin';
-  const isAdminOrManager = isAdmin;
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -119,30 +103,13 @@ export default function SystemsPage() {
     
     setLoading(true);
 
-    const userIsAdminOrManager = currentUser.accessType === 'admin';
-    // Membros veem apenas apps ativo/beta com acesso liberado; admin veem todos para gerenciar
-    if (userIsAdminOrManager) {
-      const { data: systemsData } = await databaseService.getSystems();
-      if (systemsData) setSystems(systemsData as System[]);
-    } else {
-      const { data: systemsData } = await databaseService.getSystemsForMember(currentUser.id);
-      if (systemsData) setSystems(systemsData as System[]);
-    }
+    // Painel do usuário: sempre apenas apps ativo/beta com acesso liberado (inclui admin).
+    // Gestão de acessos fica no painel Admin (/admin/systems, membros, equipes).
+    const { data: systemsData } = await databaseService.getSystemsForMember(currentUser.id);
+    if (systemsData) setSystems(systemsData as System[]);
 
     const { data: categoriesData } = await databaseService.getCategories();
     setCategories((categoriesData as Category[]) ?? []);
-
-    if (userIsAdminOrManager) {
-      const { data: usersData } = await databaseService.getUsers();
-      if (usersData) {
-        setUsers(usersData.map((u: any) => ({
-          id: u.id,
-          name: u.name || u.email,
-          email: u.email,
-          role: u.role,
-        })));
-      }
-    }
 
     const { data: accessData } = await databaseService.getUserSystemAccess(currentUser.id);
     if (accessData) {
@@ -150,93 +117,6 @@ export default function SystemsPage() {
     }
 
     setLoading(false);
-  };
-
-  const loadUserAccesses = async (systemId: string) => {
-    setPermissionLoading(true);
-    
-    // Carregar acessos de todos os usuários para o sistema específico
-    const accessPromises = users.map(async (user) => {
-      const { data } = await databaseService.getUserSystemAccess(user.id);
-      return data || [];
-    });
-
-    const allAccesses = await Promise.all(accessPromises);
-    const flatAccesses = allAccesses.flat() as UserSystemAccess[];
-    
-    // Filtrar apenas os acessos relevantes para o sistema atual
-    const relevantAccesses = flatAccesses.filter(
-      (access) => access.system_id === systemId
-    );
-    
-    // Mesclar com os acessos existentes de outros sistemas
-    const otherAccesses = userAccesses.filter(
-      (access) => access.system_id !== systemId
-    );
-    
-    setUserAccesses([...otherAccesses, ...relevantAccesses]);
-    setPermissionLoading(false);
-  };
-
-  const handleToggleAccess = async (userId: string, systemId: string, currentAccess: boolean) => {
-    // Se já tem acesso, pedir confirmação para remover
-    if (currentAccess) {
-      const user = users.find(u => u.id === userId);
-      setUserToRevoke({ userId, userName: user?.name || 'Usuário' });
-      setIsRevokeDialogOpen(true);
-      return;
-    }
-
-    // Se não tem acesso, conceder diretamente
-    setPermissionLoading(true);
-    const { error } = await databaseService.setUserSystemAccess(userId, systemId, true);
-    
-    if (!error) {
-      // Atualizar apenas o acesso específico no estado
-      const newAccess: UserSystemAccess = {
-        user_id: userId,
-        system_id: systemId,
-        can_access: true,
-      };
-      
-      // Remover acesso antigo se existir e adicionar novo
-      const updatedAccesses = userAccesses.filter(
-        (access) => !(access.user_id === userId && access.system_id === systemId)
-      );
-      setUserAccesses([...updatedAccesses, newAccess]);
-    }
-    
-    setPermissionLoading(false);
-  };
-
-  const confirmRevokeAccess = async () => {
-    if (!userToRevoke || !selectedSystem) return;
-
-    setPermissionLoading(true);
-    const { error } = await databaseService.setUserSystemAccess(
-      userToRevoke.userId,
-      selectedSystem.id,
-      false
-    );
-    
-    if (!error) {
-      // Atualizar apenas o acesso específico no estado
-      const newAccess: UserSystemAccess = {
-        user_id: userToRevoke.userId,
-        system_id: selectedSystem.id,
-        can_access: false,
-      };
-      
-      // Remover acesso antigo e adicionar atualizado
-      const updatedAccesses = userAccesses.filter(
-        (access) => !(access.user_id === userToRevoke.userId && access.system_id === selectedSystem.id)
-      );
-      setUserAccesses([...updatedAccesses, newAccess]);
-    }
-    
-    setPermissionLoading(false);
-    setIsRevokeDialogOpen(false);
-    setUserToRevoke(null);
   };
 
   const handleAddSystem = async () => {
@@ -269,31 +149,6 @@ export default function SystemsPage() {
       setIsAddSystemDialogOpen(false);
       await loadData();
     }
-  };
-
-  const openPermissionsDialog = async (system: System) => {
-    setSelectedSystem(system);
-    await loadUserAccesses(system.id);
-    setIsPermissionDialogOpen(true);
-  };
-
-  const hasAccess = (systemId: string) => {
-    if (isAdminOrManager) return true;
-    return userAccesses.some(
-      (access) => access.system_id === systemId && access.can_access
-    );
-  };
-
-  const getUserAccess = (userId: string, systemId: string) => {
-    return userAccesses.find(
-      (access) => access.user_id === userId && access.system_id === systemId
-    );
-  };
-
-  const canModifyUserPermissions = (userRole: string) => {
-    // Admin pode modificar apenas permissões de usuários comuns (não admin).
-    if (isAdmin && userRole !== 'admin') return true;
-    return false;
   };
 
   const renderIcon = (iconPath: string, className: string = '') => {
@@ -355,10 +210,6 @@ export default function SystemsPage() {
     setFavoriteTogglingId(null);
   };
 
-  const accessibleSystems = isAdminOrManager 
-    ? systems 
-    : systems.filter((system) => hasAccess(system.id));
-
   // Categorias do dropdown: apenas as que têm pelo menos um app a que o usuário tem acesso (systems já vem restrito por acesso para membros)
   const categoriesForDropdown = useMemo(() => {
     const names = [...new Set(systems.map((s) => s.category).filter(Boolean))] as string[];
@@ -372,7 +223,7 @@ export default function SystemsPage() {
     }
   }, [selectedCategory, categoriesForDropdown]);
 
-  // Lista exibida: sistemas já restritos por acesso (membros) ou todos (admin), filtrados por busca e categoria
+  // Lista exibida: sistemas já restritos por acesso, filtrados por busca e categoria
   const STATUS_ORDER: Record<string, number> = {
     ativo: 0, beta: 1, rascunho: 2, arquivado: 3, excluído: 4, excluido: 4,
   };
@@ -419,24 +270,22 @@ export default function SystemsPage() {
             Aplicativos
           </h1>
           <p className="text-muted-foreground mt-2">
-            {isAdmin 
-              ? 'Gerencie aplicativos, permissões e crie novos aplicativos (apenas Admin)' 
+            {isAdmin
+              ? 'Acesse os aplicativos liberados para você. Para gerenciar acessos de outros usuários, use o painel Admin.'
               : 'Acesse seus aplicativos corporativos'}
           </p>
         </div>
         
         <div className="flex gap-2">
-          {!isAdminOrManager && (
-            <Button
-              variant="outline"
-              onClick={loadData}
-              disabled={loading}
-            >
-              {loading ? <LoadingGif size="sm" className="mr-2 inline-block" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-              Atualizar
-            </Button>
-          )}
-          
+          <Button
+            variant="outline"
+            onClick={loadData}
+            disabled={loading}
+          >
+            {loading ? <LoadingGif size="sm" className="mr-2 inline-block" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+            Atualizar
+          </Button>
+
           {isAdmin && (
             <Dialog open={isAddSystemDialogOpen} onOpenChange={setIsAddSystemDialogOpen}>
               <DialogTrigger asChild>
@@ -748,21 +597,6 @@ export default function SystemsPage() {
                       <ExternalLink className="w-4 h-4 mr-2" />
                       Acessar
                     </Button>
-
-                    {isAdminOrManager && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="text-muted-foreground hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openPermissionsDialog(system);
-                        }}
-                        title="Gerenciar permissões"
-                      >
-                        <Users className="w-4 h-4" />
-                      </Button>
-                    )}
                   </div>
                 </div>
               </motion.div>
@@ -855,144 +689,6 @@ export default function SystemsPage() {
                 </div>
               )}
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Permissions Dialog */}
-      <Dialog open={isPermissionDialogOpen} onOpenChange={setIsPermissionDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Gerenciar Permissões - {selectedSystem?.name}</DialogTitle>
-            <DialogDescription>
-              Conceda ou revogue acesso ao sistema para usuários específicos
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto py-4">
-            {permissionLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <LoadingGif size="lg" />
-              </div>
-            ) : users.filter(user => user.id !== currentUser?.id).length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Nenhum usuário disponível
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {users
-                  .filter(user => user.id !== currentUser?.id) // Não mostrar o próprio usuário
-                  .map((user) => {
-                  const access = getUserAccess(user.id, selectedSystem?.id || '');
-                  const hasPermission = access?.can_access || false;
-                  const canModify = canModifyUserPermissions(user.role);
-                  const isUserAdminOrManager = user.role === 'admin';
-
-                  return (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between p-4 rounded-lg border hover:border-primary/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-primary font-semibold">
-                            {user.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm">{user.name}</p>
-                            {user.role === 'creator' && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 font-medium">
-                                Creator
-                              </span>
-                            )}
-                            {user.role === 'admin' && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 font-medium">
-                                Admin
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">{user.email}</p>
-                        </div>
-                      </div>
-
-                      {isUserAdminOrManager ? (
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-green-500/10 text-green-600">
-                          <Check className="w-4 h-4" />
-                          Acesso Total
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() =>
-                            handleToggleAccess(user.id, selectedSystem?.id || '', hasPermission)
-                          }
-                          disabled={permissionLoading || !canModify}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                            !canModify
-                              ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
-                              : hasPermission
-                              ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20'
-                              : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                          }`}
-                          title={!canModify ? 'Você não tem permissão para modificar este usuário' : ''}
-                        >
-                          {hasPermission ? (
-                            <>
-                              <Check className="w-4 h-4" />
-                              Permitido
-                            </>
-                          ) : (
-                            <>
-                              <X className="w-4 h-4" />
-                              Bloqueado
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Revoke Confirmation Dialog */}
-      <Dialog open={isRevokeDialogOpen} onOpenChange={setIsRevokeDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmar Remoção de Permissão</DialogTitle>
-            <DialogDescription>
-              Deseja realmente remover a permissão de acesso ao sistema <strong>{selectedSystem?.name}</strong> para o usuário <strong>{userToRevoke?.userName}</strong>?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-3 justify-end pt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsRevokeDialogOpen(false);
-                setUserToRevoke(null);
-              }}
-              disabled={permissionLoading}
-            >
-              Não
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmRevokeAccess}
-              disabled={permissionLoading}
-            >
-              {permissionLoading ? (
-                <>
-                  <LoadingGif size="sm" className="mr-2 inline-block" />
-                  Removendo...
-                </>
-              ) : (
-                'Sim, Remover'
-              )}
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
