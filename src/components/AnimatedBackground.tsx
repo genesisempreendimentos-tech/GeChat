@@ -1,26 +1,34 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { databaseService } from '@/services/supabase';
 
-/** Logos dos sistemas para o fundo (bem escondidas, animadas) */
-const BACKGROUND_LOGOS = [
-  { src: '/assets/systems/GêBoard.png', top: '8%', left: '5%', size: 'w-14 h-14', delay: '0s' },
-  { src: '/assets/systems/GeCode.png', top: '25%', right: '12%', left: 'auto', size: 'w-12 h-12', delay: '2s' },
-  { src: '/assets/systems/GeForms.png', bottom: '30%', left: '8%', size: 'w-16 h-16', delay: '4s' },
-  { src: '/assets/systems/GeLar.png', top: '15%', right: '25%', left: 'auto', size: 'w-10 h-10', delay: '1s' },
-  { src: '/assets/systems/GeLinks.png', bottom: '20%', right: '8%', left: 'auto', size: 'w-12 h-12', delay: '3s' },
-  { src: '/assets/systems/GeMidia.png', top: '45%', left: '15%', size: 'w-11 h-11', delay: '5s' },
-  { src: '/assets/systems/Gênesis.png', top: '60%', right: '18%', left: 'auto', size: 'w-14 h-14', delay: '0.5s' },
-  { src: '/assets/systems/GeReserva.png', bottom: '15%', left: '22%', size: 'w-10 h-10', delay: '2.5s' },
-  { src: '/assets/systems/GeSenha.png', top: '35%', right: '5%', left: 'auto', size: 'w-12 h-12', delay: '3.5s' },
-  { src: '/assets/systems/GeShow.png', bottom: '40%', right: '28%', left: 'auto', size: 'w-13 h-13', delay: '1.5s' },
-  { src: '/assets/systems/GeStack.png', top: '70%', left: '10%', size: 'w-15 h-15', delay: '4.5s' },
-  { src: '/assets/systems/GeSup.png', top: '5%', left: '35%', size: 'w-11 h-11', delay: '1s' },
-  { src: '/assets/systems/GêTask.png', top: '50%', left: '6%', size: 'w-12 h-12', delay: '6s' },
-  { src: '/assets/systems/GeTeam.png', bottom: '8%', right: '20%', left: 'auto', size: 'w-14 h-14', delay: '2s' },
-  { src: '/assets/systems/GêApps.png', top: '40%', left: '45%', size: 'w-16 h-16', delay: '0s' },
+/** Presets de posição/tamanho para ícones flutuantes. */
+const FLOAT_PRESETS = [
+  { top: '8%', left: '5%', size: 'w-12 h-12', delay: '0s' },
+  { top: '25%', right: '12%', left: 'auto', size: 'w-12 h-12', delay: '2s' },
+  { bottom: '30%', left: '8%', size: 'w-12 h-12', delay: '4s' },
+  { top: '15%', right: '25%', left: 'auto', size: 'w-12 h-12', delay: '1s' },
+  { bottom: '20%', right: '8%', left: 'auto', size: 'w-12 h-12', delay: '3s' },
+  { top: '45%', left: '15%', size: 'w-12 h-12', delay: '5s' },
+  { top: '60%', right: '18%', left: 'auto', size: 'w-12 h-12', delay: '0.5s' },
+  { bottom: '15%', left: '22%', size: 'w-12 h-12', delay: '2.5s' },
+  { top: '35%', right: '5%', left: 'auto', size: 'w-12 h-12', delay: '3.5s' },
+  { bottom: '40%', right: '28%', left: 'auto', size: 'w-12 h-12', delay: '1.5s' },
+  { top: '70%', left: '10%', size: 'w-12 h-12', delay: '4.5s' },
+  { top: '5%', left: '35%', size: 'w-12 h-12', delay: '1s' },
+  { top: '50%', left: '6%', size: 'w-12 h-12', delay: '6s' },
+  { bottom: '8%', right: '20%', left: 'auto', size: 'w-12 h-12', delay: '2s' },
+  { top: '40%', left: '45%', size: 'w-12 h-12', delay: '0s' },
 ];
 
-type LogoItem = (typeof BACKGROUND_LOGOS)[number];
+const FALLBACK_LOGOS = [
+  '/assets/systems/GeForms.png',
+  '/assets/systems/GeTeam.png',
+  '/assets/systems/GêApps.png',
+];
+
+type FloatPreset = (typeof FLOAT_PRESETS)[number];
+type LogoItem = FloatPreset & { src: string };
 
 function BackgroundLogo({ logo, index }: { logo: LogoItem; index: number }) {
   const [failed, setFailed] = useState(false);
@@ -56,6 +64,30 @@ function BackgroundLogo({ logo, index }: { logo: LogoItem; index: number }) {
  * Respeita prefers-reduced-motion.
  */
 export function AnimatedBackground({ className }: { className?: string }) {
+  const [backgroundLogos, setBackgroundLogos] = useState<LogoItem[]>(
+    FALLBACK_LOGOS.map((src, i) => ({ src, ...FLOAT_PRESETS[i % FLOAT_PRESETS.length] })),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSystems = async () => {
+      const { data } = await databaseService.getSystems();
+      if (cancelled) return;
+      const rows = Array.isArray(data) ? data : [];
+      const icons = [...new Set(rows.map((s: any) => String(s?.icon ?? '').trim()).filter(Boolean))];
+      if (!icons.length) return;
+      const items: LogoItem[] = icons.slice(0, FLOAT_PRESETS.length).map((src, i) => ({
+        src,
+        ...FLOAT_PRESETS[i % FLOAT_PRESETS.length],
+      }));
+      setBackgroundLogos(items);
+    };
+    void loadSystems();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div
       aria-hidden
@@ -92,7 +124,7 @@ export function AnimatedBackground({ className }: { className?: string }) {
 
       {/* Logos dos sistemas: bem escondidas, animação suave. Se falhar o carregamento, não exibe ícone quebrado. */}
       <div className="absolute inset-0">
-        {BACKGROUND_LOGOS.map((logo, i) => (
+        {backgroundLogos.map((logo, i) => (
           <BackgroundLogo
             key={`${logo.src}-${i}`}
             logo={logo}

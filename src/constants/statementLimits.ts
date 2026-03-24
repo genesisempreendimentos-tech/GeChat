@@ -9,7 +9,8 @@ export const statementLimitMessages = {
   titleExceeded: `O título pode ter no máximo ${MAX_STATEMENT_TITLE_LENGTH} caracteres.`,
   captionExceeded: `A legenda pode ter no máximo ${MAX_STATEMENT_CAPTION_LENGTH} caracteres.`,
   commentExceeded: `O comentário pode ter no máximo ${MAX_COMMENT_CONTENT_LENGTH} caracteres.`,
-  commentCountExceeded: `Este comunicado já atingiu o máximo de ${MAX_COMMENTS_PER_STATEMENT} comentários.`,
+  /** Texto genérico — o limite numérico continua aplicado só no backend/validação. */
+  commentCountExceeded: 'Este comunicado já atingiu o limite de comentários.',
 } as const;
 
 export function validateStatementTitle(title: string): string | null {

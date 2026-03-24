@@ -1,20 +1,19 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Filter, ChevronDown, Users, LayoutGrid, Table2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { databaseService, supabase, type Team } from '@/services/supabase';
 import { getDepartments, getDepartmentTeamStats, getNeonCollaboratorsForTeamDepartments, type NeonDepartment, type NeonTeamCollaborator } from '@/services/corporateProfile';
 import { TeamsEnrichedView, type TeamDisplayRow, type TeamCollaboratorPreview, type TeamsViewMode } from '@/components/teams/TeamsEnrichedView';
-import { cn } from '@/lib/utils';
+import { AdminControlLine } from '@/admin/components/AdminControlLine';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AdminEquipesTopicView, type SectorTopicRow, type CollaboratorWithAvatar } from '@/admin/components/AdminEquipesTopicView';
+import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
+import { useAuthStore } from '@/store/authStore';
 
-const FILTER_ALL = 'all';
+type EquipesTopicTab = 'departments' | 'sectors' | 'collaborators';
+const TOPIC_DEPARTMENTS: EquipesTopicTab = 'departments';
+const TOPIC_SECTORS: EquipesTopicTab = 'sectors';
+const TOPIC_COLLABORATORS: EquipesTopicTab = 'collaborators';
 
 function buildDisplayRows(
   teams: Team[],
@@ -40,15 +39,20 @@ function buildDisplayRows(
 }
 
 export default function EquipesPage() {
+  const { user: currentUser } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [nameFilter, setNameFilter] = useState<string>(FILTER_ALL);
+  const [topicView, setTopicView] = useState<EquipesTopicTab>(TOPIC_DEPARTMENTS);
   const [viewMode, setViewMode] = useState<TeamsViewMode>('cards');
 
   const [teams, setTeams] = useState<Team[]>([]);
   const [departments, setDepartments] = useState<NeonDepartment[]>([]);
   const [stats, setStats] = useState<Awaited<ReturnType<typeof getDepartmentTeamStats>>>({});
   const [collaboratorsByDeptId, setCollaboratorsByDeptId] = useState<Map<string, TeamCollaboratorPreview[]>>(new Map());
+  const [collaboratorsWithAvatar, setCollaboratorsWithAvatar] = useState<CollaboratorWithAvatar[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profilePopupOpen, setProfilePopupOpen] = useState(false);
+  const [selectedProfileData, setSelectedProfileData] = useState<any>(null);
+  const [loadingCollaboratorId, setLoadingCollaboratorId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -94,10 +98,30 @@ export default function EquipesPage() {
       }
     }
 
+    const enriched: CollaboratorWithAvatar[] = neonCollaborators.map((c) => {
+      const profile = collabMap
+        .get(c.neonDepartmentId)
+        ?.find((p) => p.email.toLowerCase() === c.email.toLowerCase());
+      const dept = deptList.find((d) => d.id === c.neonDepartmentId);
+      const st = statsMap[c.neonDepartmentId];
+      const sectorNorm = c.sectorName.trim().toLowerCase();
+      const matchingSectorName =
+        st?.sectors?.find((s) => s.trim().toLowerCase() === sectorNorm) ?? c.sectorName;
+      return {
+        ...c,
+        avatar: profile?.avatar,
+        departmentIcon: dept?.icon ?? null,
+        departmentColor: dept?.color ?? null,
+        sectorIcon: st?.sectorIcons?.[matchingSectorName] ?? null,
+        sectorColor: st?.sectorColors?.[matchingSectorName] ?? null,
+      };
+    });
+
     setTeams(teamsList);
     setDepartments(deptList);
     setStats(statsMap);
     setCollaboratorsByDeptId(collabMap);
+    setCollaboratorsWithAvatar(enriched);
     setLoading(false);
   }, []);
 
@@ -107,45 +131,105 @@ export default function EquipesPage() {
 
   const deptById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments]);
 
-  const teamNamesFromDb = useMemo(() => {
-    const seen = new Set<string>();
-    const list: string[] = [];
-    for (const t of teams) {
-      const neon = deptById.get(t.neonDepartmentId);
-      const n = (neon?.name ?? t.name ?? '').trim();
-      if (n && !seen.has(n)) {
-        seen.add(n);
-        list.push(n);
-      }
-    }
-    return list.sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [teams, deptById]);
-
-  useEffect(() => {
-    if (nameFilter !== FILTER_ALL && !teamNamesFromDb.includes(nameFilter)) {
-      setNameFilter(FILTER_ALL);
-    }
-  }, [teamNamesFromDb, nameFilter]);
-
   const displayRowsAll = useMemo(
     () => buildDisplayRows(teams, deptById, stats, collaboratorsByDeptId),
     [teams, deptById, stats, collaboratorsByDeptId],
   );
 
-  const filteredRows = useMemo(() => {
+  const departmentRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return displayRowsAll.filter((row) => {
-      const matchSearch =
+      return (
         !q ||
         row.name.toLowerCase().includes(q) ||
         (row.description ?? '').toLowerCase().includes(q) ||
-        row.sectors.some((s) => s.toLowerCase().includes(q));
-      const matchName = nameFilter === FILTER_ALL || row.name === nameFilter;
-      return matchSearch && matchName;
+        row.sectors.some((s) => s.toLowerCase().includes(q))
+      );
     });
-  }, [displayRowsAll, searchQuery, nameFilter]);
+  }, [displayRowsAll, searchQuery]);
 
-  const filterDropdownLabel = nameFilter === FILTER_ALL ? 'Todas as equipes' : nameFilter;
+  const sectorRows = useMemo((): SectorTopicRow[] => {
+    const rows: SectorTopicRow[] = [];
+    for (const t of teams) {
+      const neon = deptById.get(t.neonDepartmentId);
+      const st = stats[t.neonDepartmentId];
+      if (!st?.sectors?.length) continue;
+      const deptName = neon?.name?.trim() || t.name;
+      for (const s of st.sectors) {
+        const sectorCollabs = collaboratorsWithAvatar
+          .filter(
+            (c) =>
+              c.neonDepartmentId === t.neonDepartmentId &&
+              c.sectorName.trim().toLowerCase() === s.trim().toLowerCase(),
+          )
+          .map((c) => ({
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            avatar: c.avatar,
+          }));
+        rows.push({
+          id: `${t.id}::${s}`,
+          teamId: t.id,
+          neonDepartmentId: t.neonDepartmentId,
+          sectorName: s,
+          departmentName: deptName,
+          collaboratorCount: st.sectorCounts[s] ?? 0,
+          icon: st.sectorIcons?.[s] ?? null,
+          color: st.sectorColors?.[s] ?? null,
+          collaborators: sectorCollabs,
+        });
+      }
+    }
+    const q = searchQuery.trim().toLowerCase();
+    return rows
+      .filter((row) => !q || row.sectorName.toLowerCase().includes(q) || row.departmentName.toLowerCase().includes(q))
+      .sort(
+        (a, b) =>
+          a.sectorName.localeCompare(b.sectorName, 'pt-BR') ||
+          a.departmentName.localeCompare(b.departmentName, 'pt-BR'),
+      );
+  }, [teams, deptById, stats, collaboratorsWithAvatar, searchQuery]);
+
+  const collaboratorRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return collaboratorsWithAvatar.filter((c) => {
+      if (!q) return true;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        c.departmentName.toLowerCase().includes(q) ||
+        c.sectorName.toLowerCase().includes(q)
+      );
+    });
+  }, [collaboratorsWithAvatar, searchQuery]);
+
+  const handleCollaboratorClick = useCallback(async (collab: CollaboratorWithAvatar) => {
+    setLoadingCollaboratorId(collab.id);
+    const { data } = await databaseService.getProfileForPopupByEmail(collab.email);
+    setLoadingCollaboratorId(null);
+    if (data) {
+      setSelectedProfileData(data);
+      setProfilePopupOpen(true);
+      return;
+    }
+    setSelectedProfileData({
+      full_name: collab.name,
+      email: collab.email,
+      avatar_url: collab.avatar,
+      profession: collab.sectorName || collab.departmentName,
+      birth_date: collab.birthDate || null,
+      hire_date: collab.hireDate || null,
+    });
+    setProfilePopupOpen(true);
+  }, []);
+
+  const searchPlaceholder =
+    topicView === TOPIC_DEPARTMENTS
+      ? 'Buscar departamentos…'
+      : topicView === TOPIC_SECTORS
+      ? 'Buscar setores…'
+      : 'Buscar colaboradores…';
 
   return (
     <div className="space-y-6">
@@ -159,132 +243,74 @@ export default function EquipesPage() {
         </p>
       </div>
 
-      <div className="p-1 rounded-2xl bg-white/50 dark:bg-[#0d1520]/50 border border-slate-200 dark:border-white/5 backdrop-blur-sm">
-        <div className="flex flex-col lg:flex-row gap-2 p-2 items-stretch lg:items-center">
-          <div className="flex-1 relative group/search min-w-0">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
+      <AdminControlLine
+        viewMode={viewMode}
+        onViewModeChange={(m) => setViewMode(m as TeamsViewMode)}
+        showViewToggle
+        centerContent={
+          <div className="relative group/search w-full max-w-3xl">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
             <Input
-              placeholder="Buscar equipes..."
-              className="pl-11 h-12 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50"
+              placeholder={searchPlaceholder}
+              className="pl-8 w-full h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="min-w-[min(100vw-2rem,200px)] sm:min-w-[220px] h-12 justify-between border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background rounded-xl"
-                >
-                  <div className="flex items-center min-w-0">
-                    <Filter className="w-4 h-4 mr-2 shrink-0" />
-                    <span className="truncate">{filterDropdownLabel}</span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="min-w-[min(100vw-2rem,260px)] sm:min-w-[280px] max-w-[360px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
-              >
-                <DropdownMenuItem
-                  onClick={() => setNameFilter(FILTER_ALL)}
-                  className="focus:bg-primary/20 focus:text-primary cursor-pointer"
-                >
-                  Todas as equipes
-                </DropdownMenuItem>
-                {teamNamesFromDb.length === 0 ? (
-                  <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-                    Nenhuma equipe ativa cadastrada
-                  </div>
-                ) : (
-                  teamNamesFromDb.map((name) => (
-                    <DropdownMenuItem
-                      key={name}
-                      onClick={() => setNameFilter(name)}
-                      className="focus:bg-primary/20 focus:text-primary cursor-pointer"
-                    >
-                      <span className="truncate">{name}</span>
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <div className="flex rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80 h-12 items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'h-9 rounded-lg text-sm font-medium transition-all duration-300 flex items-center',
-                  viewMode === 'table'
-                    ? 'bg-primary text-primary-foreground shadow-md px-3'
-                    : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60',
-                )}
-                onClick={() => setViewMode('table')}
-                aria-pressed={viewMode === 'table'}
-              >
-                <Table2 className="w-4 h-4 shrink-0" />
-                <AnimatePresence initial={false}>
-                  {viewMode === 'table' && (
-                    <motion.span
-                      initial={{ width: 0, opacity: 0, marginLeft: 0 }}
-                      animate={{ width: 'auto', opacity: 1, marginLeft: 6 }}
-                      exit={{ width: 0, opacity: 0, marginLeft: 0 }}
-                      transition={{ duration: 0.2, ease: 'easeInOut' }}
-                      className="overflow-hidden whitespace-nowrap"
-                    >
-                      Tabela
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'h-9 rounded-lg text-sm font-medium transition-all duration-300 flex items-center',
-                  viewMode === 'cards'
-                    ? 'bg-primary text-primary-foreground shadow-md px-3'
-                    : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60',
-                )}
-                onClick={() => setViewMode('cards')}
-                aria-pressed={viewMode === 'cards'}
-              >
-                <LayoutGrid className="w-4 h-4 shrink-0" />
-                <AnimatePresence initial={false}>
-                  {viewMode === 'cards' && (
-                    <motion.span
-                      initial={{ width: 0, opacity: 0, marginLeft: 0 }}
-                      animate={{ width: 'auto', opacity: 1, marginLeft: 6 }}
-                      exit={{ width: 0, opacity: 0, marginLeft: 0 }}
-                      transition={{ duration: 0.2, ease: 'easeInOut' }}
-                      className="overflow-hidden whitespace-nowrap"
-                    >
-                      Cards
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <TeamsEnrichedView
-        loading={loading}
-        rows={filteredRows}
-        viewMode={viewMode}
-        variant="user"
-        showStatusColumn={false}
-        emptyTitle="Nenhuma equipe para exibir"
-        emptyHint={
-          searchQuery || nameFilter !== FILTER_ALL
-            ? 'Tente ajustar a busca ou o filtro.'
-            : 'Ainda não há equipes ativas. O administrador pode cadastrá-las no painel admin.'
         }
+        rightContent={
+          <Select value={topicView} onValueChange={(val) => setTopicView(val as EquipesTopicTab)}>
+            <SelectTrigger className="h-9 w-[180px] rounded-xl border-border/60 bg-muted/50 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus:ring-2 focus:ring-primary/20 focus:border-primary/40">
+              <SelectValue placeholder="Visualização" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-border/60 bg-card/95 backdrop-blur-xl shadow-lg">
+              <SelectItem value={TOPIC_DEPARTMENTS} className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary transition-colors">
+                Departamentos
+              </SelectItem>
+              <SelectItem value={TOPIC_SECTORS} className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary transition-colors">
+                Setores
+              </SelectItem>
+              <SelectItem value={TOPIC_COLLABORATORS} className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary transition-colors">
+                Colaboradores
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        }
+      />
+
+      {topicView === TOPIC_DEPARTMENTS ? (
+        <TeamsEnrichedView
+          loading={loading}
+          rows={departmentRows}
+          viewMode={viewMode}
+          variant="user"
+          showStatusColumn={false}
+          emptyTitle="Nenhuma equipe para exibir"
+          emptyHint={
+            searchQuery
+              ? 'Tente ajustar a busca.'
+              : 'Ainda não há equipes ativas. O administrador pode cadastrá-las no painel admin.'
+          }
+        />
+      ) : (
+        <AdminEquipesTopicView
+          variant={topicView === TOPIC_SECTORS ? 'sectors' : 'collaborators'}
+          viewMode={viewMode}
+          loading={loading}
+          sectorRows={sectorRows}
+          collaboratorRows={collaboratorRows}
+          onCollaboratorClick={handleCollaboratorClick}
+          loadingCollaboratorId={loadingCollaboratorId}
+          emptyTitle={topicView === TOPIC_SECTORS ? 'Nenhum setor para exibir' : 'Nenhum colaborador para exibir'}
+          emptyHint={searchQuery ? 'Tente ajustar a busca.' : 'Não há dados disponíveis para exibição.'}
+        />
+      )}
+
+      <ProfileCardInfoPopup
+        open={profilePopupOpen}
+        onOpenChange={setProfilePopupOpen}
+        userData={selectedProfileData}
+        currentUser={currentUser}
       />
     </div>
   );

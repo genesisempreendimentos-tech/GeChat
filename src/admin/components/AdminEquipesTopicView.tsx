@@ -1,9 +1,9 @@
 import type { ElementType } from 'react';
 import { motion } from 'framer-motion';
 import * as Icons from 'lucide-react';
-import { Building2, Layers, Mail, UserCircle, Loader2, Users } from 'lucide-react';
+import { Building2, Layers, Mail, UserCircle, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { LoadingGifScreen } from '@/components/LoadingGif';
+import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import type { TeamsViewMode, TeamCollaboratorPreview } from '@/components/teams/TeamsEnrichedView';
 import type { NeonTeamCollaborator } from '@/services/corporateProfile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -26,6 +26,10 @@ export interface SectorTopicRow {
 
 export interface CollaboratorWithAvatar extends NeonTeamCollaborator {
   avatar?: string;
+  departmentIcon?: string | null;
+  departmentColor?: string | null;
+  sectorIcon?: string | null;
+  sectorColor?: string | null;
 }
 
 const COLOR_HEX_MAP: Record<string, string> = {
@@ -303,7 +307,7 @@ export function AdminEquipesTopicView({
                 <div className="flex min-h-0 flex-1 flex-col p-5 pt-6">
                   <div className="flex shrink-0 gap-4">
                     <div className="relative shrink-0">
-                      <div className="rounded-2xl p-0.5 ring-2 ring-primary/15 ring-offset-2 ring-offset-background transition-all duration-300 group-hover:ring-primary/30 dark:ring-offset-[#0d1520]">
+                      <div className="relative rounded-2xl p-0.5 ring-2 ring-primary/15 ring-offset-2 ring-offset-background transition-all duration-300 group-hover:ring-primary/30 dark:ring-offset-[#0d1520]">
                         <Avatar className="h-14 w-14 rounded-[0.65rem] border border-border/40 shadow-inner dark:border-white/10">
                           <AvatarImage src={c.avatar} alt={c.name} className="object-cover" />
                           <AvatarFallback className="rounded-[0.65rem] bg-gradient-to-br from-primary/20 to-primary/5 text-base font-bold text-primary">
@@ -315,12 +319,12 @@ export function AdminEquipesTopicView({
                               .toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
+                        {isLoading && (
+                          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-background/72 dark:bg-black/62">
+                            <LoadingGif size="sm" className="h-6 w-6" />
+                          </div>
+                        )}
                       </div>
-                      {isLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center rounded-[0.65rem] bg-background/70 backdrop-blur-[2px] dark:bg-black/55">
-                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        </div>
-                      )}
                     </div>
                     <div className="min-w-0 flex-1 pt-0.5">
                       <h3 className="truncate text-[0.95rem] font-semibold leading-snug tracking-tight text-foreground">
@@ -339,8 +343,26 @@ export function AdminEquipesTopicView({
                       className="flex items-center gap-2 rounded-xl bg-muted/40 px-2.5 py-2 dark:bg-white/[0.06]"
                       title={c.departmentName || undefined}
                     >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-background/80 text-primary shadow-sm dark:bg-black/25">
-                        <Building2 className="h-3.5 w-3.5" aria-hidden />
+                      <span
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border shadow-sm dark:bg-black/25"
+                        style={(() => {
+                          const color = normalizeColor(c.departmentColor);
+                          return color
+                            ? {
+                                backgroundColor: `${color}18`,
+                                borderColor: `${color}35`,
+                                color,
+                              }
+                            : {
+                                backgroundColor: 'rgba(255,255,255,0.08)',
+                                borderColor: 'rgba(255,255,255,0.1)',
+                                color: 'hsl(var(--primary))',
+                              };
+                        })()}
+                      >
+                        {c.departmentIcon
+                          ? renderIcon(c.departmentIcon, 'h-3.5 w-3.5')
+                          : <Building2 className="h-3.5 w-3.5" aria-hidden />}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
@@ -353,8 +375,26 @@ export function AdminEquipesTopicView({
                       className="flex items-center gap-2 rounded-xl bg-muted/40 px-2.5 py-2 dark:bg-white/[0.06]"
                       title={c.sectorName || undefined}
                     >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-background/80 text-primary shadow-sm dark:bg-black/25">
-                        <Layers className="h-3.5 w-3.5" aria-hidden />
+                      <span
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border shadow-sm dark:bg-black/25"
+                        style={(() => {
+                          const color = normalizeColor(c.sectorColor);
+                          return color
+                            ? {
+                                backgroundColor: `${color}18`,
+                                borderColor: `${color}35`,
+                                color,
+                              }
+                            : {
+                                backgroundColor: 'rgba(255,255,255,0.08)',
+                                borderColor: 'rgba(255,255,255,0.1)',
+                                color: 'hsl(var(--primary))',
+                              };
+                        })()}
+                      >
+                        {c.sectorIcon
+                          ? renderIcon(c.sectorIcon, 'h-3.5 w-3.5')
+                          : <Layers className="h-3.5 w-3.5" aria-hidden />}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">Setor</p>
@@ -401,8 +441,8 @@ export function AdminEquipesTopicView({
                         </AvatarFallback>
                       </Avatar>
                       {isLoading && (
-                        <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
-                          <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                        <div className="pointer-events-none absolute inset-[1px] rounded-full bg-black/55 flex items-center justify-center">
+                          <LoadingGif size="sm" className="h-4 w-4" />
                         </div>
                       )}
                     </div>

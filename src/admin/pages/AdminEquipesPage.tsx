@@ -214,12 +214,24 @@ export default function AdminEquipesPage() {
       }
     }
 
-    // Montar lista de colaboradores enriquecidos com avatar para a view de colaboradores
+    // Montar lista de colaboradores enriquecidos (avatar + ícones/cores de departamento e setor)
     const enriched: CollaboratorWithAvatar[] = collabList.map((c) => {
       const profile = collabMap.get(c.neonDepartmentId)?.find(
         (p) => p.email.toLowerCase() === c.email.toLowerCase(),
       );
-      return { ...c, avatar: profile?.avatar };
+      const dept = deptList.find((d) => d.id === c.neonDepartmentId);
+      const st = statsMap[c.neonDepartmentId];
+      const sectorNorm = c.sectorName.trim().toLowerCase();
+      const matchingSectorName =
+        st?.sectors?.find((s) => s.trim().toLowerCase() === sectorNorm) ?? c.sectorName;
+      return {
+        ...c,
+        avatar: profile?.avatar,
+        departmentIcon: dept?.icon ?? null,
+        departmentColor: dept?.color ?? null,
+        sectorIcon: st?.sectorIcons?.[matchingSectorName] ?? null,
+        sectorColor: st?.sectorColors?.[matchingSectorName] ?? null,
+      };
     });
 
     setTeams(teamsList);
@@ -379,6 +391,25 @@ export default function AdminEquipesPage() {
     });
   }, [collaboratorsWithAvatar, searchQuery]);
 
+  const resolveGeappsUserIdsByEmail = useCallback(
+    async (emails: string[]) => {
+      const normalized = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+      if (!normalized.length) return new Map<string, string>();
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, email')
+        .in('email', normalized);
+      const out = new Map<string, string>();
+      for (const row of data ?? []) {
+        const email = (row.email ?? '').toString().trim().toLowerCase();
+        const userId = (row.user_id ?? '').toString().trim();
+        if (email && userId) out.set(email, userId);
+      }
+      return out;
+    },
+    [],
+  );
+
   const handleDeptCardClick = useCallback(async (row: TeamDisplayRow) => {
     setDeptModalRow(row);
     setDeptSystemSearch('');
@@ -400,18 +431,17 @@ export default function AdminEquipesPage() {
       return;
     }
 
-    // Para cada sistema, verifica se TODOS os colaboradores do dept têm acesso
+    const emailToUserId = await resolveGeappsUserIdsByEmail(collabs.map((c) => c.email));
+
+    // Para cada sistema, verifica se algum colaborador do dept tem acesso
     const systemAccessResults = await Promise.all(
       allSystems.map(async (sys: any) => {
         const { data: usersWithAccess } = await databaseService.getUsersWithAccessToApp(sys.id);
         const accessIds = new Set((usersWithAccess ?? []).map((u: any) => u.id));
         // Considera "com acesso" se pelo menos 1 colaborador do dept tem acesso
         const anyHasAccess = collabs.some((c) => {
-          // Tenta encontrar o profile pelo email para ter o user_id
-          const preview = collaboratorsByDeptId.get(
-            teams.find((t) => t.id === row.id)?.neonDepartmentId ?? ''
-          )?.find((p) => p.email.toLowerCase() === c.email.toLowerCase());
-          return preview && accessIds.has(preview.id);
+          const uid = emailToUserId.get(c.email.toLowerCase());
+          return !!uid && accessIds.has(uid);
         });
         return {
           id: sys.id,
@@ -426,7 +456,7 @@ export default function AdminEquipesPage() {
 
     setDeptModalSystems(systemAccessResults);
     setDeptModalLoading(false);
-  }, [collaboratorsWithAvatar, collaboratorsByDeptId, teams]);
+  }, [collaboratorsWithAvatar, teams, resolveGeappsUserIdsByEmail]);
 
   const handleSaveDeptAccess = useCallback(async () => {
     if (!deptModalRow) return;
@@ -435,12 +465,16 @@ export default function AdminEquipesPage() {
     const team = teams.find((t) => t.id === deptModalRow.id);
     const deptId = team?.neonDepartmentId ?? '';
     const collabPreviews = collaboratorsByDeptId.get(deptId) ?? [];
+    const emailToUserId = await resolveGeappsUserIdsByEmail(collabPreviews.map((c) => c.email));
+    const targetUserIds = [...new Set(collabPreviews
+      .map((c) => emailToUserId.get(c.email.toLowerCase()) ?? '')
+      .filter(Boolean))];
     const changed = deptModalSystems.filter((s) => s.canAccess !== s.original);
 
     await Promise.all(
       changed.flatMap((sys) =>
-        collabPreviews.map((collab) =>
-          databaseService.setUserSystemAccess(collab.id, sys.id, sys.canAccess)
+        targetUserIds.map((userId) =>
+          databaseService.setUserSystemAccess(userId, sys.id, sys.canAccess)
         )
       )
     );
@@ -450,7 +484,7 @@ export default function AdminEquipesPage() {
     );
     setDeptModalSaving(false);
     toast.success('Acessos do departamento atualizados.');
-  }, [deptModalRow, deptModalSystems, collaboratorsByDeptId, teams]);
+  }, [deptModalRow, deptModalSystems, collaboratorsByDeptId, teams, resolveGeappsUserIdsByEmail]);
 
   const handleSectorClick = useCallback(
     async (sector: SectorTopicRow) => {
@@ -474,18 +508,15 @@ export default function AdminEquipesPage() {
         return;
       }
 
-      const neonDeptId = sector.neonDepartmentId;
-      const previewsInDept = collaboratorsByDeptId.get(neonDeptId) ?? [];
+      const emailToUserId = await resolveGeappsUserIdsByEmail(collabs.map((c) => c.email));
 
       const systemAccessResults = await Promise.all(
         allSystems.map(async (sys: any) => {
           const { data: usersWithAccess } = await databaseService.getUsersWithAccessToApp(sys.id);
           const accessIds = new Set((usersWithAccess ?? []).map((u: any) => u.id));
           const anyHasAccess = collabs.some((c) => {
-            const preview = previewsInDept.find(
-              (p) => p.email.toLowerCase() === c.email.toLowerCase(),
-            );
-            return preview && accessIds.has(preview.id);
+            const uid = emailToUserId.get(c.email.toLowerCase());
+            return !!uid && accessIds.has(uid);
           });
           return {
             id: sys.id,
@@ -501,7 +532,7 @@ export default function AdminEquipesPage() {
       setSectorModalSystems(systemAccessResults);
       setSectorModalLoading(false);
     },
-    [collaboratorsWithAvatar, collaboratorsByDeptId],
+    [collaboratorsWithAvatar, resolveGeappsUserIdsByEmail],
   );
 
   const handleSaveSectorAccess = useCallback(async () => {
@@ -509,12 +540,16 @@ export default function AdminEquipesPage() {
     setSectorModalSaving(true);
 
     const previews = sectorModalRow.collaborators ?? [];
+    const emailToUserId = await resolveGeappsUserIdsByEmail(previews.map((c) => c.email));
+    const targetUserIds = [...new Set(previews
+      .map((c) => emailToUserId.get(c.email.toLowerCase()) ?? '')
+      .filter(Boolean))];
     const changed = sectorModalSystems.filter((s) => s.canAccess !== s.original);
 
     await Promise.all(
       changed.flatMap((sys) =>
-        previews.map((collab) =>
-          databaseService.setUserSystemAccess(collab.id, sys.id, sys.canAccess),
+        targetUserIds.map((userId) =>
+          databaseService.setUserSystemAccess(userId, sys.id, sys.canAccess),
         ),
       ),
     );
@@ -522,11 +557,11 @@ export default function AdminEquipesPage() {
     setSectorModalSystems((prev) => prev.map((s) => ({ ...s, original: s.canAccess })));
     setSectorModalSaving(false);
     toast.success('Acessos do setor atualizados.');
-  }, [sectorModalRow, sectorModalSystems]);
+  }, [sectorModalRow, sectorModalSystems, resolveGeappsUserIdsByEmail]);
 
   const handleCollaboratorClick = useCallback(async (collab: CollaboratorWithAvatar) => {
     setLoadingCollaboratorId(collab.id);
-    const { data } = await databaseService.getRawProfileByEmail(collab.email);
+    const { data } = await databaseService.getProfileForPopupByEmail(collab.email);
     setLoadingCollaboratorId(null);
     if (data) {
       setSelectedProfileData(data);
@@ -538,6 +573,8 @@ export default function AdminEquipesPage() {
         email: collab.email,
         avatar_url: collab.avatar,
         profession: collab.sectorName || collab.departmentName,
+        birth_date: collab.birthDate || null,
+        hire_date: collab.hireDate || null,
       });
       setProfilePopupOpen(true);
     }
@@ -545,7 +582,7 @@ export default function AdminEquipesPage() {
 
   const openProfileFromPreview = useCallback(async (c: TeamCollaboratorPreview) => {
     setLoadingCollaboratorId(c.id);
-    const { data } = await databaseService.getRawProfileByEmail(c.email);
+    const { data } = await databaseService.getProfileForPopupByEmail(c.email);
     setLoadingCollaboratorId(null);
     if (data) {
       setSelectedProfileData(data);
@@ -582,9 +619,13 @@ export default function AdminEquipesPage() {
         title="Equipes"
         description="Cadastre equipes e defina quem pode vê-las no GeApps. Esta tela é exclusiva do painel administrativo."
         action={
-          <Button type="button" onClick={openCreate}>
+          <Button
+            type="button"
+            onClick={openCreate}
+            className="h-10 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
+          >
             <Plus className="w-4 h-4 mr-2" />
-            Adicionar Equipes
+            Adicionar equipe
           </Button>
         }
       />
@@ -642,7 +683,7 @@ export default function AdminEquipesPage() {
             emptyTitle="Nenhuma equipe encontrada"
             emptyHint={
               teams.length === 0
-                ? 'Use Adicionar Equipes para vincular um departamento do GêTeams. Confira se a tabela teams existe no Supabase e se as políticas RLS permitem leitura para appsadmin.'
+                ? 'Use Adicionar equipe para vincular um departamento do GêTeams. Confira se a tabela teams existe no Supabase e se as políticas RLS permitem leitura para appsadmin.'
                 : 'Tente ajustar a busca.'
             }
           />

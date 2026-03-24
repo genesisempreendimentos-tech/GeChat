@@ -394,9 +394,12 @@ export default function AdminSystemsPage() {
         title="Aplicativos"
         description="Gerencie os aplicativos disponíveis no GêApps."
         action={
-          <Button onClick={() => setIsCreateOpen(true)}>
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            className="h-10 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
+          >
             <Plus className="w-4 h-4 mr-2" />
-            Criar Aplicativos
+            Criar aplicativo
           </Button>
         }
       />

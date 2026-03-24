@@ -41,6 +41,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AdminControlLine } from '@/admin/components/AdminControlLine';
+import type { ViewMode } from '@/admin/components/AdminControlLine';
 import type { System, SystemCategory, Category } from '@/types';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { ComingSoonModal } from '@/components/ComingSoonModal';
@@ -75,6 +77,7 @@ export default function SystemsPage() {
   const { user: currentUser } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [categories, setCategories] = useState<Category[]>([]);
   const [systems, setSystems] = useState<System[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -521,26 +524,33 @@ export default function SystemsPage() {
         </div>
       </div>
 
-      {/* Busca e filtro por categoria */}
-      <div className="p-1 rounded-2xl bg-white/50 dark:bg-[#0d1520]/50 border border-slate-200 dark:border-white/5 backdrop-blur-sm">
-        <div className="flex flex-col sm:flex-row gap-2 p-2">
-          <div className="flex-1 relative group/search">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
+      <AdminControlLine
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        showViewToggle
+        centerContent={
+          <div className="relative group/search w-full max-w-3xl">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
             <Input
               placeholder="Buscar sistemas..."
-              className="pl-11 h-12 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50"
+              className="pl-8 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+        }
+        rightContent={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="lg" className="min-w-[200px] h-12 justify-between border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background rounded-xl">
-                <div className="flex items-center">
-                  <Filter className="w-4 h-4 mr-2" />
-                  {selectedCategory === 'all' ? 'Todas as categorias' : selectedCategory}
+              <Button
+                variant="outline"
+                className="h-9 min-w-[220px] justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
+              >
+                <div className="flex items-center min-w-0">
+                  <Filter className="w-4 h-4 mr-2 shrink-0" />
+                  <span className="truncate">{selectedCategory === 'all' ? 'Todas as categorias' : selectedCategory}</span>
                 </div>
-                <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
+                <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
@@ -558,8 +568,8 @@ export default function SystemsPage() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </div>
+        }
+      />
 
       {/* Systems Grid */}
       {loading ? (
@@ -572,6 +582,47 @@ export default function SystemsPage() {
             <p className="text-muted-foreground">
               {searchQuery ? 'Tente buscar com outros termos' : 'Nenhum sistema disponível'}
             </p>
+          </CardContent>
+        </Card>
+      ) : viewMode === 'table' ? (
+        <Card className="border-border/60 bg-background/40">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 bg-muted/20">
+                    <th className="text-left py-3 px-4 font-semibold">Aplicativo</th>
+                    <th className="text-left py-3 px-4 font-semibold">Categoria</th>
+                    <th className="text-left py-3 px-4 font-semibold">Status</th>
+                    <th className="text-right py-3 px-4 font-semibold">Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSystems.map((system) => (
+                    <tr
+                      key={system.id}
+                      className="border-b border-border/40 hover:bg-muted/20 cursor-pointer"
+                      onClick={() => handleCardClick(system)}
+                    >
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {renderIcon(system.icon, 'h-4 w-4 shrink-0 object-contain')}
+                          <span className="font-medium truncate">{system.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-muted-foreground">{system.category || '—'}</td>
+                      <td className="py-3 px-4 text-muted-foreground capitalize">{system.status || 'ativo'}</td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="inline-flex items-center gap-1.5 text-primary font-medium">
+                          <ExternalLink className="w-4 h-4" />
+                          Abrir
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       ) : (

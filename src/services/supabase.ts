@@ -365,6 +365,15 @@ type ProfileRow = {
   profile_status?: string | null;
   thema?: string | null;
   sidebar?: string | null;
+  birth_date?: string | null;
+  birthday?: string | null;
+  hire_date?: string | null;
+  admission_date?: string | null;
+  admissionDate?: string | null;
+  profession?: string | null;
+  job_title?: string | null;
+  banner_url?: string | null;
+  mascote?: string | null;
 };
 
 function normalizeProfileStatus(raw: string | null | undefined): 'active' | 'archived' | 'deleted' {
@@ -409,6 +418,65 @@ function profileToUser(row: ProfileRow | null, authEmail?: string): UserShape | 
     thema: row.thema ?? undefined,
     sidebar: parseSidebarMode(row.sidebar ?? undefined),
   };
+}
+
+function mapProfileToPopupData(row: Record<string, unknown>, base?: UserShape | null) {
+  return {
+    ...(base ?? {}),
+    id: (row.user_id ?? row.id ?? base?.id ?? '').toString(),
+    full_name: (row.full_name ?? row.name ?? base?.name ?? '').toString(),
+    name: (row.name ?? row.full_name ?? base?.name ?? '').toString(),
+    email: (row.email ?? base?.email ?? '').toString(),
+    avatar_url: (row.avatar_url ?? row.avatar ?? base?.avatar ?? undefined) as string | undefined,
+    avatar: (row.avatar ?? row.avatar_url ?? base?.avatar ?? undefined) as string | undefined,
+    apelido: (row.apelido ?? '') as string,
+    username: (row.username ?? '') as string,
+    description: (row.description ?? row.bio ?? '') as string,
+    bio: (row.bio ?? row.description ?? '') as string,
+    profession: (row.profession ?? row.job_title ?? row.cadeira_principal ?? '') as string,
+    banner_url: (row.banner_url ?? null) as string | null,
+    mascote: (row.mascote ?? null) as string | null,
+    icon: (row.icon ?? '') as string,
+    sector_icon: (row.sector_icon ?? '') as string,
+    linkedin: (row.linkedin ?? '') as string,
+    instagram: (row.instagram ?? '') as string,
+    whatsapp: (row.whatsapp ?? '') as string,
+    phone: (row.phone ?? '') as string,
+    location: (row.location ?? '') as string,
+    // Datas em múltiplos formatos para suportar todos os pontos de uso do popup
+    birth_date: (row.birth_date ?? row.birthday ?? null) as string | null,
+    birthday: (row.birthday ?? row.birth_date ?? null) as string | null,
+    hire_date: (row.hire_date ?? row.admission_date ?? row.admissionDate ?? null) as string | null,
+    admission_date: (row.admission_date ?? row.hire_date ?? row.admissionDate ?? null) as string | null,
+    admissionDate: (row.admissionDate ?? row.hire_date ?? row.admission_date ?? null) as string | null,
+  };
+}
+
+async function getAccessTokenForNeonApiFromSupabase(): Promise<string | null> {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+  if (!error && session?.access_token) return session.access_token;
+  const { data: refreshed } = await supabase.auth.refreshSession();
+  return refreshed.session?.access_token ?? session?.access_token ?? null;
+}
+
+async function fetchCorporateProfileByEmail(email: string): Promise<Record<string, unknown> | null> {
+  const normalizedEmail = String(email ?? '').trim().toLowerCase();
+  if (!normalizedEmail) return null;
+  const token = await getAccessTokenForNeonApiFromSupabase();
+  if (!token) return null;
+  const query = new URLSearchParams({ email: normalizedEmail }).toString();
+  const res = await fetch(`/api/corporate-profile-by-email?${query}`, {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as unknown;
+  return data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
 }
 
 function userToProfilePayload(user: { name: string; email: string; role: string; avatar?: string }) {
@@ -914,36 +982,81 @@ export const databaseService = {
         const row = data as ProfileRow & Record<string, unknown>;
         const base = profileToUser(data as ProfileRow);
         if (!base) return { data: null, error: { message: 'Profile not found' } };
-        return {
-          data: {
-            ...base,
-            avatar: row.avatar_url ?? row.avatar,
-            apelido: row.apelido,
-            username: row.username,
-            bio: row.bio,
-            icon: row.icon,
-            linkedin: row.linkedin,
-            instagram: row.instagram,
-            whatsapp: row.whatsapp,
-            phone: row.phone,
-            location: row.location,
-            job_title: row.job_title,
-            birth_date: row.birth_date,
-            banner_url: (row as any).banner_url ?? null,
-            mascote: (row as any).mascote ?? null,
-          },
-          error: null,
-        };
+        return { data: mapProfileToPopupData(row, base), error: null };
       }
     }
     return { data: null, error: { message: 'Profile not found' } };
   },
 
-  async getRawProfileByEmail(email: string) {
+  /** Perfil completo e normalizado para o ProfileCardInfoPopup por user_id. */
+  async getProfileForPopupByUserId(userId: string) {
+    const { data, error } = await this.getUserById(userId);
+    if (error || !data) return { data: null, error };
+    const row = data as Record<string, unknown>;
+    const email = String(row.email ?? '').trim().toLowerCase();
+    if (!email) return { data, error: null };
+    const corp = await fetchCorporateProfileByEmail(email);
+    if (!corp) return { data, error: null };
+    const merged = {
+      ...data,
+      birth_date: row.birth_date ?? corp.birth_date ?? null,
+      birthday: row.birthday ?? corp.birth_date ?? null,
+      hire_date: row.hire_date ?? corp.hire_date ?? null,
+      admission_date: row.admission_date ?? corp.hire_date ?? null,
+      admissionDate: row.admissionDate ?? corp.hire_date ?? null,
+      profession: row.profession ?? corp.profession ?? row.job_title ?? null,
+    };
+    return { data: merged, error: null };
+  },
+
+  /** Perfil completo e normalizado para o ProfileCardInfoPopup por e-mail (case-insensitive). */
+  async getProfileForPopupByEmail(email: string) {
+    const normalizedEmail = String(email ?? '').trim().toLowerCase();
+    if (!normalizedEmail) return { data: null, error: { message: 'Email vazio' } };
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('email', email)
+      .ilike('email', normalizedEmail)
+      .maybeSingle();
+    if (error || !data) {
+      const corpOnly = await fetchCorporateProfileByEmail(normalizedEmail);
+      if (!corpOnly) return { data: null, error: error ?? { message: 'Profile not found' } };
+      return {
+        data: mapProfileToPopupData(
+          {
+            email: normalizedEmail,
+            full_name: corpOnly.name ?? corpOnly.email ?? normalizedEmail,
+            birth_date: corpOnly.birth_date ?? null,
+            hire_date: corpOnly.hire_date ?? null,
+            profession: corpOnly.profession ?? '',
+          },
+          null,
+        ),
+        error: null,
+      };
+    }
+    const row = data as ProfileRow & Record<string, unknown>;
+    const base = profileToUser(data as ProfileRow);
+    const corp = await fetchCorporateProfileByEmail(normalizedEmail);
+    const mergedRow = corp
+      ? {
+          ...row,
+          birth_date: row.birth_date ?? corp.birth_date ?? null,
+          hire_date: row.hire_date ?? corp.hire_date ?? null,
+          admission_date: row.admission_date ?? corp.hire_date ?? null,
+          admissionDate: row.admissionDate ?? corp.hire_date ?? null,
+          profession: row.profession ?? corp.profession ?? null,
+        }
+      : row;
+    return { data: mapProfileToPopupData(mergedRow, base), error: null };
+  },
+
+  async getRawProfileByEmail(email: string) {
+    const normalizedEmail = String(email ?? '').trim().toLowerCase();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .ilike('email', normalizedEmail)
       .maybeSingle();
     if (error) return { data: null, error };
     return { data, error: null };
@@ -1264,10 +1377,22 @@ export const databaseService = {
   },
 
   async setUserSystemAccess(userId: string, systemId: string, canAccess: boolean) {
+    // Revogação precisa ser "forte": atualiza todas as linhas do par user/app
+    // para evitar manter acesso por registro duplicado/variação de tipo.
+    if (!canAccess) {
+      const { data, error } = await supabase
+        .from('user_app_access')
+        .update({ access: false, is_favorite: false, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('app_id', systemId)
+        .select();
+      return { data, error };
+    }
+
     const { data, error } = await supabase
       .from('user_app_access')
       .upsert(
-        { user_id: userId, app_id: systemId, access: canAccess, access_type: 'member' },
+        { user_id: userId, app_id: systemId, access: true, access_type: 'member' },
         { onConflict: 'user_id,app_id' }
       )
       .select()

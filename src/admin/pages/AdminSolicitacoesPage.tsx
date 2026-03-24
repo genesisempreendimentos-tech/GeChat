@@ -165,9 +165,12 @@ export default function AdminSolicitacoesPage() {
         description="Envie solicitações para outros departamentos"
         action={
           canCreate ? (
-            <Button onClick={openCreate}>
+            <Button
+              onClick={openCreate}
+              className="h-10 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
+            >
               <Plus className="w-4 h-4 mr-2" />
-              Adicionar equipes
+              Adicionar equipe
             </Button>
           ) : undefined
         }
@@ -220,7 +223,7 @@ export default function AdminSolicitacoesPage() {
             {channels.length === 0 && (
               <p className="text-xs mt-2 max-w-md mx-auto">
                 Quando a tabela for criada no Supabase, os canais aparecerão aqui. Administradores podem{' '}
-                <strong className="text-foreground">Adicionar equipes</strong> para vincular departamentos do GêTeams ao
+                <strong className="text-foreground">Adicionar equipe</strong> para vincular departamentos do GêTeams ao
                 link do GêForms.
               </p>
             )}

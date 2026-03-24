@@ -11,6 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AdminControlLine } from '@/admin/components/AdminControlLine';
+import type { ViewMode } from '@/admin/components/AdminControlLine';
 import {
   databaseService,
   type RequestChannel,
@@ -41,6 +43,7 @@ export default function SolicitacoesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [nameFilter, setNameFilter] = useState<string>(NAME_FILTER_ALL);
+  const [viewMode, setViewMode] = useState<ViewMode>('cards');
 
   /**
    * Um item por nome distinto de canal; `icon` vem do BD (`icon_url`), alinhado ao ícone do departamento no GêTeams.
@@ -104,23 +107,27 @@ export default function SolicitacoesPage() {
         </p>
       </div>
 
-      <div className="p-1 rounded-2xl bg-white/50 dark:bg-[#0d1520]/50 border border-slate-200 dark:border-white/5 backdrop-blur-sm">
-        <div className="flex flex-col sm:flex-row gap-2 p-2">
-          <div className="flex-1 relative group/search">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
+      <AdminControlLine
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        showViewToggle
+        centerContent={
+          <div className="relative group/search w-full max-w-3xl">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
             <Input
               placeholder="Buscar canais..."
-              className="pl-11 h-12 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50"
+              className="pl-8 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+        }
+        rightContent={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                size="lg"
-                className="min-w-[min(100vw-2rem,200px)] sm:min-w-[220px] h-12 justify-between border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background rounded-xl"
+                className="h-9 min-w-[220px] justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
               >
                 <div className="flex items-center min-w-0">
                   <Filter className="w-4 h-4 mr-2 shrink-0" />
@@ -131,7 +138,7 @@ export default function SolicitacoesPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="min-w-[min(100vw-2rem,260px)] sm:min-w-[280px] max-w-[360px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
+              className="min-w-[280px] max-w-[360px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
             >
               <DropdownMenuItem
                 onClick={() => setNameFilter(NAME_FILTER_ALL)}
@@ -163,8 +170,8 @@ export default function SolicitacoesPage() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </div>
+        }
+      />
 
       {loading ? (
         <LoadingGifScreen className="h-64" />
@@ -180,6 +187,47 @@ export default function SolicitacoesPage() {
             </p>
           </CardContent>
         </Card>
+      ) : viewMode === 'table' ? (
+        <Card className="border-border/60 bg-background/40">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 bg-muted/20">
+                    <th className="text-left py-3 px-4 font-semibold">Canal</th>
+                    <th className="text-left py-3 px-4 font-semibold">Tipo</th>
+                    <th className="text-left py-3 px-4 font-semibold">Descrição</th>
+                    <th className="text-right py-3 px-4 font-semibold">Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((channel) => (
+                    <tr
+                      key={channel.id}
+                      className="border-b border-border/40 hover:bg-muted/20 cursor-pointer"
+                      onClick={() => openChannel(channel)}
+                    >
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {channel.icon ? renderIcon(channel.icon, 'h-4 w-4 shrink-0') : <Send className="h-4 w-4 shrink-0 opacity-70" />}
+                          <span className="font-medium truncate">{channel.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-muted-foreground">{TYPE_LABELS[channel.channel_type]}</td>
+                      <td className="py-3 px-4 text-muted-foreground max-w-[420px] truncate">{channel.description || '—'}</td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="inline-flex items-center gap-1.5 text-primary font-medium">
+                          <ExternalLink className="w-4 h-4" />
+                          Abrir
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 w-full">
           {filtered.map((channel, index) => (
@@ -190,7 +238,7 @@ export default function SolicitacoesPage() {
               transition={{ delay: index * 0.05 }}
               className="group relative"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-0 blur-xl transition-opacity duration-500 group-hover:opacity-100 -z-10" />
               <div
                 role="button"
                 tabIndex={0}
@@ -201,9 +249,11 @@ export default function SolicitacoesPage() {
                     openChannel(channel);
                   }
                 }}
-                className="relative h-full flex flex-col justify-between p-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg cursor-pointer hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-1"
+                className="relative h-full flex min-h-[188px] flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/90 bg-white/80 p-5 shadow-lg backdrop-blur-md transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:border-primary/30 hover:bg-white/90 hover:shadow-primary/10 dark:border-white/5 dark:bg-[#0d1520]/80 dark:hover:bg-[#0d1520]/90"
               >
-                <div className="flex items-start gap-4 mb-4">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/50 via-primary/20 to-transparent opacity-80" />
+
+                <div className="mb-4 flex items-start gap-4">
                   <div className="relative group/icon shrink-0">
                     <div className="absolute inset-0 bg-primary/20 blur-lg rounded-xl opacity-0 group-hover/icon:opacity-50 transition-opacity duration-500" />
                     <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-slate-50 to-white dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-primary shadow-inner overflow-hidden">
@@ -219,7 +269,7 @@ export default function SolicitacoesPage() {
                       {channel.name}
                     </h3>
                     <span
-                      className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                      className={`inline-flex mt-1 items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                         channel.channel_type === 'setor'
                           ? 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400'
                           : 'bg-primary/15 border-primary/30 text-primary'
@@ -229,12 +279,19 @@ export default function SolicitacoesPage() {
                     </span>
                   </div>
                 </div>
-                <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex justify-end">
+
+                <div className="mb-4 min-h-[40px]">
+                  <p className="line-clamp-2 text-sm leading-relaxed text-slate-600 dark:text-muted-foreground/85">
+                    {channel.description?.trim() || 'Canal para envio de solicitações e alinhamentos entre equipes.'}
+                  </p>
+                </div>
+
+                <div className="mt-auto border-t border-slate-100 pt-4 dark:border-white/5">
                   {channel.url ? (
-                    <span className="inline-flex items-center gap-1.5 text-sm text-primary font-medium">
-                      <ExternalLink className="w-4 h-4" />
+                    <div className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors group-hover:bg-primary/15">
+                      <ExternalLink className="h-3.5 w-3.5" />
                       Abrir canal
-                    </span>
+                    </div>
                   ) : (
                     <span className="text-xs text-muted-foreground italic">Sem link configurado</span>
                   )}

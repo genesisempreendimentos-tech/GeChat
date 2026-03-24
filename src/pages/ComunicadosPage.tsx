@@ -34,6 +34,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AdminControlLine } from '@/admin/components/AdminControlLine';
+import type { ViewMode } from '@/admin/components/AdminControlLine';
 import {
   Dialog,
   DialogContent,
@@ -135,6 +137,7 @@ export default function ComunicadosPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [tagFilter, setTagFilter] = useState<string>(TAG_FILTER_ALL);
+  const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [captionExpanded, setCaptionExpanded] = useState<Record<string, boolean>>({});
   const [detailStatement, setDetailStatement] = useState<Statement | null>(null);
   const [statementReactions, setStatementReactions] = useState<StatementReaction[]>([]);
@@ -780,7 +783,7 @@ export default function ComunicadosPage() {
 
   const handleOpenReactionUserProfile = useCallback(async (userId: string) => {
     setReactionsProfileLoadingId(userId);
-    const { data, error } = await databaseService.getUserById(userId);
+    const { data, error } = await databaseService.getProfileForPopupByUserId(userId);
     setReactionsProfileLoadingId(null);
     if (error || !data) {
       toast.error('Não foi possível carregar o perfil deste usuário.');
@@ -807,30 +810,37 @@ export default function ComunicadosPage() {
           </p>
         </div>
         {canCreateStatements && (
-          <Button className="shrink-0 w-full sm:w-auto" onClick={() => setIsCreateOpen(true)}>
+          <Button
+            className="h-10 shrink-0 w-full sm:w-auto rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
+            onClick={() => setIsCreateOpen(true)}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Adicionar comunicado
           </Button>
         )}
       </div>
 
-      <div className="p-1 rounded-2xl bg-white/50 dark:bg-[#0d1520]/50 border border-slate-200 dark:border-white/5 backdrop-blur-sm">
-        <div className="flex flex-col sm:flex-row gap-2 p-2">
-          <div className="flex-1 relative group/search">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
+      <AdminControlLine
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        showViewToggle
+        centerContent={
+          <div className="relative group/search w-full max-w-3xl">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
             <Input
               placeholder="Buscar comunicados..."
-              className="pl-11 h-12 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50"
+              className="pl-8 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+        }
+        rightContent={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                size="lg"
-                className="min-w-[min(100vw-2rem,200px)] sm:min-w-[220px] h-12 justify-between border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background rounded-xl"
+                className="h-9 min-w-[220px] justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
               >
                 <div className="flex items-center min-w-0">
                   <Filter className="w-4 h-4 mr-2 shrink-0" />
@@ -841,7 +851,7 @@ export default function ComunicadosPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="min-w-[min(100vw-2rem,260px)] sm:min-w-[280px] max-w-[360px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
+              className="min-w-[280px] max-w-[360px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
             >
               <DropdownMenuItem
                 onClick={() => setTagFilter(TAG_FILTER_ALL)}
@@ -867,8 +877,8 @@ export default function ComunicadosPage() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </div>
+        }
+      />
 
       {loading ? (
         <LoadingGifScreen className="h-64" />
@@ -882,6 +892,58 @@ export default function ComunicadosPage() {
                 ? 'Tente ajustar a busca ou o filtro de tags.'
                 : 'Ainda não há comunicados. Quando um administrador publicar um aviso, ele aparecerá aqui.'}
             </p>
+          </CardContent>
+        </Card>
+      ) : viewMode === 'table' ? (
+        <Card className="border-border/60 bg-background/40">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 bg-muted/20">
+                    <th className="text-left py-3 px-4 font-semibold">Comunicado</th>
+                    <th className="text-left py-3 px-4 font-semibold">Autor</th>
+                    <th className="text-left py-3 px-4 font-semibold">Data</th>
+                    <th className="text-left py-3 px-4 font-semibold">Tags</th>
+                    <th className="text-right py-3 px-4 font-semibold">Comentários</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((s) => (
+                    <tr
+                      key={s.id}
+                      className="border-b border-border/40 hover:bg-muted/20 cursor-pointer"
+                      onClick={() => handleOpenPost(s)}
+                    >
+                      <td className="py-3 px-4 max-w-[420px]">
+                        <div className="font-medium truncate">{s.title}</div>
+                        <div className="text-xs text-muted-foreground truncate">{s.caption || 'Sem legenda'}</div>
+                      </td>
+                      <td className="py-3 px-4 text-muted-foreground">{s.creatorName?.trim() || 'Autor'}</td>
+                      <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">{formatPublishedAtOneLine(s.publishedAt)}</td>
+                      <td className="py-3 px-4">
+                        {s.tags.length > 0 ? (
+                          <div className="flex max-w-[320px] flex-wrap gap-1.5">
+                            {s.tags.map((t) => (
+                              <span
+                                key={`${s.id}-${t}`}
+                                className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary"
+                              >
+                                <Tag className="h-3 w-3 shrink-0" />
+                                <span className="truncate max-w-[140px]">{t}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right font-medium">{commentCountByStatementId.get(s.id) ?? 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -1076,13 +1138,13 @@ export default function ComunicadosPage() {
                   </div>
 
                   {s.tags.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 mt-3">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {s.tags.map((t) => (
                         <span
                           key={t}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground"
+                          className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary"
                         >
-                          <Tag className="w-3 h-3 shrink-0" />
+                          <Tag className="h-3.5 w-3.5 shrink-0" />
                           {t}
                         </span>
                       ))}
@@ -1216,7 +1278,7 @@ export default function ComunicadosPage() {
                     <h3 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-foreground">
                       <MessageCircle className="h-4 w-4 shrink-0" />
                       <span className="truncate">
-                        Comentários ({comments.length}/{MAX_COMMENTS_PER_STATEMENT})
+                        Comentários ({comments.length})
                       </span>
                     </h3>
                     <button

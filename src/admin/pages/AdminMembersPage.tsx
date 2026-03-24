@@ -130,7 +130,7 @@ export default function AdminMembersPage() {
 
   const handleOpenProfile = async (memberId: string) => {
     setLoadingProfile(memberId);
-    const { data } = await databaseService.getUserById(memberId);
+    const { data } = await databaseService.getProfileForPopupByUserId(memberId);
     setLoadingProfile(null);
     if (data) {
       setSelectedMemberData(data);
@@ -461,7 +461,14 @@ export default function AdminMembersPage() {
         icon={UserKey}
         title="Usuários"
         description="Usuários que criaram conta no GeApps. Exibindo dados cadastrais disponíveis."
-        action={<Button onClick={() => setManageUsersOpen(true)}>Gerenciar usuários</Button>}
+        action={
+          <Button
+            onClick={() => setManageUsersOpen(true)}
+            className="h-10 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
+          >
+            Gerenciar usuários
+          </Button>
+        }
       />
 
       <AdminControlLine

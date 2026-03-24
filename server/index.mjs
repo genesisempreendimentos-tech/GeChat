@@ -122,8 +122,12 @@ async function getCollaboratorByCorporateEmail(client, corporateEmail) {
   const normalized = (corporateEmail || '').trim().toLowerCase();
   if (!normalized) return null;
   const res = await client.query(
-    'SELECT * FROM collaborators WHERE LOWER(TRIM(corporate_email)) = $1 LIMIT 1',
-    [normalized]
+    `SELECT * FROM collaborators
+     WHERE LOWER(TRIM(corporate_email)) = $1
+        OR LOWER(TRIM(email)) = $1
+        OR LOWER(TRIM(personal_email)) = $1
+     LIMIT 1`,
+    [normalized],
   );
   return res.rows[0] || null;
 }
@@ -167,6 +171,53 @@ app.get('/api/corporate-profile', async (req, res) => {
       return res.status(503).json({ error: 'Indisponível: banco corporativo.', notFound: true });
     }
     return res.status(500).json({ error: 'Erro ao buscar perfil corporativo.' });
+  }
+});
+
+/**
+ * Busca colaborador corporativo por e-mail informado (com JWT válido),
+ * útil para complementar dados do popup de perfil (ex.: birth_date/hire_date).
+ */
+app.get('/api/corporate-profile-by-email', async (req, res) => {
+  try {
+    const token = getBearerJwt(req);
+    if (!token) {
+      return res.status(401).json({ error: 'Token ausente. Use Authorization: Bearer <token>.' });
+    }
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(500).json({ error: 'Serviço de autenticação não configurado.' });
+    }
+    const { user, error: userError } = await resolveUserFromJwt(supabaseUrl, supabaseAnonKey, token);
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Token inválido ou expirado.' });
+    }
+
+    const email = String(req.query.email ?? '').trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: 'Parâmetro email é obrigatório.' });
+    }
+
+    if (!neonUrl) {
+      return res.status(503).json({ error: 'Conexão com banco corporativo não configurada.', notFound: true });
+    }
+
+    const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+    await client.connect();
+    try {
+      const row = await getCollaboratorByCorporateEmail(client, email);
+      if (!row) {
+        return res.status(404).json({ notFound: true, message: 'Nenhum colaborador encontrado para este e-mail.' });
+      }
+      return res.json(mapRowToCorporativo(row));
+    } finally {
+      await client.end();
+    }
+  } catch (err) {
+    console.error('[corporate-profile-by-email]', err);
+    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+      return res.status(503).json({ error: 'Indisponível: banco corporativo.', notFound: true });
+    }
+    return res.status(500).json({ error: 'Erro ao buscar perfil corporativo por e-mail.' });
   }
 });
 
@@ -431,7 +482,7 @@ app.get('/api/teams-neon-collaborators', async (req, res) => {
       let hasDeptIdCol = false;
       try {
         result = await client.query(
-          `SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal, department_id::text AS dept_id
+          `SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal, birth_date, hire_date, department_id::text AS dept_id
            FROM collaborators WHERE status = $1`,
           ['active'],
         );
@@ -440,7 +491,7 @@ app.get('/api/teams-neon-collaborators', async (req, res) => {
         if (e.code === '42703') {
           // coluna department_id não existe, usa só nome
           result = await client.query(
-            `SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal
+            `SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal, birth_date, hire_date
              FROM collaborators WHERE status = $1`,
             ['active'],
           );
@@ -476,6 +527,8 @@ app.get('/api/teams-neon-collaborators', async (req, res) => {
           email: emailRaw,
           departmentName: String(r.department_cadeira_principal ?? '').trim(),
           sectorName: String(r.setor_cadeira_principal ?? '').trim(),
+          birthDate: r.birth_date ? String(r.birth_date).slice(0, 10) : '',
+          hireDate: r.hire_date ? String(r.hire_date).slice(0, 10) : '',
           neonDepartmentId: nid,
         });
       }

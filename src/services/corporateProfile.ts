@@ -383,6 +383,8 @@ export interface NeonTeamCollaborator {
   email: string;
   departmentName: string;
   sectorName: string;
+  birthDate?: string;
+  hireDate?: string;
   neonDepartmentId: string;
 }
 
@@ -419,6 +421,8 @@ export async function getNeonCollaboratorsForTeamDepartments(
         email,
         departmentName,
         sectorName,
+        birthDate: typeof o.birthDate === 'string' ? o.birthDate : '',
+        hireDate: typeof o.hireDate === 'string' ? o.hireDate : '',
         neonDepartmentId,
       });
     }

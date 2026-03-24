@@ -177,9 +177,12 @@ export default function AdminCategoriesPage() {
         title="Categorias"
         description="Gerencie as categorias dos aplicativos."
         action={
-          <Button onClick={() => handleOpenModal()}>
+          <Button
+            onClick={() => handleOpenModal()}
+            className="h-10 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
+          >
             <Plus className="w-4 h-4 mr-2" />
-            Nova Categoria
+            Nova categoria
           </Button>
         }
       />
@@ -333,7 +336,7 @@ export default function AdminCategoriesPage() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-md max-h-[95vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingCategory ? 'Editar Categoria' : 'Nova Categoria'}</DialogTitle>
+            <DialogTitle>{editingCategory ? 'Editar categoria' : 'Nova categoria'}</DialogTitle>
             <DialogDescription>
               Preencha os dados da categoria abaixo.
             </DialogDescription>
