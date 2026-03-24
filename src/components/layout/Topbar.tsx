@@ -22,6 +22,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import Zoom from './Zoom';
 import { NotificationsPanel, type NotificationItem } from '@/components/notifications/NotificationsPanel';
 import HelpModal from '@/views/navbar/HelpModal';
+import { Quotes } from '@/components/ui/quotes';
 
 export default function Topbar() {
   const { user, logout } = useAuthStore();
@@ -54,7 +55,7 @@ export default function Topbar() {
               variant="ghost"
               size="icon"
               className="relative h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 shadow-sm transition-all"
-              aria-label="Novidades (em desenvolvimento)"
+              aria-label="Citação do dia"
             >
               <Lightbulb className="w-[18px] h-[18px]" />
             </Button>
@@ -62,13 +63,12 @@ export default function Topbar() {
           <DropdownMenuContent
             align="end"
             side="bottom"
-            sideOffset={8}
-            className="w-[220px] p-3 text-sm text-muted-foreground border-border/60 bg-popover shadow-md"
+            sideOffset={6}
+            collisionPadding={12}
+            className="min-w-0 w-max max-w-[min(100vw-1.5rem,22rem)] px-3 py-2 text-sm text-muted-foreground border-border/60 bg-popover shadow-md"
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
-            <p className="leading-relaxed">
-              Esta função ainda está em desenvolvimento.
-            </p>
+            <Quotes open={tipsOpen} />
           </DropdownMenuContent>
         </DropdownMenu>
         <Button
