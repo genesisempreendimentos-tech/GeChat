@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
-import { useAccessLogStore } from '@/store/accessLogStore';
 import { databaseService } from '@/services/supabase';
 import {
   Dialog,
@@ -40,7 +39,6 @@ const formatDate = (date?: Date | string) => {
 
 export default function FavoritesPage() {
   const { user } = useAuthStore();
-  const { addLog } = useAccessLogStore();
 
   const [systems, setSystems] = useState<System[]>([]);
   const [userAccesses, setUserAccesses] = useState<any[]>([]);
@@ -123,7 +121,6 @@ export default function FavoritesPage() {
       setComingSoonSystem(system);
       return;
     }
-    addLog(user?.id || '', systemId);
     window.open(url, '_blank');
   };
 

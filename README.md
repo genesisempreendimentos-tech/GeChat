@@ -126,12 +126,16 @@ npm install @supabase/supabase-js
 ```env
 VITE_SUPABASE_URL=sua_url_supabase
 VITE_SUPABASE_ANON_KEY=sua_chave_anonima
+# Opcional: slug do GeApps na tabela apps para auditoria (padrão: geapps)
+# VITE_GEAPPS_AUDIT_SLUG=geapps
 ```
 
 3. Execute o schema SQL no Supabase:
 ```bash
 # Copie o conteúdo de src/services/schema.sql
 # Cole no SQL Editor do Supabase
+# Para colunas de auditoria (email, url, hostname, tempos de ecrã em audit_logs):
+# src/services/migration-audit-logs-hybrid-columns.sql
 ```
 
 4. Descomente o código em `src/services/supabase.ts`

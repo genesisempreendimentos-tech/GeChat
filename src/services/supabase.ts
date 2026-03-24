@@ -955,16 +955,53 @@ export const databaseService = {
     }
   },
 
+  /** Conta linhas `app_access_daily` em audit_logs (ignora app_login, screen_time_*, etc.). */
   async getTotalAccessCount(): Promise<number> {
     try {
       const { count, error } = await supabase
         .from('audit_logs')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('action', 'app_access_daily');
       if (error) return 0;
       return count ?? 0;
     } catch {
       return 0;
     }
+  },
+
+  /**
+   * Soma o tempo em primeiro plano (eventos `screen_time_active`) para o utilizador no app GeApps (slug em VITE_GEAPPS_AUDIT_SLUG).
+   * Pagina resultados para não truncar em 1000 linhas.
+   */
+  async getUserForegroundScreenTimeMsForGeApps(userId: string): Promise<number> {
+    const slug =
+      (import.meta.env.VITE_GEAPPS_AUDIT_SLUG ?? 'geapps').toString().trim().toLowerCase() || 'geapps';
+    const { data: app, error: appErr } = await this.getAppBySlug(slug);
+    if (appErr || !app?.id) return 0;
+    const pageSize = 1000;
+    let total = 0;
+    let from = 0;
+    for (;;) {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('screen_time_ms')
+        .eq('actor_user_id', userId)
+        .eq('app_id', app.id)
+        .eq('action', 'screen_time_active')
+        .range(from, from + pageSize - 1);
+      if (error) {
+        console.warn('[getUserForegroundScreenTimeMsForGeApps]', error.message ?? error);
+        return total;
+      }
+      const rows = data ?? [];
+      for (const row of rows as { screen_time_ms?: number | null }[]) {
+        const v = row.screen_time_ms;
+        total += typeof v === 'number' ? v : Number(v) || 0;
+      }
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    return total;
   },
 
   async getAccessLogsAll(limit = 500) {
@@ -1467,29 +1504,18 @@ export const databaseService = {
     return { data, error };
   },
 
-  // Audit Logs (tabela audit_logs: actor_user_id, app_id, action, entity_type, ...)
-  async logAccess(userId: string, systemId: string) {
-    try {
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .insert([{ actor_user_id: userId, app_id: systemId, action: 'access', entity_type: 'app', entity_id: systemId }])
-        .select()
-        .single();
-      if (error) console.warn('Falha ao registrar log de acesso:', error);
-      return { data, error };
-    } catch (err) {
-      console.warn('Erro ao registrar log de acesso:', err);
-      return { data: null, error: err };
-    }
-  },
-
   async getAccessLogs(userId?: string, limit = 50) {
-    // audit_logs usa actor_user_id (não user_id); ordenação por timestamp ou created_at
+    // Apenas app_access_daily conta como “acesso” ao app; audit_logs usa actor_user_id (não user_id)
     const orderCols = ['created_at', 'timestamp'] as const;
     let rows: Array<{ actor_user_id?: string; app_id?: string; [k: string]: unknown }> | null = null;
     let error: unknown = null;
     for (const orderCol of orderCols) {
-      let query = supabase.from('audit_logs').select('*').order(orderCol, { ascending: false }).limit(limit);
+      let query = supabase
+        .from('audit_logs')
+        .select('*')
+        .eq('action', 'app_access_daily')
+        .order(orderCol, { ascending: false })
+        .limit(limit);
       if (userId) query = query.eq('actor_user_id', userId);
       const result = await query;
       if (!result.error) {

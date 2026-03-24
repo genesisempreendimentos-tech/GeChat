@@ -1,12 +1,10 @@
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
-import { useAccessLogStore } from '@/store/accessLogStore';
 import { databaseService, FAVORITE_LIMIT_ERROR_CODE } from '@/services/supabase';
 import { FavoriteLimitDialog } from '@/components/FavoriteLimitDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ActivityChart, SystemUsageChart } from '@/components/Charts';
-import { EmptyFavoritesState } from '@/components/EmptyStates';
-import { LoadingGifScreen } from '@/components/LoadingGif';
+import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { Badge } from '@/components/ui/badge';
 import {
   Star,
@@ -18,15 +16,20 @@ import {
   ArrowDownRight,
   Boxes,
   Monitor,
+  RefreshCw,
+  ChevronRight,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow, subDays, format, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useMemo, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { System } from '@/types';
 import { ComingSoonModal } from '@/components/ComingSoonModal';
+
+/** Slots visuais fixos na secção «Aplicativos Favoritos» do dashboard. */
+const FAVORITE_DISPLAY_SLOTS = 5;
 
 const container = {
   hidden: { opacity: 0 },
@@ -43,14 +46,23 @@ const item = {
   show: { opacity: 1, y: 0 },
 };
 
+/** Soma de `screen_time_active` (ms) → texto tipo "12h 05m". */
+function formatForegroundScreenTime(ms: number): string {
+  const safe = Math.max(0, Math.floor(ms));
+  const totalMin = Math.floor(safe / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h}h ${m.toString().padStart(2, '0')}m`;
+}
+
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const { getRecentLogs, getAllLogs, addLog } = useAccessLogStore();
 
   const [systems, setSystems] = useState<System[]>([]);
   const [userAccesses, setUserAccesses] = useState<any[]>([]);
   const [totalAccessCount, setTotalAccessCount] = useState<number>(0);
+  const [foregroundScreenMs, setForegroundScreenMs] = useState<number>(0);
   const [allAccessLogs, setAllAccessLogs] = useState<any[]>([]);
   const [recentLogsFromApi, setRecentLogsFromApi] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,27 +86,23 @@ export default function DashboardPage() {
 
     try {
       setLoading(true);
-      const isAdminOrManager = user.accessType === 'admin';
-      if (isAdminOrManager) {
-        const { data: systemsData, error: systemsError } = await databaseService.getSystems();
-        if (systemsError) console.error('Erro ao carregar aplicativos:', systemsError);
-        setSystems(systemsData || []);
-      } else {
-        const { data: systemsData, error: systemsError } = await databaseService.getSystemsForMember(user.id);
-        if (systemsError) console.error('Erro ao carregar aplicativos:', systemsError);
-        setSystems(systemsData || []);
-      }
+      // Mesma regra da SystemsPage: apenas apps ativos/beta com acesso liberado ao usuário (inclui admin no painel usuário).
+      const { data: systemsData, error: systemsError } = await databaseService.getSystemsForMember(user.id);
+      if (systemsError) console.error('Erro ao carregar aplicativos:', systemsError);
+      setSystems(systemsData || []);
 
       const { data: accessData, error: accessError } = await databaseService.getUserSystemAccess(user.id);
       if (accessError) console.error('Erro ao carregar acessos:', accessError);
       setUserAccesses(accessData || []);
 
-      const [total, { data: logsAll }, { data: recentLogs }] = await Promise.all([
+      const [total, foregroundMs, { data: logsAll }, { data: recentLogs }] = await Promise.all([
         databaseService.getTotalAccessCount(),
+        databaseService.getUserForegroundScreenTimeMsForGeApps(user.id),
         databaseService.getAccessLogsAll(500),
         databaseService.getAccessLogs(user.id, 5),
       ]);
       setTotalAccessCount(total);
+      setForegroundScreenMs(foregroundMs);
       setAllAccessLogs(logsAll || []);
       setRecentLogsFromApi(recentLogs || []);
     } catch (error) {
@@ -113,6 +121,12 @@ export default function DashboardPage() {
       .map((access: any) => access.system_id);
     return systems.filter((system) => favoriteIds.includes(system.id));
   }, [systems, userAccesses]);
+
+  const favoriteDashboardSlots = useMemo(() => {
+    const real = favoriteSystems.slice(0, FAVORITE_DISPLAY_SLOTS);
+    const placeholderCount = FAVORITE_DISPLAY_SLOTS - real.length;
+    return { real, placeholderCount };
+  }, [favoriteSystems]);
 
   const toggleFavorite = async (systemId: string) => {
     if (!user?.id) return;
@@ -175,41 +189,43 @@ export default function DashboardPage() {
       .map((item) => ({ name: item.name, acessos: item.count }));
   }, [allAccessLogs]);
 
-  const stats = [
-    {
-      title: 'Aplicativos Disponíveis',
-      value: systems.length,
-      icon: Boxes,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10',
-      trend: null as number | null,
-    },
-    {
-      title: 'Favoritos',
-      value: favoriteSystems.length,
-      icon: Star,
-      color: 'text-yellow-500',
-      bgColor: 'bg-yellow-500/10',
-      trend: null as number | null,
-    },
-    {
-      title: 'Acessos Totais',
-      value: totalAccessCount,
-      icon: Activity,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
-      trend: null as number | null,
-    },
-    {
-      title: 'Tempo de Tela',
-      /** Mock até existir tabela/fonte de dados real */
-      value: '00h 00m',
-      icon: Monitor,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10',
-      trend: null as number | null,
-    },
-  ];
+  const stats = useMemo(
+    () => [
+      {
+        title: 'Aplicativos Disponíveis',
+        value: systems.length,
+        icon: Boxes,
+        color: 'text-blue-500',
+        bgColor: 'bg-blue-500/10',
+        trend: null as number | null,
+      },
+      {
+        title: 'Favoritos',
+        value: favoriteSystems.length,
+        icon: Star,
+        color: 'text-yellow-500',
+        bgColor: 'bg-yellow-500/10',
+        trend: null as number | null,
+      },
+      {
+        title: 'Acessos Totais',
+        value: totalAccessCount,
+        icon: Activity,
+        color: 'text-green-500',
+        bgColor: 'bg-green-500/10',
+        trend: null as number | null,
+      },
+      {
+        title: 'Tempo de Tela',
+        value: formatForegroundScreenTime(foregroundScreenMs),
+        icon: Monitor,
+        color: 'text-purple-500',
+        bgColor: 'bg-purple-500/10',
+        trend: null as number | null,
+      },
+    ],
+    [systems.length, favoriteSystems.length, totalAccessCount, foregroundScreenMs]
+  );
 
   const handleSystemAccess = (systemId: string, url: string) => {
     const system = systems.find(s => s.id === systemId);
@@ -217,12 +233,7 @@ export default function DashboardPage() {
       setComingSoonSystem(system);
       return;
     }
-    if (user?.id) {
-      databaseService.logAccess(user.id, systemId);
-      addLog(user.id, systemId);
-    }
     window.open(url, '_blank');
-    loadData();
   };
 
   const renderIcon = (iconPath: string, className: string = '') => {
@@ -253,13 +264,25 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">
-          Bem-vindo, {user?.name?.split(' ')[0]}! 👋
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Aqui está um resumo dos seus aplicativos e atividades recentes.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">
+            Bem-vindo, {user?.name?.split(' ')[0]}! 👋
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Aqui está um resumo dos seus aplicativos e atividades recentes.
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={loadData}
+            disabled={loading}
+          >
+            {loading ? <LoadingGif size="sm" className="mr-2 inline-block" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -324,14 +347,15 @@ export default function DashboardPage() {
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
         {/* Favorite Systems */}
         <motion.div
+          className="h-full min-h-0"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <Card className="transition-shadow hover:shadow-md">
+          <Card className="flex h-full flex-col transition-shadow hover:shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Star className="w-5 h-5 text-yellow-500" />
@@ -341,50 +365,72 @@ export default function DashboardPage() {
                 Acesso rápido aos seus aplicativos mais usados
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {favoriteSystems.length === 0 ? (
-                <EmptyFavoritesState onBrowseSystems={() => navigate('/systems')} />
-              ) : (
-                favoriteSystems.slice(0, 5).map((system) => {
-                  return (
-                    <div
-                      key={system.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-primary/10">
-                          {renderIcon(system.icon, 'w-10 h-10 text-primary object-contain')}
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{system.name}</p>
-                          <Badge variant="outline" className="text-xs mt-1">
-                            {system.category}
-                          </Badge>
-                        </div>
+            <CardContent>
+              <div className="flex flex-col gap-2">
+                {favoriteDashboardSlots.real.map((system) => (
+                  <div
+                    key={system.id}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg border bg-card px-3 py-2 hover:bg-accent/60 transition-colors group"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="shrink-0 rounded-lg bg-primary/10 p-1.5">
+                        {renderIcon(system.icon, 'w-8 h-8 text-primary object-contain')}
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleSystemAccess(system.id, system.url)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </Button>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{system.name}</p>
+                        <Badge variant="outline" className="mt-0.5 w-fit text-xs">
+                          {system.category}
+                        </Badge>
+                      </div>
                     </div>
-                  );
-                })
-              )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      onClick={() => handleSystemAccess(system.id, system.url)}
+                      className="h-9 w-9 shrink-0 p-0"
+                      aria-label={`Abrir ${system.name}`}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                {Array.from({ length: favoriteDashboardSlots.placeholderCount }).map((_, i) => (
+                  <Link
+                    key={`favorite-placeholder-${i}`}
+                    to="/favorites"
+                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-dashed bg-yellow-500/15 px-3 py-2 outline-none transition-colors hover:border-yellow-500/50 hover:bg-yellow-500/25 focus-visible:ring-2 focus-visible:ring-yellow-500/50"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="shrink-0 rounded-lg bg-yellow-500/30 p-1.5">
+                        <Star className="h-8 w-8 text-yellow-600 dark:text-yellow-400" strokeWidth={1.75} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-yellow-950 dark:text-yellow-100">Favorito</p>
+                        <Badge
+                          variant="outline"
+                          className="mt-0.5 w-fit border-yellow-600/40 bg-yellow-500/20 text-xs text-yellow-950 dark:text-yellow-100"
+                        >
+                          vago
+                        </Badge>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-yellow-700/70 dark:text-yellow-300/80" aria-hidden />
+                  </Link>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </motion.div>
 
         {/* Recent Activity */}
         <motion.div
+          className="h-full min-h-0"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.35 }}
         >
-          <Card className="transition-shadow hover:shadow-md">
+          <Card className="flex h-full flex-col transition-shadow hover:shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-blue-500" />
@@ -392,29 +438,33 @@ export default function DashboardPage() {
               </CardTitle>
               <CardDescription>Seus últimos acessos aos aplicativos</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="flex flex-1 flex-col gap-4">
               {recentLogs.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  Nenhuma atividade recente
-                </p>
+                <div className="flex flex-1 flex-col items-center justify-center py-8">
+                  <p className="text-center text-sm text-muted-foreground">
+                    Nenhuma atividade recente
+                  </p>
+                </div>
               ) : (
-                recentLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between pb-3 border-b last:border-0"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{log.systemName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(log.timestamp, {
-                          addSuffix: true,
-                          locale: ptBR,
-                        })}
-                      </p>
+                <div className="flex flex-1 flex-col gap-0">
+                  {recentLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{log.systemName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(log.timestamp, {
+                            addSuffix: true,
+                            locale: ptBR,
+                          })}
+                        </p>
+                      </div>
+                      <Activity className="h-4 w-4 text-muted-foreground" />
                     </div>
-                    <Activity className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

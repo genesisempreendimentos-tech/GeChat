@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, ExternalLink, Search, AlertCircle, Send, RefreshCw } from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, Send, Headset, RefreshCw } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -160,7 +160,7 @@ export default function AdminSolicitacoesPage() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        icon={Send}
+        icon={Headset}
         title="Solicitações"
         description="Envie solicitações para outros departamentos"
         action={

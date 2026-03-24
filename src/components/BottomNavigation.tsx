@@ -8,7 +8,7 @@ import {
   Settings,
   Shield,
   LayoutDashboard,
-  Send,
+  Headset,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
@@ -44,7 +44,7 @@ export function BottomNavigation() {
       path: "/favorites",
     },
     {
-      icon: Send,
+      icon: Headset,
       label: "Solicitações",
       path: "/solicitacoes",
     },
@@ -74,7 +74,7 @@ export function BottomNavigation() {
     { icon: LayoutDashboard, label: "Início", path: "/admin/home" },
     { icon: Boxes, label: "Apps", path: "/admin/systems" },
     { icon: Star, label: "Favoritos", path: "/favorites" },
-    { icon: Send, label: "Solicitações", path: "/admin/solicitacoes" },
+    { icon: Headset, label: "Solicitações", path: "/admin/solicitacoes" },
     { icon: Users, label: "Membros", path: "/admin/members" },
     { icon: Settings, label: "Config", path: "/settings" },
   ]

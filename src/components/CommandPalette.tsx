@@ -18,7 +18,7 @@ import {
   Settings,
   ExternalLink,
   Shield,
-  Send,
+  Headset,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import { databaseService } from "@/services/supabase"
@@ -102,7 +102,7 @@ export function CommandPalette() {
             <span>Favoritos</span>
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate("/solicitacoes"))}>
-            <Send className="mr-2 h-4 w-4" />
+            <Headset className="mr-2 h-4 w-4" />
             <span>Solicitações</span>
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate("/chat"))}>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Send, ExternalLink, Filter, ChevronDown, Boxes } from 'lucide-react';
+import { Search, Send, Headset, ExternalLink, Filter, ChevronDown, Boxes } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -19,12 +19,15 @@ import {
   type RequestChannelType,
 } from '@/services/supabase';
 import { LoadingGifScreen } from '@/components/LoadingGif';
+import { cn } from '@/lib/utils';
 
 const NAME_FILTER_ALL = 'all';
 const TYPE_LABELS: Record<RequestChannelType, string> = {
   departamento: 'Departamento',
   setor: 'Setor',
 };
+
+type SolicitacoesMainTab = 'canais' | 'enviados';
 
 function renderIcon(iconPath: string, className: string = '') {
   const isImg =
@@ -44,6 +47,7 @@ export default function SolicitacoesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [nameFilter, setNameFilter] = useState<string>(NAME_FILTER_ALL);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [mainTab, setMainTab] = useState<SolicitacoesMainTab>('canais');
 
   /**
    * Um item por nome distinto de canal; `icon` vem do BD (`icon_url`), alinhado ao ícone do departamento no GêTeams.
@@ -99,7 +103,7 @@ export default function SolicitacoesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Send className="w-8 h-8 shrink-0" />
+          <Headset className="w-8 h-8 shrink-0" />
           Solicitações
         </h1>
         <p className="text-muted-foreground mt-2">
@@ -111,6 +115,40 @@ export default function SolicitacoesPage() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         showViewToggle
+        leftContent={
+          <div className="flex rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-8 rounded-lg text-sm font-medium transition-all duration-300 px-3 gap-2',
+                mainTab === 'canais'
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+              )}
+              onClick={() => setMainTab('canais')}
+              aria-pressed={mainTab === 'canais'}
+            >
+              <Headset className="h-4 w-4 shrink-0" aria-hidden />
+              Canais
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-8 rounded-lg text-sm font-medium transition-all duration-300 px-3 gap-2',
+                mainTab === 'enviados'
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+              )}
+              onClick={() => setMainTab('enviados')}
+              aria-pressed={mainTab === 'enviados'}
+            >
+              <Send className="h-4 w-4 shrink-0" aria-hidden />
+              Enviados
+            </Button>
+          </div>
+        }
         centerContent={
           <div className="relative group/search w-full max-w-3xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
@@ -126,6 +164,7 @@ export default function SolicitacoesPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
+                type="button"
                 variant="outline"
                 className="h-9 min-w-[220px] justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
               >
@@ -173,7 +212,9 @@ export default function SolicitacoesPage() {
         }
       />
 
-      {loading ? (
+      {mainTab === 'enviados' ? (
+        <p className="py-16 text-center text-muted-foreground">Tela em desenvolvimento</p>
+      ) : loading ? (
         <LoadingGifScreen className="h-64" />
       ) : filtered.length === 0 ? (
         <Card>

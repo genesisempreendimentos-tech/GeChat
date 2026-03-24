@@ -124,9 +124,6 @@ export default function SystemsPage() {
     if (system.status === 'arquivado') { setArchivedSystem(system); return; }
     if (system.status === 'excluído' || system.status === 'excluido') { setDeletedSystem(system); return; }
     if (system.status === 'beta' || system.status === 'rascunho') { setComingSoonSystem(system); return; }
-    if (currentUser?.id) {
-      databaseService.logAccess(currentUser.id, systemId);
-    }
     window.open(url, '_blank');
   };
 

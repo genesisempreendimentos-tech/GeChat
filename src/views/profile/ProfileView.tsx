@@ -9,8 +9,9 @@ import type { CorporativoFormData } from '@/services/corporateProfile';
 import { ProfileBanner } from './ProfileBanner/ProfileBanner';
 import { ProfileInfoTab } from './ProfileTabs/ProfileInfoTab';
 import { ProfileSecurityTab } from './ProfileTabs/ProfileSecurityTab';
+import { ProfileActivitiesTab } from './ProfileTabs/ProfileActivitiesTab';
 import { ProfileCorporativoTab } from './ProfileTabs/ProfileCorporativoTab';
-import { User, Lock, Building2, Save } from 'lucide-react';
+import { User, Lock, Building2, Save, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingGif } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
@@ -203,6 +204,7 @@ export function ProfileView() {
                 {[
                   { value: 'publico', Icon: User, label: 'Público' },
                   { value: 'corporativo', Icon: Building2, label: 'Corporativo' },
+                  { value: 'atividades', Icon: Activity, label: 'Atividades' },
                   { value: 'seguranca', Icon: Lock, label: 'Segurança' },
                 ].map(({ value, Icon, label }) => (
                   <TabsTrigger
@@ -220,7 +222,7 @@ export function ProfileView() {
                       className={cn(
                         'overflow-hidden whitespace-nowrap text-sm transition-[max-width,opacity,margin] duration-300 ease-out',
                         'max-w-0 opacity-0 ml-0',
-                        'group-data-[state=active]:max-w-[120px] group-data-[state=active]:opacity-100 group-data-[state=active]:ml-1.5'
+                        'group-data-[state=active]:max-w-[140px] group-data-[state=active]:opacity-100 group-data-[state=active]:ml-1.5'
                       )}
                     >
                       {label}
@@ -264,6 +266,9 @@ export function ProfileView() {
                 departamento={corporateDepartamento}
                 onRefresh={loadCorporate}
               />
+            </TabsContent>
+            <TabsContent value="atividades" className="mt-0 outline-none data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-bottom-4 data-[state=active]:duration-700 ease-out">
+              <ProfileActivitiesTab />
             </TabsContent>
             <TabsContent value="seguranca" className="mt-0 outline-none data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-bottom-4 data-[state=active]:duration-700 ease-out">
               <ProfileSecurityTab />

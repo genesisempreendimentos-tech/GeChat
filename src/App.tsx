@@ -8,6 +8,7 @@ import {
   type Location as RouterLocation,
 } from 'react-router-dom';
 import { useEffect } from 'react';
+import { initGeAppsAudit } from '@/assets/audit-log';
 import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
@@ -107,6 +108,15 @@ function AppRoutes() {
 
   // Ativar atalhos de teclado globais
   useKeyboardShortcuts();
+
+      // Auditoria: app_access_daily + tempos de ecrã (audit_logs), não por clique em outros apps
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const cleanup = initGeAppsAudit();
+    return () => {
+      cleanup?.();
+    };
+  }, [isAuthenticated]);
 
   // Ativar atalho CTRL + SHIFT + B para popup "Não Grita"
   const { showPopup, setShowPopup } = useNaoGritaPopup();

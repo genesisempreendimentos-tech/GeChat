@@ -10,7 +10,7 @@ import {
   UserKey,
   UserStar,
   Boxes,
-  Send,
+  Headset,
   Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -32,7 +32,7 @@ import {
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Boxes, label: 'Aplicativos', path: '/systems' },
-  { icon: Send, label: 'Solicitações', path: '/solicitacoes' },
+  { icon: Headset, label: 'Solicitações', path: '/solicitacoes' },
   { icon: Megaphone, label: 'Comunicados', path: '/comunicados' },
   { icon: Users, label: 'Equipes', path: '/equipes' },
   { icon: Star, label: 'Favoritos', path: '/favorites' },

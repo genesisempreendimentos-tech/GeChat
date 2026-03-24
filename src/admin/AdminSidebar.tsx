@@ -10,7 +10,7 @@ import {
   LibraryBig,
   Check,
   Boxes,
-  Send,
+  Headset,
   Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -49,7 +49,7 @@ const adminMenuSections: AdminNavSection[] = [
     title: 'Integrações',
     items: [
       { icon: Users, label: 'Equipes', path: '/admin/equipes' },
-      { icon: Send, label: 'Solicitações', path: '/admin/solicitacoes' },
+      { icon: Headset, label: 'Solicitações', path: '/admin/solicitacoes' },
       { icon: Megaphone, label: 'Comunicados', path: '/admin/comunicados' },
     ],
   },

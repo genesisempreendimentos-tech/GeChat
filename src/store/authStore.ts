@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, UserRole } from '@/types';
 import { authService, databaseService } from '@/services/supabase';
+import { emitGeAppsAuditAppLogin } from '@/assets/audit-log';
 import { useThemeStore } from '@/store/themeStore';
 import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 
@@ -80,6 +81,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         roleRaw: JSON.stringify(user.role)
       });
       set({ user, isAuthenticated: true });
+      void emitGeAppsAuditAppLogin(user.id, user.email);
       return { success: true };
     }
     
