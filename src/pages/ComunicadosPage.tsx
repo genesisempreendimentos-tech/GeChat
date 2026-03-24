@@ -123,16 +123,6 @@ export default function ComunicadosPage() {
   const user = useAuthStore((s) => s.user);
   const canCreateStatements = user?.accessType === 'admin' || user?.accessType === 'creator' || isAdminPanel;
 
-  const canManageStatement = useCallback(
-    (s: Statement) => {
-      if (!user?.id) return false;
-      if (isAdminPanel || user.accessType === 'admin' || user.role === 'admin') return true;
-      if (canCreateStatements && s.userId === user.id) return true;
-      return false;
-    },
-    [user, isAdminPanel, canCreateStatements]
-  );
-
   const [statements, setStatements] = useState<Statement[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1203,7 +1193,8 @@ export default function ComunicadosPage() {
                         </span>
                       </div>
                     </button>
-                    {canManageStatement(detailStatement) && (
+                    {/* Mesma regra dos cards da lista: só autor vê o menu (não admin em post alheio) */}
+                    {user?.id === detailStatement.userId ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -1244,7 +1235,7 @@ export default function ComunicadosPage() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    )}
+                    ) : null}
                   </div>
                   <DialogTitle className="text-2xl font-bold tracking-tight pr-2">
                     {detailStatement.title}
