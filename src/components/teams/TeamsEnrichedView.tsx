@@ -1,7 +1,7 @@
 import type { ElementType } from 'react';
 import { motion } from 'framer-motion';
 import * as Icons from 'lucide-react';
-import { Users, MoreVertical, Check, Loader2 } from 'lucide-react';
+import { Users, MoreVertical, Check, Loader2, Layers } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +25,12 @@ export interface TeamCollaboratorPreview {
   avatar?: string;
 }
 
+export interface TeamSectorItem {
+  name: string;
+  icon: string | null;
+  color: string | null;
+}
+
 export interface TeamDisplayRow {
   id: string;
   status: TeamLifecycleStatus;
@@ -33,8 +39,59 @@ export interface TeamDisplayRow {
   icon: string | null;
   color: string | null;
   sectors: string[];
+  /** Ícone/cor por setor (GêTeams); usado nas miniboxes em vez de chips. */
+  sectorItems?: TeamSectorItem[];
   collaboratorCount: number;
   collaborators?: TeamCollaboratorPreview[];
+}
+
+const SECTOR_COLOR_HEX_MAP: Record<string, string> = {
+  'bg-red-500': '#ef4444',
+  'bg-orange-500': '#f97316',
+  'bg-amber-500': '#f59e0b',
+  'bg-yellow-500': '#eab308',
+  'bg-lime-500': '#84cc16',
+  'bg-green-500': '#22c55e',
+  'bg-emerald-500': '#10b981',
+  'bg-teal-500': '#14b8a6',
+  'bg-cyan-500': '#06b6d4',
+  'bg-sky-500': '#0ea5e9',
+  'bg-blue-500': '#3b82f6',
+  'bg-indigo-500': '#6366f1',
+  'bg-violet-500': '#8b5cf6',
+  'bg-purple-500': '#a855f7',
+  'bg-fuchsia-500': '#d946ef',
+  'bg-pink-500': '#ec4899',
+  'bg-rose-500': '#f43f5e',
+  'bg-orange-400': '#fb923c',
+  'bg-amber-400': '#fbbf24',
+  'bg-yellow-400': '#facc15',
+  'bg-lime-400': '#a3e635',
+  'bg-teal-400': '#2dd4bf',
+  'bg-cyan-400': '#22d3ee',
+  'bg-blue-400': '#60a5fa',
+  'bg-violet-400': '#a78bfa',
+  'bg-slate-500': '#64748b',
+  'bg-gray-500': '#6b7280',
+  'bg-zinc-500': '#71717a',
+  'bg-neutral-500': '#737373',
+  'bg-stone-500': '#78716c',
+  'bg-red-400': '#f87171',
+  'bg-green-400': '#4ade80',
+};
+
+function normalizeSectorColorForCard(color: string | null | undefined): string | null {
+  if (!color) return null;
+  const c = color.trim();
+  if (SECTOR_COLOR_HEX_MAP[c]) return SECTOR_COLOR_HEX_MAP[c];
+  if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{8})$/.test(c)) return c;
+  if (/^([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(c)) return `#${c}`;
+  return null;
+}
+
+function getSectorItemsForCard(team: TeamDisplayRow): TeamSectorItem[] {
+  if (team.sectorItems?.length) return team.sectorItems;
+  return team.sectors.map((name) => ({ name, icon: null, color: null }));
 }
 
 const STATUS_OPTIONS: { value: TeamLifecycleStatus; label: string }[] = [
@@ -83,6 +140,83 @@ function renderIcon(iconPath: string, className: string = '') {
   const IconComponent =
     (Icons as unknown as Record<string, ElementType>)[iconPath] ?? Icons.Boxes;
   return <IconComponent className={className} />;
+}
+
+function SectorMiniboxList({ team, variant }: { team: TeamDisplayRow; variant: 'admin' | 'user' }) {
+  const items = getSectorItemsForCard(team);
+  if (items.length === 0) {
+    return (
+      <span
+        className={cn(
+          'text-[10px] italic mb-4 block',
+          variant === 'admin' ? 'text-white/50' : 'text-muted-foreground',
+        )}
+      >
+        Nenhum setor listado
+      </span>
+    );
+  }
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-2 mb-4 min-h-0',
+        items.length > 4 && 'max-h-[220px] overflow-y-auto pr-0.5',
+      )}
+    >
+      {items.map((item) => {
+        const hex = normalizeSectorColorForCard(item.color);
+        const iconFallbackStyle =
+          variant === 'user'
+            ? {
+                backgroundColor: 'hsl(var(--muted))',
+                borderColor: 'hsl(var(--border))',
+                color: 'hsl(var(--primary))',
+              }
+            : {
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderColor: 'rgba(255,255,255,0.1)',
+                color: 'hsl(var(--primary))',
+              };
+        return (
+          <div
+            key={item.name}
+            className="flex items-center gap-2 rounded-xl bg-muted/40 px-2.5 py-2 dark:bg-white/[0.06]"
+            title={item.name}
+          >
+            <span
+              className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border shadow-sm dark:bg-black/25"
+              style={
+                hex
+                  ? {
+                      backgroundColor: `${hex}18`,
+                      borderColor: `${hex}35`,
+                      color: hex,
+                    }
+                  : iconFallbackStyle
+              }
+            >
+              {item.icon ? (
+                renderIcon(item.icon, 'h-3.5 w-3.5 rounded-full object-cover')
+              ) : (
+                <Layers className="h-3.5 w-3.5" aria-hidden />
+              )}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">Setor</p>
+              <p
+                className={cn(
+                  'truncate text-xs font-medium',
+                  variant === 'admin' ? 'text-white/95' : 'text-foreground',
+                )}
+              >
+                {item.name}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function TeamStatusActionsMenu({
@@ -151,6 +285,8 @@ interface TeamsEnrichedViewProps {
   pendingTeamId?: string | null;
   /** Clique no card do departamento (abre modal de detalhes/acesso). */
   onCardClick?: (row: TeamDisplayRow) => void;
+  /** Clique no badge de contagem de colaboradores (ex.: lista em modal). */
+  onCollaboratorBadgeClick?: (row: TeamDisplayRow) => void;
 }
 
 export function TeamsEnrichedView({
@@ -165,6 +301,7 @@ export function TeamsEnrichedView({
   onTeamStatusChange,
   pendingTeamId = null,
   onCardClick,
+  onCollaboratorBadgeClick,
 }: TeamsEnrichedViewProps) {
   const handleChange = (id: string, status: TeamLifecycleStatus) => {
     onTeamStatusChange?.(id, status);
@@ -194,8 +331,9 @@ export function TeamsEnrichedView({
       <div
         className={cn(
           'grid grid-cols-1 gap-4 w-full',
-          isAdminCards && 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
-          isUserCards && 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6',
+          /* Departamentos: 4 colunas (cards mais estreitos), alinhado a setores/colaboradores */
+          isAdminCards && 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4',
+          isUserCards && 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-6',
         )}
       >
         {rows.map((team, index) => (
@@ -263,24 +401,7 @@ export function TeamsEnrichedView({
                     </div>
                   </div>
                   <div className="flex flex-col flex-1 mt-4">
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {team.sectors.length === 0 ? (
-                        <span className="text-[10px] text-muted-foreground/50 italic">Nenhum setor listado</span>
-                      ) : (
-                        team.sectors.slice(0, 6).map((s) => (
-                          <span
-                            key={s}
-                            className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-medium bg-primary/10 border border-primary/20 text-primary truncate max-w-full"
-                            title={s}
-                          >
-                            {s}
-                          </span>
-                        ))
-                      )}
-                      {team.sectors.length > 6 ? (
-                        <span className="text-[10px] text-muted-foreground">+{team.sectors.length - 6}</span>
-                      ) : null}
-                    </div>
+                    <SectorMiniboxList team={team} variant="admin" />
                     <div className="pt-4 mt-auto border-t border-white/5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                       {team.collaborators && team.collaborators.length > 0 ? (
                         <AvatarGroup className="justify-start">
@@ -311,12 +432,27 @@ export function TeamsEnrichedView({
                       ) : (
                         <span className="text-white/40 italic text-[11px]">Sem colaboradores</span>
                       )}
-                      <div className="flex flex-col items-end shrink-0">
-                        <span className="font-semibold text-white/90 text-sm">{team.collaboratorCount}</span>
-                        <span className="text-[10px] text-white/50 uppercase tracking-wider">
-                          colaborador{team.collaboratorCount === 1 ? '' : 'es'}
-                        </span>
-                      </div>
+                      {team.collaboratorCount > 0 ? (
+                        onCollaboratorBadgeClick ? (
+                          <button
+                            type="button"
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/5 shrink-0 hover:bg-white/10 hover:border-white/15 transition-colors cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onCollaboratorBadgeClick(team);
+                            }}
+                            aria-label={`Ver ${team.collaboratorCount} colaboradores`}
+                          >
+                            <span className="text-[11px] font-medium text-white/70">{team.collaboratorCount}</span>
+                            <Users className="w-3.5 h-3.5 text-white/40" aria-hidden />
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/5 shrink-0">
+                            <span className="text-[11px] font-medium text-white/70">{team.collaboratorCount}</span>
+                            <Users className="w-3.5 h-3.5 text-white/40" aria-hidden />
+                          </div>
+                        )
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -356,24 +492,7 @@ export function TeamsEnrichedView({
                     </div>
                   </div>
                   <div className="flex flex-col flex-1 mt-4">
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {team.sectors.length === 0 ? (
-                        <span className="text-[10px] text-muted-foreground italic">Nenhum setor listado</span>
-                      ) : (
-                        team.sectors.slice(0, 6).map((s) => (
-                          <span
-                            key={s}
-                            className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-medium bg-primary/10 border border-primary/20 text-primary truncate max-w-full"
-                            title={s}
-                          >
-                            {s}
-                          </span>
-                        ))
-                      )}
-                      {team.sectors.length > 6 ? (
-                        <span className="text-[10px] text-muted-foreground">+{team.sectors.length - 6}</span>
-                      ) : null}
-                    </div>
+                    <SectorMiniboxList team={team} variant="user" />
                     <div className="pt-4 mt-auto border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                       {team.collaborators && team.collaborators.length > 0 ? (
                         <AvatarGroup className="justify-start">
@@ -404,12 +523,31 @@ export function TeamsEnrichedView({
                       ) : (
                         <span className="text-muted-foreground/50 italic text-[11px]">Sem colaboradores</span>
                       )}
-                      <div className="flex flex-col items-end shrink-0">
-                        <span className="font-semibold text-foreground text-sm">{team.collaboratorCount}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                          colaborador{team.collaboratorCount === 1 ? '' : 'es'}
-                        </span>
-                      </div>
+                      {team.collaboratorCount > 0 ? (
+                        onCollaboratorBadgeClick ? (
+                          <button
+                            type="button"
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 shrink-0 hover:bg-slate-200/90 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onCollaboratorBadgeClick(team);
+                            }}
+                            aria-label={`Ver ${team.collaboratorCount} colaboradores`}
+                          >
+                            <span className="text-[11px] font-medium text-slate-700 dark:text-white/70">
+                              {team.collaboratorCount}
+                            </span>
+                            <Users className="w-3.5 h-3.5 text-slate-500 dark:text-white/40" aria-hidden />
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 shrink-0">
+                            <span className="text-[11px] font-medium text-slate-700 dark:text-white/70">
+                              {team.collaboratorCount}
+                            </span>
+                            <Users className="w-3.5 h-3.5 text-slate-500 dark:text-white/40" aria-hidden />
+                          </div>
+                        )
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -463,7 +601,23 @@ export function TeamsEnrichedView({
                   '—'
                 )}
               </td>
-              <td className="py-2 px-2 font-medium tabular-nums">{team.collaboratorCount}</td>
+              <td className="py-2 px-2 font-medium tabular-nums">
+                {onCollaboratorBadgeClick && team.collaboratorCount > 0 ? (
+                  <button
+                    type="button"
+                    className="tabular-nums underline-offset-2 hover:underline text-primary font-semibold"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCollaboratorBadgeClick(team);
+                    }}
+                    aria-label={`Ver ${team.collaboratorCount} colaboradores`}
+                  >
+                    {team.collaboratorCount}
+                  </button>
+                ) : (
+                  team.collaboratorCount
+                )}
+              </td>
               {showStatusColumn ? (
                 <td className="py-2 px-2">
                   <span

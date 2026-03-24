@@ -84,6 +84,8 @@ interface AdminEquipesTopicViewProps {
   onCollaboratorClick?: (collaborator: CollaboratorWithAvatar) => void;
   loadingCollaboratorId?: string | null;
   onSectorClick?: (row: SectorTopicRow) => void;
+  /** Clique no badge de contagem (cartões de setor). */
+  onSectorCollaboratorBadgeClick?: (row: SectorTopicRow) => void;
 }
 
 export function AdminEquipesTopicView({
@@ -97,6 +99,7 @@ export function AdminEquipesTopicView({
   onCollaboratorClick,
   loadingCollaboratorId,
   onSectorClick,
+  onSectorCollaboratorBadgeClick,
 }: AdminEquipesTopicViewProps) {
   if (loading) {
     return <LoadingGifScreen className="h-64" />;
@@ -117,7 +120,7 @@ export function AdminEquipesTopicView({
 
     if (viewMode === 'cards') {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-4 w-full">
           {sectorRows.map((row, index) => (
             <motion.div
               key={row.id}
@@ -205,14 +208,26 @@ export function AdminEquipesTopicView({
                     </div>
                   )}
                   
-                  {row.collaboratorCount > 0 && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/5">
-                      <span className="text-[11px] font-medium text-white/70">
-                        {row.collaboratorCount}
-                      </span>
-                      <Users className="w-3.5 h-3.5 text-white/40" />
-                    </div>
-                  )}
+                  {row.collaboratorCount > 0 &&
+                    (onSectorCollaboratorBadgeClick ? (
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/15 transition-colors cursor-pointer shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSectorCollaboratorBadgeClick(row);
+                        }}
+                        aria-label={`Ver ${row.collaboratorCount} colaboradores`}
+                      >
+                        <span className="text-[11px] font-medium text-white/70">{row.collaboratorCount}</span>
+                        <Users className="w-3.5 h-3.5 text-white/40" aria-hidden />
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/5 shrink-0">
+                        <span className="text-[11px] font-medium text-white/70">{row.collaboratorCount}</span>
+                        <Users className="w-3.5 h-3.5 text-white/40" aria-hidden />
+                      </div>
+                    ))}
                 </div>
               </div>
             </motion.div>
@@ -281,7 +296,7 @@ export function AdminEquipesTopicView({
 
   if (viewMode === 'cards') {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-4 w-full">
         {collaboratorRows.map((c, index) => {
           const isLoading = loadingCollaboratorId === c.id;
           return (
@@ -307,10 +322,10 @@ export function AdminEquipesTopicView({
                 <div className="flex min-h-0 flex-1 flex-col p-5 pt-6">
                   <div className="flex shrink-0 gap-4">
                     <div className="relative shrink-0">
-                      <div className="relative rounded-2xl p-0.5 ring-2 ring-primary/15 ring-offset-2 ring-offset-background transition-all duration-300 group-hover:ring-primary/30 dark:ring-offset-[#0d1520]">
-                        <Avatar className="h-14 w-14 rounded-[0.65rem] border border-border/40 shadow-inner dark:border-white/10">
-                          <AvatarImage src={c.avatar} alt={c.name} className="object-cover" />
-                          <AvatarFallback className="rounded-[0.65rem] bg-gradient-to-br from-primary/20 to-primary/5 text-base font-bold text-primary">
+                      <div className="relative rounded-full p-0.5 ring-2 ring-primary/15 ring-offset-2 ring-offset-background transition-all duration-300 group-hover:ring-primary/30 dark:ring-offset-[#0d1520]">
+                        <Avatar className="h-14 w-14 rounded-full border border-border/40 shadow-inner dark:border-white/10">
+                          <AvatarImage src={c.avatar} alt={c.name} className="rounded-full object-cover" />
+                          <AvatarFallback className="rounded-full bg-gradient-to-br from-primary/20 to-primary/5 text-base font-bold text-primary">
                             {c.name
                               .split(' ')
                               .map((n) => n[0])
@@ -320,7 +335,7 @@ export function AdminEquipesTopicView({
                           </AvatarFallback>
                         </Avatar>
                         {isLoading && (
-                          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-background/72 dark:bg-black/62">
+                          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-full bg-background/72 dark:bg-black/62">
                             <LoadingGif size="sm" className="h-6 w-6" />
                           </div>
                         )}
@@ -344,7 +359,7 @@ export function AdminEquipesTopicView({
                       title={c.departmentName || undefined}
                     >
                       <span
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border shadow-sm dark:bg-black/25"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border shadow-sm dark:bg-black/25"
                         style={(() => {
                           const color = normalizeColor(c.departmentColor);
                           return color
@@ -361,7 +376,7 @@ export function AdminEquipesTopicView({
                         })()}
                       >
                         {c.departmentIcon
-                          ? renderIcon(c.departmentIcon, 'h-3.5 w-3.5')
+                          ? renderIcon(c.departmentIcon, 'h-3.5 w-3.5 rounded-full object-cover')
                           : <Building2 className="h-3.5 w-3.5" aria-hidden />}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -376,7 +391,7 @@ export function AdminEquipesTopicView({
                       title={c.sectorName || undefined}
                     >
                       <span
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border shadow-sm dark:bg-black/25"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border shadow-sm dark:bg-black/25"
                         style={(() => {
                           const color = normalizeColor(c.sectorColor);
                           return color
@@ -393,7 +408,7 @@ export function AdminEquipesTopicView({
                         })()}
                       >
                         {c.sectorIcon
-                          ? renderIcon(c.sectorIcon, 'h-3.5 w-3.5')
+                          ? renderIcon(c.sectorIcon, 'h-3.5 w-3.5 rounded-full object-cover')
                           : <Layers className="h-3.5 w-3.5" aria-hidden />}
                       </span>
                       <div className="min-w-0 flex-1">

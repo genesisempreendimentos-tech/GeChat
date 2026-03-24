@@ -32,7 +32,7 @@ import {
 import { databaseService, supabase, type Team, type TeamLifecycleStatus } from '@/services/supabase';
 import { toast } from 'sonner';
 import { LoadingGif } from '@/components/LoadingGif';
-import { TeamsEnrichedView, type TeamDisplayRow, type TeamCollaboratorPreview } from '@/components/teams/TeamsEnrichedView';
+import { TeamsEnrichedView, type TeamDisplayRow, type TeamCollaboratorPreview, type TeamSectorItem } from '@/components/teams/TeamsEnrichedView';
 import { AdminEquipesTopicView, type SectorTopicRow, type CollaboratorWithAvatar } from '@/admin/components/AdminEquipesTopicView';
 import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
 import { useAuthStore } from '@/store/authStore';
@@ -99,7 +99,14 @@ function buildDisplayRows(
 ): TeamDisplayRow[] {
   return teams.map((t) => {
     const neon = deptById.get(t.neonDepartmentId);
-    const st = stats[t.neonDepartmentId] ?? { sectors: [], collaboratorCount: 0, sectorCounts: {} };
+    const st = stats[t.neonDepartmentId] ?? { sectors: [], collaboratorCount: 0, sectorCounts: {}, sectorIcons: {}, sectorColors: {} };
+    const sectorIcons = st.sectorIcons ?? {};
+    const sectorColors = st.sectorColors ?? {};
+    const sectorItems: TeamSectorItem[] = st.sectors.map((name) => ({
+      name,
+      icon: sectorIcons[name] ?? null,
+      color: sectorColors[name] ?? null,
+    }));
     return {
       id: t.id,
       status: t.status,
@@ -108,6 +115,7 @@ function buildDisplayRows(
       icon: neon?.icon ?? null,
       color: neon?.color ?? null,
       sectors: st.sectors,
+      sectorItems,
       collaboratorCount: st.collaboratorCount,
       collaborators: collaboratorsByDeptId.get(t.neonDepartmentId) ?? [],
     };
@@ -134,7 +142,7 @@ export default function AdminEquipesPage() {
   const [selectedProfileData, setSelectedProfileData] = useState<any>(null);
   const [loadingCollaboratorId, setLoadingCollaboratorId] = useState<string | null>(null);
 
-  // Modal de departamento — acesso a sistemas
+  // Modal de departamento — acesso a aplicativos
   const [deptModalRow, setDeptModalRow] = useState<TeamDisplayRow | null>(null);
   const [deptModalSystems, setDeptModalSystems] = useState<Array<{
     id: string; name: string; icon: string; status?: string;
@@ -144,10 +152,10 @@ export default function AdminEquipesPage() {
   const [deptModalSaving, setDeptModalSaving] = useState(false);
   const [deptSystemSearch, setDeptSystemSearch] = useState('');
   const [deptSystemFilter, setDeptSystemFilter] = useState<'all' | 'granted' | 'denied'>('all');
-  /** No modal de dept: sistemas (padrão) ou lista de colaboradores do departamento */
+  /** No modal de dept: aplicativos (padrão) ou lista de colaboradores do departamento */
   const [deptModalPanel, setDeptModalPanel] = useState<'systems' | 'collaborators'>('systems');
 
-  // Modal de setor — acesso a sistemas (apenas colaboradores daquele setor)
+  // Modal de setor — acesso a aplicativos (apenas colaboradores daquele setor)
   const [sectorModalRow, setSectorModalRow] = useState<SectorTopicRow | null>(null);
   const [sectorModalSystems, setSectorModalSystems] = useState<Array<{
     id: string; name: string; icon: string; status?: string;
@@ -417,7 +425,7 @@ export default function AdminEquipesPage() {
     setDeptModalPanel('systems');
     setDeptModalLoading(true);
 
-    // Busca todos os sistemas e verifica quais os colaboradores do dept têm acesso
+    // Busca todos os aplicativos e verifica quais os colaboradores do dept têm acesso
     const { data: allSystems } = await databaseService.getSystems();
     const collabs = collaboratorsWithAvatar.filter((c) => {
       // Encontra o team correspondente ao row
@@ -830,7 +838,7 @@ export default function AdminEquipesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Acesso a sistemas por departamento */}
+      {/* Modal: Acesso a aplicativos por departamento */}
       <Dialog
         open={!!deptModalRow}
         onOpenChange={(o) => {
@@ -855,7 +863,7 @@ export default function AdminEquipesPage() {
                   <div className="min-w-0">
                     <DialogTitle className="text-xl font-semibold tracking-tight truncate">{deptModalRow?.name}</DialogTitle>
                     <DialogDescription className="text-sm mt-1">
-                      Gerencie o acesso aos sistemas para todos os colaboradores deste departamento
+                      Gerencie o acesso aos aplicativos para todos os colaboradores deste departamento
                     </DialogDescription>
                   </div>
                 </div>
@@ -887,7 +895,7 @@ export default function AdminEquipesPage() {
               </div>
             </DialogHeader>
 
-            {/* Busca + alternância sistemas/colaboradores + filtro de sistemas */}
+            {/* Busca + alternância aplicativos/colaboradores + filtro de aplicativos */}
             <div className="flex flex-col gap-3 mt-5">
               <div className="relative w-full group/search">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 group-focus-within/search:text-primary transition-colors duration-200" />
@@ -911,7 +919,7 @@ export default function AdminEquipesPage() {
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                       }`}
                     >
-                      {panel === 'systems' ? 'Sistemas' : 'Colaboradores'}
+                      {panel === 'systems' ? 'Aplicativos' : 'Colaboradores'}
                     </button>
                   ))}
                 </div>
@@ -1037,7 +1045,7 @@ export default function AdminEquipesPage() {
                     className="flex flex-col items-center justify-center py-16 gap-3"
                   >
                     <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
-                    <span className="text-sm text-muted-foreground animate-pulse">Carregando sistemas...</span>
+                    <span className="text-sm text-muted-foreground animate-pulse">Carregando aplicativos...</span>
                   </motion.div>
                 ) : (() => {
                   const q = deptSystemSearch.trim().toLowerCase();
@@ -1151,7 +1159,7 @@ export default function AdminEquipesPage() {
           <div className="p-5 border-t border-border/40 bg-muted/20 shrink-0 flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
               {deptModalPanel === 'collaborators' ? (
-                <p className="text-sm text-muted-foreground">Visualização de colaboradores — volte a Sistemas para editar acessos.</p>
+                <p className="text-sm text-muted-foreground"></p>
               ) : (
                 (() => {
                   const changedCount = deptModalSystems.filter((s) => s.canAccess !== s.original).length;
@@ -1193,7 +1201,7 @@ export default function AdminEquipesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Acesso a sistemas por setor (somente colaboradores deste setor) */}
+      {/* Modal: Acesso a aplicativos por setor (somente colaboradores deste setor) */}
       <Dialog
         open={!!sectorModalRow}
         onOpenChange={(o) => {
@@ -1220,7 +1228,7 @@ export default function AdminEquipesPage() {
                     <DialogDescription className="text-sm mt-1">
                       <span className="text-muted-foreground">{sectorModalRow?.departmentName}</span>
                       <span className="block mt-1">
-                        Acesso aos sistemas apenas para colaboradores deste setor (não altera o restante do departamento).
+                        Acesso aos aplicativos apenas para colaboradores deste setor (não altera o restante do departamento).
                       </span>
                     </DialogDescription>
                   </div>
@@ -1274,7 +1282,7 @@ export default function AdminEquipesPage() {
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                       }`}
                     >
-                      {panel === 'systems' ? 'Sistemas' : 'Colaboradores'}
+                      {panel === 'systems' ? 'aplicativos' : 'Colaboradores'}
                     </button>
                   ))}
                 </div>
@@ -1399,7 +1407,7 @@ export default function AdminEquipesPage() {
                     className="flex flex-col items-center justify-center py-16 gap-3"
                   >
                     <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
-                    <span className="text-sm text-muted-foreground animate-pulse">Carregando sistemas...</span>
+                    <span className="text-sm text-muted-foreground animate-pulse">Carregando aplicativos...</span>
                   </motion.div>
                 ) : (() => {
                   const q = sectorSystemSearch.trim().toLowerCase();
@@ -1512,7 +1520,7 @@ export default function AdminEquipesPage() {
           <div className="p-5 border-t border-border/40 bg-muted/20 shrink-0 flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
               {sectorModalPanel === 'collaborators' ? (
-                <p className="text-sm text-muted-foreground">Visualização de colaboradores — volte a Sistemas para editar acessos.</p>
+                <p className="text-sm text-muted-foreground"></p>
               ) : (
                 (() => {
                   const changedCount = sectorModalSystems.filter((s) => s.canAccess !== s.original).length;
