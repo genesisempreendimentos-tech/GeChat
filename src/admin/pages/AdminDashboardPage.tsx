@@ -10,7 +10,8 @@ import {
   Star,
   Boxes,
 } from 'lucide-react';
-import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { databaseService } from '@/services/supabase';
 import { LoadingGifScreen } from '@/components/LoadingGif';
@@ -39,7 +40,7 @@ type TimeRange = '7' | '30' | '90';
 
 export default function AdminDashboardPage() {
   const { theme } = useThemeStore();
-  const isDark = theme === 'dark';
+  const isDark = theme === 'dark' || theme === 'full-dark';
   const primaryColor = 'hsl(var(--primary))';
 
   const [counts, setCounts] = useState<AdminCounts | null>(null);
@@ -110,9 +111,10 @@ export default function AdminDashboardPage() {
 
   if (loading) {
     return (
+      <MainViewFluidShell>
       <div className="space-y-6">
-        <AdminPageHeader
-          icon={LayoutDashboard}
+        <MainViewHeader
+          icon={<LayoutDashboard className="h-6 w-6" />}
           title="Dashboard"
           description="Visão geral do painel administrativo."
         />
@@ -120,13 +122,15 @@ export default function AdminDashboardPage() {
           <LoadingGifScreen className="h-48" />
         </AdminBigBox>
       </div>
+      </MainViewFluidShell>
     );
   }
 
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
-      <AdminPageHeader
-        icon={LayoutDashboard}
+      <MainViewHeader
+        icon={<LayoutDashboard className="h-6 w-6" />}
         title="Dashboard"
         description="Visão geral do painel administrativo."
       />
@@ -229,7 +233,17 @@ export default function AdminDashboardPage() {
                     }}
                     labelStyle={{ color: isDark ? '#f3f4f6' : '#111827' }}
                   />
-                  <Bar dataKey="acessos" fill={primaryColor} radius={[4, 4, 0, 0]} name="Acessos" />
+                  <Bar
+                    dataKey="acessos"
+                    fill={primaryColor}
+                    radius={[4, 4, 0, 0]}
+                    name="Acessos"
+                    activeBar={
+                      isDark
+                        ? { fill: 'hsl(var(--chart-bar-active))', radius: 4 }
+                        : true
+                    }
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -283,5 +297,6 @@ export default function AdminDashboardPage() {
         </div>
       </AdminBigBox>
     </div>
+    </MainViewFluidShell>
   );
 }

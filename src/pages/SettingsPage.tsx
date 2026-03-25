@@ -14,6 +14,8 @@ import {
   Check,
 } from 'lucide-react';
 import { FullDarkEclipseIcon } from '@/components/icons/FullDarkEclipseIcon';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
+import { MainViewHeader } from '@/components/layout/header';
 
 export default function SettingsPage() {
   const {
@@ -55,19 +57,15 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <SettingsIcon className="w-8 h-8" />
-          Configurações
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Personalize sua experiência no GêApps
-        </p>
-      </div>
+    <MainViewFluidShell>
+      <div className="space-y-6">
+        <MainViewHeader
+          icon={<SettingsIcon className="h-6 w-6" />}
+          title="Configurações"
+          description="Personalize sua experiência no GêApps"
+        />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Coluna esquerda: Tema, Cor de Destaque */}
         <div className="space-y-6">
       {/* Tema */}
@@ -290,7 +288,8 @@ export default function SettingsPage() {
       </Card>
         </div>
       </div>
-    </div>
+      </div>
+    </MainViewFluidShell>
   );
 }
 

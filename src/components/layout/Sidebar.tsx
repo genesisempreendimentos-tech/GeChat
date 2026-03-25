@@ -14,9 +14,11 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { databaseService } from '@/services/supabase';
+import { isAppEligibleForFavoriteShortcut } from '@/lib/appFavoriteEligibility';
+import { FAVORITES_CHANGED_EVENT } from '@/lib/favoritesEvents';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useUnviewedComunicados } from '@/hooks/useUnviewedComunicados';
@@ -53,26 +55,48 @@ export default function Sidebar({ userRole }: SidebarProps) {
   const layoutMode = useSidebarLayoutStore((s) => s.mode);
   const [isHovered, setIsHovered] = useState(false);
   const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [favoriteSystems, setFavoriteSystems] = useState<{ id: string; name: string; url: string }[]>([]);
+  const [favoriteSystems, setFavoriteSystems] = useState<
+    { id: string; name: string; url: string; status?: string }[]
+  >([]);
 
-  useEffect(() => {
-    if (!user?.id) return;
+  const refreshFavoriteSystems = useCallback(() => {
+    if (!user?.id) {
+      setFavoriteSystems([]);
+      return;
+    }
     Promise.all([
       databaseService.getUserSystemAccess(user.id),
-      databaseService.getSystems(),
+      databaseService.getSystemsForMember(user.id),
     ]).then(([accessRes, systemsRes]) => {
       const accessData = accessRes.data || [];
-      const systemsData = (systemsRes.data || []) as { id: string; name: string; url: string }[];
-      // Só favoritos com acesso liberado (access false / revogado não aparece — alinhado a FavoritesPage / getSystemsForMember)
+      const systemsData = (systemsRes.data || []) as {
+        id: string;
+        name: string;
+        url: string;
+        status?: string;
+      }[];
       const hasAccess = (a: any) =>
         a.access !== false && a.can_access !== false;
       const favoriteIds = accessData
         .filter((a: any) => !!(a.is_favorite ?? a.favorite) && hasAccess(a))
         .map((a: any) => a.system_id);
-      const list = systemsData.filter((s) => favoriteIds.includes(s.id));
+      const list = systemsData.filter(
+        (s) =>
+          favoriteIds.includes(s.id) && isAppEligibleForFavoriteShortcut(s.status),
+      );
       setFavoriteSystems(list);
     });
-  }, [user?.id, location.pathname]);
+  }, [user?.id, user?.accessType]);
+
+  useEffect(() => {
+    refreshFavoriteSystems();
+  }, [refreshFavoriteSystems]);
+
+  useEffect(() => {
+    const onFavoritesChanged = () => refreshFavoriteSystems();
+    window.addEventListener(FAVORITES_CHANGED_EVENT, onFavoritesChanged);
+    return () => window.removeEventListener(FAVORITES_CHANGED_EVENT, onFavoritesChanged);
+  }, [refreshFavoriteSystems]);
 
   const isExpanded =
     layoutMode === 'expanded' ? true : layoutMode === 'collapsed' ? false : isHovered;

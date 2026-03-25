@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   Megaphone,
@@ -8,6 +8,7 @@ import {
   Filter,
   ChevronDown,
   Plus,
+  CircleCheck,
   AlertCircle,
   Type,
   ImagePlus,
@@ -23,7 +24,10 @@ import {
   MoreVertical,
   Pencil,
   Archive,
+  BadgeCheck,
 } from 'lucide-react';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AnimatedEmoji } from '@/components/ui/animated-emoji';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -55,7 +59,9 @@ import { useAuthStore } from '@/store/authStore';
 import { emitCommunicadosUnreadChanged } from '@/lib/communicadosEvents';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
+import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
 import StatementReactionPicker from '@/components/statement/StatementReactionPicker';
+import { StatementTagBadge } from '@/components/statement/StatementTagBadge';
 import { getAllCollaboratorsNeonMeta } from '@/services/corporateProfile';
 import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
 import {
@@ -75,6 +81,10 @@ const TAG_FILTER_ALL = 'all';
 const CAPTION_COLLAPSE_CHARS = 140;
 const DEFAULT_AVATAR =
   'https://api.dicebear.com/7.x/initials/svg?seed=GeApps';
+
+/** Imagem padrão já publicada no bucket GeComunicado (sem upload pelo usuário). */
+const COMUNICADO_OFICIAL_IMAGE_URL =
+  'https://shmrdhpjlsrqiffcykzw.supabase.co/storage/v1/object/public/GeComunicado/ComunicadoOficial.png';
 
 type StatementReactionSummary = {
   uniqueEmojis: string[];
@@ -127,6 +137,7 @@ export default function ComunicadosPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [tagFilter, setTagFilter] = useState<string>(TAG_FILTER_ALL);
+  const [statementStatusTab, setStatementStatusTab] = useState<'published' | 'archived'>('published');
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [captionExpanded, setCaptionExpanded] = useState<Record<string, boolean>>({});
   const [detailStatement, setDetailStatement] = useState<Statement | null>(null);
@@ -146,6 +157,7 @@ export default function ComunicadosPage() {
   const [caption, setCaption] = useState('');
   const [tagsRaw, setTagsRaw] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [useOfficialComunicadoImage, setUseOfficialComunicadoImage] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState('');
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
@@ -157,9 +169,12 @@ export default function ComunicadosPage() {
   const [editCaption, setEditCaption] = useState('');
   const [editTagsRaw, setEditTagsRaw] = useState('');
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editUseOfficialComunicadoImage, setEditUseOfficialComunicadoImage] = useState(false);
   const [editImagePreview, setEditImagePreview] = useState('');
   const [editFormError, setEditFormError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<Statement | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'archive' | 'publish' | 'delete' | null>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const editPreviewUrlRef = useRef('');
 
@@ -212,7 +227,7 @@ export default function ComunicadosPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const { data } = await databaseService.listStatements();
+    const { data } = await databaseService.listStatements(canCreateStatements);
     const statementsList = data ?? [];
     setStatements(statementsList);
     const statementIds = statementsList.map((s) => s.id);
@@ -230,7 +245,7 @@ export default function ComunicadosPage() {
     setCommentCountByStatementId(new Map(countMap));
 
     setLoading(false);
-  }, []);
+  }, [canCreateStatements]);
 
   useEffect(() => {
     loadData();
@@ -253,18 +268,20 @@ export default function ComunicadosPage() {
         tagsJoined.includes(q);
       const matchTag =
         tagFilter === TAG_FILTER_ALL || s.tags.some((t) => t.trim() === tagFilter);
-      return matchSearch && matchTag;
+      const matchStatus = statementStatusTab === 'published' ? s.isArchived !== true : s.isArchived === true;
+      return matchSearch && matchTag && matchStatus;
     });
-  }, [statements, searchQuery, tagFilter]);
+  }, [statements, searchQuery, tagFilter, statementStatusTab]);
 
   const resetForm = useCallback(() => {
     setTitle('');
     setCaption('');
     setTagsRaw('');
     setImageFile(null);
+    setUseOfficialComunicadoImage(false);
     setFormError('');
     setImagePreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
       previewUrlRef.current = '';
       return '';
     });
@@ -277,7 +294,9 @@ export default function ComunicadosPage() {
 
   useEffect(() => {
     return () => {
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      if (previewUrlRef.current && previewUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
     };
   }, []);
 
@@ -299,6 +318,7 @@ export default function ComunicadosPage() {
       setEditCaption('');
       setEditTagsRaw('');
       setEditImageFile(null);
+      setEditUseOfficialComunicadoImage(false);
       setEditImagePreview('');
       setEditFormError('');
       if (editFileInputRef.current) editFileInputRef.current.value = '';
@@ -308,6 +328,8 @@ export default function ComunicadosPage() {
     setEditCaption(editStatement.caption ?? '');
     setEditTagsRaw(editStatement.tags.join(', '));
     setEditImageFile(null);
+    const initialImg = (editStatement.imageUrl ?? '').trim();
+    setEditUseOfficialComunicadoImage(initialImg === COMUNICADO_OFICIAL_IMAGE_URL.trim());
     setEditImagePreview(editStatement.imageUrl);
     setEditFormError('');
     if (editFileInputRef.current) editFileInputRef.current.value = '';
@@ -316,10 +338,11 @@ export default function ComunicadosPage() {
   const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     setFormError('');
+    setUseOfficialComunicadoImage(false);
     if (!f) {
       setImageFile(null);
       setImagePreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
+        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
         return '';
       });
       return;
@@ -329,15 +352,26 @@ export default function ComunicadosPage() {
       e.target.value = '';
       setImageFile(null);
       setImagePreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
+        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
         return '';
       });
       return;
     }
     setImageFile(f);
     setImagePreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
       return URL.createObjectURL(f);
+    });
+  };
+
+  const onSelectOfficialComunicadoImage = () => {
+    setFormError('');
+    setImageFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setUseOfficialComunicadoImage(true);
+    setImagePreviewUrl((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return COMUNICADO_OFICIAL_IMAGE_URL;
     });
   };
 
@@ -356,13 +390,17 @@ export default function ComunicadosPage() {
       setFormError(titleLimitErr);
       return;
     }
+    if (!caption.trim()) {
+      setFormError('Informe a legenda.');
+      return;
+    }
     const captionLimitErr = validateStatementCaption(caption);
     if (captionLimitErr) {
       setFormError(captionLimitErr);
       return;
     }
-    if (!imageFile) {
-      setFormError('Selecione uma imagem para o comunicado.');
+    if (!imageFile && !useOfficialComunicadoImage) {
+      setFormError('Selecione um arquivo ou use a imagem Comunicado oficial.');
       return;
     }
     if (!user?.id) {
@@ -371,15 +409,21 @@ export default function ComunicadosPage() {
     }
 
     setFormLoading(true);
-    const { url, error: upErr } = await storageService.uploadComunicadoImage(imageFile, user.id);
-    if (upErr || !url) {
-      setFormLoading(false);
-      const msg =
-        upErr && typeof upErr === 'object' && 'message' in upErr
-          ? String((upErr as { message: string }).message)
-          : 'Não foi possível enviar a imagem. Verifique o bucket GeComunicado e as políticas de storage.';
-      setFormError(msg);
-      return;
+    let imageUrl: string;
+    if (useOfficialComunicadoImage) {
+      imageUrl = COMUNICADO_OFICIAL_IMAGE_URL;
+    } else {
+      const { url, error: upErr } = await storageService.uploadComunicadoImage(imageFile!, user.id);
+      if (upErr || !url) {
+        setFormLoading(false);
+        const msg =
+          upErr && typeof upErr === 'object' && 'message' in upErr
+            ? String((upErr as { message: string }).message)
+            : 'Não foi possível enviar a imagem. Verifique o bucket GeComunicado e as políticas de storage.';
+        setFormError(msg);
+        return;
+      }
+      imageUrl = url;
     }
 
     const tags = tagsRaw
@@ -389,8 +433,8 @@ export default function ComunicadosPage() {
 
     const { data: created, error: dbErr } = await databaseService.createStatement({
       title: title.trim(),
-      image_url: url,
-      caption: caption.trim() || null,
+      image_url: imageUrl,
+      caption: caption.trim(),
       tags,
       user_id: user.id,
       creator_name: user.name?.trim() || null,
@@ -420,9 +464,13 @@ export default function ComunicadosPage() {
     setEditFormError('');
     if (!f) {
       setEditImageFile(null);
+      const revertUrl = editStatement?.imageUrl ?? '';
+      setEditUseOfficialComunicadoImage(
+        revertUrl.trim() === COMUNICADO_OFICIAL_IMAGE_URL.trim(),
+      );
       setEditImagePreview((prev) => {
         if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
-        return editStatement?.imageUrl ?? '';
+        return revertUrl;
       });
       return;
     }
@@ -431,10 +479,23 @@ export default function ComunicadosPage() {
       e.target.value = '';
       return;
     }
+    setEditUseOfficialComunicadoImage(false);
     setEditImageFile(f);
     setEditImagePreview((prev) => {
       if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
       return URL.createObjectURL(f);
+    });
+  };
+
+  const onSelectOfficialComunicadoImageEdit = () => {
+    if (!editStatement) return;
+    setEditFormError('');
+    setEditImageFile(null);
+    if (editFileInputRef.current) editFileInputRef.current.value = '';
+    setEditUseOfficialComunicadoImage(true);
+    setEditImagePreview((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return COMUNICADO_OFICIAL_IMAGE_URL;
     });
   };
 
@@ -450,6 +511,10 @@ export default function ComunicadosPage() {
       setEditFormError(editTitleErr);
       return;
     }
+    if (!editCaption.trim()) {
+      setEditFormError('Informe a legenda.');
+      return;
+    }
     const editCaptionErr = validateStatementCaption(editCaption);
     if (editCaptionErr) {
       setEditFormError(editCaptionErr);
@@ -458,7 +523,9 @@ export default function ComunicadosPage() {
 
     setEditLoading(true);
     let imageUrl = editStatement.imageUrl;
-    if (editImageFile) {
+    if (editUseOfficialComunicadoImage) {
+      imageUrl = COMUNICADO_OFICIAL_IMAGE_URL;
+    } else if (editImageFile) {
       const { url, error: upErr } = await storageService.uploadComunicadoImage(editImageFile, user.id);
       if (upErr || !url) {
         setEditLoading(false);
@@ -511,7 +578,6 @@ export default function ComunicadosPage() {
   };
 
   const handleArchiveStatement = async (s: Statement) => {
-    if (!window.confirm('Arquivar este comunicado? Ele deixará de aparecer na lista para todos.')) return;
     const { error } = await databaseService.updateStatement(s.id, { is_archived: true });
     if (error) {
       toast.error(
@@ -526,9 +592,34 @@ export default function ComunicadosPage() {
     await loadData();
     emitCommunicadosUnreadChanged();
   };
+  const handlePublishStatement = async (s: Statement) => {
+    const { error } = await databaseService.updateStatement(s.id, { is_archived: false });
+    if (error) {
+      toast.error(
+        typeof error === 'object' && error && 'message' in error
+          ? String((error as { message: string }).message)
+          : 'Não foi possível publicar.'
+      );
+      return;
+    }
+    toast.success('Comunicado publicado');
+    await loadData();
+    emitCommunicadosUnreadChanged();
+  };
+  const requestArchiveStatement = useCallback((s: Statement) => {
+    setConfirmTarget(s);
+    setConfirmAction('archive');
+  }, []);
+  const requestPublishStatement = useCallback((s: Statement) => {
+    setConfirmTarget(s);
+    setConfirmAction('publish');
+  }, []);
+  const requestDeleteStatement = useCallback((s: Statement) => {
+    setConfirmTarget(s);
+    setConfirmAction('delete');
+  }, []);
 
   const handleDeleteStatement = async (s: Statement) => {
-    if (!window.confirm('Excluir este comunicado permanentemente? Esta ação não pode ser desfeita.')) return;
     const { error } = await databaseService.deleteStatement(s.id);
     if (error) {
       toast.error(
@@ -788,32 +879,91 @@ export default function ComunicadosPage() {
   };
 
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Megaphone className="w-8 h-8 shrink-0" />
-            Comunicados
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Avisos e informações importantes da empresa
-          </p>
-        </div>
-        {canCreateStatements && (
-          <Button
-            className="h-10 shrink-0 w-full sm:w-auto rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
-            onClick={() => setIsCreateOpen(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar comunicado
-          </Button>
-        )}
-      </div>
+      <MainViewHeader
+        icon={<Megaphone className="h-6 w-6" />}
+        title="Comunicados"
+        description="Avisos e informações importantes da empresa"
+        button={
+          canCreateStatements ? (
+            <Button
+              className="h-10 w-full rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30 sm:w-auto"
+              onClick={() => setIsCreateOpen(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar comunicado
+            </Button>
+          ) : undefined
+        }
+      />
 
       <AdminControlLine
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         showViewToggle
+        leftContent={
+          canCreateStatements ? (
+            <div className="flex rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setStatementStatusTab('published')}
+                aria-pressed={statementStatusTab === 'published'}
+                className={cn(
+                  'h-8 rounded-lg text-sm font-medium transition-all duration-300 flex items-center',
+                  statementStatusTab === 'published'
+                    ? 'bg-primary text-primary-foreground shadow-md px-3'
+                    : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                )}
+              >
+                <CircleCheck className="w-4 h-4 shrink-0" />
+                <AnimatePresence initial={false}>
+                  {statementStatusTab === 'published' && (
+                    <motion.span
+                      initial={{ width: 0, opacity: 0, marginLeft: 0 }}
+                      animate={{ width: 'auto', opacity: 1, marginLeft: 6 }}
+                      exit={{ width: 0, opacity: 0, marginLeft: 0 }}
+                      transition={{ duration: 0.2, ease: 'easeInOut' }}
+                      className="overflow-hidden whitespace-nowrap"
+                    >
+                      Publicados
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setStatementStatusTab('archived')}
+                aria-pressed={statementStatusTab === 'archived'}
+                className={cn(
+                  'h-8 rounded-lg text-sm font-medium transition-all duration-300 flex items-center',
+                  statementStatusTab === 'archived'
+                    ? 'bg-primary text-primary-foreground shadow-md px-3'
+                    : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                )}
+              >
+                <Archive className="w-4 h-4 shrink-0" />
+                <AnimatePresence initial={false}>
+                  {statementStatusTab === 'archived' && (
+                    <motion.span
+                      initial={{ width: 0, opacity: 0, marginLeft: 0 }}
+                      animate={{ width: 'auto', opacity: 1, marginLeft: 6 }}
+                      exit={{ width: 0, opacity: 0, marginLeft: 0 }}
+                      transition={{ duration: 0.2, ease: 'easeInOut' }}
+                      className="overflow-hidden whitespace-nowrap"
+                    >
+                      Arquivados
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </Button>
+            </div>
+          ) : null
+        }
         centerContent={
           <div className="relative group/search w-full max-w-3xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
@@ -873,14 +1023,14 @@ export default function ComunicadosPage() {
       {loading ? (
         <LoadingGifScreen className="h-64" />
       ) : filtered.length === 0 ? (
-        <Card>
+        <Card className={cn(TRANSLUCENT_BIG_BOX, 'shadow-none')}>
           <CardContent className="p-12 text-center">
             <Megaphone className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
-            <h3 className="text-lg font-semibold mb-2">Nenhum comunicado encontrado</h3>
+            <h3 className="text-lg font-semibold mb-2">Ops... Nada por aqui</h3>
             <p className="text-muted-foreground">
               {searchQuery || tagFilter !== TAG_FILTER_ALL
                 ? 'Tente ajustar a busca ou o filtro de tags.'
-                : 'Ainda não há comunicados. Quando um administrador publicar um aviso, ele aparecerá aqui.'}
+                : 'Ainda não há comunicados.'}
             </p>
           </CardContent>
         </Card>
@@ -1007,20 +1157,32 @@ export default function ComunicadosPage() {
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleArchiveStatement(s);
-                            }}
-                          >
-                            <Archive className="mr-2 h-4 w-4" />
-                            Arquivar
-                          </DropdownMenuItem>
+                          {s.isArchived ? (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                requestPublishStatement(s);
+                              }}
+                            >
+                              <CircleCheck className="mr-2 h-4 w-4" />
+                              Repostar
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                requestArchiveStatement(s);
+                              }}
+                            >
+                              <Archive className="mr-2 h-4 w-4" />
+                              Arquivar
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={(e) => {
                               e.stopPropagation();
-                              void handleDeleteStatement(s);
+                              requestDeleteStatement(s);
                             }}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
@@ -1060,7 +1222,7 @@ export default function ComunicadosPage() {
                       const emojis = summary?.uniqueEmojis?.slice(0, 3) ?? [];
                       const total = summary?.total ?? 0;
                       if (!total) {
-                        return <SmilePlus className="w-6 h-6 text-foreground" strokeWidth={1.5} />;
+                        return <SmilePlus className="h-5 w-5 text-foreground" strokeWidth={1.5} />;
                       }
                       return (
                         <div className="flex items-center gap-1.5">
@@ -1068,10 +1230,10 @@ export default function ComunicadosPage() {
                             {emojis.map((emoji, idx) => (
                               <span 
                                 key={idx} 
-                                className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-background border border-background shadow-sm z-[1]"
+                                className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-background border border-background shadow-sm z-[1]"
                                 style={{ zIndex: emojis.length - idx }}
                               >
-                                <AnimatedEmoji emoji={emoji} className="w-4 h-4" loop={true} />
+                                <AnimatedEmoji emoji={emoji} className="w-3.5 h-3.5" loop={true} />
                               </span>
                             ))}
                           </div>
@@ -1084,7 +1246,7 @@ export default function ComunicadosPage() {
                     type="button"
                     onClick={() => handleOpenPost(s)}
                     className="ml-auto flex items-center gap-1 hover:opacity-70 transition-opacity"
-                    title="Comentar / Ver detalhes"
+                    title="Comentários"
                   >
                     <MessageCircleMore className="h-5 w-5 shrink-0 text-foreground" strokeWidth={1.5} />
                     {(commentCountByStatementId.get(s.id) ?? 0) > 0 && (
@@ -1130,13 +1292,7 @@ export default function ComunicadosPage() {
                   {s.tags.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {s.tags.map((t) => (
-                        <span
-                          key={t}
-                          className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary"
-                        >
-                          <Tag className="h-3.5 w-3.5 shrink-0" />
-                          {t}
-                        </span>
+                        <StatementTagBadge key={`${s.id}-${t}`} label={t} />
                       ))}
                     </div>
                   ) : null}
@@ -1146,6 +1302,67 @@ export default function ComunicadosPage() {
           ))}
         </div>
       )}
+
+      <Dialog
+        open={!!confirmTarget && !!confirmAction}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmTarget(null);
+            setConfirmAction(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[460px] p-0 gap-0 border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl">
+          <div className="p-6 space-y-2">
+            <DialogHeader className="text-left">
+              <DialogTitle>
+                {confirmAction === 'publish'
+                  ? 'Repostar este comunicado?'
+                  : confirmAction === 'delete'
+                    ? 'Excluir este comunicado?'
+                    : 'Arquivar este comunicado?'}
+              </DialogTitle>
+              <DialogDescription>
+                {confirmAction === 'publish'
+                  ? 'Ele voltará a aparecer na lista para todos.'
+                  : confirmAction === 'delete'
+                    ? 'Esta ação é permanente e não pode ser desfeita.'
+                    : 'Ele deixará de aparecer na lista para todos.'}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t border-border/50 px-6 py-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirmTarget(null);
+                setConfirmAction(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant={confirmAction === 'delete' ? 'destructive' : 'default'}
+              onClick={() => {
+                if (!confirmTarget || !confirmAction) return;
+                const target = confirmTarget;
+                const action = confirmAction;
+                setConfirmTarget(null);
+                setConfirmAction(null);
+                if (action === 'archive') {
+                  void handleArchiveStatement(target);
+                } else if (action === 'publish') {
+                  void handlePublishStatement(target);
+                } else {
+                  void handleDeleteStatement(target);
+                }
+              }}
+            >
+              {confirmAction === 'publish' ? 'Repostar' : confirmAction === 'delete' ? 'Excluir' : 'Arquivar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!detailStatement} onOpenChange={(open) => !open && setDetailStatement(null)}>
         <DialogContent className="max-w-[min(100vw-2rem,68rem)] max-h-[92vh] sm:h-[min(92vh,860px)] overflow-hidden p-0 gap-0 border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl flex flex-col">
@@ -1216,18 +1433,29 @@ export default function ComunicadosPage() {
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              void handleArchiveStatement(detailStatement);
-                            }}
-                          >
-                            <Archive className="mr-2 h-4 w-4" />
-                            Arquivar
-                          </DropdownMenuItem>
+                          {detailStatement.isArchived ? (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                requestPublishStatement(detailStatement);
+                              }}
+                            >
+                              <CircleCheck className="mr-2 h-4 w-4" />
+                              Repostar
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                requestArchiveStatement(detailStatement);
+                              }}
+                            >
+                              <Archive className="mr-2 h-4 w-4" />
+                              Arquivar
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => {
-                              void handleDeleteStatement(detailStatement);
+                              requestDeleteStatement(detailStatement);
                             }}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
@@ -1254,13 +1482,7 @@ export default function ComunicadosPage() {
                 {detailStatement.tags.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {detailStatement.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary"
-                      >
-                        <Tag className="h-3.5 w-3.5 shrink-0" />
-                        {t}
-                      </span>
+                      <StatementTagBadge key={`${detailStatement.id}-${t}`} label={t} />
                     ))}
                   </div>
                 ) : null}
@@ -1415,11 +1637,6 @@ export default function ComunicadosPage() {
                         </button>
                       </div>
                     </div>
-                    {comments.length < MAX_COMMENTS_PER_STATEMENT ? (
-                      <p className="mt-2 text-[10px] text-muted-foreground text-right tabular-nums">
-                        {newComment.length}/{MAX_COMMENT_CONTENT_LENGTH}
-                      </p>
-                    ) : null}
                   </div>
               </div>
             </div>
@@ -1520,7 +1737,7 @@ export default function ComunicadosPage() {
                   <div className="space-y-1 pt-0.5 min-w-0">
                     <DialogTitle className="text-xl font-semibold tracking-tight">Novo comunicado</DialogTitle>
                     <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-                      Preencha os dados e publique. A imagem vai para o bucket GeComunicado e o registro para a tabela statement.
+                      Crie um novo comunicado para todos os usuários do GêApps.
                     </DialogDescription>
                   </div>
                 </div>
@@ -1567,7 +1784,9 @@ export default function ComunicadosPage() {
                   Imagem
                   <span className="text-destructive font-bold">*</span>
                 </span>
-                <p className="text-xs text-muted-foreground">Armazenada no bucket público GeComunicado (Supabase).</p>
+                <p className="text-xs text-muted-foreground">
+                  Arquivos em PNG ou JPG. Tamanho ideal de 1350 x 1080 pixels.
+                </p>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1576,26 +1795,42 @@ export default function ComunicadosPage() {
                   onChange={onImageChange}
                   aria-label="Selecionar imagem do comunicado"
                 />
-                <div className="flex flex-col sm:flex-row gap-3 items-start">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="rounded-xl h-11 border-border/60 shrink-0"
-                    onClick={() => fileInputRef.current?.click()}
+                <div className="flex flex-row gap-4 items-stretch">
+                  <div
+                    className={cn(
+                      'w-36 h-36 shrink-0 rounded-2xl border border-border/60 bg-muted/20 overflow-hidden',
+                      'flex items-center justify-center',
+                    )}
                   >
-                    Selecionar arquivo
-                  </Button>
-                  {imagePreviewUrl ? (
-                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-2 max-w-full overflow-hidden">
+                    {imagePreviewUrl ? (
                       <img
                         src={imagePreviewUrl}
                         alt="Pré-visualização"
-                        className="max-h-40 w-auto max-w-full object-contain rounded-xl mx-auto"
+                        className="h-full w-full object-cover"
                       />
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground py-2">Nenhuma imagem selecionada.</p>
-                  )}
+                    ) : (
+                      <ImagePlus className="w-10 h-10 text-muted-foreground/35" aria-hidden />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2 flex-1 min-w-0 justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-xl h-11 border-border/60 w-full"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Selecionar arquivo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-xl h-11 border-border/60 w-full gap-2"
+                      onClick={onSelectOfficialComunicadoImage}
+                    >
+                      <BadgeCheck className="w-4 h-4 shrink-0 opacity-80" />
+                      Comunicado oficial
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -1605,6 +1840,7 @@ export default function ComunicadosPage() {
                     <AlignLeft className="w-3.5 h-3.5" />
                   </span>
                   Legenda
+                  <span className="text-destructive font-bold">*</span>
                 </label>
                 <textarea
                   id="comunicado-legenda"
@@ -1632,6 +1868,7 @@ export default function ComunicadosPage() {
                     <Tags className="w-3.5 h-3.5" />
                   </span>
                   Tags
+                  <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
                 </label>
                 <p className="text-xs text-muted-foreground -mt-1">Separe por vírgula (ex.: RH, aviso, plantão).</p>
                 <Input
@@ -1682,7 +1919,7 @@ export default function ComunicadosPage() {
                 <div className="space-y-1 pt-0.5 min-w-0">
                   <DialogTitle className="text-xl font-semibold tracking-tight">Editar comunicado</DialogTitle>
                   <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-                    Atualize o título, legenda, tags ou substitua a imagem.
+                    Altere o título, legenda, imagem ou tags do comunicado.
                   </DialogDescription>
                 </div>
               </div>
@@ -1726,28 +1963,55 @@ export default function ComunicadosPage() {
                   <ImagePlus className="w-3.5 h-3.5" />
                 </span>
                 Imagem
+                <span className="text-destructive font-bold">*</span>
               </label>
-              <p className="text-xs text-muted-foreground -mt-1">Opcional: escolha uma nova imagem para substituir a atual.</p>
+              <p className="text-xs text-muted-foreground -mt-1">
+                Arquivos em PNG ou JPG. Tamanho ideal de 1350 x 1080 pixels.
+              </p>
               <input
                 ref={editFileInputRef}
                 type="file"
                 accept="image/*"
-                className="hidden"
+                className="sr-only"
                 onChange={onEditImageChange}
+                aria-label="Selecionar nova imagem do comunicado"
               />
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  onClick={() => editFileInputRef.current?.click()}
-                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-dashed border-border/70 px-4 text-sm font-medium text-foreground hover:bg-muted/40 transition-colors"
+              <div className="flex flex-row gap-4 items-stretch">
+                <div
+                  className={cn(
+                    'w-36 h-36 shrink-0 rounded-2xl border border-border/60 bg-muted/20 overflow-hidden',
+                    'flex items-center justify-center',
+                  )}
                 >
-                  Escolher arquivo
-                </button>
-                {editImagePreview ? (
-                  <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-border/60 bg-muted/20">
-                    <img src={editImagePreview} alt="" className="h-full w-full object-cover" />
-                  </div>
-                ) : null}
+                  {editImagePreview ? (
+                    <img
+                      src={editImagePreview}
+                      alt="Pré-visualização"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ImagePlus className="w-10 h-10 text-muted-foreground/35" aria-hidden />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 flex-1 min-w-0 justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl h-11 border-border/60 w-full"
+                    onClick={() => editFileInputRef.current?.click()}
+                  >
+                    Selecionar arquivo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl h-11 border-border/60 w-full gap-2"
+                    onClick={onSelectOfficialComunicadoImageEdit}
+                  >
+                    <BadgeCheck className="w-4 h-4 shrink-0 opacity-80" />
+                    Comunicado oficial
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -1757,6 +2021,7 @@ export default function ComunicadosPage() {
                   <AlignLeft className="w-3.5 h-3.5" />
                 </span>
                 Legenda
+                <span className="text-destructive font-bold">*</span>
               </label>
               <textarea
                 id="edit-comunicado-legenda"
@@ -1821,5 +2086,6 @@ export default function ComunicadosPage() {
         currentUser={user}
       />
     </div>
+    </MainViewFluidShell>
   );
 }

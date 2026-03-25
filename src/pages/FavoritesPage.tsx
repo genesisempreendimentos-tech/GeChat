@@ -1,21 +1,29 @@
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
-import { databaseService } from '@/services/supabase';
+import { databaseService, FAVORITE_LIMIT_ERROR_CODE } from '@/services/supabase';
+import { FavoriteLimitDialog } from '@/components/FavoriteLimitDialog';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogDescription,
+  DialogHeader,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Star, ExternalLink, Calendar } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Star, ExternalLink, Calendar, Plus, Search, Boxes } from 'lucide-react';
 import { LoadingGifScreen, LoadingGif } from '@/components/LoadingGif';
 import * as Icons from 'lucide-react';
-import { Boxes } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { System } from '@/types';
 import { BANNER_CATEGORIES } from '@/views/profile/ProfileBanner/ProfileBannerImages';
 import { ComingSoonModal } from '@/components/ComingSoonModal';
+import { cn } from '@/lib/utils';
+import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
+import { isAppEligibleForFavoriteShortcut } from '@/lib/appFavoriteEligibility';
+import { emitFavoritesChanged } from '@/lib/favoritesEvents';
 
 const getSystemBanner = (systemId: string) => {
   const images = BANNER_CATEGORIES.genesis.images;
@@ -46,7 +54,10 @@ export default function FavoritesPage() {
   const [selectedSystem, setSelectedSystem] = useState<System | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [favoriteTogglingId, setFavoriteTogglingId] = useState<string | null>(null);
+  const [favoriteLimitOpen, setFavoriteLimitOpen] = useState(false);
   const [comingSoonSystem, setComingSoonSystem] = useState<System | null>(null);
+  const [manageFavoritesOpen, setManageFavoritesOpen] = useState(false);
+  const [manageFavoritesSearch, setManageFavoritesSearch] = useState('');
 
   useEffect(() => {
     if (user?.id) {
@@ -64,17 +75,10 @@ export default function FavoritesPage() {
     
     try {
       setLoading(true);
-      const isAdminOrManager = user?.accessType === 'admin';
-      // Membros veem apenas apps com acesso liberado; admin veem todos
-      if (isAdminOrManager) {
-        const { data: systemsData, error: systemsError } = await databaseService.getSystems();
-        if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
-        setSystems(systemsData || []);
-      } else {
-        const { data: systemsData, error: systemsError } = await databaseService.getSystemsForMember(user.id);
-        if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
-        setSystems(systemsData || []);
-      }
+      // Igual à SystemsPage: só apps com acesso liberado (access = true) e status ativo/beta/active no back-end.
+      const { data: systemsData, error: systemsError } = await databaseService.getSystemsForMember(user.id);
+      if (systemsError) console.error('Erro ao carregar sistemas:', systemsError);
+      setSystems(systemsData || []);
 
       // Carregar acessos do usuário (favoritos)
       const { data: accessData, error: accessError } = await databaseService.getUserSystemAccess(user.id);
@@ -90,18 +94,32 @@ export default function FavoritesPage() {
   };
 
   const favoriteSystems = systems.filter((system) => {
+    if (!isAppEligibleForFavoriteShortcut(system.status)) return false;
     const access = userAccesses.find((a: any) => a.system_id === system.id);
-    const hasAccess = access?.access !== false && access?.can_access !== false;
-    return (
-      hasAccess &&
-      !!(access?.is_favorite ?? access?.favorite)
-    );
+    return !!(access?.is_favorite ?? access?.favorite);
   });
 
-  const hasAccessTo = (systemId: string) =>
-    user?.accessType === 'admin'
-      ? true
-      : userAccesses.some((a: any) => a.system_id === systemId && a.can_access);
+  const isFavorite = (systemId: string) => {
+    const access = userAccesses.find((a: any) => a.system_id === systemId);
+    return !!(access?.is_favorite ?? access?.favorite);
+  };
+
+  const appsLiberados = useMemo(() => {
+    return systems
+      .filter((system) => isAppEligibleForFavoriteShortcut(system.status))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }, [systems]);
+
+  const filteredAppsForManageModal = useMemo(() => {
+    const q = manageFavoritesSearch.trim().toLowerCase();
+    if (!q) return appsLiberados;
+    return appsLiberados.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.category ?? '').toLowerCase().includes(q) ||
+        (s.description ?? '').toLowerCase().includes(q),
+    );
+  }, [appsLiberados, manageFavoritesSearch]);
 
   const renderIcon = (iconPath: string, className: string = '') => {
     // Se for URL ou caminho (SVG, PNG, etc.) da tabela apps, renderizar <img>
@@ -124,10 +142,17 @@ export default function FavoritesPage() {
     window.open(url, '_blank');
   };
 
-  const handleRemoveFavorite = async (systemId: string) => {
+  const handleToggleFavorite = async (systemId: string) => {
     if (!user?.id) return;
-    await databaseService.toggleFavorite(user.id, systemId);
-    await loadData(); // Recarregar dados
+    setFavoriteTogglingId(systemId);
+    const { error } = await databaseService.toggleFavorite(user.id, systemId);
+    if (error && typeof error === 'object' && (error as { code?: string }).code === FAVORITE_LIMIT_ERROR_CODE) {
+      setFavoriteLimitOpen(true);
+    } else {
+      emitFavoritesChanged();
+      await loadData();
+    }
+    setFavoriteTogglingId(null);
   };
 
   const openDetail = (system: System) => {
@@ -136,28 +161,38 @@ export default function FavoritesPage() {
   };
 
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Star className="w-8 h-8 text-yellow-500 fill-yellow-500" />
-          Favoritos
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Seus sistemas favoritos para acesso rápido
-        </p>
-      </div>
+      <MainViewHeader
+        icon={<Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />}
+        title="Favoritos"
+        description="Seus sistemas favoritos para acesso rápido"
+        button={
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 w-full rounded-xl px-4 font-semibold shadow-sm transition-all duration-200 hover:-translate-y-0.5 sm:w-auto"
+            onClick={() => {
+              setManageFavoritesSearch('');
+              setManageFavoritesOpen(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar favoritos
+          </Button>
+        }
+      />
 
       {loading ? (
         <LoadingGifScreen className="h-64" />
       ) : favoriteSystems.length === 0 ? (
-        <div className="rounded-xl border border-border/50 bg-card p-12 text-center">
+        <div className={cn(TRANSLUCENT_BIG_BOX, 'p-12 text-center')}>
           <Star className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
           <h3 className="text-lg font-semibold mb-2">
             Nenhum sistema favoritado
           </h3>
           <p className="text-muted-foreground">
-            Adicione sistemas aos favoritos clicando na estrela na página de sistemas
+            Use <span className="font-medium text-foreground">Adicionar favoritos</span> acima ou a estrela na página de aplicativos.
           </p>
         </div>
       ) : (
@@ -201,12 +236,17 @@ export default function FavoritesPage() {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRemoveFavorite(system.id);
+                        handleToggleFavorite(system.id);
                       }}
-                      className="p-2 rounded-full transition-all duration-300 text-yellow-500 dark:text-yellow-400 bg-yellow-500/10 dark:bg-yellow-400/10 hover:bg-yellow-500/20 dark:hover:bg-yellow-400/20"
+                      disabled={favoriteTogglingId === system.id}
+                      className="p-2 rounded-full transition-all duration-300 text-yellow-500 dark:text-yellow-400 bg-yellow-500/10 dark:bg-yellow-400/10 hover:bg-yellow-500/20 dark:hover:bg-yellow-400/20 disabled:opacity-60"
                       title="Remover dos favoritos"
                     >
-                      <Star className="w-4 h-4 fill-current" />
+                      {favoriteTogglingId === system.id ? (
+                        <LoadingGif size="sm" className="shrink-0" />
+                      ) : (
+                        <Star className="w-4 h-4 fill-current" />
+                      )}
                     </button>
                   </div>
 
@@ -247,6 +287,98 @@ export default function FavoritesPage() {
 
         </>
       )}
+
+      <Dialog
+        open={manageFavoritesOpen}
+        onOpenChange={(open) => {
+          setManageFavoritesOpen(open);
+          if (!open) setManageFavoritesSearch('');
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden sm:max-w-lg">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50 shrink-0 space-y-0 text-left">
+            <div className="flex items-start gap-4 pr-8">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
+                <Star className="w-7 h-7 text-yellow-500 fill-yellow-500" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <DialogTitle className="text-lg font-semibold leading-tight tracking-tight">
+                  Adicionar favoritos
+                </DialogTitle>
+                <DialogDescription className="text-sm leading-snug">
+                  Aplicativos liberados para você. Adicione ou remova atalhos na sua lista de favoritos.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="px-6 pt-4 shrink-0">
+            <div className="relative group/search w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 group-focus-within/search:text-primary transition-colors" />
+              <Input
+                placeholder="Buscar aplicativo…"
+                className="pl-9 h-10 rounded-xl bg-background/50 border-border/60 shadow-sm w-full"
+                value={manageFavoritesSearch}
+                onChange={(e) => setManageFavoritesSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+            {filteredAppsForManageModal.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 gap-3 text-center">
+                <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
+                  <Boxes className="w-5 h-5 text-muted-foreground/50" />
+                </div>
+                <p className="text-sm text-muted-foreground font-medium px-4">
+                  {appsLiberados.length === 0
+                    ? 'Nenhum aplicativo liberado para sua conta.'
+                    : 'Nenhum aplicativo encontrado para a busca.'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 pb-2">
+                {filteredAppsForManageModal.map((system) => (
+                  <div
+                    key={system.id}
+                    className="w-full flex items-center gap-4 p-3 rounded-2xl border border-border/40 bg-muted/10 transition-colors duration-200"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-50 to-white dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-primary shrink-0 overflow-hidden">
+                      {renderIcon(system.icon, 'w-7 h-7 object-contain')}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{system.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {system.category || 'Sem categoria'}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isFavorite(system.id) ? 'outline' : 'default'}
+                      className={cn(
+                        'shrink-0 rounded-xl h-9 px-3 font-semibold min-w-[5.5rem]',
+                        isFavorite(system.id) &&
+                          'border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive',
+                      )}
+                      disabled={favoriteTogglingId === system.id}
+                      onClick={() => handleToggleFavorite(system.id)}
+                    >
+                      {favoriteTogglingId === system.id ? (
+                        <LoadingGif size="sm" className="shrink-0" />
+                      ) : isFavorite(system.id) ? (
+                        'Remover'
+                      ) : (
+                        'Adicionar'
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <FavoriteLimitDialog open={favoriteLimitOpen} onOpenChange={setFavoriteLimitOpen} />
 
       {/* System Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
@@ -344,5 +476,6 @@ export default function FavoritesPage() {
         status={comingSoonSystem?.status}
       />
     </div>
+    </MainViewFluidShell>
   );
 }

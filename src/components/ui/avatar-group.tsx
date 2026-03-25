@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Tooltip,
@@ -15,6 +16,15 @@ export const AvatarGroup = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => {
+  const forwardClickToAvatarAction = (root: HTMLDivElement, originalTarget: EventTarget | null) => {
+    const targetEl = originalTarget instanceof HTMLElement ? originalTarget : null
+    const alreadyInteractive = targetEl?.closest('button,a,[role="button"],[data-avatar-click-target="true"]')
+    if (alreadyInteractive) return
+
+    const actionEl = root.querySelector<HTMLElement>('button,a,[role="button"],[data-avatar-click-target="true"]')
+    actionEl?.click()
+  }
+
   return (
     <TooltipProvider delayDuration={0}>
       <div
@@ -49,6 +59,9 @@ export const AvatarGroup = ({
                 }}
                 className="relative cursor-pointer transition-all hover:z-50"
                 style={{ zIndex: index }}
+                onClick={(e) => {
+                  forwardClickToAvatarAction(e.currentTarget as HTMLDivElement, e.target)
+                }}
               >
                 {child}
               </motion.div>
@@ -70,5 +83,57 @@ export const AvatarGroupTooltip = ({ children, className }: { children: React.Re
         {children}
       </TooltipContent>
     </Tooltip>
+  )
+}
+
+interface AvatarGroupItemProps {
+  children: React.ReactNode
+  tooltip: React.ReactNode
+  onClick?: () => void
+  loading?: boolean
+  className?: string
+  buttonClassName?: string
+}
+
+export const AvatarGroupItem = ({
+  children,
+  tooltip,
+  onClick,
+  loading = false,
+  className,
+  buttonClassName,
+}: AvatarGroupItemProps) => {
+  const content = onClick ? (
+    <button
+      type="button"
+      data-avatar-click-target="true"
+      disabled={loading}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      className={cn(
+        "relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0d1520]",
+        loading && "opacity-70",
+        buttonClassName,
+      )}
+      aria-label={typeof tooltip === "string" ? `Ver perfil de ${tooltip}` : "Ver perfil"}
+    >
+      {children}
+      {loading ? (
+        <span className="absolute inset-0 z-10 flex items-center justify-center rounded-full bg-background/60">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
+        </span>
+      ) : null}
+    </button>
+  ) : (
+    <div className="relative">{children}</div>
+  )
+
+  return (
+    <div className={cn("relative", className)}>
+      {content}
+      <AvatarGroupTooltip>{tooltip}</AvatarGroupTooltip>
+    </div>
   )
 }

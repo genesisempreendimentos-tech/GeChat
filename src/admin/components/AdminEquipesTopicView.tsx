@@ -1,4 +1,4 @@
-import type { ElementType } from 'react';
+import { useEffect, type ElementType } from 'react';
 import { motion } from 'framer-motion';
 import * as Icons from 'lucide-react';
 import { Building2, Layers, Mail, UserCircle, Users } from 'lucide-react';
@@ -7,8 +7,9 @@ import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import type { TeamsViewMode, TeamCollaboratorPreview } from '@/components/teams/TeamsEnrichedView';
 import type { NeonTeamCollaborator } from '@/services/corporateProfile';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AvatarGroup, AvatarGroupTooltip } from '@/components/ui/avatar-group';
+import { AvatarGroup, AvatarGroupItem, AvatarGroupTooltip } from '@/components/ui/avatar-group';
 import { cn } from '@/lib/utils';
+import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
 
 export interface SectorTopicRow {
   id: string;
@@ -86,6 +87,8 @@ interface AdminEquipesTopicViewProps {
   onSectorClick?: (row: SectorTopicRow) => void;
   /** Clique no badge de contagem (cartões de setor). */
   onSectorCollaboratorBadgeClick?: (row: SectorTopicRow) => void;
+  /** Clique no avatar do colaborador no rodapé do cartão de setor. */
+  onSectorCollaboratorPreviewClick?: (collaborator: TeamCollaboratorPreview, row: SectorTopicRow) => void;
 }
 
 export function AdminEquipesTopicView({
@@ -100,7 +103,14 @@ export function AdminEquipesTopicView({
   loadingCollaboratorId,
   onSectorClick,
   onSectorCollaboratorBadgeClick,
+  onSectorCollaboratorPreviewClick,
 }: AdminEquipesTopicViewProps) {
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H0',location:'AdminEquipesTopicView.tsx:108',message:'AdminEquipesTopicView rendered',data:{variant,viewMode,sectorRows:sectorRows.length,hasPreviewCallback:Boolean(onSectorCollaboratorPreviewClick)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [variant, viewMode, sectorRows.length, onSectorCollaboratorPreviewClick]);
+
   if (loading) {
     return <LoadingGifScreen className="h-64" />;
   }
@@ -120,20 +130,17 @@ export function AdminEquipesTopicView({
 
     if (viewMode === 'cards') {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-4 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
           {sectorRows.map((row, index) => (
             <motion.div
               key={row.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
-              whileHover={{ y: -4, transition: { duration: 0.2, ease: [0.4, 0, 0.2, 1] } }}
-              className="group relative cursor-pointer"
-              onClick={() => onSectorClick?.(row)}
+              className="relative"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
               <div
-                className="relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5"
+                className="relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg"
               >
                 <div className="flex items-start gap-4 mb-4">
                   <div
@@ -178,15 +185,28 @@ export function AdminEquipesTopicView({
                   {row.collaborators && row.collaborators.length > 0 ? (
                     <AvatarGroup className="justify-start">
                       {row.collaborators.slice(0, 5).map((c) => (
-                        <div key={c.id} className="relative">
-                          <Avatar className="w-8 h-8 border-2 border-[#0d1520] ring-0 shadow-sm">
+                        <AvatarGroupItem
+                          key={c.id}
+                          tooltip={c.name}
+                          loading={loadingCollaboratorId === c.id}
+                          onClick={
+                            onSectorCollaboratorPreviewClick
+                              ? () => {
+                                  // #region agent log
+                                  fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H1',location:'AdminEquipesTopicView.tsx:186',message:'Avatar click in sector card',data:{collaboratorId:c.id,collaboratorName:c.name,sectorId:row.id,hasCallback:Boolean(onSectorCollaboratorPreviewClick)},timestamp:Date.now()})}).catch(()=>{});
+                                  // #endregion
+                                  onSectorCollaboratorPreviewClick(c, row);
+                                }
+                              : undefined
+                          }
+                        >
+                          <Avatar className={cn('w-8 h-8 border-2 border-[#0d1520] ring-0 shadow-sm', onSectorCollaboratorPreviewClick && 'cursor-pointer')}>
                             <AvatarImage src={c.avatar} alt={c.name} />
                             <AvatarFallback className="text-[10px] bg-primary/20 text-primary font-semibold">
                               {c.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <AvatarGroupTooltip>{c.name}</AvatarGroupTooltip>
-                        </div>
+                        </AvatarGroupItem>
                       ))}
                       {row.collaborators.length > 5 && (
                         <div className="relative">
@@ -252,8 +272,7 @@ export function AdminEquipesTopicView({
               return (
                 <tr
                   key={row.id}
-                  className="border-b border-border/50 hover:bg-muted/30 cursor-pointer"
-                  onClick={() => onSectorClick?.(row)}
+                  className="border-b border-border/50"
                 >
                   <td className="py-2 px-2">
                     <div className="flex items-center gap-2">
@@ -284,7 +303,7 @@ export function AdminEquipesTopicView({
   /* collaborators */
   if (collaboratorRows.length === 0) {
     return (
-      <Card className="border-border/50 bg-background/40">
+      <Card className={cn(TRANSLUCENT_BIG_BOX, 'shadow-none')}>
         <CardContent className="p-12 text-center">
           <UserCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
           <h3 className="text-lg font-semibold mb-2">{emptyTitle}</h3>
@@ -296,7 +315,7 @@ export function AdminEquipesTopicView({
 
   if (viewMode === 'cards') {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-4 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
         {collaboratorRows.map((c, index) => {
           const isLoading = loadingCollaboratorId === c.id;
           return (

@@ -37,6 +37,7 @@ export type SystemCategory = 'RH' | 'Financeiro' | 'Marketing' | 'Arquitetura' |
 
 export type AppStatus =
   | 'ativo'
+  | 'lancamento'
   | 'beta'
   | 'rascunho'
   | 'arquivado'

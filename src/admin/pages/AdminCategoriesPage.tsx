@@ -25,7 +25,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { databaseService } from '@/services/supabase';
@@ -171,12 +172,13 @@ export default function AdminCategoriesPage() {
   };
 
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
-      <AdminPageHeader
-        icon={LibraryBig}
+      <MainViewHeader
+        icon={<LibraryBig className="h-6 w-6" />}
         title="Categorias"
         description="Gerencie as categorias dos aplicativos."
-        action={
+        button={
           <Button
             onClick={() => handleOpenModal()}
             className="h-10 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
@@ -422,5 +424,6 @@ export default function AdminCategoriesPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </MainViewFluidShell>
   );
 }

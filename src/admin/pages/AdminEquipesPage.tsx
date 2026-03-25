@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Search, Users, RefreshCw, AlertCircle, Building2, Loader2, Check, Unlock, LayoutGrid, Layers } from 'lucide-react';
+import { Plus, Search, Users, RefreshCw, AlertCircle, Building2, Loader2, Check, Unlock, LayoutGrid, Layers, Grid2x2, Shapes, Table2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -19,8 +19,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
-import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
+import { AdminControlLine } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import {
   getDepartments,
@@ -32,7 +33,14 @@ import {
 import { databaseService, supabase, type Team, type TeamLifecycleStatus } from '@/services/supabase';
 import { toast } from 'sonner';
 import { LoadingGif } from '@/components/LoadingGif';
-import { TeamsEnrichedView, type TeamDisplayRow, type TeamCollaboratorPreview, type TeamSectorItem } from '@/components/teams/TeamsEnrichedView';
+import {
+  TeamsEnrichedView,
+  type TeamDisplayRow,
+  type TeamCollaboratorPreview,
+  type TeamSectorItem,
+  type TeamsViewMode,
+} from '@/components/teams/TeamsEnrichedView';
+import { TabButtons, type TabButtonItem } from '@/components/ui/tab-buttons';
 import { AdminEquipesTopicView, type SectorTopicRow, type CollaboratorWithAvatar } from '@/admin/components/AdminEquipesTopicView';
 import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
 import { useAuthStore } from '@/store/authStore';
@@ -53,6 +61,16 @@ function renderSystemIcon(iconPath: string, className = '') {
 const TOPIC_DEPARTMENTS: EquipesTopicTab = 'departments';
 const TOPIC_SECTORS: EquipesTopicTab = 'sectors';
 const TOPIC_COLLABORATORS: EquipesTopicTab = 'collaborators';
+
+const TOPIC_TAB_ITEMS: ReadonlyArray<TabButtonItem<EquipesTopicTab>> = [
+  { value: TOPIC_DEPARTMENTS, label: 'Departamentos', Icon: Grid2x2 },
+  { value: TOPIC_SECTORS, label: 'Setores', Icon: Shapes },
+  { value: TOPIC_COLLABORATORS, label: 'Colaboradores', Icon: Users },
+];
+const VIEW_TAB_ITEMS: ReadonlyArray<TabButtonItem<TeamsViewMode>> = [
+  { value: 'table', label: 'Tabela', Icon: Table2 },
+  { value: 'cards', label: 'Cards', Icon: LayoutGrid },
+];
 
 /** Curvas e spring compartilhados — troca de painel mais orgânica (sem “corte seco”). */
 const EASE_MODAL: [number, number, number, number] = [0.2, 0.85, 0.35, 1];
@@ -127,7 +145,7 @@ export default function AdminEquipesPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [topicView, setTopicView] = useState<EquipesTopicTab>(TOPIC_DEPARTMENTS);
-  const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [viewMode, setViewMode] = useState<TeamsViewMode>('cards');
 
   const [teams, setTeams] = useState<Team[]>([]);
   const [departments, setDepartments] = useState<NeonDepartment[]>([]);
@@ -613,20 +631,14 @@ export default function AdminEquipesPage() {
         ? 'Buscar setores…'
         : 'Buscar colaboradores…';
 
-  const topicLabel =
-    topicView === TOPIC_DEPARTMENTS
-      ? 'Departamentos'
-      : topicView === TOPIC_SECTORS
-        ? 'Setores'
-        : 'Colaboradores';
-
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
-      <AdminPageHeader
-        icon={Users}
+      <MainViewHeader
+        icon={<Users className="h-6 w-6" />}
         title="Equipes"
         description="Cadastre equipes e defina quem pode vê-las no GeApps. Esta tela é exclusiva do painel administrativo."
-        action={
+        button={
           <Button
             type="button"
             onClick={openCreate}
@@ -641,38 +653,31 @@ export default function AdminEquipesPage() {
       <AdminControlLine
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        showViewToggle
+        showViewToggle={false}
         leftContent={
-          <div className="relative group/search">
+          <TabButtons<EquipesTopicTab>
+            value={topicView}
+            items={TOPIC_TAB_ITEMS}
+            onChange={setTopicView}
+          />
+        }
+        centerContent={
+          <div className="relative group/search w-full max-w-3xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
             <Input
               placeholder={searchPlaceholder}
-              className="pl-8 w-56 sm:w-72 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
+              className="pl-8 w-full h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         }
         rightContent={
-          <Select
-            value={topicView}
-            onValueChange={(val) => setTopicView(val as EquipesTopicTab)}
-          >
-            <SelectTrigger className="h-9 w-[180px] rounded-xl border-border/60 bg-muted/50 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus:ring-2 focus:ring-primary/20 focus:border-primary/40">
-              <SelectValue placeholder="Selecione a visualização" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-border/60 bg-card/95 backdrop-blur-xl shadow-lg">
-              <SelectItem value={TOPIC_DEPARTMENTS} className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary transition-colors">
-                Departamentos
-              </SelectItem>
-              <SelectItem value={TOPIC_SECTORS} className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary transition-colors">
-                Setores
-              </SelectItem>
-              <SelectItem value={TOPIC_COLLABORATORS} className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary transition-colors">
-                Colaboradores
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <TabButtons<TeamsViewMode>
+            value={viewMode}
+            items={VIEW_TAB_ITEMS}
+            onChange={setViewMode}
+          />
         }
       />
 
@@ -1582,5 +1587,6 @@ export default function AdminEquipesPage() {
         currentUser={currentUser}
       />
     </div>
+    </MainViewFluidShell>
   );
 }

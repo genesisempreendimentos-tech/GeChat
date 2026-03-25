@@ -633,6 +633,41 @@ export const storageService = {
     }
   },
 
+  /** PDF da descrição âncora dos apps — bucket Files/pasta GeApps - Public/Ancora. */
+  async uploadSystemAnchorPdf(file: File): Promise<{ url: string | null; error: unknown }> {
+    try {
+      const isPdf =
+        file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      if (!isPdf) return { url: null, error: new Error('Arquivo inválido: envie um PDF.') };
+
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 120);
+      const fileName = `${Date.now()}-${safeName}`;
+      const filePath = `GeApps - Public/Ancora/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from('Files')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'application/pdf',
+        });
+
+      if (error) {
+        console.error('❌ [Storage] System anchor PDF upload error:', error);
+        return { url: null, error };
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('Files')
+        .getPublicUrl(filePath);
+
+      return { url: publicUrlData.publicUrl, error: null };
+    } catch (err) {
+      console.error('❌ [Storage] uploadSystemAnchorPdf exception:', err);
+      return { url: null, error: err };
+    }
+  },
+
   /** Imagem de comunicado — bucket público `GeComunicado` (Supabase Storage). */
   async uploadComunicadoImage(file: File, userId?: string): Promise<{ url: string | null; error: unknown }> {
     try {
@@ -1390,7 +1425,7 @@ export const databaseService = {
     return { data: mapped, error: null };
   },
 
-  /** Usuários com acesso a um app (para exibir no AvatarStack). */
+  /** Usuários com acesso a um app (rodapé dos cards / AvatarGroup). */
   async getUsersWithAccessToApp(appId: string): Promise<{ data: { id: string; name: string; avatar?: string }[]; error: any }> {
     const { data: accessRows, error: accessError } = await supabase
       .from('user_app_access')
@@ -1600,7 +1635,7 @@ export const databaseService = {
   },
 
   /** Comunicados (`statement`). Lista vazia se a tabela não existir ou houver erro. */
-  async listStatements(): Promise<{ data: Statement[]; error: null }> {
+  async listStatements(includeArchived = false): Promise<{ data: Statement[]; error: null }> {
     try {
       const { data, error } = await supabase
         .from(STATEMENT_TABLE)
@@ -1611,8 +1646,8 @@ export const databaseService = {
         return { data: [], error: null };
       }
       const list = (data ?? []) as StatementRow[];
-      const notArchived = list.filter((row) => row.is_archived !== true);
-      let mapped = notArchived.map((row) => statementRowToApp(row));
+      const scoped = includeArchived ? list : list.filter((row) => row.is_archived !== true);
+      let mapped = scoped.map((row) => statementRowToApp(row));
 
       const creatorIds = mapped.map((s) => s.userId).filter(Boolean);
       const avatarByUserId = await fetchProfileAvatarsByUserIds(creatorIds);
@@ -1894,13 +1929,17 @@ export const databaseService = {
       if (titleErr) return { data: null, error: new Error(titleErr) };
 
       const captionTrimmed = payload.caption?.trim() ?? '';
-      const capErr = validateStatementCaption(captionTrimmed || null);
+      if (!captionTrimmed) return { data: null, error: new Error('Informe a legenda.') };
+      const capErr = validateStatementCaption(captionTrimmed);
       if (capErr) return { data: null, error: new Error(capErr) };
+
+      const imageTrim = (payload.image_url ?? '').trim();
+      if (!imageTrim) return { data: null, error: new Error('Selecione uma imagem para o comunicado.') };
 
       const insertRow: Record<string, unknown> = {
         title: titleTrim,
-        image_url: payload.image_url.trim(),
-        caption: captionTrimmed || null,
+        image_url: imageTrim,
+        caption: captionTrimmed,
         tags: payload.tags.length ? payload.tags : [],
         created_by: payload.user_id,
       };

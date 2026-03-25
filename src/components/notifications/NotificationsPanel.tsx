@@ -19,6 +19,8 @@ export interface NotificationItem {
   description?: string;
   date: Date;
   read?: boolean;
+  /** Soft-delete local / futura sync com BD — aba “Excluídas”. */
+  deleted?: boolean;
   type?: 'info' | 'success' | 'warning' | 'error';
 }
 
@@ -31,7 +33,8 @@ interface NotificationsPanelProps {
 
 export function NotificationsPanel({ open, onOpenChange, items = [] }: NotificationsPanelProps) {
   const navigate = useNavigate();
-  const unreadCount = items.filter((n) => !n.read).length;
+  const panelItems = items.filter((n) => !n.deleted);
+  const unreadCount = panelItems.filter((n) => !n.read).length;
 
   const handleMarkAllRead = () => {
     // Placeholder: integração futura com backend
@@ -75,7 +78,7 @@ export function NotificationsPanel({ open, onOpenChange, items = [] }: Notificat
         </DialogHeader>
 
         <div className="overflow-y-auto flex-1 min-h-0 bg-background/50">
-          {items.length === 0 ? (
+          {panelItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
               <div className="rounded-full bg-muted/50 p-5 mb-4 border border-border/50 shadow-inner">
                 <Bell className="w-8 h-8 text-muted-foreground/50" />
@@ -88,7 +91,7 @@ export function NotificationsPanel({ open, onOpenChange, items = [] }: Notificat
           ) : (
             <ul className="divide-y divide-border/30">
               <AnimatePresence initial={false}>
-                {items.map((item, index) => (
+                {panelItems.map((item, index) => (
                   <motion.li
                     key={item.id}
                     initial={{ opacity: 0, y: 10 }}

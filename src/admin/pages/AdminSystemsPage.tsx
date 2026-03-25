@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes, Archive, ArchiveRestore, RefreshCw, Check, X, Loader2 } from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes, Archive, ArchiveRestore, RefreshCw, Check, X, Loader2, SquareCheck, Rocket, TestTubeDiagonal, SquarePen, ChevronDown, FileText, Github, Filter } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AvatarGroup, AvatarGroupTooltip } from '@/components/ui/avatar-group';
+import { AppAccessAvatarRow, type AppAccessUserPreview } from '@/components/apps/AppAccessAvatarRow';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -24,7 +24,8 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { databaseService, storageService } from '@/services/supabase';
@@ -34,15 +35,44 @@ import { SystemCategory, Category } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { ComingSoonModal } from '@/components/ComingSoonModal';
 import { cn } from '@/lib/utils';
+import { TabButtons, type TabButtonItem } from '@/components/ui/tab-buttons';
+import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
+import { useAuthStore } from '@/store/authStore';
+/** Campo type=date dentro de Dialog: sem ícone nativo visível; clique abre o picker (via modal={false} no Dialog). */
+const releaseDateInputClassName = cn(
+  'h-10 w-full rounded-xl bg-background/50 focus-visible:ring-primary/20 cursor-pointer',
+  'relative dark:[color-scheme:dark]',
+  '[&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0',
+  '[&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full',
+  '[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0',
+  '[&::-moz-calendar-picker-indicator]:opacity-0'
+);
 
 // O array CATEGORIES original agora é carregado do banco
 const STATUS_OPTIONS = [
   { value: 'ativo', label: 'Ativo' },
+  { value: 'lancamento', label: 'Lançamento' },
   { value: 'beta', label: 'Beta' },
   { value: 'rascunho', label: 'Rascunho' },
   { value: 'arquivado', label: 'Arquivado' },
   { value: 'excluído', label: 'Excluído' },
 ] as const;
+const CREATE_STATUS_OPTIONS = [
+  { value: 'ativo', label: 'Ativo', Icon: SquareCheck },
+  { value: 'lancamento', label: 'Lançamento', Icon: Rocket },
+  { value: 'beta', label: 'Beta', Icon: TestTubeDiagonal },
+  { value: 'rascunho', label: 'Rascunho', Icon: SquarePen },
+  { value: 'arquivado', label: 'Arquivado', Icon: Archive },
+] as const;
+type SystemStatusTabValue = 'all' | 'ativo' | 'lancamentos' | 'beta' | 'rascunho' | 'arquivado';
+const STATUS_TAB_ITEMS: ReadonlyArray<TabButtonItem<SystemStatusTabValue>> = [
+  { value: 'all', label: 'Todos', Icon: Boxes },
+  { value: 'ativo', label: 'Ativos', Icon: SquareCheck },
+  { value: 'lancamentos', label: 'Lançamentos', Icon: Rocket },
+  { value: 'beta', label: 'Betas', Icon: TestTubeDiagonal },
+  { value: 'rascunho', label: 'Rascunho', Icon: SquarePen },
+  { value: 'arquivado', label: 'Arquivado', Icon: Archive },
+];
 
 interface AdminSystem {
   id: string;
@@ -56,6 +86,8 @@ interface AdminSystem {
   createdAt: Date;
   next_release_version?: string;
   next_release_date?: string;
+  anchor_pdf_url?: string;
+  github_url?: string;
 }
 
 function renderIcon(iconPath: string, className: string = '') {
@@ -71,13 +103,16 @@ function renderIcon(iconPath: string, className: string = '') {
 }
 
 export default function AdminSystemsPage() {
+  const createReleaseDateFieldId = useId();
+  const editReleaseDateFieldId = useId();
+  const { user: currentUser } = useAuthStore();
   const [systems, setSystems] = useState<AdminSystem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<SystemStatusTabValue>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [comingSoonSystem, setComingSoonSystem] = useState<AdminSystem | null>(null);
   const [archivedSystem, setArchivedSystem] = useState<AdminSystem | null>(null);
@@ -87,7 +122,7 @@ export default function AdminSystemsPage() {
   const handleOpenSystem = (system: AdminSystem) => {
     if (system.status === 'arquivado') { setArchivedSystem(system); return; }
     if (system.status === 'excluído' || system.status === 'excluido') { setDeletedSystem(system); return; }
-    if (system.status === 'beta' || system.status === 'rascunho') { setComingSoonSystem(system); return; }
+    if (system.status === 'beta' || system.status === 'rascunho' || system.status === 'lancamento') { setComingSoonSystem(system); return; }
     if (system.url) window.open(system.url, '_blank');
   };
 
@@ -100,7 +135,7 @@ export default function AdminSystemsPage() {
     setArchivedSystem(null);
   };
 
-  type FormStatus = 'ativo' | 'beta' | 'rascunho' | 'arquivado';
+  type FormStatus = 'ativo' | 'lancamento' | 'beta' | 'rascunho' | 'arquivado';
   const [form, setForm] = useState<{
     name: string;
     logo: string;
@@ -108,6 +143,8 @@ export default function AdminSystemsPage() {
     category: string;
     status: FormStatus;
     url: string;
+    anchor_pdf_url: string;
+    github_url: string;
     next_release_version: string;
     next_release_date: string;
   }>({
@@ -117,6 +154,8 @@ export default function AdminSystemsPage() {
     category: '',
     status: 'rascunho',
     url: '',
+    anchor_pdf_url: '',
+    github_url: '',
     next_release_version: '',
     next_release_date: '',
   });
@@ -124,7 +163,7 @@ export default function AdminSystemsPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [appUsers, setAppUsers] = useState<Record<string, { id: string; name: string; avatar?: string }[]>>({});
   const [editingSystem, setEditingSystem] = useState<AdminSystem | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', logo: '', category: '' as SystemCategory, url: '', status: 'rascunho' as string, next_release_version: '', next_release_date: '' });
+  const [editForm, setEditForm] = useState({ name: '', description: '', logo: '', category: '' as SystemCategory, url: '', status: 'rascunho' as string, anchor_pdf_url: '', github_url: '', next_release_version: '', next_release_date: '' });
   
   // Modal de acessos em massa
   const [accessModalSystem, setAccessModalSystem] = useState<AdminSystem | null>(null);
@@ -136,11 +175,17 @@ export default function AdminSystemsPage() {
   const [accessFilter, setAccessFilter] = useState<'all' | 'granted' | 'denied'>('all');
   const [accessSectorFilter, setAccessSectorFilter] = useState<string>('all');
 
+  const [profileCardOpen, setProfileCardOpen] = useState(false);
+  const [profileCardUserData, setProfileCardUserData] = useState<unknown>(null);
+  const [profileLoadingUserId, setProfileLoadingUserId] = useState<string | null>(null);
+
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [anchorUploading, setAnchorUploading] = useState(false);
   const createLogoInputRef = useRef<HTMLInputElement>(null);
   const editLogoInputRef = useRef<HTMLInputElement>(null);
-
+  const createAnchorInputRef = useRef<HTMLInputElement>(null);
+  const editAnchorInputRef = useRef<HTMLInputElement>(null);
   const loadData = async () => {
     setLoading(true);
     const [{ data: systemsData }, { data: catsData }] = await Promise.all([
@@ -174,7 +219,7 @@ export default function AdminSystemsPage() {
   }, []);
 
   const STATUS_ORDER: Record<string, number> = {
-    ativo: 0, beta: 1, rascunho: 2, arquivado: 3, excluído: 4, excluido: 4,
+    ativo: 0, lancamento: 1, beta: 2, rascunho: 3, arquivado: 4, excluído: 5, excluido: 5,
   };
 
   const filtered = systems
@@ -184,7 +229,13 @@ export default function AdminSystemsPage() {
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (s.description ?? '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchCat = selectedCategory === 'all' || s.category === selectedCategory;
-      const matchStatus = selectedStatus === 'all' || (s.status ?? '') === selectedStatus;
+      const st = (s.status ?? '').toLowerCase();
+      const matchStatus =
+        selectedStatus === 'all'
+          ? true
+          : selectedStatus === 'lancamentos'
+            ? st === 'lancamento'
+            : st === selectedStatus;
       return matchSearch && matchCat && matchStatus;
     })
     .sort((a, b) => {
@@ -205,6 +256,9 @@ export default function AdminSystemsPage() {
       category: editForm.category,
       url: editForm.url.trim() || undefined,
       status: editForm.status,
+      // TODO: incluir no payload após migration SQL:
+      // anchor_pdf_url: editForm.anchor_pdf_url.trim() || undefined,
+      // github_url: editForm.github_url.trim() || undefined,
       next_release_version: editForm.next_release_version.trim() || undefined,
       next_release_date: editForm.next_release_date.trim() || undefined,
     });
@@ -277,6 +331,22 @@ export default function AdminSystemsPage() {
     setLoadingAccess(false);
   }, []);
 
+  const handleAppAccessUserClick = useCallback(async (user: AppAccessUserPreview) => {
+    setProfileLoadingUserId(user.id);
+    const { data } = await databaseService.getProfileForPopupByUserId(user.id);
+    setProfileLoadingUserId(null);
+    if (data) {
+      setProfileCardUserData(data);
+      setProfileCardOpen(true);
+      return;
+    }
+    setProfileCardUserData({
+      full_name: user.name,
+      avatar_url: user.avatar,
+    });
+    setProfileCardOpen(true);
+  }, []);
+
   const toggleMemberAccess = (userId: string) => {
     setMemberAccesses(prev =>
       prev.map(m => m.id === userId ? { ...m, canAccess: !m.canAccess } : m)
@@ -340,6 +410,8 @@ export default function AdminSystemsPage() {
       category: (system.category as SystemCategory) ?? 'Ferramentas',
       url: system.url ?? '',
       status: system.status ?? 'rascunho',
+      anchor_pdf_url: (system as any).anchor_pdf_url ?? '',
+      github_url: (system as any).github_url ?? '',
       next_release_version: system.next_release_version ?? '',
       next_release_date: system.next_release_date ?? '',
     });
@@ -360,18 +432,21 @@ export default function AdminSystemsPage() {
       category: form.category,
       status: form.status,
       url: form.url.trim() || undefined,
+      // TODO: incluir no payload após migration SQL:
+      // anchor_pdf_url: form.anchor_pdf_url.trim() || undefined,
+      // github_url: form.github_url.trim() || undefined,
       next_release_version: form.next_release_version.trim() || undefined,
       next_release_date: form.next_release_date.trim() || undefined,
     });
     setFormLoading(false);
     if (error) {
-      setFormError((error as any).message ?? 'Erro ao criar sistema.');
+      setFormError((error as any).message ?? 'Erro ao criar aplicativo.');
       return;
     }
     if (data) {
       setSystems((prev) => [...prev, data as AdminSystem].sort((a, b) => a.name.localeCompare(b.name)));
       setIsCreateOpen(false);
-      setForm({ name: '', logo: '', description: '', category: categories[0]?.name || '', status: 'rascunho', url: '', next_release_version: '', next_release_date: '' });
+      setForm({ name: '', logo: '', description: '', category: categories[0]?.name || '', status: 'rascunho', url: '', anchor_pdf_url: '', github_url: '', next_release_version: '', next_release_date: '' });
     }
   };
 
@@ -387,13 +462,26 @@ export default function AdminSystemsPage() {
     setLogo(url);
   }, []);
 
+  const handleAnchorPdfUpload = useCallback(async (file: File, setPdfUrl: (url: string) => void) => {
+    setAnchorUploading(true);
+    setFormError('');
+    const { url, error } = await storageService.uploadSystemAnchorPdf(file);
+    setAnchorUploading(false);
+    if (error || !url) {
+      setFormError('Falha no upload do PDF. Verifique o bucket Files/GeApps - Public/Ancora no Supabase.');
+      return;
+    }
+    setPdfUrl(url);
+  }, []);
+
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
-      <AdminPageHeader
-        icon={Boxes}
+      <MainViewHeader
+        icon={<Boxes className="h-6 w-6" />}
         title="Aplicativos"
         description="Gerencie os aplicativos disponíveis no GêApps."
-        action={
+        button={
           <Button
             onClick={() => setIsCreateOpen(true)}
             className="h-10 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
@@ -409,36 +497,76 @@ export default function AdminSystemsPage() {
         onViewModeChange={setViewMode}
         leftContent={
           <>
-            <div className="relative group/search">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
-              <Input
-                placeholder="Buscar..."
-                className="pl-8 w-44 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <select
-              className="h-9 rounded-xl border border-border/60 bg-muted/50 px-3 py-1 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background cursor-pointer"
+            <TabButtons<SystemStatusTabValue>
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">Todos os status</option>
-              {STATUS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <select
-              className="h-9 rounded-xl border border-border/60 bg-muted/50 px-3 py-1 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background cursor-pointer"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-            >
-              <option value="all">Todas categorias</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.name}>{c.name}</option>
-              ))}
-            </select>
+              items={STATUS_TAB_ITEMS}
+              onChange={setSelectedStatus}
+            />
           </>
+        }
+        centerContent={
+          <div className="relative group/search w-full max-w-[560px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
+            <Input
+              placeholder="Buscar..."
+              className="pl-10 w-full h-10 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        }
+        rightContent={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 min-w-[200px] justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
+              >
+                <div className="flex items-center min-w-0">
+                  {selectedCategory === 'all' ? (
+                    <Filter className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/80" />
+                  ) : (
+                    (() => {
+                      const active = categories.find((c) => c.name === selectedCategory);
+                      const activeIcon = active?.icon?.trim();
+                      return activeIcon ? (
+                        renderIcon(activeIcon, 'w-4 h-4 mr-2 shrink-0 object-contain')
+                      ) : (
+                        <Boxes className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/70" />
+                      );
+                    })()
+                  )}
+                  <span className="truncate">
+                    {selectedCategory === 'all' ? 'Todas as categorias' : selectedCategory}
+                  </span>
+                </div>
+                <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[240px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
+            >
+              <DropdownMenuItem
+                onClick={() => setSelectedCategory('all')}
+                className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+              >
+                <Filter className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/80" />
+                <span>Todas as categorias</span>
+              </DropdownMenuItem>
+              {categories.map((c) => (
+                <DropdownMenuItem
+                  key={c.id}
+                  onClick={() => setSelectedCategory(c.name)}
+                  className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                >
+                  {c.icon ? renderIcon(c.icon, 'w-4 h-4 mr-2 shrink-0 object-contain') : <Boxes className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/70" />}
+                  <span className="truncate">{c.name}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
         showViewToggle
       />
@@ -465,6 +593,7 @@ export default function AdminSystemsPage() {
                   ${system.status === 'excluído' || system.status === 'excluido' ? 'from-destructive/20'
                     : system.status === 'arquivado' ? 'from-slate-400/15'
                     : system.status === 'beta' ? 'from-amber-500/20'
+                    : system.status === 'lancamento' ? 'from-teal-500/20'
                     : system.status === 'rascunho' ? 'from-orange-500/15'
                     : 'from-primary/10'}`} />
                 
@@ -475,6 +604,8 @@ export default function AdminSystemsPage() {
                       ? 'border-white/5 bg-[#0d1520]/40 opacity-60 hover:opacity-90 hover:border-white/20 hover:shadow-slate-400/10 hover:-translate-y-2'
                     : system.status === 'beta'
                       ? 'border-white/5 bg-[#0d1520]/80 hover:border-amber-500/50 hover:bg-amber-500/10 hover:shadow-amber-500/15 hover:-translate-y-2'
+                    : system.status === 'lancamento'
+                      ? 'border-white/5 bg-[#0d1520]/80 hover:border-teal-500/50 hover:bg-teal-500/10 hover:shadow-teal-500/15 hover:-translate-y-2'
                     : system.status === 'rascunho'
                       ? 'border-white/5 bg-[#0d1520]/80 hover:border-orange-500/50 hover:bg-orange-500/10 hover:shadow-orange-500/15 hover:-translate-y-2'
                       : 'border-white/5 bg-[#0d1520]/80 hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-2'
@@ -502,6 +633,7 @@ export default function AdminSystemsPage() {
                         const s = system.status ?? 'rascunho';
                         const cls =
                           s === 'ativo'    ? 'bg-primary/15 border-primary/30 text-primary' :
+                          s === 'lancamento' ? 'bg-teal-500/15 border-teal-500/30 text-teal-400' :
                           s === 'beta'     ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' :
                           s === 'rascunho' ? 'bg-orange-500/15 border-orange-500/30 text-orange-400' :
                           s === 'arquivado'? 'bg-muted/60 border-border/50 text-muted-foreground' :
@@ -571,28 +703,17 @@ export default function AdminSystemsPage() {
                     </p>
                   </div>
 
-                  {/* Footer: AvatarStack + Abrir */}
+                  {/* Footer: acessos (AvatarGroup) + Abrir */}
                   <div className="pt-4 border-t border-white/5 flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0 flex items-center">
                       {(appUsers[system.id]?.length ?? 0) > 0 ? (
                         <>
-                          <AvatarGroup className="-space-x-3">
-                            {(appUsers[system.id] || []).slice(0, 4).map((user, i) => (
-                              <Avatar key={user.id || i} className="w-[26px] h-[26px] border-2 border-background">
-                                <AvatarImage src={user.avatar} className="object-cover" />
-                                <AvatarFallback className="text-[10px]">{(user.name || '?').charAt(0).toUpperCase()}</AvatarFallback>
-                                <AvatarGroupTooltip>{user.name || 'Colaborador'}</AvatarGroupTooltip>
-                              </Avatar>
-                            ))}
-                            {(appUsers[system.id]?.length || 0) > 4 && (
-                              <Avatar className="w-[26px] h-[26px] border-2 border-background hover:z-10">
-                                <AvatarFallback className="text-[9px] bg-muted text-muted-foreground font-medium">
-                                  +{(appUsers[system.id]?.length || 0) - 4}
-                                </AvatarFallback>
-                                <AvatarGroupTooltip>+{(appUsers[system.id]?.length || 0) - 4} colaboradores</AvatarGroupTooltip>
-                              </Avatar>
-                            )}
-                          </AvatarGroup>
+                          <AppAccessAvatarRow
+                            users={appUsers[system.id] || []}
+                            onUserClick={handleAppAccessUserClick}
+                            onOverflowClick={() => void handleOpenAccessModal(system)}
+                            loadingUserId={profileLoadingUserId}
+                          />
                           <span className="ml-2 text-[10px] text-muted-foreground hidden xl:inline-block">
                             {appUsers[system.id].length}
                           </span>
@@ -627,6 +748,7 @@ export default function AdminSystemsPage() {
                   <th className="text-left py-3 px-2 font-medium">Descrição</th>
                   <th className="text-left py-3 px-2 font-medium">Categoria</th>
                   <th className="text-left py-3 px-2 font-medium">Status</th>
+                  <th className="text-left py-3 px-2 font-medium">Link</th>
                   <th className="text-left py-3 px-2 font-medium">Ações</th>
                 </tr>
               </thead>
@@ -648,6 +770,7 @@ export default function AdminSystemsPage() {
                         const s = system.status ?? 'rascunho';
                         const cls =
                           s === 'ativo'    ? 'bg-primary/15 border-primary/30 text-primary' :
+                          s === 'lancamento' ? 'bg-teal-500/15 border-teal-500/30 text-teal-400' :
                           s === 'beta'     ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' :
                           s === 'rascunho' ? 'bg-orange-500/15 border-orange-500/30 text-orange-400' :
                           s === 'arquivado'? 'bg-muted/60 border-border/50 text-muted-foreground' :
@@ -662,19 +785,22 @@ export default function AdminSystemsPage() {
                       })()}
                     </td>
                     <td className="py-2 px-2">
+                      {system.url ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-8 p-0 rounded-lg"
+                          onClick={() => handleOpenSystem(system)}
+                          title="Abrir link"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-2">
                       <div className="flex items-center gap-1 min-w-[72px]">
-                        {system.url && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0"
-                            onClick={() => handleOpenSystem(system)}
-                            title="Abrir"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {!system.url && <div className="w-8" />}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -731,7 +857,7 @@ export default function AdminSystemsPage() {
         )}
       </AdminBigBox>
 
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <Dialog modal={false} open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl">
           
           <div className="p-6 border-b border-border/40 bg-muted/20">
@@ -743,7 +869,7 @@ export default function AdminSystemsPage() {
                 <DialogTitle className="text-xl font-semibold">Criar novo app</DialogTitle>
               </div>
               <DialogDescription className="text-sm">
-                Preencha os campos abaixo para adicionar um novo sistema ao painel.
+                Preencha os campos abaixo para adicionar um novo aplicativo ao painel.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -835,40 +961,137 @@ export default function AdminSystemsPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Descrição âncora (PDF)</label>
+                  <input
+                    ref={createAnchorInputRef}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAnchorPdfUpload(file, (url) => setForm((f) => ({ ...f, anchor_pdf_url: url })));
+                      e.target.value = '';
+                    }}
+                  />
+                  <div className="flex">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-10 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                      disabled={anchorUploading}
+                      onClick={() => createAnchorInputRef.current?.click()}
+                    >
+                      {anchorUploading ? <LoadingGif size="sm" className="w-4 h-4 mr-2" /> : <FileText className="w-4 h-4 mr-2 text-muted-foreground" />}
+                      {anchorUploading ? 'Enviando...' : form.anchor_pdf_url ? 'Substituir PDF' : 'Enviar PDF'}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Link do GitHub</label>
+                  <div className="relative">
+                    <Github className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                    <Input
+                      placeholder="https://github.com/org/repo"
+                      value={form.github_url}
+                      onChange={(e) => setForm((f) => ({ ...f, github_url: e.target.value }))}
+                      className="pl-9 h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Categorias e Status */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">Categoria</label>
-                  <div className="relative">
-                    <Boxes className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
-                    <select
-                      className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none"
-                      value={form.category}
-                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                    >
-                      <option value="" disabled>Selecione...</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-10 justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
+                      >
+                        <div className="flex items-center min-w-0">
+                          {(() => {
+                            const active = categories.find((c) => c.name === form.category);
+                            const activeIcon = active?.icon?.trim();
+                            return (
+                              <>
+                                {activeIcon
+                                  ? renderIcon(activeIcon, 'w-4 h-4 mr-2 shrink-0 object-contain')
+                                  : <Boxes className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/70" />}
+                                <span className="truncate">{active?.name || 'Selecione...'}</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-[240px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+                      {categories.length === 0 ? (
+                        <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                          Nenhuma categoria cadastrada
+                        </div>
+                      ) : (
+                        categories.map((c) => (
+                          <DropdownMenuItem
+                            key={c.id}
+                            onClick={() => setForm((f) => ({ ...f, category: c.name }))}
+                            className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                          >
+                            {c.icon
+                              ? renderIcon(c.icon, 'w-4 h-4 mr-2 shrink-0 object-contain')
+                              : <Boxes className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/70" />}
+                            <span className="truncate">{c.name}</span>
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">Status</label>
-                  <div className="relative">
-                    <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
-                    <select
-                      className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none"
-                      value={form.status}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, status: e.target.value as FormStatus }))
-                      }
-                    >
-                      {STATUS_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-10 justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
+                      >
+                        <div className="flex items-center min-w-0">
+                          {(() => {
+                            const active = CREATE_STATUS_OPTIONS.find((o) => o.value === form.status) ?? CREATE_STATUS_OPTIONS[0];
+                            const StatusIcon = active.Icon;
+                            return (
+                              <>
+                                <StatusIcon className="w-4 h-4 mr-2 shrink-0" />
+                                <span className="truncate">{active.label}</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-[220px] bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+                      {CREATE_STATUS_OPTIONS.map((o) => {
+                        const StatusIcon = o.Icon;
+                        return (
+                          <DropdownMenuItem
+                            key={o.value}
+                            onClick={() => setForm((f) => ({ ...f, status: o.value }))}
+                            className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                          >
+                            <StatusIcon className="w-4 h-4 mr-2 shrink-0" />
+                            <span>{o.label}</span>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
@@ -884,15 +1107,34 @@ export default function AdminSystemsPage() {
                   />
                 </div>
                 <div className="space-y-1.5 flex flex-col">
-                  <label className="text-sm font-medium text-foreground">Data do Lançamento</label>
+                  <label htmlFor={createReleaseDateFieldId} className="text-sm font-medium text-foreground">
+                    Data do Lançamento
+                  </label>
                   <Input
+                    id={createReleaseDateFieldId}
                     type="date"
-                    value={form.next_release_date}
+                    value={form.next_release_date === 'TBA' ? '' : form.next_release_date}
                     onChange={(e) => setForm((f) => ({ ...f, next_release_date: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Tab') return;
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
+                        try {
+                          el.showPicker?.();
+                        } catch {
+                          /* ignorar */
+                        }
+                        return;
+                      }
+                      e.preventDefault();
+                    }}
+                    onPaste={(e) => e.preventDefault()}
                     disabled={form.next_release_date === 'TBA'}
-                    className={`h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20 cursor-pointer ${
+                    className={cn(
+                      releaseDateInputClassName,
                       !form.next_release_date || form.next_release_date === 'TBA' ? 'text-muted-foreground' : ''
-                    } relative [&::-webkit-calendar-picker-indicator]:bg-transparent [&::-webkit-calendar-picker-indicator]:p-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:rounded-md hover:[&::-webkit-calendar-picker-indicator]:bg-muted`}
+                    )}
                   />
                   <label className="flex items-center gap-2 mt-1 cursor-pointer group w-fit">
                     <div className="relative flex items-center justify-center">
@@ -934,7 +1176,7 @@ export default function AdminSystemsPage() {
       </Dialog>
 
       {/* Modal Editar */}
-      <Dialog open={!!editingSystem} onOpenChange={(open) => !open && setEditingSystem(null)}>
+      <Dialog modal={false} open={!!editingSystem} onOpenChange={(open) => !open && setEditingSystem(null)}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl">
           
           <div className="p-6 border-b border-border/40 bg-muted/20">
@@ -1039,38 +1281,138 @@ export default function AdminSystemsPage() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Descrição âncora (PDF)</label>
+                      <input
+                        ref={editAnchorInputRef}
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleAnchorPdfUpload(file, (url) => setEditForm((f) => ({ ...f, anchor_pdf_url: url })));
+                          e.target.value = '';
+                        }}
+                      />
+                      <div className="flex">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full h-10 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                          disabled={anchorUploading}
+                          onClick={() => editAnchorInputRef.current?.click()}
+                        >
+                          {anchorUploading ? <LoadingGif size="sm" className="w-4 h-4 mr-2" /> : <FileText className="w-4 h-4 mr-2 text-muted-foreground" />}
+                          {anchorUploading ? 'Enviando...' : editForm.anchor_pdf_url ? 'Substituir PDF' : 'Enviar PDF'}
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground/70">Bucket: Files / Pasta: GeApps - Public/Ancora</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Link do GitHub</label>
+                      <div className="relative">
+                        <Github className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                        <Input
+                          placeholder="https://github.com/org/repo"
+                          value={editForm.github_url}
+                          onChange={(e) => setEditForm((f) => ({ ...f, github_url: e.target.value }))}
+                          className="pl-9 h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Categorias e Status */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-foreground">Categoria</label>
-                      <div className="relative">
-                        <Boxes className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
-                        <select
-                          className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none"
-                          value={editForm.category}
-                          onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value as SystemCategory }))}
-                        >
-                          <option value="" disabled>Selecione...</option>
-                          {categories.map((c) => (
-                            <option key={c.id} value={c.name}>{c.name}</option>
-                          ))}
-                        </select>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full h-10 justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
+                          >
+                            <div className="flex items-center min-w-0">
+                              {(() => {
+                                const active = categories.find((c) => c.name === editForm.category);
+                                const activeIcon = active?.icon?.trim();
+                                return (
+                                  <>
+                                    {activeIcon
+                                      ? renderIcon(activeIcon, 'w-4 h-4 mr-2 shrink-0 object-contain')
+                                      : <Boxes className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/70" />}
+                                    <span className="truncate">{active?.name || 'Selecione...'}</span>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                            <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[240px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+                          {categories.length === 0 ? (
+                            <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                              Nenhuma categoria cadastrada
+                            </div>
+                          ) : (
+                            categories.map((c) => (
+                              <DropdownMenuItem
+                                key={c.id}
+                                onClick={() => setEditForm((f) => ({ ...f, category: c.name as SystemCategory }))}
+                                className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                              >
+                                {c.icon
+                                  ? renderIcon(c.icon, 'w-4 h-4 mr-2 shrink-0 object-contain')
+                                  : <Boxes className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/70" />}
+                                <span className="truncate">{c.name}</span>
+                              </DropdownMenuItem>
+                            ))
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-foreground">Status</label>
-                      <div className="relative">
-                        <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
-                        <select
-                          className="w-full h-10 rounded-xl border border-input bg-background/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 appearance-none"
-                          value={editForm.status}
-                          onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
-                        >
-                          {STATUS_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </select>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full h-10 justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
+                          >
+                            <div className="flex items-center min-w-0">
+                              {(() => {
+                                const active = CREATE_STATUS_OPTIONS.find((o) => o.value === editForm.status) ?? CREATE_STATUS_OPTIONS[0];
+                                const StatusIcon = active.Icon;
+                                return (
+                                  <>
+                                    <StatusIcon className="w-4 h-4 mr-2 shrink-0" />
+                                    <span className="truncate">{active.label}</span>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                            <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[220px] bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+                          {CREATE_STATUS_OPTIONS.map((o) => {
+                            const StatusIcon = o.Icon;
+                            return (
+                              <DropdownMenuItem
+                                key={o.value}
+                                onClick={() => setEditForm((f) => ({ ...f, status: o.value }))}
+                                className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                              >
+                                <StatusIcon className="w-4 h-4 mr-2 shrink-0" />
+                                <span>{o.label}</span>
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
 
@@ -1086,16 +1428,43 @@ export default function AdminSystemsPage() {
                       />
                     </div>
                     <div className="space-y-1.5 flex flex-col">
-                      <label className="text-sm font-medium text-foreground">Data do Lançamento</label>
-                      <Input
-                        type={editForm.next_release_date === 'TBA' ? 'text' : 'date'}
-                        value={editForm.next_release_date === 'TBA' ? 'Não definida' : editForm.next_release_date}
-                        onChange={(e) => setEditForm((f) => ({ ...f, next_release_date: e.target.value }))}
-                        disabled={editForm.next_release_date === 'TBA'}
-                        className={`h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20 cursor-pointer ${
-                          !editForm.next_release_date || editForm.next_release_date === 'TBA' ? 'text-muted-foreground' : ''
-                        } relative [&::-webkit-calendar-picker-indicator]:bg-transparent [&::-webkit-calendar-picker-indicator]:p-1 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:rounded-md hover:[&::-webkit-calendar-picker-indicator]:bg-muted`}
-                      />
+                      <label htmlFor={editReleaseDateFieldId} className="text-sm font-medium text-foreground">
+                        Data do Lançamento
+                      </label>
+                      {editForm.next_release_date === 'TBA' ? (
+                        <Input
+                          type="text"
+                          readOnly
+                          value="Não definida"
+                          className="h-10 rounded-xl bg-background/50 text-muted-foreground cursor-default"
+                        />
+                      ) : (
+                        <Input
+                          id={editReleaseDateFieldId}
+                          type="date"
+                          value={editForm.next_release_date}
+                          onChange={(e) => setEditForm((f) => ({ ...f, next_release_date: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab') return;
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
+                              try {
+                                el.showPicker?.();
+                              } catch {
+                                /* ignorar */
+                              }
+                              return;
+                            }
+                            e.preventDefault();
+                          }}
+                          onPaste={(e) => e.preventDefault()}
+                          className={cn(
+                            releaseDateInputClassName,
+                            !editForm.next_release_date ? 'text-muted-foreground' : ''
+                          )}
+                        />
+                      )}
                       <label className="flex items-center gap-2 mt-1 cursor-pointer group w-fit">
                         <div className="relative flex items-center justify-center">
                           <input
@@ -1137,7 +1506,7 @@ export default function AdminSystemsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Gerenciar Acessos em Massa (Sistema) */}
+      {/* Modal: Gerenciar Acessos em Massa (aplicativo) */}
       <Dialog open={!!accessModalSystem} onOpenChange={(o) => { if (!o) setAccessModalSystem(null); }}>
         <DialogContent className="sm:max-w-lg rounded-3xl border border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
           {/* Header */}
@@ -1418,7 +1787,7 @@ export default function AdminSystemsPage() {
         status={comingSoonSystem?.status}
       />
 
-      {/* Modal: sistema arquivado */}
+      {/* Modal: aplicativo arquivado */}
       <Dialog open={!!archivedSystem} onOpenChange={(o) => { if (!o) setArchivedSystem(null); }}>
         <DialogContent className="sm:max-w-sm rounded-2xl border border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl">
           <DialogHeader>
@@ -1426,10 +1795,10 @@ export default function AdminSystemsPage() {
               <div className="w-10 h-10 rounded-full bg-muted/60 border border-border/50 flex items-center justify-center shrink-0">
                 <Archive className="w-5 h-5 text-muted-foreground" />
               </div>
-              <DialogTitle className="text-base font-semibold">Sistema arquivado</DialogTitle>
+              <DialogTitle className="text-base font-semibold">aplicativo arquivado</DialogTitle>
             </div>
             <DialogDescription className="text-sm leading-relaxed">
-              O sistema <span className="font-semibold text-foreground">{archivedSystem?.name}</span> está arquivado e temporariamente indisponível. Deseja desarquivá-lo e torná-lo ativo novamente?
+              O aplicativo <span className="font-semibold text-foreground">{archivedSystem?.name}</span> está arquivado e temporariamente indisponível. Deseja desarquivá-lo e torná-lo ativo novamente?
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 pt-2">
@@ -1444,7 +1813,7 @@ export default function AdminSystemsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: sistema excluído */}
+      {/* Modal: aplicativo excluído */}
       <Dialog open={!!deletedSystem} onOpenChange={(o) => { if (!o) setDeletedSystem(null); }}>
         <DialogContent className="sm:max-w-sm rounded-2xl border border-destructive/30 bg-background/95 backdrop-blur-xl shadow-2xl">
           <DialogHeader>
@@ -1452,10 +1821,10 @@ export default function AdminSystemsPage() {
               <div className="w-10 h-10 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5 text-destructive" />
               </div>
-              <DialogTitle className="text-base font-semibold">Sistema excluído</DialogTitle>
+              <DialogTitle className="text-base font-semibold">aplicativo excluído</DialogTitle>
             </div>
             <DialogDescription className="text-sm leading-relaxed">
-              O sistema <span className="font-semibold text-foreground">{deletedSystem?.name}</span> foi excluído. Se precisar analisar ou recuperar algo, entre em contato com um administrador.
+              O aplicativo <span className="font-semibold text-foreground">{deletedSystem?.name}</span> foi excluído. Se precisar analisar ou recuperar algo, entre em contato com um administrador.
             </DialogDescription>
           </DialogHeader>
           <Button className="w-full rounded-xl mt-2" onClick={() => setDeletedSystem(null)}>
@@ -1463,6 +1832,14 @@ export default function AdminSystemsPage() {
           </Button>
         </DialogContent>
       </Dialog>
+
+      <ProfileCardInfoPopup
+        open={profileCardOpen}
+        onOpenChange={setProfileCardOpen}
+        userData={profileCardUserData}
+        currentUser={currentUser}
+      />
     </div>
+    </MainViewFluidShell>
   );
 }

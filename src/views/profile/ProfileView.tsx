@@ -15,6 +15,8 @@ import { User, Lock, Building2, Save, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingGif } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
+import { MainViewHeader } from '@/components/layout/header';
 
 export type MascoteOption = 'gato' | 'cachorro' | 'passaro' | 'terra' | 'tigre' | 'cavalo' | 'peixe' | 'leao' | '';
 
@@ -172,7 +174,13 @@ export function ProfileView() {
   );
 
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
+      <MainViewHeader
+        icon={<User className="h-6 w-6" />}
+        title="Perfil"
+        description="Seus dados públicos, informações corporativas, atividades e segurança da conta."
+      />
       <ProfileBanner
         userId={currentUser?.id ?? null}
         value={bannerUrl}
@@ -277,5 +285,6 @@ export function ProfileView() {
         </div>
       </div>
     </div>
+    </MainViewFluidShell>
   );
 }

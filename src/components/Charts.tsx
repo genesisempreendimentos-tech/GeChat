@@ -17,6 +17,11 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useThemeStore } from "@/store/themeStore"
 
+function useDarkChartTheme() {
+  const { theme } = useThemeStore()
+  return theme === "dark" || theme === "full-dark"
+}
+
 interface ActivityData {
   date: string
   acessos: number
@@ -90,8 +95,7 @@ export function ActivityChart({ data }: { data: ActivityData[] }) {
 }
 
 export function SystemUsageChart({ data }: { data: SystemUsageData[] }) {
-  const { theme } = useThemeStore()
-  const isDark = theme === "dark"
+  const isDark = useDarkChartTheme()
   const primaryColor = usePrimaryColor()
 
   return (
@@ -160,8 +164,7 @@ export function DonutChart({
   title: string
   description?: string
 }) {
-  const { theme } = useThemeStore()
-  const isDark = theme === "dark"
+  const isDark = useDarkChartTheme()
   const primaryColor = "hsl(var(--primary))"
   const mutedColor = isDark ? "#6b7280" : "#9ca3af"
   const colors = data.map((d, i) => d.color ?? (i === 0 ? primaryColor : mutedColor))

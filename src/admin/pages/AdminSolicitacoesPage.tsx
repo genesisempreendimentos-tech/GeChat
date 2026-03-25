@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, ExternalLink, Search, AlertCircle, Send, Headset, RefreshCw } from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, Send, Headset, RefreshCw, ChevronDown, Filter, Boxes } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,9 +19,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { databaseService, type RequestChannel, type RequestChannelType } from '@/services/supabase';
 import { getDepartments, type NeonDepartment } from '@/services/corporateProfile';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
@@ -158,19 +165,20 @@ export default function AdminSolicitacoesPage() {
   };
 
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
-      <AdminPageHeader
-        icon={Headset}
+      <MainViewHeader
+        icon={<Headset className="h-6 w-6" />}
         title="Solicitações"
         description="Envie solicitações para outros departamentos"
-        action={
+        button={
           canCreate ? (
             <Button
               onClick={openCreate}
               className="h-10 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Adicionar equipe
+              Adicionar canal
             </Button>
           ) : undefined
         }
@@ -191,24 +199,64 @@ export default function AdminSolicitacoesPage() {
           </div>
         }
         rightContent={
-          <select
-            className="h-9 max-w-[220px] sm:max-w-[280px] rounded-xl border border-border/60 bg-muted/50 px-3 py-1 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background cursor-pointer truncate"
-            value={channelFilterId}
-            onChange={(e) => setChannelFilterId(e.target.value)}
-            aria-label="Filtrar por departamento"
-            title={
-              channelFilterId === CHANNEL_FILTER_ALL
-                ? 'Todos os departamentos'
-                : channels.find((c) => c.id === channelFilterId)?.name
-            }
-          >
-            <option value={CHANNEL_FILTER_ALL}>Todos os departamentos</option>
-            {sortedChannels.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 min-w-[220px] max-w-[280px] justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
+                aria-label="Filtrar por departamento"
+              >
+                <div className="flex items-center min-w-0">
+                  {channelFilterId === CHANNEL_FILTER_ALL ? (
+                    <Filter className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/80" />
+                  ) : (
+                    (() => {
+                      const ch = channels.find((c) => c.id === channelFilterId);
+                      const icon = ch?.icon?.trim();
+                      return icon ? (
+                        renderIcon(icon, 'w-4 h-4 mr-2 shrink-0 object-contain')
+                      ) : (
+                        <Boxes className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/70" />
+                      );
+                    })()
+                  )}
+                  <span className="truncate">
+                    {channelFilterId === CHANNEL_FILTER_ALL
+                      ? 'Todos os departamentos'
+                      : channels.find((c) => c.id === channelFilterId)?.name ?? '—'}
+                  </span>
+                </div>
+                <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
+            >
+              <DropdownMenuItem
+                onClick={() => setChannelFilterId(CHANNEL_FILTER_ALL)}
+                className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+              >
+                <Filter className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/80" />
+                <span>Todos os departamentos</span>
+              </DropdownMenuItem>
+              {sortedChannels.map((c) => (
+                <DropdownMenuItem
+                  key={c.id}
+                  onClick={() => setChannelFilterId(c.id)}
+                  className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                >
+                  {c.icon?.trim() ? (
+                    renderIcon(c.icon, 'w-4 h-4 mr-2 shrink-0 object-contain')
+                  ) : (
+                    <Boxes className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/70" />
+                  )}
+                  <span className="truncate">{c.name}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
         showViewToggle
       />
@@ -552,5 +600,6 @@ export default function AdminSolicitacoesPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </MainViewFluidShell>
   );
 }

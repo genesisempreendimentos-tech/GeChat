@@ -27,6 +27,8 @@ import { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { System } from '@/types';
 import { ComingSoonModal } from '@/components/ComingSoonModal';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
+import { emitFavoritesChanged } from '@/lib/favoritesEvents';
 
 /** Slots visuais fixos na secção «Aplicativos Favoritos» do dashboard. */
 const FAVORITE_DISPLAY_SLOTS = 5;
@@ -135,6 +137,7 @@ export default function DashboardPage() {
     if (error && typeof error === 'object' && (error as { code?: string }).code === FAVORITE_LIMIT_ERROR_CODE) {
       setFavoriteLimitOpen(true);
     } else {
+      emitFavoritesChanged();
       await loadData();
       if (error) console.error('Erro ao favoritar:', error);
     }
@@ -263,6 +266,7 @@ export default function DashboardPage() {
   };
 
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -555,5 +559,6 @@ export default function DashboardPage() {
       />
       <FavoriteLimitDialog open={favoriteLimitOpen} onOpenChange={setFavoriteLimitOpen} />
     </div>
+    </MainViewFluidShell>
   );
 }

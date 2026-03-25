@@ -119,6 +119,8 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 173 80% 42%;
+    /* Barras Recharts: hover mais escuro que o primário (evita “flash” claro no dark) */
+    --chart-bar-active: 173 80% 26%;
 
     /* Shadows Dark Mode */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
@@ -147,6 +149,7 @@
     --border: 220 12% 10%;
     --input: 220 12% 10%;
     --ring: 173 80% 42%;
+    --chart-bar-active: 173 80% 22%;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);

@@ -21,7 +21,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { AdminPageHeader } from '@/admin/components/AdminPageHeader';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { databaseService } from '@/services/supabase';
@@ -456,12 +457,13 @@ export default function AdminMembersPage() {
   };
 
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
-      <AdminPageHeader
-        icon={UserKey}
+      <MainViewHeader
+        icon={<UserKey className="h-6 w-6" />}
         title="Usuários"
         description="Usuários que criaram conta no GeApps. Exibindo dados cadastrais disponíveis."
-        action={
+        button={
           <Button
             onClick={() => setManageUsersOpen(true)}
             className="h-10 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
@@ -963,5 +965,6 @@ export default function AdminMembersPage() {
         currentUser={currentUser}
       />
     </div>
+    </MainViewFluidShell>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Send, Headset, ExternalLink, Filter, ChevronDown, Boxes } from 'lucide-react';
+import { Search, Send, Headset, ExternalLink, Filter, ChevronDown, Boxes, Table2, LayoutGrid } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,11 @@ import {
   type RequestChannelType,
 } from '@/services/supabase';
 import { LoadingGifScreen } from '@/components/LoadingGif';
+import { TabButtons, type TabButtonItem } from '@/components/ui/tab-buttons';
 import { cn } from '@/lib/utils';
+import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 
 const NAME_FILTER_ALL = 'all';
 const TYPE_LABELS: Record<RequestChannelType, string> = {
@@ -28,6 +32,14 @@ const TYPE_LABELS: Record<RequestChannelType, string> = {
 };
 
 type SolicitacoesMainTab = 'canais' | 'enviados';
+const MAIN_TAB_ITEMS: ReadonlyArray<TabButtonItem<SolicitacoesMainTab>> = [
+  { value: 'canais', label: 'Canais', Icon: Headset },
+  { value: 'enviados', label: 'Enviados', Icon: Send },
+];
+const VIEW_TAB_ITEMS: ReadonlyArray<TabButtonItem<ViewMode>> = [
+  { value: 'table', label: 'Tabela', Icon: Table2 },
+  { value: 'cards', label: 'Cards', Icon: LayoutGrid },
+];
 
 function renderIcon(iconPath: string, className: string = '') {
   const isImg =
@@ -100,54 +112,24 @@ export default function SolicitacoesPage() {
   };
 
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Headset className="w-8 h-8 shrink-0" />
-          Solicitações
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Envie solicitações para outros departamentos
-        </p>
-      </div>
+      <MainViewHeader
+        icon={<Headset className="h-6 w-6" />}
+        title="Solicitações"
+        description="Envie solicitações para outros departamentos"
+      />
 
       <AdminControlLine
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        showViewToggle
+        showViewToggle={false}
         leftContent={
-          <div className="flex rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                'h-8 rounded-lg text-sm font-medium transition-all duration-300 px-3 gap-2',
-                mainTab === 'canais'
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-              )}
-              onClick={() => setMainTab('canais')}
-              aria-pressed={mainTab === 'canais'}
-            >
-              <Headset className="h-4 w-4 shrink-0" aria-hidden />
-              Canais
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                'h-8 rounded-lg text-sm font-medium transition-all duration-300 px-3 gap-2',
-                mainTab === 'enviados'
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-              )}
-              onClick={() => setMainTab('enviados')}
-              aria-pressed={mainTab === 'enviados'}
-            >
-              <Send className="h-4 w-4 shrink-0" aria-hidden />
-              Enviados
-            </Button>
-          </div>
+          <TabButtons<SolicitacoesMainTab>
+            value={mainTab}
+            items={MAIN_TAB_ITEMS}
+            onChange={setMainTab}
+          />
         }
         centerContent={
           <div className="relative group/search w-full max-w-3xl">
@@ -161,54 +143,61 @@ export default function SolicitacoesPage() {
           </div>
         }
         rightContent={
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 min-w-[220px] justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
+          <div className="flex items-center gap-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 min-w-[220px] justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
+                >
+                  <div className="flex items-center min-w-0">
+                    <Filter className="w-4 h-4 mr-2 shrink-0" />
+                    <span className="truncate">{filterDropdownLabel}</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="min-w-[280px] max-w-[360px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
               >
-                <div className="flex items-center min-w-0">
-                  <Filter className="w-4 h-4 mr-2 shrink-0" />
-                  <span className="truncate">{filterDropdownLabel}</span>
-                </div>
-                <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="min-w-[280px] max-w-[360px] max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
-            >
-              <DropdownMenuItem
-                onClick={() => setNameFilter(NAME_FILTER_ALL)}
-                className="focus:bg-primary/20 focus:text-primary cursor-pointer"
-              >
-                Todos os canais
-              </DropdownMenuItem>
-              {channelFilterOptions.length === 0 ? (
-                <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-                  Nenhum departamento cadastrado ainda
-                </div>
-              ) : (
-                channelFilterOptions.map(({ name, icon }) => (
-                  <DropdownMenuItem
-                    key={name}
-                    onClick={() => setNameFilter(name)}
-                    className="focus:bg-primary/20 focus:text-primary cursor-pointer"
-                  >
-                    <span className="flex min-w-0 w-full items-center gap-2">
-                      {icon ? (
-                        renderIcon(icon, 'h-4 w-4 shrink-0 object-contain')
-                      ) : (
-                        <Boxes className="h-4 w-4 shrink-0 text-muted-foreground opacity-70" />
-                      )}
-                      <span className="truncate">{name}</span>
-                    </span>
-                  </DropdownMenuItem>
-                ))
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuItem
+                  onClick={() => setNameFilter(NAME_FILTER_ALL)}
+                  className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                >
+                  Todos os canais
+                </DropdownMenuItem>
+                {channelFilterOptions.length === 0 ? (
+                  <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                    Nenhum departamento cadastrado ainda
+                  </div>
+                ) : (
+                  channelFilterOptions.map(({ name, icon }) => (
+                    <DropdownMenuItem
+                      key={name}
+                      onClick={() => setNameFilter(name)}
+                      className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                    >
+                      <span className="flex min-w-0 w-full items-center gap-2">
+                        {icon ? (
+                          renderIcon(icon, 'h-4 w-4 shrink-0 object-contain')
+                        ) : (
+                          <Boxes className="h-4 w-4 shrink-0 text-muted-foreground opacity-70" />
+                        )}
+                        <span className="truncate">{name}</span>
+                      </span>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <TabButtons<ViewMode>
+              value={viewMode}
+              items={VIEW_TAB_ITEMS}
+              onChange={setViewMode}
+            />
+          </div>
         }
       />
 
@@ -217,7 +206,7 @@ export default function SolicitacoesPage() {
       ) : loading ? (
         <LoadingGifScreen className="h-64" />
       ) : filtered.length === 0 ? (
-        <Card>
+        <Card className={cn(TRANSLUCENT_BIG_BOX, 'shadow-none')}>
           <CardContent className="p-12 text-center">
             <Send className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
             <h3 className="text-lg font-semibold mb-2">Nenhum canal encontrado</h3>
@@ -343,5 +332,6 @@ export default function SolicitacoesPage() {
         </div>
       )}
     </div>
+    </MainViewFluidShell>
   );
 }

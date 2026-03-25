@@ -17,9 +17,10 @@ import {
 } from '@/components/ui/tooltip';
 import { LoadingGifScreen } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
+import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
 import type { TeamLifecycleStatus } from '@/services/supabase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AvatarGroup, AvatarGroupTooltip } from '@/components/ui/avatar-group';
+import { AvatarGroup, AvatarGroupItem, AvatarGroupTooltip } from '@/components/ui/avatar-group';
 
 export type TeamsViewMode = 'cards' | 'table';
 
@@ -305,44 +306,14 @@ function DepartmentCardCollaboratorAvatar({
       </AvatarFallback>
     </Avatar>
   );
-
-  if (onPreviewClick) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            disabled={loading}
-            className={cn(
-              'relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0d1520]',
-              loading && 'opacity-70',
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              onPreviewClick(c, team);
-            }}
-            aria-label={`Ver perfil de ${c.name}`}
-          >
-            {avatar}
-            {loading ? (
-              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/60">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
-              </span>
-            ) : null}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">
-          {c.name}
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
   return (
-    <div className="relative">
+    <AvatarGroupItem
+      tooltip={c.name}
+      loading={loading}
+      onClick={onPreviewClick ? () => onPreviewClick(c, team) : undefined}
+    >
       {avatar}
-      <AvatarGroupTooltip>{c.name}</AvatarGroupTooltip>
-    </div>
+    </AvatarGroupItem>
   );
 }
 
@@ -394,7 +365,7 @@ export function TeamsEnrichedView({
 
   if (rows.length === 0) {
     return (
-      <Card className={variant === 'admin' ? 'border-border/50 bg-background/40' : ''}>
+      <Card className={cn(TRANSLUCENT_BIG_BOX, 'shadow-none')}>
         <CardContent className="p-12 text-center">
           <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
           <h3 className="text-lg font-semibold mb-2">{emptyTitle}</h3>
@@ -413,7 +384,7 @@ export function TeamsEnrichedView({
         className={cn(
           'grid grid-cols-1 gap-4 w-full',
           /* Departamentos: 4 colunas (cards mais estreitos), alinhado a setores/colaboradores */
-          isAdminCards && 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4',
+          isAdminCards && 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
           isUserCards && 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-6',
         )}
       >

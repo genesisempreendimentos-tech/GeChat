@@ -24,7 +24,7 @@ function AdminMainContent() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="flex-1 min-w-0 px-4 md:px-8 pt-6 md:pt-8 pb-20 md:pb-8 w-full max-w-[1600px] mx-auto"
+        className="flex-1 min-w-0 px-1 md:px-2 pt-2 md:pt-2.5 pb-10 md:pb-3 w-full max-w-[1600px] mx-auto"
         role="main"
         aria-label="Painel administrativo"
       >

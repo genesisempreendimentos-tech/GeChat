@@ -1,7 +1,7 @@
 import type { ElementType } from 'react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import * as LucideIcons from 'lucide-react';
-import { Search, Users, Layers, Loader2 } from 'lucide-react';
+import { Search, Users, Layers, Loader2, Grid2x2, Shapes, LayoutGrid, Table2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,10 +15,12 @@ import {
   type TeamsViewMode,
 } from '@/components/teams/TeamsEnrichedView';
 import { AdminControlLine } from '@/admin/components/AdminControlLine';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AdminEquipesTopicView, type SectorTopicRow, type CollaboratorWithAvatar } from '@/admin/components/AdminEquipesTopicView';
 import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
 import { useAuthStore } from '@/store/authStore';
+import { TabButtons, type TabButtonItem } from '@/components/ui/tab-buttons';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 
 const SECTOR_COLOR_HEX_MAP: Record<string, string> = {
   'bg-red-500': '#ef4444',
@@ -71,6 +73,15 @@ type EquipesTopicTab = 'departments' | 'sectors' | 'collaborators';
 const TOPIC_DEPARTMENTS: EquipesTopicTab = 'departments';
 const TOPIC_SECTORS: EquipesTopicTab = 'sectors';
 const TOPIC_COLLABORATORS: EquipesTopicTab = 'collaborators';
+const TOPIC_TAB_ITEMS: ReadonlyArray<TabButtonItem<EquipesTopicTab>> = [
+  { value: TOPIC_DEPARTMENTS, label: 'Departamentos', Icon: Grid2x2 },
+  { value: TOPIC_SECTORS, label: 'Setores', Icon: Shapes },
+  { value: TOPIC_COLLABORATORS, label: 'Colaboradores', Icon: Users },
+];
+const VIEW_TAB_ITEMS: ReadonlyArray<TabButtonItem<TeamsViewMode>> = [
+  { value: 'table', label: 'Tabela', Icon: Table2 },
+  { value: 'cards', label: 'Cards', Icon: LayoutGrid },
+];
 
 function buildDisplayRows(
   teams: Team[],
@@ -272,12 +283,21 @@ export default function EquipesPage() {
   }, [collaboratorsWithAvatar, searchQuery]);
 
   const handleCollaboratorClick = useCallback(async (collab: CollaboratorWithAvatar) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H3',location:'EquipesPage.tsx:275',message:'Entered handleCollaboratorClick',data:{collaboratorId:collab.id,email:collab.email,departmentName:collab.departmentName,sectorName:collab.sectorName},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setLoadingCollaboratorId(collab.id);
     const { data } = await databaseService.getProfileForPopupByEmail(collab.email);
+    // #region agent log
+    fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H4',location:'EquipesPage.tsx:279',message:'Profile fetch result',data:{collaboratorId:collab.id,foundProfile:Boolean(data)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setLoadingCollaboratorId(null);
     if (data) {
       setSelectedProfileData(data);
       setProfilePopupOpen(true);
+      // #region agent log
+      fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H5',location:'EquipesPage.tsx:284',message:'Popup opened with Supabase profile',data:{collaboratorId:collab.id},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       return;
     }
     setSelectedProfileData({
@@ -289,6 +309,9 @@ export default function EquipesPage() {
       hire_date: collab.hireDate || null,
     });
     setProfilePopupOpen(true);
+    // #region agent log
+    fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H5',location:'EquipesPage.tsx:295',message:'Popup opened with fallback profile',data:{collaboratorId:collab.id},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
   }, []);
 
   const openCollaboratorsModalDepartment = useCallback((row: TeamDisplayRow) => {
@@ -397,6 +420,25 @@ export default function EquipesPage() {
     [handleCollaboratorClick, teams],
   );
 
+  const handleSectorCardCollaboratorClick = useCallback(
+    (c: TeamCollaboratorPreview, row: SectorTopicRow) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H2',location:'EquipesPage.tsx:404',message:'Entered handleSectorCardCollaboratorClick',data:{collaboratorId:c.id,collaboratorEmail:c.email,sectorId:row.id,sectorName:row.sectorName},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      const collab: CollaboratorWithAvatar = {
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        departmentName: row.departmentName,
+        sectorName: row.sectorName,
+        neonDepartmentId: row.neonDepartmentId,
+        avatar: c.avatar,
+      };
+      void handleCollaboratorClick(collab);
+    },
+    [handleCollaboratorClick],
+  );
+
   const searchPlaceholder =
     topicView === TOPIC_DEPARTMENTS
       ? 'Buscar departamentos…'
@@ -404,22 +446,32 @@ export default function EquipesPage() {
       ? 'Buscar setores…'
       : 'Buscar colaboradores…';
 
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H0',location:'EquipesPage.tsx:430',message:'EquipesPage mounted',data:{topicView,viewMode},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [topicView, viewMode]);
+
   return (
+    <MainViewFluidShell>
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Users className="w-8 h-8 shrink-0" />
-          Equipes
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Visualize todas as equipes da empresa em departamentos, setores e colaboradores
-        </p>
-      </div>
+      <MainViewHeader
+        icon={<Users className="h-6 w-6" />}
+        title="Equipes"
+        description="Visualize todas as equipes da empresa em departamentos, setores e colaboradores"
+      />
 
       <AdminControlLine
         viewMode={viewMode}
         onViewModeChange={(m) => setViewMode(m as TeamsViewMode)}
-        showViewToggle
+        showViewToggle={false}
+        leftContent={
+          <TabButtons<EquipesTopicTab>
+            value={topicView}
+            items={TOPIC_TAB_ITEMS}
+            onChange={setTopicView}
+          />
+        }
         centerContent={
           <div className="relative group/search w-full max-w-3xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
@@ -432,22 +484,11 @@ export default function EquipesPage() {
           </div>
         }
         rightContent={
-          <Select value={topicView} onValueChange={(val) => setTopicView(val as EquipesTopicTab)}>
-            <SelectTrigger className="h-9 w-[180px] rounded-xl border-border/60 bg-muted/50 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus:ring-2 focus:ring-primary/20 focus:border-primary/40">
-              <SelectValue placeholder="Visualização" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-border/60 bg-card/95 backdrop-blur-xl shadow-lg">
-              <SelectItem value={TOPIC_DEPARTMENTS} className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary transition-colors">
-                Departamentos
-              </SelectItem>
-              <SelectItem value={TOPIC_SECTORS} className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary transition-colors">
-                Setores
-              </SelectItem>
-              <SelectItem value={TOPIC_COLLABORATORS} className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary transition-colors">
-                Colaboradores
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <TabButtons<TeamsViewMode>
+            value={viewMode}
+            items={VIEW_TAB_ITEMS}
+            onChange={setViewMode}
+          />
         }
       />
 
@@ -478,6 +519,7 @@ export default function EquipesPage() {
           onCollaboratorClick={handleCollaboratorClick}
           loadingCollaboratorId={loadingCollaboratorId}
           onSectorCollaboratorBadgeClick={topicView === TOPIC_SECTORS ? openCollaboratorsModalSector : undefined}
+          onSectorCollaboratorPreviewClick={topicView === TOPIC_SECTORS ? handleSectorCardCollaboratorClick : undefined}
           emptyTitle={topicView === TOPIC_SECTORS ? 'Nenhum setor para exibir' : 'Nenhum colaborador para exibir'}
           emptyHint={searchQuery ? 'Tente ajustar a busca.' : 'Não há dados disponíveis para exibição.'}
         />
@@ -587,5 +629,6 @@ export default function EquipesPage() {
         currentUser={currentUser}
       />
     </div>
+    </MainViewFluidShell>
   );
 }

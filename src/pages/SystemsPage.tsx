@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { databaseService, FAVORITE_LIMIT_ERROR_CODE } from '@/services/supabase';
@@ -20,6 +20,9 @@ import {
   RefreshCw,
   Star,
   ChevronDown,
+  SquareCheck,
+  Rocket,
+  TestTubeDiagonal,
   Calendar,
   Clock,
   Archive,
@@ -29,6 +32,8 @@ import {
 import * as Icons from 'lucide-react';
 import { Boxes } from 'lucide-react';
 import { BANNER_CATEGORIES } from '@/views/profile/ProfileBanner/ProfileBannerImages';
+import { cn } from '@/lib/utils';
+import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +45,12 @@ import type { ViewMode } from '@/admin/components/AdminControlLine';
 import type { System, Category } from '@/types';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { ComingSoonModal } from '@/components/ComingSoonModal';
+import { TabButtons, type TabButtonItem } from '@/components/ui/tab-buttons';
+import { AppAccessAvatarRow, type AppAccessUserPreview } from '@/components/apps/AppAccessAvatarRow';
+import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
+import { MainViewHeader } from '@/components/layout/header';
+import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
+import { emitFavoritesChanged } from '@/lib/favoritesEvents';
 
 interface UserSystemAccess {
   user_id: string;
@@ -48,6 +59,8 @@ interface UserSystemAccess {
   is_favorite?: boolean;
   favorite?: boolean;
 }
+
+type SystemStatusTabValue = 'all' | 'ativo' | 'lancamentos' | 'beta';
 
 const getSystemBanner = (systemId: string) => {
   const images = BANNER_CATEGORIES.genesis.images;
@@ -60,10 +73,23 @@ const getSystemBanner = (systemId: string) => {
   return images[index];
 };
 
+/**
+ * Ritmo da main view de Aplicativos: ajuste só estes valores.
+ * - Laterais/topo/rodapé usam clamp(MÍNIMO, vw, MÁXIMO) — cresce com a tela, com teto e piso.
+ * - `widthPercent` é % da largura do container pai; nunca passa de 100% (min(100%, N%)).
+ */
+const SYSTEMS_VIEW_SPACING = {
+  padInline: 'clamp(0.25rem, 2vw, 1rem)',
+  padTop: 'clamp(0.5rem, 1.75vw, 1.25rem)',
+  padBottom: 'clamp(0.75rem, 2.5vw, 2rem)',
+  widthPercent: 96,
+} as const;
+
 export default function SystemsPage() {
   const { user: currentUser } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [statusTab, setStatusTab] = useState<SystemStatusTabValue>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [categories, setCategories] = useState<Category[]>([]);
   const [systems, setSystems] = useState<System[]>([]);
@@ -75,9 +101,27 @@ export default function SystemsPage() {
   const [archivedSystem, setArchivedSystem] = useState<System | null>(null);
   const [deletedSystem, setDeletedSystem] = useState<System | null>(null);
   const [unarchiveLoading, setUnarchiveLoading] = useState(false);
-  
-  const role = (currentUser?.accessType ?? '').toString().toLowerCase();
-  const isAdmin = role === 'admin';
+  const [appAccessUsers, setAppAccessUsers] = useState<
+    Record<string, { id: string; name: string; avatar?: string }[]>
+  >({});
+  const [profileCardOpen, setProfileCardOpen] = useState(false);
+  const [profileCardUserData, setProfileCardUserData] = useState<unknown>(null);
+  const [profileLoadingUserId, setProfileLoadingUserId] = useState<string | null>(null);
+
+  const statusTabItems = useMemo<ReadonlyArray<TabButtonItem<SystemStatusTabValue>>>(
+    () => [
+      { value: 'all', label: 'Todos', Icon: Boxes },
+      { value: 'ativo', label: 'Ativos', Icon: SquareCheck },
+      { value: 'lancamentos', label: 'Lançamentos', Icon: Rocket },
+      { value: 'beta', label: 'Betas', Icon: TestTubeDiagonal },
+    ],
+    []
+  );
+
+  useEffect(() => {
+    const allowed: SystemStatusTabValue[] = ['all', 'ativo', 'lancamentos', 'beta'];
+    if (!allowed.includes(statusTab)) setStatusTab('all');
+  }, [statusTab]);
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -93,7 +137,21 @@ export default function SystemsPage() {
     // Painel do usuário: sempre apenas apps ativo/beta com acesso liberado (inclui admin).
     // Gestão de acessos fica no painel Admin (/admin/systems, membros, equipes).
     const { data: systemsData } = await databaseService.getSystemsForMember(currentUser.id);
-    if (systemsData) setSystems(systemsData as System[]);
+    const list = (systemsData ?? []) as System[];
+    if (systemsData) setSystems(list);
+
+    if (list.length > 0) {
+      const accessResults = await Promise.all(
+        list.map((s) => databaseService.getUsersWithAccessToApp(s.id))
+      );
+      const map: Record<string, { id: string; name: string; avatar?: string }[]> = {};
+      list.forEach((s, i) => {
+        map[s.id] = accessResults[i]?.data ?? [];
+      });
+      setAppAccessUsers(map);
+    } else {
+      setAppAccessUsers({});
+    }
 
     const { data: categoriesData } = await databaseService.getCategories();
     setCategories((categoriesData as Category[]) ?? []);
@@ -105,6 +163,22 @@ export default function SystemsPage() {
 
     setLoading(false);
   };
+
+  const handleAppAccessUserClick = useCallback(async (user: AppAccessUserPreview) => {
+    setProfileLoadingUserId(user.id);
+    const { data } = await databaseService.getProfileForPopupByUserId(user.id);
+    setProfileLoadingUserId(null);
+    if (data) {
+      setProfileCardUserData(data);
+      setProfileCardOpen(true);
+      return;
+    }
+    setProfileCardUserData({
+      full_name: user.name,
+      avatar_url: user.avatar,
+    });
+    setProfileCardOpen(true);
+  }, []);
 
   const renderIcon = (iconPath: string, className: string = '') => {
     // Se for URL ou caminho (SVG, PNG, etc.) da tabela apps, renderizar <img>
@@ -123,7 +197,8 @@ export default function SystemsPage() {
     if (!system) return;
     if (system.status === 'arquivado') { setArchivedSystem(system); return; }
     if (system.status === 'excluído' || system.status === 'excluido') { setDeletedSystem(system); return; }
-    if (system.status === 'beta' || system.status === 'rascunho') { setComingSoonSystem(system); return; }
+    const accessStatus = (system.status ?? '') as string;
+    if (['beta', 'rascunho', 'lancamento'].includes(accessStatus)) { setComingSoonSystem(system); return; }
     window.open(url, '_blank');
   };
 
@@ -157,6 +232,7 @@ export default function SystemsPage() {
     if (error && typeof error === 'object' && (error as { code?: string }).code === FAVORITE_LIMIT_ERROR_CODE) {
       setFavoriteLimitOpen(true);
     } else {
+      emitFavoritesChanged();
       await loadData();
     }
     setFavoriteTogglingId(null);
@@ -177,7 +253,7 @@ export default function SystemsPage() {
 
   // Lista exibida: sistemas já restritos por acesso, filtrados por busca e categoria
   const STATUS_ORDER: Record<string, number> = {
-    ativo: 0, beta: 1, rascunho: 2, arquivado: 3, excluído: 4, excluido: 4,
+    ativo: 0, lancamento: 1, beta: 2, rascunho: 3, arquivado: 4, excluído: 5, excluido: 5,
   };
 
   const filteredSystems = systems
@@ -188,8 +264,15 @@ export default function SystemsPage() {
 
       const matchesCategory =
         selectedCategory === 'all' || system.category === selectedCategory;
+      const st = (system.status ?? '').toLowerCase();
+      const matchesStatus =
+        statusTab === 'all'
+          ? true
+          : statusTab === 'lancamentos'
+            ? st === 'lancamento'
+            : st === statusTab;
 
-      return matchesSearch && matchesCategory;
+      return matchesSearch && matchesCategory && matchesStatus;
     })
     .sort((a, b) => {
       const oA = STATUS_ORDER[a.status ?? 'ativo'] ?? 0;
@@ -213,37 +296,40 @@ export default function SystemsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Boxes className="w-8 h-8 shrink-0" />
-            Aplicativos
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            {isAdmin
-              ? 'Acesse todos os seus aplicativos corporativos'
-              : 'Acesse todos os seus aplicativos corporativos'}
-          </p>
-        </div>
-        
-        <div className="flex gap-2">
+    <MainViewFluidShell>
+      <div className="space-y-6">
+      <MainViewHeader
+        icon={<Boxes className="h-6 w-6" />}
+        title="Aplicativos"
+        description="Acesse todos os seus aplicativos corporativos"
+        button={
           <Button
             variant="outline"
+            className="rounded-xl"
             onClick={loadData}
             disabled={loading}
           >
-            {loading ? <LoadingGif size="sm" className="mr-2 inline-block" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+            {loading ? (
+              <LoadingGif size="sm" className="mr-2 inline-block" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
             Atualizar
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <AdminControlLine
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         showViewToggle
+        leftContent={
+          <TabButtons<SystemStatusTabValue>
+            value={statusTab}
+            items={statusTabItems}
+            onChange={setStatusTab}
+          />
+        }
         centerContent={
           <div className="relative group/search w-full max-w-3xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
@@ -263,25 +349,43 @@ export default function SystemsPage() {
                 className="h-9 min-w-[220px] justify-between rounded-xl border-border/60 bg-muted/50 px-3 text-sm font-medium shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40"
               >
                 <div className="flex items-center min-w-0">
-                  <Filter className="w-4 h-4 mr-2 shrink-0" />
+                  {selectedCategory === 'all' ? (
+                    <Filter className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/80" />
+                  ) : (
+                    (() => {
+                      const active = categories.find((c) => c.name === selectedCategory);
+                      const activeIcon = active?.icon?.trim();
+                      return activeIcon ? (
+                        renderIcon(activeIcon, 'w-4 h-4 mr-2 shrink-0 object-contain')
+                      ) : (
+                        <Boxes className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/70" />
+                      );
+                    })()
+                  )}
                   <span className="truncate">{selectedCategory === 'all' ? 'Todas as categorias' : selectedCategory}</span>
                 </div>
                 <ChevronDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+            <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto min-w-[240px] bg-white dark:bg-[#0d1520] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
               <DropdownMenuItem onClick={() => setSelectedCategory('all')} className="focus:bg-primary/20 focus:text-primary cursor-pointer">
-                Todas as categorias
+                <Filter className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/80" />
+                <span>Todas as categorias</span>
               </DropdownMenuItem>
-              {categoriesForDropdown.map((name) => (
-                <DropdownMenuItem
-                  key={name}
-                  onClick={() => setSelectedCategory(name)}
-                  className="focus:bg-primary/20 focus:text-primary cursor-pointer"
-                >
-                  {name}
-                </DropdownMenuItem>
-              ))}
+              {categoriesForDropdown.map((name) => {
+                const cat = categories.find((c) => c.name === name);
+                const icon = cat?.icon?.trim();
+                return (
+                  <DropdownMenuItem
+                    key={name}
+                    onClick={() => setSelectedCategory(name)}
+                    className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                  >
+                    {icon ? renderIcon(icon, 'w-4 h-4 mr-2 shrink-0 object-contain') : <Boxes className="w-4 h-4 mr-2 shrink-0 text-muted-foreground/70" />}
+                    <span className="truncate">{name}</span>
+                  </DropdownMenuItem>
+                );
+              })}
             </DropdownMenuContent>
           </DropdownMenu>
         }
@@ -291,7 +395,7 @@ export default function SystemsPage() {
       {loading ? (
         <LoadingGifScreen className="h-64" />
       ) : filteredSystems.length === 0 ? (
-        <Card>
+        <Card className={cn(TRANSLUCENT_BIG_BOX, 'shadow-none')}>
           <CardContent className="p-12 text-center">
             <Search className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
             <h3 className="text-lg font-semibold mb-2">Nenhum sistema encontrado</h3>
@@ -356,6 +460,7 @@ export default function SystemsPage() {
                   ${system.status === 'excluído' || system.status === 'excluido' ? 'from-destructive/20'
                     : system.status === 'arquivado' ? 'from-slate-400/15'
                     : system.status === 'beta' ? 'from-amber-500/20'
+                    : system.status === 'lancamento' ? 'from-teal-500/20'
                     : system.status === 'rascunho' ? 'from-orange-500/15'
                     : 'from-primary/20'}`} />
                 
@@ -367,6 +472,8 @@ export default function SystemsPage() {
                         ? 'border-slate-200 dark:border-white/5 bg-white/40 dark:bg-[#0d1520]/40 opacity-60 hover:opacity-90 hover:border-slate-400 dark:hover:border-white/20 hover:shadow-slate-400/10 hover:-translate-y-1'
                       : system.status === 'beta'
                         ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-amber-500/50 hover:bg-amber-500/5 dark:hover:bg-amber-500/10 hover:shadow-amber-500/15 hover:-translate-y-1'
+                      : system.status === 'lancamento'
+                        ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-teal-500/50 hover:bg-teal-500/5 dark:hover:bg-teal-500/10 hover:shadow-teal-500/15 hover:-translate-y-1'
                       : system.status === 'rascunho'
                         ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-orange-500/50 hover:bg-orange-500/5 dark:hover:bg-orange-500/10 hover:shadow-orange-500/15 hover:-translate-y-1'
                         : 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-1'
@@ -393,6 +500,11 @@ export default function SystemsPage() {
                         {system.status === 'beta' && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-500/15 border border-amber-500/30 text-amber-500 w-fit">
                             Beta
+                          </span>
+                        )}
+                        {system.status === 'lancamento' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-teal-500/15 border border-teal-500/30 text-teal-600 dark:text-teal-400 w-fit">
+                            <Rocket className="w-2.5 h-2.5" /> Lançamento
                           </span>
                         )}
                         {system.status === 'rascunho' && (
@@ -452,10 +564,30 @@ export default function SystemsPage() {
                     </div>
                   </div>
 
-                  {/* Footer / Ações */}
+                  {/* Footer: quem tem acesso + Acessar */}
                   <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                    <div
+                      className="flex min-w-0 flex-1 items-center"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      {(appAccessUsers[system.id]?.length ?? 0) > 0 ? (
+                        <>
+                          <AppAccessAvatarRow
+                            users={appAccessUsers[system.id] || []}
+                            onUserClick={handleAppAccessUserClick}
+                            loadingUserId={profileLoadingUserId}
+                          />
+                          <span className="ml-2 hidden text-[10px] text-muted-foreground xl:inline-block">
+                            {appAccessUsers[system.id].length}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-[10px] italic text-muted-foreground/50">Sem acessos</span>
+                      )}
+                    </div>
                     <Button
-                      className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 shadow-none"
+                      className="shrink-0 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 shadow-none"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleSystemAccess(system.url, system.id);
@@ -615,6 +747,14 @@ export default function SystemsPage() {
           </Button>
         </DialogContent>
       </Dialog>
-    </div>
+
+      <ProfileCardInfoPopup
+        open={profileCardOpen}
+        onOpenChange={setProfileCardOpen}
+        userData={profileCardUserData}
+        currentUser={currentUser}
+      />
+      </div>
+    </MainViewFluidShell>
   );
 }
