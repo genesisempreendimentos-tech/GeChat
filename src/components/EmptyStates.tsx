@@ -45,7 +45,7 @@ export function EmptySystemsState({ onAddSystem }: { onAddSystem?: () => void })
     <EmptyState
       icon={<Boxes className="h-12 w-12 text-muted-foreground" />}
       title="Nenhum sistema encontrado"
-      description="Você ainda não tem sistemas cadastrados. Adicione seu primeiro sistema para começar."
+      description="Você ainda não tem aplicativos cadastrados. Adicione seu primeiro sistema para começar."
       action={
         onAddSystem
           ? {
@@ -63,11 +63,11 @@ export function EmptyFavoritesState({ onBrowseSystems }: { onBrowseSystems?: () 
     <EmptyState
       icon={<Star className="h-12 w-12 text-muted-foreground" />}
       title="Nenhum favorito ainda"
-      description="Marque seus sistemas favoritos para acessá-los rapidamente daqui."
+      description="Marque seus aplicativos favoritos para acessá-los rapidamente daqui."
       action={
         onBrowseSystems
           ? {
-              label: "Explorar Sistemas",
+              label: "Explorar aplicativos",
               onClick: onBrowseSystems,
             }
           : undefined
@@ -95,7 +95,7 @@ export function EmptyUsersState({ onAddUser }: { onAddUser?: () => void }) {
     <EmptyState
       icon={<Users className="h-12 w-12 text-muted-foreground" />}
       title="Nenhum usuário cadastrado"
-      description="Comece adicionando usuários para gerenciar o acesso aos sistemas."
+      description="Comece adicionando usuários para gerenciar o acesso aos aplicativos."
       action={
         onAddUser
           ? {
