@@ -51,6 +51,8 @@ import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardIn
 import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { emitFavoritesChanged } from '@/lib/favoritesEvents';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { SystemStatusIconBadge } from '@/components/systems/SystemStatusIconBadge';
 
 interface UserSystemAccess {
   user_id: string;
@@ -297,6 +299,7 @@ export default function SystemsPage() {
 
   return (
     <MainViewFluidShell>
+      <TooltipProvider delayDuration={200}>
       <div className="space-y-6">
       <MainViewHeader
         icon={<Boxes className="h-6 w-6" />}
@@ -431,7 +434,9 @@ export default function SystemsPage() {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-muted-foreground">{system.category || '—'}</td>
-                      <td className="py-3 px-4 text-muted-foreground capitalize">{system.status || 'ativo'}</td>
+                      <td className="py-3 px-4">
+                        <SystemStatusIconBadge status={system.status} variant="table" />
+                      </td>
                       <td className="py-3 px-4 text-right">
                         <span className="inline-flex items-center gap-1.5 text-primary font-medium">
                           <ExternalLink className="w-4 h-4" />
@@ -446,7 +451,7 @@ export default function SystemsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full">
           {filteredSystems.map((system, index) => {
             return (
               <motion.div
@@ -460,7 +465,7 @@ export default function SystemsPage() {
                   ${system.status === 'excluído' || system.status === 'excluido' ? 'from-destructive/20'
                     : system.status === 'arquivado' ? 'from-slate-400/15'
                     : system.status === 'beta' ? 'from-amber-500/20'
-                    : system.status === 'lancamento' ? 'from-teal-500/20'
+                    : system.status === 'lancamento' ? 'from-blue-600/35'
                     : system.status === 'rascunho' ? 'from-orange-500/15'
                     : 'from-primary/20'}`} />
                 
@@ -473,7 +478,7 @@ export default function SystemsPage() {
                       : system.status === 'beta'
                         ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-amber-500/50 hover:bg-amber-500/5 dark:hover:bg-amber-500/10 hover:shadow-amber-500/15 hover:-translate-y-1'
                       : system.status === 'lancamento'
-                        ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-teal-500/50 hover:bg-teal-500/5 dark:hover:bg-teal-500/10 hover:shadow-teal-500/15 hover:-translate-y-1'
+                        ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-blue-500 hover:bg-blue-600/10 dark:hover:bg-blue-600/20 hover:shadow-blue-600/25 hover:-translate-y-1'
                       : system.status === 'rascunho'
                         ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-orange-500/50 hover:bg-orange-500/5 dark:hover:bg-orange-500/10 hover:shadow-orange-500/15 hover:-translate-y-1'
                         : 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-1'
@@ -482,69 +487,47 @@ export default function SystemsPage() {
                 >
 
                   {/* Header do Card */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-4">
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex items-start gap-4 min-w-0 flex-1">
                       {/* Ícone */}
-                      <div className="relative group/icon">
+                      <div className="relative group/icon shrink-0">
                         <div className="absolute inset-0 bg-primary/20 blur-lg rounded-xl opacity-0 group-hover/icon:opacity-50 transition-opacity duration-500" />
                         <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-slate-50 to-white dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-primary shadow-inner group-hover/icon:border-primary/30 transition-colors">
                           {renderIcon(system.icon, 'w-7 h-7 object-contain drop-shadow')}
                         </div>
                       </div>
 
-                      {/* Nome + badge status */}
-                      <div className="flex flex-col gap-1">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors duration-300 leading-tight">
+                      <div className="min-w-0 pt-0.5">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate group-hover:text-primary transition-colors duration-300 leading-tight">
                           {system.name}
                         </h3>
-                        {system.status === 'beta' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-500/15 border border-amber-500/30 text-amber-500 w-fit">
-                            Beta
-                          </span>
-                        )}
-                        {system.status === 'lancamento' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-teal-500/15 border border-teal-500/30 text-teal-600 dark:text-teal-400 w-fit">
-                            <Rocket className="w-2.5 h-2.5" /> Lançamento
-                          </span>
-                        )}
-                        {system.status === 'rascunho' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-orange-500/15 border border-orange-500/30 text-orange-500 w-fit">
-                            Rascunho
-                          </span>
-                        )}
-                        {system.status === 'arquivado' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-muted/60 border border-border/50 text-muted-foreground w-fit">
-                            <Archive className="w-2.5 h-2.5" /> Arquivado
-                          </span>
-                        )}
-                        {(system.status === 'excluído' || system.status === 'excluido') && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-destructive/15 border border-destructive/30 text-destructive w-fit">
-                            <Trash2 className="w-2.5 h-2.5" /> Excluído
-                          </span>
-                        )}
+                        <p className="text-xs text-muted-foreground truncate">{system.category}</p>
                       </div>
                     </div>
-                    
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleFavorite(system.id);
-                      }}
-                      disabled={favoriteTogglingId === system.id}
-                      className={`p-2 rounded-full transition-all duration-300 ${
-                        isFavorite(system.id)
-                          ? 'text-yellow-500 dark:text-yellow-400 bg-yellow-500/10 dark:bg-yellow-400/10'
-                          : 'text-slate-400 dark:text-muted-foreground/50 hover:text-yellow-500 dark:hover:text-yellow-400 hover:bg-yellow-500/10 dark:hover:bg-yellow-400/10'
-                      }`}
-                      title={isFavorite(system.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                    >
-                      {favoriteTogglingId === system.id ? (
-                        <LoadingGif size="sm" className="shrink-0" />
-                      ) : (
-                        <Star className={`w-4 h-4 ${isFavorite(system.id) ? 'fill-current' : ''}`} />
-                      )}
-                    </button>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <SystemStatusIconBadge status={system.status} variant="card" />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavorite(system.id);
+                        }}
+                        disabled={favoriteTogglingId === system.id}
+                        className={`p-2 rounded-full transition-all duration-300 ${
+                          isFavorite(system.id)
+                            ? 'text-yellow-500 dark:text-yellow-400 bg-yellow-500/10 dark:bg-yellow-400/10'
+                            : 'text-slate-400 dark:text-muted-foreground/50 hover:text-yellow-500 dark:hover:text-yellow-400 hover:bg-yellow-500/10 dark:hover:bg-yellow-400/10'
+                        }`}
+                        title={isFavorite(system.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                      >
+                        {favoriteTogglingId === system.id ? (
+                          <LoadingGif size="sm" className="shrink-0" />
+                        ) : (
+                          <Star className={`w-4 h-4 ${isFavorite(system.id) ? 'fill-current' : ''}`} />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Conteúdo */}
@@ -555,13 +538,6 @@ export default function SystemsPage() {
                     >
                       {system.description}
                     </p>
-                    
-                    {/* Tag de Categoria */}
-                    <div className="flex">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-gradient-to-r from-primary/10 to-primary/5 text-primary border border-primary/10 shadow-sm shadow-primary/5">
-                        {system.category}
-                      </span>
-                    </div>
                   </div>
 
                   {/* Footer: quem tem acesso + Acessar */}
@@ -755,6 +731,7 @@ export default function SystemsPage() {
         currentUser={currentUser}
       />
       </div>
+      </TooltipProvider>
     </MainViewFluidShell>
   );
 }

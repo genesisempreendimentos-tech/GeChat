@@ -283,21 +283,12 @@ export default function EquipesPage() {
   }, [collaboratorsWithAvatar, searchQuery]);
 
   const handleCollaboratorClick = useCallback(async (collab: CollaboratorWithAvatar) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H3',location:'EquipesPage.tsx:275',message:'Entered handleCollaboratorClick',data:{collaboratorId:collab.id,email:collab.email,departmentName:collab.departmentName,sectorName:collab.sectorName},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     setLoadingCollaboratorId(collab.id);
     const { data } = await databaseService.getProfileForPopupByEmail(collab.email);
-    // #region agent log
-    fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H4',location:'EquipesPage.tsx:279',message:'Profile fetch result',data:{collaboratorId:collab.id,foundProfile:Boolean(data)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     setLoadingCollaboratorId(null);
     if (data) {
       setSelectedProfileData(data);
       setProfilePopupOpen(true);
-      // #region agent log
-      fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H5',location:'EquipesPage.tsx:284',message:'Popup opened with Supabase profile',data:{collaboratorId:collab.id},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return;
     }
     setSelectedProfileData({
@@ -309,9 +300,6 @@ export default function EquipesPage() {
       hire_date: collab.hireDate || null,
     });
     setProfilePopupOpen(true);
-    // #region agent log
-    fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H5',location:'EquipesPage.tsx:295',message:'Popup opened with fallback profile',data:{collaboratorId:collab.id},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
   }, []);
 
   const openCollaboratorsModalDepartment = useCallback((row: TeamDisplayRow) => {
@@ -422,9 +410,6 @@ export default function EquipesPage() {
 
   const handleSectorCardCollaboratorClick = useCallback(
     (c: TeamCollaboratorPreview, row: SectorTopicRow) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H2',location:'EquipesPage.tsx:404',message:'Entered handleSectorCardCollaboratorClick',data:{collaboratorId:c.id,collaboratorEmail:c.email,sectorId:row.id,sectorName:row.sectorName},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       const collab: CollaboratorWithAvatar = {
         id: c.id,
         name: c.name,
@@ -445,12 +430,6 @@ export default function EquipesPage() {
       : topicView === TOPIC_SECTORS
       ? 'Buscar setores…'
       : 'Buscar colaboradores…';
-
-  useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H0',location:'EquipesPage.tsx:430',message:'EquipesPage mounted',data:{topicView,viewMode},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  }, [topicView, viewMode]);
 
   return (
     <MainViewFluidShell>

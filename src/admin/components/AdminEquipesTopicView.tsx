@@ -1,4 +1,4 @@
-import { useEffect, type ElementType } from 'react';
+import type { ElementType } from 'react';
 import { motion } from 'framer-motion';
 import * as Icons from 'lucide-react';
 import { Building2, Layers, Mail, UserCircle, Users } from 'lucide-react';
@@ -105,12 +105,6 @@ export function AdminEquipesTopicView({
   onSectorCollaboratorBadgeClick,
   onSectorCollaboratorPreviewClick,
 }: AdminEquipesTopicViewProps) {
-  useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H0',location:'AdminEquipesTopicView.tsx:108',message:'AdminEquipesTopicView rendered',data:{variant,viewMode,sectorRows:sectorRows.length,hasPreviewCallback:Boolean(onSectorCollaboratorPreviewClick)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  }, [variant, viewMode, sectorRows.length, onSectorCollaboratorPreviewClick]);
-
   if (loading) {
     return <LoadingGifScreen className="h-64" />;
   }
@@ -192,9 +186,6 @@ export function AdminEquipesTopicView({
                           onClick={
                             onSectorCollaboratorPreviewClick
                               ? () => {
-                                  // #region agent log
-                                  fetch('http://127.0.0.1:7511/ingest/5bd33082-b830-481f-93a0-754b13fb51bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c410f7'},body:JSON.stringify({sessionId:'c410f7',runId:'equipes-avatar-click',hypothesisId:'H1',location:'AdminEquipesTopicView.tsx:186',message:'Avatar click in sector card',data:{collaboratorId:c.id,collaboratorName:c.name,sectorId:row.id,hasCallback:Boolean(onSectorCollaboratorPreviewClick)},timestamp:Date.now()})}).catch(()=>{});
-                                  // #endregion
                                   onSectorCollaboratorPreviewClick(c, row);
                                 }
                               : undefined

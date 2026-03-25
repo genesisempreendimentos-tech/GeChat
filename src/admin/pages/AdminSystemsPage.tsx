@@ -38,6 +38,8 @@ import { cn } from '@/lib/utils';
 import { TabButtons, type TabButtonItem } from '@/components/ui/tab-buttons';
 import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
 import { useAuthStore } from '@/store/authStore';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { SystemStatusIconBadge } from '@/components/systems/SystemStatusIconBadge';
 /** Campo type=date dentro de Dialog: sem ícone nativo visível; clique abre o picker (via modal={false} no Dialog). */
 const releaseDateInputClassName = cn(
   'h-10 w-full rounded-xl bg-background/50 focus-visible:ring-primary/20 cursor-pointer',
@@ -402,20 +404,23 @@ export default function AdminSystemsPage() {
   const grantedCount = memberAccesses.filter(m => m.canAccess).length;
 
   const openEditModal = (system: AdminSystem) => {
-    setEditingSystem(system);
-    setEditForm({
-      name: system.name,
-      description: system.description ?? '',
-      logo: typeof system.icon === 'string' && (system.icon.startsWith('http') || system.icon.startsWith('/')) ? system.icon : '',
-      category: (system.category as SystemCategory) ?? 'Ferramentas',
-      url: system.url ?? '',
-      status: system.status ?? 'rascunho',
-      anchor_pdf_url: (system as any).anchor_pdf_url ?? '',
-      github_url: (system as any).github_url ?? '',
-      next_release_version: system.next_release_version ?? '',
-      next_release_date: system.next_release_date ?? '',
-    });
-    setFormError('');
+    // Adia após o DropdownMenu fechar para não combinar com pointer-outside do Dialog (flicker).
+    setTimeout(() => {
+      setEditingSystem(system);
+      setEditForm({
+        name: system.name,
+        description: system.description ?? '',
+        logo: typeof system.icon === 'string' && (system.icon.startsWith('http') || system.icon.startsWith('/')) ? system.icon : '',
+        category: (system.category as SystemCategory) ?? 'Ferramentas',
+        url: system.url ?? '',
+        status: system.status ?? 'rascunho',
+        anchor_pdf_url: (system as any).anchor_pdf_url ?? '',
+        github_url: (system as any).github_url ?? '',
+        next_release_version: system.next_release_version ?? '',
+        next_release_date: system.next_release_date ?? '',
+      });
+      setFormError('');
+    }, 0);
   };
 
   const handleCreate = async () => {
@@ -476,6 +481,7 @@ export default function AdminSystemsPage() {
 
   return (
     <MainViewFluidShell>
+    <TooltipProvider delayDuration={200}>
     <div className="space-y-6">
       <MainViewHeader
         icon={<Boxes className="h-6 w-6" />}
@@ -593,7 +599,7 @@ export default function AdminSystemsPage() {
                   ${system.status === 'excluído' || system.status === 'excluido' ? 'from-destructive/20'
                     : system.status === 'arquivado' ? 'from-slate-400/15'
                     : system.status === 'beta' ? 'from-amber-500/20'
-                    : system.status === 'lancamento' ? 'from-teal-500/20'
+                    : system.status === 'lancamento' ? 'from-blue-600/35'
                     : system.status === 'rascunho' ? 'from-orange-500/15'
                     : 'from-primary/10'}`} />
                 
@@ -605,7 +611,7 @@ export default function AdminSystemsPage() {
                     : system.status === 'beta'
                       ? 'border-white/5 bg-[#0d1520]/80 hover:border-amber-500/50 hover:bg-amber-500/10 hover:shadow-amber-500/15 hover:-translate-y-2'
                     : system.status === 'lancamento'
-                      ? 'border-white/5 bg-[#0d1520]/80 hover:border-teal-500/50 hover:bg-teal-500/10 hover:shadow-teal-500/15 hover:-translate-y-2'
+                      ? 'border-white/5 bg-[#0d1520]/80 hover:border-blue-500 hover:bg-blue-600/20 hover:shadow-blue-600/30 hover:-translate-y-2'
                     : system.status === 'rascunho'
                       ? 'border-white/5 bg-[#0d1520]/80 hover:border-orange-500/50 hover:bg-orange-500/10 hover:shadow-orange-500/15 hover:-translate-y-2'
                       : 'border-white/5 bg-[#0d1520]/80 hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-2'
@@ -629,24 +635,8 @@ export default function AdminSystemsPage() {
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
-                      {(() => {
-                        const s = system.status ?? 'rascunho';
-                        const cls =
-                          s === 'ativo'    ? 'bg-primary/15 border-primary/30 text-primary' :
-                          s === 'lancamento' ? 'bg-teal-500/15 border-teal-500/30 text-teal-400' :
-                          s === 'beta'     ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' :
-                          s === 'rascunho' ? 'bg-orange-500/15 border-orange-500/30 text-orange-400' :
-                          s === 'arquivado'? 'bg-muted/60 border-border/50 text-muted-foreground' :
-                          /* excluído */    'bg-destructive/15 border-destructive/30 text-destructive';
-                        return (
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${cls}`}>
-                            {(s === 'arquivado') && <Archive className="w-2.5 h-2.5" />}
-                            {(s === 'excluído' || s === 'excluido') && <Trash2 className="w-2.5 h-2.5" />}
-                            {s}
-                          </span>
-                        );
-                      })()}
-                      
+                      <SystemStatusIconBadge status={system.status} variant="card" />
+
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white hover:bg-white/10 rounded-full">
@@ -766,23 +756,7 @@ export default function AdminSystemsPage() {
                     </td>
                     <td className="py-2 px-2">{system.category}</td>
                     <td className="py-2 px-2">
-                      {(() => {
-                        const s = system.status ?? 'rascunho';
-                        const cls =
-                          s === 'ativo'    ? 'bg-primary/15 border-primary/30 text-primary' :
-                          s === 'lancamento' ? 'bg-teal-500/15 border-teal-500/30 text-teal-400' :
-                          s === 'beta'     ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' :
-                          s === 'rascunho' ? 'bg-orange-500/15 border-orange-500/30 text-orange-400' :
-                          s === 'arquivado'? 'bg-muted/60 border-border/50 text-muted-foreground' :
-                          'bg-destructive/15 border-destructive/30 text-destructive';
-                        return (
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${cls}`}>
-                            {s === 'arquivado' && <Archive className="w-2.5 h-2.5" />}
-                            {(s === 'excluído' || s === 'excluido') && <Trash2 className="w-2.5 h-2.5" />}
-                            {s}
-                          </span>
-                        );
-                      })()}
+                      <SystemStatusIconBadge status={system.status} variant="table" />
                     </td>
                     <td className="py-2 px-2">
                       {system.url ? (
@@ -1175,8 +1149,8 @@ export default function AdminSystemsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Editar */}
-      <Dialog modal={false} open={!!editingSystem} onOpenChange={(open) => !open && setEditingSystem(null)}>
+      {/* Modal Editar: modal padrão (true) evita fechar ao abrir a partir do menu ⋮ (clique fantasma no overlay). */}
+      <Dialog open={!!editingSystem} onOpenChange={(open) => !open && setEditingSystem(null)}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl rounded-2xl">
           
           <div className="p-6 border-b border-border/40 bg-muted/20">
@@ -1840,6 +1814,7 @@ export default function AdminSystemsPage() {
         currentUser={currentUser}
       />
     </div>
+    </TooltipProvider>
     </MainViewFluidShell>
   );
 }

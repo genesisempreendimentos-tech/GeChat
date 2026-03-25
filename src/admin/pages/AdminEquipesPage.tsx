@@ -325,16 +325,24 @@ export default function AdminEquipesPage() {
     const { error } = await databaseService.updateTeamStatus(teamId, status);
     setPendingStatusTeamId(null);
     if (error) {
-      const msg =
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? String((error as { code: string }).code)
+          : '';
+      let msg =
         typeof error === 'object' && error !== null && 'message' in error
           ? String((error as { message: string }).message)
           : 'Não foi possível atualizar o status.';
+      if (code === '23514') {
+        msg =
+          'O banco não aceita este status. Rode migration-teams-status-upgrade.sql para permitir deleted em teams.status.';
+      } else if (code === 'PGRST116' || msg.toLowerCase().includes('0 rows')) {
+        msg = 'Sem permissão para ver/gravar esta equipe (RLS) ou id inválido.';
+      }
       toast.error(msg);
       return;
     }
-    toast.success(
-      status === 'active' ? 'Equipe ativa.' : status === 'archived' ? 'Equipe arquivada.' : 'Equipe excluída.',
-    );
+    toast.success(status === 'active' ? 'Equipe ativa.' : 'Equipe marcada como excluída.');
     await loadTeamsView();
   };
 

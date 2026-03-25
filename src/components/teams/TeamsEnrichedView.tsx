@@ -1,7 +1,7 @@
 import type { ElementType } from 'react';
 import { motion } from 'framer-motion';
 import * as Icons from 'lucide-react';
-import { Users, MoreVertical, Check, Loader2, Layers } from 'lucide-react';
+import { Users, MoreVertical, Check, Loader2, Layers, SquareCheck, Archive, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +13,7 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { LoadingGifScreen } from '@/components/LoadingGif';
@@ -100,9 +101,9 @@ function getSectorItemsForCard(team: TeamDisplayRow): TeamSectorItem[] {
   return team.sectors.map((name) => ({ name, icon: null, color: null }));
 }
 
-const STATUS_OPTIONS: { value: TeamLifecycleStatus; label: string }[] = [
+/** Opções do menu ⋮ (arquivar removido do produto). */
+const TEAM_STATUS_MENU_OPTIONS: { value: TeamLifecycleStatus; label: string }[] = [
   { value: 'active', label: 'Ativo' },
-  { value: 'archived', label: 'Arquivado' },
   { value: 'deleted', label: 'Excluído' },
 ];
 
@@ -131,8 +132,54 @@ function statusBadgeClass(status: TeamLifecycleStatus, onDarkCard = false) {
   }
 }
 
-function statusLabel(status: TeamLifecycleStatus) {
-  return STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
+const TEAM_LIFECYCLE_STATUS_META: Record<
+  TeamLifecycleStatus,
+  { Icon: typeof SquareCheck; label: string }
+> = {
+  active: { Icon: SquareCheck, label: 'Ativo' },
+  archived: { Icon: Archive, label: 'Arquivado' },
+  deleted: { Icon: Trash2, label: 'Excluído' },
+};
+
+const teamStatusTooltipClass =
+  'rounded-xl border border-border/60 bg-card/95 backdrop-blur-xl px-3 py-2 text-xs font-semibold text-foreground shadow-lg';
+
+function TeamLifecycleStatusIconBadge({
+  status,
+  variant,
+}: {
+  status: TeamLifecycleStatus;
+  variant: 'card-dark' | 'table';
+}) {
+  const { Icon, label } = TEAM_LIFECYCLE_STATUS_META[status];
+  const onDark = variant === 'card-dark';
+  const cls = statusBadgeClass(status, onDark);
+  const box = variant === 'card-dark' ? 'h-7 w-7' : 'h-6 w-6';
+  const iconSz = variant === 'card-dark' ? 'h-3.5 w-3.5' : 'h-3 w-3';
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          role="img"
+          aria-label={label}
+          tabIndex={0}
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            'inline-flex items-center justify-center rounded-full border shrink-0 cursor-default outline-none',
+            'focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2',
+            onDark ? 'focus-visible:ring-offset-[#0d1520]' : 'focus-visible:ring-offset-background',
+            box,
+            cls,
+          )}
+        >
+          <Icon className={cn(iconSz, 'shrink-0')} strokeWidth={2} aria-hidden />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={8} className={teamStatusTooltipClass}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 function renderIcon(iconPath: string, className: string = '') {
@@ -258,7 +305,7 @@ function TeamStatusActionsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[180px]">
-        {STATUS_OPTIONS.map((opt) => (
+        {TEAM_STATUS_MENU_OPTIONS.map((opt) => (
           <DropdownMenuItem
             key={opt.value}
             disabled={opt.value === current || pending}
@@ -380,6 +427,7 @@ export function TeamsEnrichedView({
 
   if (viewMode === 'cards') {
     return (
+      <TooltipProvider delayDuration={200}>
       <div
         className={cn(
           'grid grid-cols-1 gap-4 w-full',
@@ -412,19 +460,8 @@ export function TeamsEnrichedView({
                       : undefined
                   }
                 >
-                  {showAdminActions && onTeamStatusChange ? (
-                    <div className="absolute top-2 right-2 z-20" onClick={(e) => e.stopPropagation()}>
-                      <TeamStatusActionsMenu
-                        teamId={team.id}
-                        current={team.status}
-                        pending={pendingTeamId === team.id}
-                        onChange={handleChange}
-                        triggerMuted
-                      />
-                    </div>
-                  ) : null}
-                  <div className="flex items-start justify-between gap-2 mb-3 pr-8">
-                    <div className="flex items-start gap-4 min-w-0">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-start gap-4 min-w-0 flex-1">
                       <div className="relative shrink-0">
                         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center text-primary overflow-hidden">
                           {team.icon ? (
@@ -434,23 +471,32 @@ export function TeamsEnrichedView({
                           )}
                         </div>
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="text-lg font-bold text-white tracking-tight truncate">{team.name}</h3>
-                        {showStatusColumn && (
-                          <span
-                            className={cn(
-                              'inline-flex mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border',
-                              statusBadgeClass(team.status, true),
-                            )}
-                          >
-                            {statusLabel(team.status)}
-                          </span>
-                        )}
+                      <div className="min-w-0 pt-0.5">
+                        <h3 className="text-lg font-bold text-white tracking-tight truncate leading-snug">{team.name}</h3>
                         {team.description ? (
                           <p className="text-xs text-muted-foreground/80 mt-2 line-clamp-2">{team.description}</p>
                         ) : null}
                       </div>
                     </div>
+                    {(showStatusColumn || (showAdminActions && onTeamStatusChange)) ? (
+                      <div
+                        className="flex h-12 shrink-0 items-center gap-1.5 z-20"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {showStatusColumn ? (
+                          <TeamLifecycleStatusIconBadge status={team.status} variant="card-dark" />
+                        ) : null}
+                        {showAdminActions && onTeamStatusChange ? (
+                          <TeamStatusActionsMenu
+                            teamId={team.id}
+                            current={team.status}
+                            pending={pendingTeamId === team.id}
+                            onChange={handleChange}
+                            triggerMuted
+                          />
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="flex flex-col flex-1 mt-4">
                     <SectorMiniboxList team={team} variant="admin" />
@@ -654,11 +700,13 @@ export function TeamsEnrichedView({
           </motion.div>
         ))}
       </div>
+      </TooltipProvider>
     );
   }
 
   /* table */
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
@@ -718,14 +766,7 @@ export function TeamsEnrichedView({
               </td>
               {showStatusColumn ? (
                 <td className="py-2 px-2">
-                  <span
-                    className={cn(
-                      'inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border',
-                      statusBadgeClass(team.status),
-                    )}
-                  >
-                    {statusLabel(team.status)}
-                  </span>
+                  <TeamLifecycleStatusIconBadge status={team.status} variant="table" />
                 </td>
               ) : null}
               {showAdminActions && onTeamStatusChange ? (
@@ -745,5 +786,6 @@ export function TeamsEnrichedView({
         </tbody>
       </table>
     </div>
+    </TooltipProvider>
   );
 }

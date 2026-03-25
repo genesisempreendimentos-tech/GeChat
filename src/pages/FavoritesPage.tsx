@@ -197,7 +197,7 @@ export default function FavoritesPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full">
             {favoriteSystems.map((system, index) => (
               <motion.div
                 key={system.id}
@@ -215,20 +215,20 @@ export default function FavoritesPage() {
                   
                   {/* Header do Card */}
                   <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 min-w-0 flex-1">
                       {/* Ícone */}
-                      <div className="relative group/icon">
+                      <div className="relative group/icon shrink-0">
                         <div className="absolute inset-0 bg-primary/20 blur-lg rounded-xl opacity-0 group-hover/icon:opacity-50 transition-opacity duration-500" />
                         <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-slate-50 to-white dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-primary shadow-inner group-hover/icon:border-primary/30 transition-colors">
                           {renderIcon(system.icon, 'w-7 h-7 object-contain drop-shadow')}
                         </div>
                       </div>
                       
-                      {/* Nome */}
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight group-hover:text-primary transition-colors duration-300">
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate group-hover:text-primary transition-colors duration-300">
                           {system.name}
                         </h3>
+                        <p className="text-xs text-muted-foreground truncate">{system.category}</p>
                       </div>
                     </div>
                     
@@ -258,13 +258,6 @@ export default function FavoritesPage() {
                     >
                       {system.description}
                     </p>
-                    
-                    {/* Tag de Categoria */}
-                    <div className="flex">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-gradient-to-r from-primary/10 to-primary/5 text-primary border border-primary/10 shadow-sm shadow-primary/5">
-                        {system.category}
-                      </span>
-                    </div>
                   </div>
 
                   {/* Footer / Ações */}

@@ -124,6 +124,9 @@ function applyAccentColor(color: AccentColor) {
   const { h, s, l } = colors[color];
   root.style.setProperty('--primary', `${h} ${s}% ${l}%`);
   root.style.setProperty('--primary-foreground', '0 0% 100%');
+  // Recharts / hover: mesma matiz do destaque, mais escura (barras no dark)
+  const barActiveL = Math.max(l - 18, 16);
+  root.style.setProperty('--chart-bar-active', `${h} ${s}% ${barActiveL}%`);
 }
 
 // Aplicar modo compacto

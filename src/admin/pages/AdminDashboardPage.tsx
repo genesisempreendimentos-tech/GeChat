@@ -26,6 +26,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useThemeStore } from '@/store/themeStore';
+import { barChartTooltipCursor, useChartPrimaryRaw } from '@/lib/chartTheme';
 import { format, subDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -41,7 +42,8 @@ type TimeRange = '7' | '30' | '90';
 export default function AdminDashboardPage() {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark' || theme === 'full-dark';
-  const primaryColor = 'hsl(var(--primary))';
+  const primaryRaw = useChartPrimaryRaw();
+  const primaryColor = `hsl(${primaryRaw})`;
 
   const [counts, setCounts] = useState<AdminCounts | null>(null);
   const [accessLogs, setAccessLogs] = useState<any[]>([]);
@@ -220,16 +222,24 @@ export default function AdminDashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer
+                width="100%"
+                height={260}
+                className="[&_.recharts-surface]:outline-none"
+              >
                 <BarChart data={barData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} />
                   <XAxis dataKey="date" stroke={isDark ? '#9ca3af' : '#6b7280'} fontSize={11} />
                   <YAxis stroke={isDark ? '#9ca3af' : '#6b7280'} fontSize={11} />
                   <Tooltip
+                    cursor={barChartTooltipCursor(isDark, primaryRaw)}
                     contentStyle={{
                       backgroundColor: isDark ? '#1f2937' : '#ffffff',
                       border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`,
                       borderRadius: '0.5rem',
+                      boxShadow: isDark
+                        ? '0 10px 28px rgba(0, 0, 0, 0.5)'
+                        : '0 4px 14px rgba(0, 0, 0, 0.08)',
                     }}
                     labelStyle={{ color: isDark ? '#f3f4f6' : '#111827' }}
                   />

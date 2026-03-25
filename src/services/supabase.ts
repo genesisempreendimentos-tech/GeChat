@@ -1228,7 +1228,7 @@ export const databaseService = {
     return { error: { message: 'Nenhum registro foi deletado. Verifique as permissões RLS no Supabase.' } };
   },
 
-  // Status válidos para apps: ativo, beta, rascunho, arquivado, excluído (legado: active/inactive)
+  // Status válidos para apps (alinhar a AdminSystemsPage / UI): inclui lançamento e variantes de excluído
   appRowToSystem(row: any): any {
     const rawStatus = (row.status ?? row.active ?? '').toString().toLowerCase();
     const statusMap: Record<string, string> = {
@@ -1354,7 +1354,9 @@ export const databaseService = {
       systemData.slug ??
       (systemData.name ? normalizeSlug(systemData.name) : '');
     const statusVal = (systemData.status ?? 'rascunho').toString().toLowerCase();
-    const validStatus = ['ativo', 'beta', 'rascunho', 'arquivado', 'excluído'].includes(statusVal)
+    const validStatus = ['ativo', 'lancamento', 'beta', 'rascunho', 'arquivado', 'excluído', 'excluido'].includes(
+      statusVal,
+    )
       ? statusVal
       : 'rascunho';
     const row: any = {
@@ -1385,7 +1387,9 @@ export const databaseService = {
       row.icon_url = systemData.icon ?? systemData.icon_url ?? systemData.logo;
     if (systemData.status != null) {
       const s = (systemData.status ?? '').toString().toLowerCase();
-      if (['ativo', 'beta', 'rascunho', 'arquivado', 'excluído'].includes(s)) row.status = s;
+      if (['ativo', 'lancamento', 'beta', 'rascunho', 'arquivado', 'excluído', 'excluido'].includes(s)) {
+        row.status = s;
+      }
     }
     if (systemData.active != null) row.status = systemData.active ? 'ativo' : 'arquivado';
     if (systemData.category != null) row.category = systemData.category;
@@ -2106,8 +2110,17 @@ export const databaseService = {
         })
         .eq('id', teamId)
         .select()
-        .single();
+        .maybeSingle();
       if (error) return { data: null, error };
+      if (!data) {
+        return {
+          data: null,
+          error: Object.assign(new Error('Nenhuma equipe foi atualizada.'), {
+            code: 'PGRST116',
+            hint: 'Confira o id, se você tem permissão de apps admin (RLS) e se teams.status aceita este valor no banco.',
+          }),
+        };
+      }
       return { data: teamRowToApp(data as TeamRow), error: null };
     } catch (e) {
       return { data: null, error: e };
