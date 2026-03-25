@@ -437,7 +437,7 @@ export default function EquipesPage() {
       <MainViewHeader
         icon={<Users className="h-6 w-6" />}
         title="Equipes"
-        description="Visualize todas as equipes da empresa em departamentos, setores e colaboradores"
+        description="Visualize todas as equipes da empresa em departamentos, setores e colaboradores."
       />
 
       <AdminControlLine

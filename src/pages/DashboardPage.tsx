@@ -98,9 +98,9 @@ export default function DashboardPage() {
       setUserAccesses(accessData || []);
 
       const [total, foregroundMs, { data: logsAll }, { data: recentLogs }] = await Promise.all([
-        databaseService.getTotalAccessCount(),
+        databaseService.getUserAccessCount(user.id),
         databaseService.getUserForegroundScreenTimeMsForGeApps(user.id),
-        databaseService.getAccessLogsAll(500),
+        databaseService.getAccessLogs(user.id, 500),
         databaseService.getAccessLogs(user.id, 5),
       ]);
       setTotalAccessCount(total);
@@ -147,11 +147,11 @@ export default function DashboardPage() {
     return recentLogsFromApi.map((log: any) => ({
       id: log.id ?? log.app_id + log.user_id,
       systemName: log.systemName ?? log.systems?.name ?? 'Sistema',
-      timestamp: log.timestamp ? new Date(log.timestamp) : new Date(),
+      timestamp: new Date(log.created_at ?? log.timestamp ?? Date.now()),
     }));
   }, [recentLogsFromApi]);
 
-  // Gráficos com base em acessos totais (todos os usuários, todos os apps)
+  // Gráficos: só `app_access_daily` do utilizador logado (actor_user_id), datas em created_at
   const chartData = useMemo(() => {
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = subDays(new Date(), 6 - i);
@@ -163,7 +163,7 @@ export default function DashboardPage() {
     });
 
     allAccessLogs.forEach((log: any) => {
-      const ts = log.timestamp ?? log.created_at;
+      const ts = log.created_at ?? log.timestamp;
       if (!ts) return;
       const logDate = startOfDay(new Date(ts));
       const dayData = last7Days.find((day) => day.fullDate.getTime() === logDate.getTime());
@@ -211,7 +211,7 @@ export default function DashboardPage() {
         trend: null as number | null,
       },
       {
-        title: 'Acessos Totais',
+        title: 'Seus acessos',
         value: totalAccessCount,
         icon: Activity,
         color: 'text-green-500',

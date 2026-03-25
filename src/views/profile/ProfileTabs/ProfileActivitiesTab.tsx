@@ -31,7 +31,7 @@ export function ProfileActivitiesTab() {
       recentLogsFromApi.map((log: any) => ({
         id: String(log.id ?? `${log.app_id ?? ''}_${log.user_id ?? ''}_${log.timestamp ?? ''}`),
         systemName: log.systemName ?? log.systems?.name ?? 'Sistema',
-        timestamp: log.timestamp ? new Date(log.timestamp) : new Date(),
+        timestamp: new Date(log.created_at ?? log.timestamp ?? Date.now()),
       })),
     [recentLogsFromApi]
   );

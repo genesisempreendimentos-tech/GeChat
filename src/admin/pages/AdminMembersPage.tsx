@@ -16,6 +16,7 @@ import {
   Archive,
   Trash,
   MoreVertical,
+  Settings,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -462,12 +463,13 @@ export default function AdminMembersPage() {
       <MainViewHeader
         icon={<UserKey className="h-6 w-6" />}
         title="Usuários"
-        description="Usuários que criaram conta no GeApps. Exibindo dados cadastrais disponíveis."
+        description="Usuários que criaram conta no GeApps."
         button={
           <Button
             onClick={() => setManageUsersOpen(true)}
-            className="h-10 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
+            className="h-10 gap-2 rounded-xl px-4 font-semibold shadow-sm shadow-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/30"
           >
+            <Settings className="h-4 w-4 shrink-0" />
             Gerenciar usuários
           </Button>
         }

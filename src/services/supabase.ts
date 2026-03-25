@@ -990,13 +990,36 @@ export const databaseService = {
     }
   },
 
-  /** Conta linhas `app_access_daily` em audit_logs (ignora app_login, screen_time_*, etc.). */
+  /**
+   * Conta todos os `app_access_daily` em audit_logs (qualquer utilizador).
+   * Uso: painel **admin** — total global; não filtra por `actor_user_id`.
+   */
   async getTotalAccessCount(): Promise<number> {
     try {
       const { count, error } = await supabase
         .from('audit_logs')
         .select('*', { count: 'exact', head: true })
         .eq('action', 'app_access_daily');
+      if (error) return 0;
+      return count ?? 0;
+    } catch {
+      return 0;
+    }
+  },
+
+  /**
+   * Conta `app_access_daily` apenas do utilizador (`actor_user_id` = sessão).
+   * Uso: painel **utilizador** — cada um vê só a própria contagem (timestamps em `created_at`).
+   */
+  async getUserAccessCount(userId: string): Promise<number> {
+    const id = (userId ?? '').trim();
+    if (!id) return 0;
+    try {
+      const { count, error } = await supabase
+        .from('audit_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('action', 'app_access_daily')
+        .eq('actor_user_id', id);
       if (error) return 0;
       return count ?? 0;
     } catch {
@@ -1544,7 +1567,7 @@ export const databaseService = {
   },
 
   async getAccessLogs(userId?: string, limit = 50) {
-    // Apenas app_access_daily conta como “acesso” ao app; audit_logs usa actor_user_id (não user_id)
+    // Só `app_access_daily`. Identidade do ator: sempre `actor_user_id` (não usar `user_id` legado para evitar misturar utilizadores).
     const orderCols = ['created_at', 'timestamp'] as const;
     let rows: Array<{ actor_user_id?: string; app_id?: string; [k: string]: unknown }> | null = null;
     let error: unknown = null;
@@ -1585,12 +1608,12 @@ export const databaseService = {
       if (id) appById.set(id, a as Record<string, unknown>);
     }
     const normalized = list.map((row: Record<string, unknown>) => {
-      const actorId = (row.actor_user_id ?? row.user_id) as string | undefined;
+      const actorId = (typeof row.actor_user_id === 'string' ? row.actor_user_id : undefined) || undefined;
       const user = actorId ? profileToUser(profileByUserId.get(actorId) ?? null) : null;
       const app = row.app_id ? appById.get(row.app_id as string) : null;
       return {
         ...row,
-        user_id: actorId ?? row.user_id,
+        user_id: actorId,
         system_id: row.app_id ?? row.system_id,
         systemId: row.app_id ?? row.system_id,
         userName: user?.name ?? row.userName,

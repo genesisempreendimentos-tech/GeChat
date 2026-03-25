@@ -3,12 +3,13 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   LayoutDashboard,
-  Users,
-  Shield,
-  Activity,
+  UserKey,
+  UserStar,
+  SquareCheck,
   TrendingUp,
   Star,
   Boxes,
+  BarChart3,
 } from 'lucide-react';
 import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
@@ -46,6 +47,7 @@ export default function AdminDashboardPage() {
   const primaryColor = `hsl(${primaryRaw})`;
 
   const [counts, setCounts] = useState<AdminCounts | null>(null);
+  const [totalAccessCount, setTotalAccessCount] = useState(0);
   const [accessLogs, setAccessLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('7');
@@ -53,11 +55,13 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const [c, { data: logs }] = await Promise.all([
+      const [c, totalAccess, { data: logs }] = await Promise.all([
         databaseService.getAdminCounts(),
+        databaseService.getTotalAccessCount(),
         databaseService.getAccessLogsAll(2000),
       ]);
       setCounts(c as AdminCounts);
+      setTotalAccessCount(totalAccess);
       setAccessLogs(logs || []);
       setLoading(false);
     };
@@ -67,7 +71,7 @@ export default function AdminDashboardPage() {
   const donutData = useMemo(() => {
     if (!counts) return [];
     return [
-      { name: 'Apps ativos', value: counts.activeApps },
+      { name: 'Disponíveis', value: counts.activeApps },
       { name: 'Outros', value: Math.max(0, counts.apps - counts.activeApps) },
     ].filter((d) => d.value > 0);
   }, [counts]);
@@ -83,7 +87,7 @@ export default function AdminDashboardPage() {
       };
     });
     accessLogs.forEach((log: any) => {
-      const ts = log.timestamp ?? log.created_at;
+      const ts = log.created_at ?? log.timestamp;
       if (!ts) return;
       const t = startOfDay(new Date(ts)).getTime();
       const row = range.find((r) => r.fullDate === t);
@@ -138,13 +142,13 @@ export default function AdminDashboardPage() {
       />
 
       <AdminBigBox>
-        {/* 4 métricas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Métricas */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Usuários</CardTitle>
-                <Users className="w-5 h-5 text-muted-foreground" />
+                <UserKey className="w-5 h-5 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{counts?.users ?? 0}</p>
@@ -156,7 +160,7 @@ export default function AdminDashboardPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Administradores</CardTitle>
-                <Shield className="w-5 h-5 text-muted-foreground" />
+                <UserStar className="w-5 h-5 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{counts?.softadmins ?? 0}</p>
@@ -167,8 +171,8 @@ export default function AdminDashboardPage() {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Apps ativos</CardTitle>
-                <Activity className="w-5 h-5 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Apps disponíveis</CardTitle>
+                <SquareCheck className="w-5 h-5 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{counts?.activeApps ?? 0}</p>
@@ -184,7 +188,19 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{counts?.apps ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Sistemas cadastrados</p>
+                <p className="text-xs text-muted-foreground">Aplicativos cadastrados</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Acessos totais</CardTitle>
+                <BarChart3 className="w-5 h-5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold tabular-nums">{totalAccessCount}</p>
+                <p className="text-xs text-muted-foreground">Acessos de todos os apps</p>
               </CardContent>
             </Card>
           </motion.div>
@@ -195,15 +211,15 @@ export default function AdminDashboardPage() {
           {donutData.length > 0 && (
             <DonutChart
               data={donutData}
-              title="Apps ativos vs totais"
-              description="Proporção de apps ativos"
+              title="Apps disponíveis vs totais"
+              description="Proporção de apps disponíveis"
             />
           )}
           <Card className="transition-shadow hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
               <div>
                 <CardTitle>Acessos totais</CardTitle>
-                <CardDescription>Acessos de todos os apps por dia</CardDescription>
+                <CardDescription>Soma de acessos diários de todos os utilizadores, por dia</CardDescription>
               </div>
               <div className="flex flex-wrap gap-1">
                 {(['7', '30', '90'] as TimeRange[]).map((r) => (
@@ -268,7 +284,7 @@ export default function AdminDashboardPage() {
                 <TrendingUp className="w-5 h-5" />
                 Apps mais acessados
               </CardTitle>
-              <CardDescription>Top 5 por número de acessos</CardDescription>
+              <CardDescription>Top 5 por acessos diários (todos os utilizadores)</CardDescription>
             </CardHeader>
             <CardContent>
               {topAppsByAccess.length === 0 ? (

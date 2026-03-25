@@ -170,7 +170,7 @@ export default function AdminSolicitacoesPage() {
       <MainViewHeader
         icon={<Headset className="h-6 w-6" />}
         title="Solicitações"
-        description="Envie solicitações para outros departamentos"
+        description="Crie canais de solicitações para departamentos e setores."
         button={
           canCreate ? (
             <Button
@@ -433,8 +433,7 @@ export default function AdminSolicitacoesPage() {
                     Adicionar equipe ao canal de solicitações
                   </DialogTitle>
                   <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-                    Selecione um departamento existente no Neon (GêTeams) e informe o link do formulário no GêForms. Nome,
-                    ícone e descrição vêm do cadastro.
+                    Selecione um departamento existente no GêTeams e informe o link do formulário no GêForms.
                   </DialogDescription>
                 </div>
               </div>

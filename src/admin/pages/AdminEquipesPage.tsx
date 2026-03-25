@@ -645,7 +645,7 @@ export default function AdminEquipesPage() {
       <MainViewHeader
         icon={<Users className="h-6 w-6" />}
         title="Equipes"
-        description="Cadastre equipes e defina quem pode vê-las no GeApps. Esta tela é exclusiva do painel administrativo."
+        description="Cadastre equipes e defina quem pode vê-las no GeApps."
         button={
           <Button
             type="button"

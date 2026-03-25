@@ -166,7 +166,7 @@ export default function FavoritesPage() {
       <MainViewHeader
         icon={<Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />}
         title="Favoritos"
-        description="Seus sistemas favoritos para acesso rápido"
+        description="Seus sistemas favoritos para acesso rápido."
         button={
           <Button
             type="button"

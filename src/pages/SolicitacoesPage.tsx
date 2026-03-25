@@ -117,7 +117,7 @@ export default function SolicitacoesPage() {
       <MainViewHeader
         icon={<Headset className="h-6 w-6" />}
         title="Solicitações"
-        description="Envie solicitações para outros departamentos"
+        description="Envie solicitações para outros departamentos."
       />
 
       <AdminControlLine

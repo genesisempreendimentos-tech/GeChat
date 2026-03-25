@@ -304,7 +304,7 @@ export default function SystemsPage() {
       <MainViewHeader
         icon={<Boxes className="h-6 w-6" />}
         title="Aplicativos"
-        description="Acesse todos os seus aplicativos corporativos"
+        description="Acesse todos os seus aplicativos corporativos."
         button={
           <Button
             variant="outline"

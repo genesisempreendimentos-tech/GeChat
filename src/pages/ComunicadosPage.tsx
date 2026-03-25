@@ -84,7 +84,7 @@ const DEFAULT_AVATAR =
 
 /** Imagem padrão já publicada no bucket GeComunicado (sem upload pelo usuário). */
 const COMUNICADO_OFICIAL_IMAGE_URL =
-  'https://shmrdhpjlsrqiffcykzw.supabase.co/storage/v1/object/public/GeComunicado/ComunicadoOficial.png';
+  'https://shmrdhpjlsrqiffcykzw.supabase.co/storage/v1/object/public/GeComunicado/ComunicadoOficial01.png';
 
 type StatementReactionSummary = {
   uniqueEmojis: string[];
@@ -884,7 +884,7 @@ export default function ComunicadosPage() {
       <MainViewHeader
         icon={<Megaphone className="h-6 w-6" />}
         title="Comunicados"
-        description="Avisos e informações importantes da empresa"
+        description="Avisos e informações importantes da empresa."
         button={
           canCreateStatements ? (
             <Button

@@ -57,9 +57,7 @@ export function ActivityChart({ data }: { data: ActivityData[] }) {
     <Card className="transition-shadow hover:shadow-md">
       <CardHeader>
         <CardTitle>Atividade dos Últimos 7 Dias</CardTitle>
-        <CardDescription>
-          Número de acessos aos aplicativos por dia
-        </CardDescription>
+        <CardDescription>Seus acessos diários aos aplicativos (últimos 7 dias)</CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer
@@ -116,9 +114,7 @@ export function SystemUsageChart({ data }: { data: SystemUsageData[] }) {
     <Card className="transition-shadow hover:shadow-md">
       <CardHeader>
         <CardTitle>Aplicativos Mais Acessados</CardTitle>
-        <CardDescription>
-          Top 5 aplicativos com mais acessos esta semana
-        </CardDescription>
+        <CardDescription>Top 5 aplicativos que você mais acessou nesta semana</CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer
