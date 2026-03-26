@@ -71,9 +71,10 @@ export function useKeyboardShortcuts() {
 
       if (isInputField) return
 
+      const eventKey = String(event.key ?? "").toLowerCase()
       const shortcut = shortcuts.find(
         (s) =>
-          s.key.toLowerCase() === event.key.toLowerCase() &&
+          String(s.key ?? "").toLowerCase() === eventKey &&
           s.ctrlKey === event.ctrlKey &&
           s.shiftKey === event.shiftKey &&
           s.altKey === event.altKey &&

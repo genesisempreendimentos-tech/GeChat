@@ -722,14 +722,37 @@ export const authService = {
   async signUp(email: string, password: string, fullName: string, role: 'admin' | 'creator' | 'user' = 'user') {
     try {
       console.log('🔵 [SignUp] Iniciando cadastro:', { email, fullName, role });
-      
+
+      const normalizedEmail = String(email ?? '').trim().toLowerCase();
+
       // Validar domínio
       const allowedDomain = '@genesisempreendimentos.com.br';
-      if (!email.endsWith(allowedDomain)) {
-        console.log('❌ [SignUp] Domínio inválido:', email);
+      if (!normalizedEmail.endsWith(allowedDomain)) {
+        console.log('❌ [SignUp] Domínio inválido:', normalizedEmail);
         return { 
           data: null, 
           error: { message: 'Apenas emails do domínio @genesisempreendimentos.com.br são permitidos' } 
+        };
+      }
+
+      // Validar elegibilidade de cadastro antes do signUp (tabela allowed_users via RPC).
+      const { data: allowed, error: allowedErr } = await supabase.rpc('is_email_allowed', {
+        check_email: normalizedEmail,
+      });
+      if (allowedErr) {
+        console.error('❌ [SignUp] Erro ao validar allowed_users:', allowedErr);
+        return {
+          data: null,
+          error: {
+            message:
+              'Não foi possível validar a elegibilidade do e-mail agora. Tente novamente em instantes.',
+          },
+        };
+      }
+      if (!allowed) {
+        return {
+          data: null,
+          error: { message: 'Este e-mail não está elegível para criar uma conta.' },
         };
       }
 
@@ -737,11 +760,12 @@ export const authService = {
       
       // Criar usuário no Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
         options: {
           data: {
             name: fullName,
+            full_name: fullName,
           },
           emailRedirectTo: window.location.origin + '/login'
         }
@@ -771,47 +795,7 @@ export const authService = {
       }
 
       console.log('✅ [SignUp] Usuário criado no Auth:', authData.user.id);
-      console.log('🔵 [SignUp] Criando registro na tabela profiles...');
-
-      const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fullName)}`;
-      const userId = authData.user.id;
-
-      // Tenta com coluna "id" (padrão); se a tabela usar "user_id" como PK, tenta com user_id
-      const payloadWithId = { id: userId, full_name: fullName, avatar_url: avatarUrl, access_type: role, email };
-      const payloadWithUserId = { user_id: userId, full_name: fullName, avatar_url: avatarUrl, access_type: role, email };
-
-      let profileError: Error | null = null;
-      let lastError: { message?: string; code?: string } | null = null;
-
-      for (const payload of [payloadWithId, payloadWithUserId]) {
-        const { error: dbError } = await supabase
-          .from('profiles')
-          .insert([payload]);
-
-        if (!dbError) {
-          console.log('✅ [SignUp] Registro criado na tabela profiles');
-          return { data: authData, error: null };
-        }
-        lastError = dbError;
-        if (dbError?.code === 'PGRST204' || (dbError?.message && dbError.message.includes("Could not find the 'id' column"))) {
-          continue;
-        }
-        profileError = dbError;
-        break;
-      }
-
-      if (profileError || lastError) {
-        const err = profileError || lastError;
-        console.error('❌ [SignUp] Erro ao criar registro na tabela profiles:', err);
-        return {
-          data: authData,
-          error: {
-            message: `Usuário criado no Auth mas falhou ao salvar dados: ${err?.message ?? 'Coluna id ou user_id não encontrada em profiles. Verifique o nome da PK na tabela.'}`,
-          },
-        };
-      }
-      console.log('✅ [SignUp] Cadastro completo!');
-
+      console.log('✅ [SignUp] Cadastro completo! Perfil será criado pela trigger on_auth_user_created.');
       return { data: authData, error: null };
     } catch (error) {
       console.error('❌ [SignUp] Erro geral:', error);
