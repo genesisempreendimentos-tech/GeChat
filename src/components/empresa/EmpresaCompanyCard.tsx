@@ -20,9 +20,12 @@ export function formatCompanyCreationDate(createdAt: string): string {
   return parsedDate.toLocaleDateString('pt-BR');
 }
 
-function buildInfoItems(profile: CompanyProfileApp): { label: string; value: string; icon: LucideIcon }[] {
+function buildInfoItems(
+  profile: CompanyProfileApp,
+  showGeTeamsWorkspace: boolean,
+): { label: string; value: string; icon: LucideIcon }[] {
   const formattedCreationDate = formatCompanyCreationDate(profile.createdAt);
-  return [
+  const base: { label: string; value: string; icon: LucideIcon }[] = [
     { label: 'Segmento', value: profile.segment, icon: Tags },
     { label: 'Data de criação', value: formattedCreationDate, icon: CalendarDays },
     { label: 'Localização', value: profile.location, icon: MapPin },
@@ -30,6 +33,10 @@ function buildInfoItems(profile: CompanyProfileApp): { label: string; value: str
     { label: 'Telefone', value: profile.phone, icon: Phone },
     { label: 'E-mail', value: profile.email, icon: Mail },
     { label: 'CNPJ', value: profile.cnpj, icon: Landmark },
+  ];
+  if (!showGeTeamsWorkspace) return base;
+  return [
+    ...base,
     {
       label: 'Workspace no GêTeams',
       value: (() => {
@@ -44,8 +51,15 @@ function buildInfoItems(profile: CompanyProfileApp): { label: string; value: str
   ];
 }
 
-export function EmpresaCompanyCard({ profile }: { profile: CompanyProfileApp }) {
-  const infoItems = buildInfoItems(profile);
+export function EmpresaCompanyCard({
+  profile,
+  /** Só no painel admin; no app do utilizador fica oculto. */
+  showGeTeamsWorkspace = true,
+}: {
+  profile: CompanyProfileApp;
+  showGeTeamsWorkspace?: boolean;
+}) {
+  const infoItems = buildInfoItems(profile, showGeTeamsWorkspace);
 
   return (
     <AdminBigBox>

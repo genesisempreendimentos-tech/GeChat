@@ -61,7 +61,7 @@ export default function EmpresaPage() {
             Carregando...
           </div>
         ) : (
-          <EmpresaCompanyCard profile={companyProfile} />
+          <EmpresaCompanyCard profile={companyProfile} showGeTeamsWorkspace={false} />
         )}
       </div>
     </MainViewFluidShell>
