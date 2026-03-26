@@ -258,9 +258,8 @@ export default function AdminSystemsPage() {
       category: editForm.category,
       url: editForm.url.trim() || undefined,
       status: editForm.status,
-      // TODO: incluir no payload após migration SQL:
-      // anchor_pdf_url: editForm.anchor_pdf_url.trim() || undefined,
-      // github_url: editForm.github_url.trim() || undefined,
+      anchor_pdf_url: editForm.anchor_pdf_url.trim() || undefined,
+      github_url: editForm.github_url.trim() || undefined,
       next_release_version: editForm.next_release_version.trim() || undefined,
       next_release_date: editForm.next_release_date.trim() || undefined,
     });
@@ -437,9 +436,8 @@ export default function AdminSystemsPage() {
       category: form.category,
       status: form.status,
       url: form.url.trim() || undefined,
-      // TODO: incluir no payload após migration SQL:
-      // anchor_pdf_url: form.anchor_pdf_url.trim() || undefined,
-      // github_url: form.github_url.trim() || undefined,
+      anchor_pdf_url: form.anchor_pdf_url.trim() || undefined,
+      github_url: form.github_url.trim() || undefined,
       next_release_version: form.next_release_version.trim() || undefined,
       next_release_date: form.next_release_date.trim() || undefined,
     });
@@ -713,15 +711,30 @@ export default function AdminSystemsPage() {
                       )}
                     </div>
 
-                    {system.url && (
-                      <Button
-                        size="sm"
-                        className="h-8 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 shadow-none px-3"
-                        onClick={() => handleOpenSystem(system)}
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                        Abrir
-                      </Button>
+                    {(system.url || system.github_url) && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        {system.github_url && (
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8 rounded-md border-primary/20 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary/40"
+                            title="Abrir repositório no GitHub"
+                            onClick={() => window.open(system.github_url, '_blank')}
+                          >
+                            <Github className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                        {system.url && (
+                          <Button
+                            size="sm"
+                            className="h-8 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40 shadow-none px-3"
+                            onClick={() => handleOpenSystem(system)}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                            Abrir
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

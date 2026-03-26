@@ -1278,6 +1278,8 @@ export const databaseService = {
       createdAt: row.created_at ? new Date(row.created_at) : new Date(),
       next_release_version: row.next_release_version ?? '',
       next_release_date: row.next_release_date ?? '',
+      anchor_pdf_url: row.anchor_pdf_url ?? '',
+      github_url: row.github_url ?? '',
     };
   },
 
@@ -1390,6 +1392,8 @@ export const databaseService = {
       slug,
       next_release_version: systemData.next_release_version || null,
       next_release_date: systemData.next_release_date || null,
+      anchor_pdf_url: systemData.anchor_pdf_url || null,
+      github_url: systemData.github_url || null,
     };
     if (systemData.category != null) row.category = systemData.category;
     const icon = systemData.icon ?? systemData.icon_url ?? systemData.logo;
@@ -1418,6 +1422,8 @@ export const databaseService = {
     if (systemData.category != null) row.category = systemData.category;
     if (systemData.next_release_version !== undefined) row.next_release_version = systemData.next_release_version || null;
     if (systemData.next_release_date !== undefined) row.next_release_date = systemData.next_release_date || null;
+    if (systemData.anchor_pdf_url !== undefined) row.anchor_pdf_url = systemData.anchor_pdf_url || null;
+    if (systemData.github_url !== undefined) row.github_url = systemData.github_url || null;
     if (Object.keys(row).length === 0) {
       const { data } = await supabase.from('apps').select('*').eq('id', systemId).single();
       return { data: data ? this.appRowToSystem(data) : null, error: null };
