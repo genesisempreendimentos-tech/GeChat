@@ -293,11 +293,27 @@ export default function AdminEquipesPage() {
       setFormError('Selecione um departamento.');
       return;
     }
+    const { data: company, error: companyErr } = await databaseService.getCompanyProfile();
+    if (companyErr || !company) {
+      setFormError('Não foi possível carregar o perfil da empresa.');
+      return;
+    }
+    const workspaceName = String(company.geTeamsWorkspace ?? '').trim();
+    if (!workspaceName) {
+      setFormError(
+        'Configure o nome do workspace no GêTeams em Admin → Empresa antes de criar equipes.',
+      );
+      return;
+    }
+    const deptWsId = selectedDept.workspaceId?.trim() || '';
+    const companyWsId = String(company.geTeamsWorkspaceId ?? '').trim();
     setFormLoading(true);
     const { data, error } = await databaseService.createTeam({
       name: selectedDept.name.trim(),
       neon_department_id: selectedDept.id,
       status: 'active',
+      workspace_name: workspaceName,
+      workspace_id: deptWsId || companyWsId || null,
     });
     setFormLoading(false);
     if (error) {
@@ -812,7 +828,7 @@ export default function AdminEquipesPage() {
                 </div>
               ) : modalDepartments.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-amber-500/30 bg-amber-500/[0.06] px-4 py-4 text-sm text-muted-foreground">
-                  Nenhum departamento retornado. Verifique a API e use{' '}
+                  Nenhum departamento para este <code className="text-xs">workspace_id</code> no Neon. Verifique a API e use{' '}
                   <strong className="text-foreground">Atualizar lista</strong>.
                 </div>
               ) : (

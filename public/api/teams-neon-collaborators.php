@@ -135,6 +135,8 @@ try {
     exit;
 }
 
+require_once __DIR__ . '/ge_teams_workspace_helpers.php';
+
 function normalizeDeptKeyCollab(?string $s): string {
     return strtolower(trim((string) $s));
 }
@@ -165,6 +167,13 @@ function fetchIdToNameCollab(PDO $pdo, array $ids): array {
 }
 
 try {
+    $filter = ge_apps_resolve_neon_workspace_filter($supabaseUrl, $supabaseAnonKey, $token, $pdo);
+    if ($filter['mode'] === 'configured_not_found') {
+        echo json_encode(['collaborators' => []], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $wsId = ($filter['mode'] === 'filter') ? $filter['workspace_id'] : null;
+
     $idToName = fetchIdToNameCollab($pdo, $ids);
     $nameToNeonId = [];
     foreach ($idToName as $nid => $name) {
@@ -172,10 +181,26 @@ try {
     }
     $want = array_flip($ids);
 
-    $stmt = $pdo->query(
-        "SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal
-         FROM collaborators WHERE status = 'active'"
-    );
+    $sql = "SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal
+         FROM collaborators WHERE status = ?";
+    $params = ['active'];
+    if ($wsId !== null) {
+        $sql .= ' AND workspace_id = ?';
+        $params[] = $wsId;
+    }
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+    } catch (PDOException $e) {
+        if ($wsId !== null && strpos($e->getMessage(), 'workspace_id') !== false) {
+            $stmt = $pdo->query(
+                "SELECT name, corporate_email, personal_email, email, department_cadeira_principal, setor_cadeira_principal
+                 FROM collaborators WHERE status = 'active'"
+            );
+        } else {
+            throw $e;
+        }
+    }
     $list = [];
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $nid = $nameToNeonId[normalizeDeptKeyCollab($row['department_cadeira_principal'] ?? '')] ?? null;

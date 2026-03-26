@@ -1,8 +1,7 @@
 <?php
 /**
- * API para listar departamentos da tabela departaments do Neon GeTeams.
+ * API para listar departamentos do Neon GeTeams filtrados por departments.workspace_id = id do workspace (Supabase: geteams_workspace_id ou nome resolvido em public.workspaces).
  * GET /api/departments — requer Authorization: Bearer <supabase_access_token>
- * Retorna array de { id, name, icon, description, color } onde is_active = true e deleted_at IS NULL.
  */
 
 if (!empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION']) && empty($_SERVER['HTTP_AUTHORIZATION'])) {
@@ -130,13 +129,51 @@ try {
     exit;
 }
 
-$stmt = $pdo->prepare(
-    'SELECT id, name, icon, description, color
-     FROM departments
-     WHERE is_active = true AND deleted_at IS NULL
-     ORDER BY name ASC'
-);
-$stmt->execute();
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+require_once __DIR__ . '/ge_teams_workspace_helpers.php';
+$ctx = ge_apps_fetch_company_ge_teams_workspace_context($supabaseUrl, $supabaseAnonKey, $token);
+$nm = $ctx['name'] ?? '';
+$neonId = isset($ctx['workspace_id']) ? trim((string) $ctx['workspace_id']) : '';
+if ($nm === '' && $neonId === '') {
+    echo json_encode([], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+if ($neonId === '' && $nm !== '') {
+    $resolved = ge_apps_resolve_neon_workspace_id_pdo($pdo, $nm);
+    $neonId = $resolved !== null ? $resolved : '';
+}
+if ($neonId === '') {
+    echo json_encode([], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+$selWithWs = 'id, name, icon, description, color, workspace_id::text AS workspace_id';
+$selBase = 'id, name, icon, description, color';
+$wsCond = 'TRIM(workspace_id::text) = TRIM(?)';
+
+$sqlAttempts = [
+    "SELECT {$selWithWs} FROM departments WHERE is_active = true AND deleted_at IS NULL AND {$wsCond} ORDER BY name ASC",
+    "SELECT {$selWithWs} FROM departments WHERE is_active = true AND {$wsCond} ORDER BY name ASC",
+    "SELECT {$selWithWs} FROM departments WHERE {$wsCond} ORDER BY name ASC",
+    "SELECT {$selWithWs} FROM departaments WHERE is_active = true AND deleted_at IS NULL AND {$wsCond} ORDER BY name ASC",
+    "SELECT {$selWithWs} FROM departaments WHERE is_active = true AND {$wsCond} ORDER BY name ASC",
+    "SELECT {$selWithWs} FROM departaments WHERE {$wsCond} ORDER BY name ASC",
+    "SELECT {$selBase} FROM departments WHERE is_active = true AND deleted_at IS NULL AND {$wsCond} ORDER BY name ASC",
+    "SELECT {$selBase} FROM departments WHERE is_active = true AND {$wsCond} ORDER BY name ASC",
+    "SELECT {$selBase} FROM departments WHERE {$wsCond} ORDER BY name ASC",
+    "SELECT {$selBase} FROM departaments WHERE is_active = true AND deleted_at IS NULL AND {$wsCond} ORDER BY name ASC",
+    "SELECT {$selBase} FROM departaments WHERE is_active = true AND {$wsCond} ORDER BY name ASC",
+    "SELECT {$selBase} FROM departaments WHERE {$wsCond} ORDER BY name ASC",
+];
+$rows = [];
+foreach ($sqlAttempts as $sql) {
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$neonId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        break;
+    } catch (PDOException $e) {
+        continue;
+    }
+}
 
 echo json_encode($rows, JSON_UNESCAPED_UNICODE);

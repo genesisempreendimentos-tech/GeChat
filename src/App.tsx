@@ -42,6 +42,7 @@ import ChatPage from '@/pages/ChatPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import SolicitacoesPage from '@/pages/SolicitacoesPage';
 import EquipesPage from '@/pages/EquipesPage';
+import EmpresaPage from '@/pages/EmpresaPage';
 import ComunicadosPage from '@/pages/ComunicadosPage';
 
 // Admin pages
@@ -52,6 +53,7 @@ import AdminCategoriesPage from '@/admin/pages/AdminCategoriesPage';
 import AdminReviewsPage from '@/admin/pages/AdminReviewsPage';
 import AdminSolicitacoesPage from '@/admin/pages/AdminSolicitacoesPage';
 import AdminEquipesPage from '@/admin/pages/AdminEquipesPage';
+import AdminEmpresaPage from '@/admin/pages/AdminEmpresaPage';
 
 /**
  * Rota /login: se já autenticado e houver returnTo válido, redireciona para o app irmão (ex.: GeTeams).
@@ -151,6 +153,7 @@ function AppRoutes() {
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/solicitacoes" element={<SolicitacoesPage />} />
           <Route path="/equipes" element={<EquipesPage />} />
+          <Route path="/empresa" element={<EmpresaPage />} />
           <Route path="/comunicados" element={<ComunicadosPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
@@ -173,6 +176,7 @@ function AppRoutes() {
           <Route path="solicitacoes" element={<AdminSolicitacoesPage />} />
           <Route path="equipes" element={<AdminEquipesPage />} />
           <Route path="comunicados" element={<ComunicadosPage />} />
+          <Route path="empresa" element={<AdminEmpresaPage />} />
           <Route path="members" element={<AdminMembersPage />} />
           <Route path="administrators" element={<Navigate to="/admin/members" replace />} />
           <Route path="categories" element={<AdminCategoriesPage />} />

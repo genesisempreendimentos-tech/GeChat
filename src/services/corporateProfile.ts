@@ -66,26 +66,33 @@ async function getAccessTokenForNeonApi(): Promise<string | null> {
   return refreshed.session?.access_token ?? session?.access_token ?? null;
 }
 
-/** GET em rota /api relativa com Bearer; em 401 tenta refresh e repete uma vez. */
+/** URL absoluta para APIs Neon/GeTeams quando `VITE_GEAPPS_API_URL` está definida (ex.: produção). */
+function neonApiUrl(path: string): string {
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return API_CONFIGURED ? `${API_BASE}${p}` : p;
+}
+
+/** GET em rota /api com Bearer; em 401 tenta refresh e repete uma vez. */
 async function neonApiGet(path: string): Promise<Response> {
   let token = await getAccessTokenForNeonApi();
   if (!token) {
     return new Response(null, { status: 401 });
   }
   setGeappsAuthCookie(token);
+  const url = neonApiUrl(path);
   const init: RequestInit = {
     method: 'GET',
-    credentials: 'same-origin',
+    credentials: API_CONFIGURED ? 'omit' : 'same-origin',
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   };
-  let res = await fetch(path, init);
+  let res = await fetch(url, init);
   if (res.status === 401) {
     const { data } = await supabase.auth.refreshSession();
     const t2 = data.session?.access_token;
     if (t2) {
       setGeappsAuthCookie(t2);
-      res = await fetch(path, {
+      res = await fetch(url, {
         ...init,
         headers: { Authorization: `Bearer ${t2}` },
       });
@@ -229,10 +236,12 @@ export interface NeonDepartment {
   icon: string | null;
   description: string | null;
   color: string | null;
+  /** Id do workspace no Neon (public.workspaces), quando existir em departments.workspace_id. */
+  workspaceId?: string | null;
 }
 
 /**
- * Busca todos os departamentos ativos da tabela departaments do Neon GeTeams.
+ * Departamentos do Neon GêTeams com `departments.workspace_id` = id do workspace (nome em company_profile resolve esse id).
  */
 export async function getDepartments(): Promise<NeonDepartment[]> {
   try {
@@ -240,9 +249,80 @@ export async function getDepartments(): Promise<NeonDepartment[]> {
     if (!res.ok) return [];
 
     const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) return [];
+    return data.map((raw: Record<string, unknown>) => ({
+      id: String(raw.id ?? ''),
+      name: String(raw.name ?? ''),
+      icon: raw.icon != null ? String(raw.icon) : null,
+      description: raw.description != null ? String(raw.description) : null,
+      color: raw.color != null ? String(raw.color) : null,
+      workspaceId:
+        raw.workspace_id != null && String(raw.workspace_id).trim()
+          ? String(raw.workspace_id).trim()
+          : null,
+    }));
   } catch {
     return [];
+  }
+}
+
+export type NeonWorkspaceOption = { id: string; name: string };
+
+function parseWorkspacesActivePayload(data: unknown): NeonWorkspaceOption[] {
+  if (!Array.isArray(data)) return [];
+  const out: NeonWorkspaceOption[] = [];
+  for (const item of data) {
+    if (typeof item === 'string' && item.trim()) {
+      out.push({ id: '', name: item.trim() });
+      continue;
+    }
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const o = item as Record<string, unknown>;
+      const name = String(o.name ?? '').trim();
+      if (!name) continue;
+      const id = o.id != null ? String(o.id).trim() : '';
+      out.push({ id, name });
+    }
+  }
+  return out;
+}
+
+/**
+ * Workspaces ativos no Neon (id + nome), para alinhar a `company_profile.geteams_workspace_id`.
+ */
+export async function getActiveWorkspacesWithIds(): Promise<NeonWorkspaceOption[]> {
+  try {
+    const res = await neonApiGet('/api/workspaces-active');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return parseWorkspacesActivePayload(data);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Nomes dos workspaces ativos (atalho sobre {@link getActiveWorkspacesWithIds}).
+ */
+export async function getActiveWorkspaces(): Promise<string[]> {
+  const list = await getActiveWorkspacesWithIds();
+  return list.map((w) => w.name);
+}
+
+/**
+ * Resolve o id do workspace no Neon pelo nome (trim/case-insensitive), com o mesmo critério de `ge_teams_workspace`.
+ */
+export async function resolveGeTeamsWorkspaceId(workspaceName: string): Promise<string | null> {
+  const name = String(workspaceName ?? '').trim();
+  if (!name) return null;
+  try {
+    const res = await neonApiGet(`/api/workspace-resolve?q=${encodeURIComponent(name)}`);
+    if (!res.ok) return null;
+    const body = (await res.json()) as { id?: string | null };
+    const id = body.id != null ? String(body.id).trim() : '';
+    return id || null;
+  } catch {
+    return null;
   }
 }
 

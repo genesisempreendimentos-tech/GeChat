@@ -57,6 +57,80 @@ export const STATEMENT_TABLE = 'statement';
 /** Reações/visualização por utilizador em comunicados (tabela `statement_reaction`). */
 export const STATEMENT_REACTION_TABLE = 'statement_reaction';
 
+/** Empresa (painel admin → Empresa) — ver migration-company-profile.sql */
+export const COMPANY_PROFILE_TABLE = 'company_profile';
+
+export type CompanyProfileApp = {
+  name: string;
+  logo: string;
+  description: string;
+  segment: string;
+  createdAt: string;
+  location: string;
+  site: string;
+  phone: string;
+  email: string;
+  cnpj: string;
+  geTeamsWorkspace: string;
+  /** Id do workspace no Neon (`public.workspaces`), coluna `geteams_workspace_id`. */
+  geTeamsWorkspaceId: string;
+};
+
+type CompanyProfileRow = {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  description: string | null;
+  segment: string | null;
+  founded_at: string | null;
+  location: string | null;
+  site: string | null;
+  phone: string | null;
+  email: string | null;
+  cnpj: string | null;
+  ge_teams_workspace: string | null;
+  geteams_workspace_id: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+function companyProfileRowToApp(row: CompanyProfileRow): CompanyProfileApp {
+  const founded = row.founded_at ? String(row.founded_at) : '';
+  // founded_at é DATE; em alguns drivers pode vir como YYYY-MM-DD ou string equivalente.
+  return {
+    name: row.name ?? '',
+    logo: row.logo_url ?? '',
+    description: row.description ?? '',
+    segment: row.segment ?? '',
+    createdAt: founded,
+    location: row.location ?? '',
+    site: row.site ?? '',
+    phone: row.phone ?? '',
+    email: row.email ?? '',
+    cnpj: row.cnpj ?? '',
+    geTeamsWorkspace: row.ge_teams_workspace ?? '',
+    geTeamsWorkspaceId: row.geteams_workspace_id != null ? String(row.geteams_workspace_id).trim() : '',
+  };
+}
+
+function companyProfileAppToPayload(profile: CompanyProfileApp): Record<string, unknown> {
+  const founded = profile.createdAt?.trim();
+  return {
+    name: profile.name ?? '',
+    logo_url: profile.logo ?? '',
+    description: profile.description ?? '',
+    segment: profile.segment ?? '',
+    founded_at: founded ? founded : null,
+    location: profile.location ?? '',
+    site: profile.site ?? '',
+    phone: profile.phone ?? '',
+    email: profile.email ?? '',
+    cnpj: profile.cnpj ?? '',
+    ge_teams_workspace: profile.geTeamsWorkspace ?? '',
+    geteams_workspace_id: profile.geTeamsWorkspaceId?.trim() || null,
+  };
+}
+
 export type RequestChannelType = 'departamento' | 'setor';
 
 export interface RequestChannel {
@@ -68,6 +142,10 @@ export interface RequestChannel {
   description?: string;
   color?: string;
   createdAt?: Date;
+  /** Igual a company_profile.ge_teams_workspace no momento da criação. */
+  workspace?: string;
+  /** Id do workspace no Neon (public.workspaces). */
+  workspaceId?: string;
 }
 
 type RequestChannelRow = {
@@ -79,6 +157,8 @@ type RequestChannelRow = {
   description?: string | null;
   color?: string | null;
   created_at?: string;
+  workspace?: string | null;
+  workspace_id?: string | null;
 };
 
 /** Ciclo de vida da equipe no GêApps (coluna `teams.status`). */
@@ -91,6 +171,10 @@ export interface Team {
   neonDepartmentId: string;
   createdAt?: Date;
   updatedAt?: Date;
+  /** Nome do workspace GêTeams (company_profile.ge_teams_workspace no cadastro). */
+  workspaceName?: string;
+  /** Id do workspace no Neon (company_profile.geteams_workspace_id ou departments.workspace_id). */
+  workspaceId?: string;
 }
 
 type TeamRow = {
@@ -102,6 +186,8 @@ type TeamRow = {
   neon_department_id: string;
   created_at?: string;
   updated_at?: string;
+  workspace_id?: string | null;
+  workspace_name?: string | null;
 };
 
 function normalizeTeamStatus(row: TeamRow): TeamLifecycleStatus {
@@ -112,6 +198,8 @@ function normalizeTeamStatus(row: TeamRow): TeamLifecycleStatus {
 }
 
 function teamRowToApp(row: TeamRow): Team {
+  const wsName = row.workspace_name != null ? String(row.workspace_name).trim() : '';
+  const wsId = row.workspace_id != null ? String(row.workspace_id).trim() : '';
   return {
     id: row.id,
     name: row.name ?? '',
@@ -119,12 +207,15 @@ function teamRowToApp(row: TeamRow): Team {
     neonDepartmentId: row.neon_department_id ?? '',
     createdAt: row.created_at ? new Date(row.created_at) : undefined,
     updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+    workspaceName: wsName || undefined,
+    workspaceId: wsId || undefined,
   };
 }
 
 function requestChannelRowToApp(row: RequestChannelRow): RequestChannel {
   const raw = String(row.channel_type ?? 'departamento').toLowerCase();
   const channel_type: RequestChannelType = raw === 'setor' ? 'setor' : 'departamento';
+  const wsId = row.workspace_id != null ? String(row.workspace_id).trim() : '';
   return {
     id: row.id,
     name: row.name ?? '',
@@ -134,6 +225,8 @@ function requestChannelRowToApp(row: RequestChannelRow): RequestChannel {
     description: row.description ?? undefined,
     color: row.color ?? undefined,
     createdAt: row.created_at ? new Date(row.created_at) : undefined,
+    workspace: row.workspace != null && String(row.workspace).trim() ? String(row.workspace).trim() : undefined,
+    workspaceId: wsId || undefined,
   };
 }
 
@@ -881,6 +974,53 @@ export const databaseService = {
     return { error };
   },
 
+  /** Carrega o perfil da empresa (singleton via SELECT LIMIT 1). */
+  async getCompanyProfile(): Promise<{ data: CompanyProfileApp | null; error: unknown | null }> {
+    const { data, error } = await supabase
+      .from(COMPANY_PROFILE_TABLE)
+      .select('*')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) return { data: null, error };
+    if (!data) return { data: null, error: null };
+    return { data: companyProfileRowToApp(data as CompanyProfileRow), error: null };
+  },
+
+  /**
+   * Salva o perfil da empresa.
+   * Estratégia: tenta achar um registo existente (LIMIT 1) e faz UPDATE; se não houver, faz INSERT.
+   */
+  async saveCompanyProfile(profile: CompanyProfileApp): Promise<{ error: unknown | null }> {
+    const { data: authData, error: authErr } = await supabase.auth.getUser();
+    if (authErr) return { error: authErr };
+    const userId = authData.user?.id ?? null;
+    if (!userId) return { error: new Error('Usuário não autenticado.') };
+
+    const payload = companyProfileAppToPayload(profile);
+    // Garantir que updated_by não fique vazio.
+    const patchWithAudit = { ...payload, updated_by: userId };
+
+    const { data: existing, error: existingErr } = await supabase
+      .from(COMPANY_PROFILE_TABLE)
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+    if (existingErr) return { error: existingErr };
+
+    if (existing?.id) {
+      const { error } = await supabase
+        .from(COMPANY_PROFILE_TABLE)
+        .update(patchWithAudit)
+        .eq('id', existing.id);
+      return { error: error ?? null };
+    }
+
+    const insertPayload = { ...patchWithAudit, created_by: userId };
+    const { error } = await supabase.from(COMPANY_PROFILE_TABLE).insert([insertPayload]);
+    return { error: error ?? null };
+  },
+
   // Profiles (tabela profiles no Supabase)
   async getUsers() {
     const { data, error } = await supabase
@@ -1102,21 +1242,7 @@ export const databaseService = {
       .ilike('email', normalizedEmail)
       .maybeSingle();
     if (error || !data) {
-      const corpOnly = await fetchCorporateProfileByEmail(normalizedEmail);
-      if (!corpOnly) return { data: null, error: error ?? { message: 'Profile not found' } };
-      return {
-        data: mapProfileToPopupData(
-          {
-            email: normalizedEmail,
-            full_name: corpOnly.name ?? corpOnly.email ?? normalizedEmail,
-            birth_date: corpOnly.birth_date ?? null,
-            hire_date: corpOnly.hire_date ?? null,
-            profession: corpOnly.profession ?? '',
-          },
-          null,
-        ),
-        error: null,
-      };
+      return { data: null, error: error ?? { message: 'Profile not found' } };
     }
     const row = data as ProfileRow & Record<string, unknown>;
     const base = profileToUser(data as ProfileRow);
@@ -2054,9 +2180,18 @@ export const databaseService = {
     }
   },
 
-  /** Canais de solicitação (tabela `request_channels`). Lista vazia se a tabela ainda não existir ou houver erro. */
+  /** Canais de solicitação do workspace atual (company_profile.ge_teams_workspace). */
   async listRequestChannels(): Promise<{ data: RequestChannel[]; error: null }> {
     try {
+      const { data: companyRow, error: companyErr } = await this.getCompanyProfile();
+      if (companyErr || !companyRow) {
+        return { data: [], error: null };
+      }
+      const expectedWs = String(companyRow.geTeamsWorkspace ?? '').trim().toLowerCase();
+      if (!expectedWs) {
+        return { data: [], error: null };
+      }
+
       const { data, error } = await supabase
         .from(REQUEST_CHANNELS_TABLE)
         .select('*')
@@ -2066,7 +2201,9 @@ export const databaseService = {
         return { data: [], error: null };
       }
       const list = (data ?? []) as RequestChannelRow[];
-      return { data: list.map(requestChannelRowToApp), error: null };
+      const norm = (s: string | null | undefined) => String(s ?? '').trim().toLowerCase();
+      const filtered = list.filter((row) => norm(row.workspace) === expectedWs);
+      return { data: filtered.map(requestChannelRowToApp), error: null };
     } catch (e) {
       console.warn('[request_channels] list exception:', e);
       return { data: [], error: null };
@@ -2080,20 +2217,27 @@ export const databaseService = {
     channel_type: RequestChannelType;
     description?: string | null;
     color?: string | null;
+    /** Nome do workspace GêTeams (igual company_profile.ge_teams_workspace). */
+    workspace: string;
+    /** Uuid do workspace no Neon (departments.workspace_id). */
+    workspace_id?: string | null;
   }): Promise<{ data: RequestChannel | null; error: unknown }> {
     try {
+      const ws = String(payload.workspace ?? '').trim();
+      const wsId = payload.workspace_id?.trim() || null;
+      const insertRow: Record<string, unknown> = {
+        name: payload.name.trim(),
+        icon_url: payload.icon_url?.trim() || null,
+        url: payload.url?.trim() || null,
+        channel_type: payload.channel_type,
+        description: payload.description?.trim() || null,
+        color: payload.color?.trim() || null,
+        workspace: ws || null,
+        workspace_id: wsId,
+      };
       const { data, error } = await supabase
         .from(REQUEST_CHANNELS_TABLE)
-        .insert([
-          {
-            name: payload.name.trim(),
-            icon_url: payload.icon_url?.trim() || null,
-            url: payload.url?.trim() || null,
-            channel_type: payload.channel_type,
-            description: payload.description?.trim() || null,
-            color: payload.color?.trim() || null,
-          },
-        ])
+        .insert([insertRow])
         .select()
         .single();
       if (error) return { data: null, error };
@@ -2112,10 +2256,20 @@ export const databaseService = {
     }
   },
 
-  /** Equipes cadastradas no Supabase. */
+  /** Equipes do workspace atual (company_profile.ge_teams_workspace / geteams_workspace_id). */
   async listTeams(options?: { activeOnly?: boolean }): Promise<{ data: Team[]; error: null }> {
     const activeOnly = options?.activeOnly === true;
     try {
+      const { data: companyRow, error: companyErr } = await this.getCompanyProfile();
+      if (companyErr || !companyRow) {
+        return { data: [], error: null };
+      }
+      const expectedWs = String(companyRow.geTeamsWorkspace ?? '').trim().toLowerCase();
+      const expectedId = String(companyRow.geTeamsWorkspaceId ?? '').trim();
+      if (!expectedWs && !expectedId) {
+        return { data: [], error: null };
+      }
+
       let q = supabase.from(TEAMS_TABLE).select('*').order('name', { ascending: true });
       if (activeOnly) {
         q = q.eq('status', 'active');
@@ -2126,7 +2280,15 @@ export const databaseService = {
         return { data: [], error: null };
       }
       const list = (data ?? []) as TeamRow[];
-      return { data: list.map(teamRowToApp), error: null };
+      const norm = (s: string | null | undefined) => String(s ?? '').trim().toLowerCase();
+      const filtered = list.filter((row) => {
+        const rowName = norm(row.workspace_name);
+        const rowId = String(row.workspace_id ?? '').trim();
+        if (expectedWs && rowName === expectedWs) return true;
+        if (expectedId && rowId === expectedId) return true;
+        return false;
+      });
+      return { data: filtered.map(teamRowToApp), error: null };
     } catch (e) {
       console.warn('[teams] list exception:', e);
       return { data: [], error: null };
@@ -2137,9 +2299,13 @@ export const databaseService = {
     name: string;
     neon_department_id: string;
     status?: TeamLifecycleStatus;
+    workspace_name: string;
+    workspace_id?: string | null;
   }): Promise<{ data: Team | null; error: unknown }> {
     try {
       const status: TeamLifecycleStatus = payload.status ?? 'active';
+      const wsName = String(payload.workspace_name ?? '').trim();
+      const wsId = payload.workspace_id?.trim() || null;
       const { data, error } = await supabase
         .from(TEAMS_TABLE)
         .insert([
@@ -2147,6 +2313,8 @@ export const databaseService = {
             name: payload.name.trim(),
             neon_department_id: payload.neon_department_id.trim(),
             status,
+            workspace_name: wsName || null,
+            workspace_id: wsId,
           },
         ])
         .select()

@@ -136,6 +136,8 @@ try {
     exit;
 }
 
+require_once __DIR__ . '/ge_teams_workspace_helpers.php';
+
 function normalizeDeptKey(?string $s): string {
     return strtolower(trim((string) $s));
 }
@@ -194,10 +196,28 @@ function fetchSectorsByDepartmentIds(PDO $pdo, array $ids): array {
 }
 
 /** @return array<string,array{sectors:array<int,string>,count:int,sectorCounts:array<string,int>}> */
-function aggregateCollaborators(PDO $pdo): array {
-    $stmt = $pdo->query(
-        "SELECT department_cadeira_principal, setor_cadeira_principal FROM collaborators WHERE status = 'active'"
-    );
+function aggregateCollaborators(PDO $pdo, ?string $neonWorkspaceId, bool $forceEmpty = false): array {
+    if ($forceEmpty) {
+        return [];
+    }
+    $params = ['active'];
+    $sql = "SELECT department_cadeira_principal, setor_cadeira_principal FROM collaborators WHERE status = ?";
+    if ($neonWorkspaceId !== null && $neonWorkspaceId !== '') {
+        $sql .= ' AND workspace_id = ?';
+        $params[] = $neonWorkspaceId;
+    }
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+    } catch (PDOException $e) {
+        if ($neonWorkspaceId !== null && $neonWorkspaceId !== '' && strpos($e->getMessage(), 'workspace_id') !== false) {
+            $stmt = $pdo->query(
+                "SELECT department_cadeira_principal, setor_cadeira_principal FROM collaborators WHERE status = 'active'"
+            );
+        } else {
+            throw $e;
+        }
+    }
     $by = [];
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $dk = normalizeDeptKey($row['department_cadeira_principal'] ?? '');
@@ -231,9 +251,12 @@ function aggregateCollaborators(PDO $pdo): array {
 }
 
 try {
+    $filter = ge_apps_resolve_neon_workspace_filter($supabaseUrl, $supabaseAnonKey, $token, $pdo);
     $idToName = fetchIdToName($pdo, $ids);
     $sectorsByDeptId = fetchSectorsByDepartmentIds($pdo, $ids);
-    $byNorm = aggregateCollaborators($pdo);
+    $wsId = ($filter['mode'] === 'filter') ? $filter['workspace_id'] : null;
+    $forceEmpty = ($filter['mode'] === 'configured_not_found');
+    $byNorm = aggregateCollaborators($pdo, $wsId, $forceEmpty);
     $result = [];
     foreach ($ids as $id) {
         $name = $idToName[$id] ?? '';

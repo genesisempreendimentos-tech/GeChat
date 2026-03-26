@@ -114,12 +114,35 @@ if (!$pg) {
     exit;
 }
 
+require_once __DIR__ . '/ge_teams_workspace_helpers.php';
+$filter = ge_apps_resolve_neon_workspace_filter($supabaseUrl, $supabaseAnonKey, $token, $pg);
+if ($filter['mode'] === 'configured_not_found') {
+    echo json_encode([]);
+    exit;
+}
+$wsId = ($filter['mode'] === 'filter') ? $filter['workspace_id'] : null;
+
 // UI "Departamento": department_cadeira_principal; se existir coluna departamento, usa como fallback.
 $queryWithDeptCol = "SELECT corporate_email, personal_email, email, setor_cadeira_principal, department_cadeira_principal, departamento FROM collaborators WHERE status = $1";
 $queryBase = "SELECT corporate_email, personal_email, email, setor_cadeira_principal, department_cadeira_principal FROM collaborators WHERE status = $1";
-$res = pg_query_params($pg, $queryWithDeptCol, ['active']);
-if (!$res) {
-    $res = pg_query_params($pg, $queryBase, ['active']);
+if ($wsId) {
+    $queryWithDeptColWs = $queryWithDeptCol . ' AND workspace_id = $2';
+    $queryBaseWs = $queryBase . ' AND workspace_id = $2';
+    $res = @pg_query_params($pg, $queryWithDeptColWs, ['active', $wsId]);
+    if ($res === false) {
+        $res = @pg_query_params($pg, $queryBaseWs, ['active', $wsId]);
+    }
+    if ($res === false) {
+        $res = pg_query_params($pg, $queryWithDeptCol, ['active']);
+        if (!$res) {
+            $res = pg_query_params($pg, $queryBase, ['active']);
+        }
+    }
+} else {
+    $res = pg_query_params($pg, $queryWithDeptCol, ['active']);
+    if (!$res) {
+        $res = pg_query_params($pg, $queryBase, ['active']);
+    }
 }
 
 if (!$res) {

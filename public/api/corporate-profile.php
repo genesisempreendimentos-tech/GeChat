@@ -153,6 +153,14 @@ try {
     exit;
 }
 
+require_once __DIR__ . '/ge_teams_workspace_helpers.php';
+$workspaceName = ge_apps_fetch_company_ge_teams_workspace_name($supabaseUrl, $supabaseAnonKey, $token);
+if ($workspaceName === null) {
+    http_response_code(404);
+    echo json_encode(['notFound' => true, 'message' => 'Nenhum colaborador encontrado para este e-mail.']);
+    exit;
+}
+
 // Mapeamento 1:1 API -> colunas da tabela collaborators (Neon GeTeams)
 $COLLABORATORS_FIELD_MAP = [
     'name'                 => 'name',
@@ -194,9 +202,23 @@ $COLLABORATORS_FIELD_MAP = [
 ];
 
 $emailNormalized = strtolower($email);
-$stmt = $pdo->prepare('SELECT * FROM collaborators WHERE LOWER(TRIM(corporate_email)) = ? LIMIT 1');
-$stmt->execute([$emailNormalized]);
-$row = $stmt->fetch(PDO::FETCH_ASSOC);
+$row = null;
+try {
+    $stmt = $pdo->prepare(
+        'SELECT * FROM collaborators WHERE LOWER(TRIM(corporate_email)) = ?
+         AND LOWER(TRIM(COALESCE(workspace_name, \'\'))) = LOWER(TRIM(?))
+         LIMIT 1'
+    );
+    $stmt->execute([$emailNormalized, $workspaceName]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    if (strpos($e->getMessage(), 'workspace_name') !== false) {
+        http_response_code(503);
+        echo json_encode(['error' => 'Coluna workspace_name indisponível em collaborators.', 'notFound' => true]);
+        exit;
+    }
+    throw $e;
+}
 
 if ($row === false || $row === null) {
     http_response_code(404);

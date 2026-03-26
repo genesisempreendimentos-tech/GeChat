@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Star,
   Users,
+  Building2,
   MessageCircle,
   ExternalLink,
   Check,
@@ -37,6 +38,7 @@ const menuItems = [
   { icon: Headset, label: 'Solicitações', path: '/solicitacoes' },
   { icon: Megaphone, label: 'Comunicados', path: '/comunicados' },
   { icon: Users, label: 'Equipes', path: '/equipes' },
+  { icon: Building2, label: 'Empresa', path: '/empresa' },
   { icon: Star, label: 'Favoritos', path: '/favorites' },
   // { icon: MessageCircle, label: 'Chat', path: '/chat' },
 ];

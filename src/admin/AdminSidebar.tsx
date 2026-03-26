@@ -11,6 +11,7 @@ import {
   Boxes,
   Headset,
   Megaphone,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
@@ -50,6 +51,7 @@ const adminMenuSections: AdminNavSection[] = [
       { icon: Users, label: 'Equipes', path: '/admin/equipes' },
       { icon: Headset, label: 'Solicitações', path: '/admin/solicitacoes' },
       { icon: Megaphone, label: 'Comunicados', path: '/admin/comunicados' },
+      { icon: Building2, label: 'Empresa', path: '/admin/empresa' },
     ],
   },
 ];

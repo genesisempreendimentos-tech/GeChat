@@ -126,6 +126,20 @@ export default function AdminSolicitacoesPage() {
       setFormError('Selecione um departamento.');
       return;
     }
+    const { data: company, error: companyErr } = await databaseService.getCompanyProfile();
+    if (companyErr || !company) {
+      setFormError('Não foi possível carregar o perfil da empresa.');
+      return;
+    }
+    const workspaceName = String(company.geTeamsWorkspace ?? '').trim();
+    if (!workspaceName) {
+      setFormError(
+        'Configure o nome do workspace no GêTeams em Admin → Empresa antes de criar canais.'
+      );
+      return;
+    }
+    const deptWsId = selectedDept.workspaceId?.trim() || '';
+    const companyWsId = String(company.geTeamsWorkspaceId ?? '').trim();
     setFormLoading(true);
     const { data, error } = await databaseService.createRequestChannel({
       name: selectedDept.name,
@@ -134,6 +148,8 @@ export default function AdminSolicitacoesPage() {
       channel_type: 'departamento',
       description: selectedDept.description ?? null,
       color: selectedDept.color ?? null,
+      workspace: workspaceName,
+      workspace_id: deptWsId || companyWsId || null,
     });
     setFormLoading(false);
     if (error) {
@@ -550,8 +566,16 @@ export default function AdminSolicitacoesPage() {
                   Carregando departamentos do GêTeams…
                 </div>
               ) : departments.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-amber-500/30 bg-amber-500/[0.06] px-4 py-4 text-sm text-muted-foreground">
-                  Nenhum departamento retornado. Verifique a API e use <strong className="text-foreground">Atualizar lista</strong>.
+                <div className="rounded-2xl border border-dashed border-amber-500/30 bg-amber-500/[0.06] px-4 py-4 text-sm text-muted-foreground space-y-1">
+                  <p>
+                    Nenhum departamento no workspace atual. Em <strong className="text-foreground">Empresa</strong>, o workspace
+                    deve corresponder ao registo em <code className="text-xs">public.workspaces</code>; os departamentos são filtrados
+                    por <code className="text-xs">departments.workspace_id</code> (igual ao id no Neon ou a{' '}
+                    <code className="text-xs">geteams_workspace_id</code> no Supabase).
+                  </p>
+                  <p>
+                    Verifique a API e use <strong className="text-foreground">Atualizar lista</strong>.
+                  </p>
                 </div>
               ) : (
                 <Select
