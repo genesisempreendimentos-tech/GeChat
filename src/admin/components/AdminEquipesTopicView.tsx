@@ -136,8 +136,8 @@ export function AdminEquipesTopicView({
             >
               <div
                 className={cn(
-                  'relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg',
-                  onSectorClick && 'hover:-translate-y-1 hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/15'
+                  'relative h-full flex flex-col p-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg',
+                  onSectorClick && 'hover:-translate-y-1 hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/15'
                 )}
               >
                 <div className="flex items-start gap-4 mb-4">
@@ -151,9 +151,9 @@ export function AdminEquipesTopicView({
                             color: normalizeColor(row.color)!,
                           }
                         : {
-                            background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                            borderColor: 'rgba(255,255,255,0.1)',
-                            color: '#94a3b8',
+                            background: 'linear-gradient(135deg, rgba(241,245,249,0.9), rgba(255,255,255,1))',
+                            borderColor: 'rgba(148,163,184,0.35)',
+                            color: '#64748b',
                           }
                     }
                   >
@@ -164,7 +164,7 @@ export function AdminEquipesTopicView({
                     )}
                   </div>
                   <div className="min-w-0 flex-1 pt-0.5">
-                    <h3 className="text-base font-semibold text-white tracking-tight truncate leading-tight">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight truncate leading-tight">
                       {row.sectorName}
                     </h3>
                     <div className="flex items-center gap-1.5 mt-1.5">
@@ -179,7 +179,7 @@ export function AdminEquipesTopicView({
                   </div>
                 </div>
                 
-                <div className="pt-4 mt-auto border-t border-white/5 flex items-center justify-between gap-3">
+                <div className="pt-4 mt-auto border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-3">
                   {row.collaborators && row.collaborators.length > 0 ? (
                     <AvatarGroup className="justify-start">
                       {row.collaborators.slice(0, 5).map((c) => (
@@ -195,7 +195,7 @@ export function AdminEquipesTopicView({
                               : undefined
                           }
                         >
-                          <Avatar className={cn('w-8 h-8 border-2 border-[#0d1520] ring-0 shadow-sm', onSectorCollaboratorPreviewClick && 'cursor-pointer')}>
+                          <Avatar className={cn('w-8 h-8 border-2 border-white dark:border-[#0d1520] ring-0 shadow-sm', onSectorCollaboratorPreviewClick && 'cursor-pointer')}>
                             <AvatarImage src={c.avatar} alt={c.name} />
                             <AvatarFallback className="text-[10px] bg-primary/20 text-primary font-semibold">
                               {c.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
@@ -205,7 +205,7 @@ export function AdminEquipesTopicView({
                       ))}
                       {row.collaborators.length > 5 && (
                         <div className="relative">
-                          <Avatar className="w-8 h-8 border-2 border-[#0d1520] shadow-sm">
+                          <Avatar className="w-8 h-8 border-2 border-white dark:border-[#0d1520] shadow-sm">
                             <AvatarFallback className="text-[11px] bg-muted text-muted-foreground font-semibold">
                               +{row.collaborators.length - 5}
                             </AvatarFallback>
@@ -217,7 +217,7 @@ export function AdminEquipesTopicView({
                       )}
                     </AvatarGroup>
                   ) : (
-                    <div className="flex items-center gap-2 text-white/30">
+                    <div className="flex items-center gap-2 text-muted-foreground/60 dark:text-white/30">
                       <UserCircle className="w-4 h-4" />
                       <span className="text-[12px] font-medium">Sem equipe</span>
                     </div>
@@ -227,20 +227,20 @@ export function AdminEquipesTopicView({
                     (onSectorCollaboratorBadgeClick ? (
                       <button
                         type="button"
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/15 transition-colors cursor-pointer shrink-0"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 hover:bg-slate-200/90 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSectorCollaboratorBadgeClick(row);
                         }}
                         aria-label={`Ver ${row.collaboratorCount} colaboradores`}
                       >
-                        <span className="text-[11px] font-medium text-white/70">{row.collaboratorCount}</span>
-                        <Users className="w-3.5 h-3.5 text-white/40" aria-hidden />
+                        <span className="text-[11px] font-medium text-slate-700 dark:text-white/70">{row.collaboratorCount}</span>
+                        <Users className="w-3.5 h-3.5 text-slate-500 dark:text-white/40" aria-hidden />
                       </button>
                     ) : (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/5 shrink-0">
-                        <span className="text-[11px] font-medium text-white/70">{row.collaboratorCount}</span>
-                        <Users className="w-3.5 h-3.5 text-white/40" aria-hidden />
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 shrink-0">
+                        <span className="text-[11px] font-medium text-slate-700 dark:text-white/70">{row.collaboratorCount}</span>
+                        <Users className="w-3.5 h-3.5 text-slate-500 dark:text-white/40" aria-hidden />
                       </div>
                     ))}
                 </div>

@@ -35,7 +35,7 @@ export function BottomNavigation() {
     },
     {
       icon: Boxes,
-      label: "Sistemas",
+      label: "Aplicativos",
       path: "/systems",
     },
     {

@@ -138,7 +138,7 @@ export default function AdminSystemsPage() {
   const handleOpenSystem = (system: AdminSystem) => {
     if (system.status === 'arquivado') { setArchivedSystem(system); return; }
     if (system.status === 'excluído' || system.status === 'excluido') { setDeletedSystem(system); return; }
-    if (system.status === 'beta' || system.status === 'rascunho' || system.status === 'lancamento') { setComingSoonSystem(system); return; }
+    if (system.status === 'rascunho') { setComingSoonSystem(system); return; }
     if (system.url) window.open(system.url, '_blank');
   };
 
@@ -631,16 +631,16 @@ export default function AdminSystemsPage() {
                 
                 <div className={`relative h-full flex flex-col justify-between p-5 rounded-2xl border backdrop-blur-md transition-all duration-300 shadow-lg
                   ${system.status === 'excluído' || system.status === 'excluido'
-                    ? 'border-destructive/40 bg-[#0d1520]/80 hover:border-destructive/60 hover:bg-destructive/10 hover:shadow-destructive/20 hover:-translate-y-2'
+                    ? 'border-destructive/40 bg-white/80 dark:bg-[#0d1520]/80 hover:border-destructive/60 hover:bg-destructive/10 hover:shadow-destructive/20 hover:-translate-y-2'
                     : system.status === 'arquivado'
-                      ? 'border-white/5 bg-[#0d1520]/40 opacity-60 hover:opacity-90 hover:border-white/20 hover:shadow-slate-400/10 hover:-translate-y-2'
+                      ? 'border-slate-200 dark:border-white/5 bg-white/40 dark:bg-[#0d1520]/40 opacity-60 hover:opacity-90 hover:border-slate-400 dark:hover:border-white/20 hover:shadow-slate-400/10 hover:-translate-y-2'
                     : system.status === 'beta'
-                      ? 'border-white/5 bg-[#0d1520]/80 hover:border-amber-500/50 hover:bg-amber-500/10 hover:shadow-amber-500/15 hover:-translate-y-2'
+                      ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-amber-500/50 hover:bg-amber-500/10 hover:shadow-amber-500/15 hover:-translate-y-2'
                     : system.status === 'lancamento'
-                      ? 'border-white/5 bg-[#0d1520]/80 hover:border-blue-500 hover:bg-blue-600/20 hover:shadow-blue-600/30 hover:-translate-y-2'
+                      ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-blue-500 hover:bg-blue-600/20 hover:shadow-blue-600/30 hover:-translate-y-2'
                     : system.status === 'rascunho'
-                      ? 'border-white/5 bg-[#0d1520]/80 hover:border-orange-500/50 hover:bg-orange-500/10 hover:shadow-orange-500/15 hover:-translate-y-2'
-                      : 'border-white/5 bg-[#0d1520]/80 hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-2'
+                      ? 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-orange-500/50 hover:bg-orange-500/10 hover:shadow-orange-500/15 hover:-translate-y-2'
+                      : 'border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-2'
                   }`}>
                   
                   {/* Header */}
@@ -648,12 +648,12 @@ export default function AdminSystemsPage() {
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="relative group/icon shrink-0">
                         <div className="absolute inset-0 bg-primary/20 blur-lg rounded-xl opacity-0 group-hover/icon:opacity-50 transition-opacity duration-500" />
-                        <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center text-primary shadow-inner group-hover/icon:border-primary/30 transition-colors overflow-hidden">
+                        <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-slate-50 to-white dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-primary shadow-inner group-hover/icon:border-primary/30 transition-colors overflow-hidden">
                           {renderIcon(system.icon, 'w-7 h-7 object-contain drop-shadow')}
                         </div>
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-lg font-bold text-white tracking-tight truncate group-hover:text-primary transition-colors duration-300">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate group-hover:text-primary transition-colors duration-300">
                           {system.name}
                         </h3>
                         <p className="text-xs text-muted-foreground truncate">{system.category}</p>
@@ -665,7 +665,7 @@ export default function AdminSystemsPage() {
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white hover:bg-white/10 rounded-full">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-full">
                             <MoreVertical className="w-4 h-4" />
                             <span className="sr-only">Ações</span>
                           </Button>
@@ -720,7 +720,7 @@ export default function AdminSystemsPage() {
                   </div>
 
                   {/* Footer: acessos (AvatarGroup) + Abrir */}
-                  <div className="pt-4 border-t border-white/5 flex items-center justify-between gap-3">
+                  <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0 flex items-center">
                       {(appUsers[system.id]?.length ?? 0) > 0 ? (
                         <>

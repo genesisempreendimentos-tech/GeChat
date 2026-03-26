@@ -450,7 +450,7 @@ export function TeamsEnrichedView({
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
                 <div
                   className={cn(
-                    "relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5",
+                    "relative h-full flex flex-col p-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5",
                     onCardClick && "cursor-pointer"
                   )}
                   onClick={() => onCardClick?.(team)}
@@ -463,7 +463,7 @@ export function TeamsEnrichedView({
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-start gap-4 min-w-0 flex-1">
                       <div className="relative shrink-0">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center text-primary overflow-hidden">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-50 to-white dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-primary overflow-hidden">
                           {team.icon ? (
                             renderIcon(team.icon, 'w-7 h-7 object-contain drop-shadow')
                           ) : (
@@ -472,7 +472,7 @@ export function TeamsEnrichedView({
                         </div>
                       </div>
                       <div className="min-w-0 pt-0.5">
-                        <h3 className="text-lg font-bold text-white tracking-tight truncate leading-snug">{team.name}</h3>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate leading-snug">{team.name}</h3>
                         {team.description ? (
                           <p className="text-xs text-muted-foreground/80 mt-2 line-clamp-2">{team.description}</p>
                         ) : null}
@@ -500,7 +500,7 @@ export function TeamsEnrichedView({
                   </div>
                   <div className="flex flex-col flex-1 mt-4">
                     <SectorMiniboxList team={team} variant="admin" />
-                    <div className="pt-4 mt-auto border-t border-white/5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                    <div className="pt-4 mt-auto border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                       {team.collaborators && team.collaborators.length > 0 ? (
                         <AvatarGroup className="justify-start">
                           {team.collaborators.slice(0, 5).map((c) => (
@@ -519,14 +519,14 @@ export function TeamsEnrichedView({
                                 <TooltipTrigger asChild>
                                   <button
                                     type="button"
-                                    className="relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1520]"
+                                    className="relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-[#0d1520]"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       onCollaboratorBadgeClick(team);
                                     }}
                                     aria-label={`Ver mais ${team.collaborators.length - 5} colaboradores`}
                                   >
-                                    <Avatar className="w-8 h-8 border-2 border-[#0d1520] shadow-sm">
+                                    <Avatar className="w-8 h-8 border-2 border-white dark:border-[#0d1520] shadow-sm">
                                       <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-bold">
                                         +{team.collaborators.length - 5}
                                       </AvatarFallback>
@@ -539,7 +539,7 @@ export function TeamsEnrichedView({
                               </Tooltip>
                             ) : (
                               <div className="relative">
-                                <Avatar className="w-8 h-8 border-2 border-[#0d1520] shadow-sm">
+                                <Avatar className="w-8 h-8 border-2 border-white dark:border-[#0d1520] shadow-sm">
                                   <AvatarFallback className="text-[10px] bg-muted text-muted-foreground font-bold">
                                     +{team.collaborators.length - 5}
                                   </AvatarFallback>
@@ -551,26 +551,26 @@ export function TeamsEnrichedView({
                             ))}
                         </AvatarGroup>
                       ) : (
-                        <span className="text-white/40 italic text-[11px]">Sem colaboradores</span>
+                        <span className="text-muted-foreground/60 dark:text-white/40 italic text-[11px]">Sem colaboradores</span>
                       )}
                       {team.collaboratorCount > 0 ? (
                         onCollaboratorBadgeClick ? (
                           <button
                             type="button"
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/5 shrink-0 hover:bg-white/10 hover:border-white/15 transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 shrink-0 hover:bg-slate-200/90 dark:hover:bg-white/10 transition-colors cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               onCollaboratorBadgeClick(team);
                             }}
                             aria-label={`Ver ${team.collaboratorCount} colaboradores`}
                           >
-                            <span className="text-[11px] font-medium text-white/70">{team.collaboratorCount}</span>
-                            <Users className="w-3.5 h-3.5 text-white/40" aria-hidden />
+                            <span className="text-[11px] font-medium text-slate-700 dark:text-white/70">{team.collaboratorCount}</span>
+                            <Users className="w-3.5 h-3.5 text-slate-500 dark:text-white/40" aria-hidden />
                           </button>
                         ) : (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/5 shrink-0">
-                            <span className="text-[11px] font-medium text-white/70">{team.collaboratorCount}</span>
-                            <Users className="w-3.5 h-3.5 text-white/40" aria-hidden />
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/5 shrink-0">
+                            <span className="text-[11px] font-medium text-slate-700 dark:text-white/70">{team.collaboratorCount}</span>
+                            <Users className="w-3.5 h-3.5 text-slate-500 dark:text-white/40" aria-hidden />
                           </div>
                         )
                       ) : null}

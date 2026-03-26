@@ -143,6 +143,7 @@ export interface Statement {
   imageUrl: string;
   caption?: string;
   tags: string[];
+  isOfficial?: boolean;
   /** Data de criação do registo (`statement.created_at`). */
   publishedAt: Date;
   userId: string;
@@ -162,6 +163,7 @@ type StatementRow = {
   image_url: string;
   caption?: string | null;
   tags?: string[] | null;
+  is_oficial?: boolean | null;
   /** Autor do post (`created_by` na base; `user_id` legado). */
   user_id?: string;
   created_by?: string;
@@ -240,6 +242,7 @@ function statementRowToApp(row: StatementRow): Statement {
     imageUrl: row.image_url ?? '',
     caption: row.caption ?? undefined,
     tags: Array.isArray(row.tags) ? row.tags : [],
+    isOfficial: row.is_oficial === true,
     publishedAt: row.created_at ? new Date(row.created_at) : new Date(),
     userId: creatorId,
     creatorName: row.creator_name?.trim() || undefined,
@@ -1969,6 +1972,7 @@ export const databaseService = {
     image_url: string;
     caption?: string | null;
     tags: string[];
+    is_oficial?: boolean;
     user_id: string;
     creator_name?: string | null;
   }): Promise<{ data: Statement | null; error: unknown }> {
@@ -1990,6 +1994,7 @@ export const databaseService = {
         image_url: imageTrim,
         caption: captionTrimmed,
         tags: payload.tags.length ? payload.tags : [],
+        is_oficial: payload.is_oficial === true,
         created_by: payload.user_id,
       };
       if (payload.creator_name != null && String(payload.creator_name).trim() !== '') {
@@ -2010,6 +2015,7 @@ export const databaseService = {
       image_url?: string;
       caption?: string | null;
       tags?: string[];
+      is_oficial?: boolean;
       is_archived?: boolean;
     }
   ): Promise<{ data: Statement | null; error: unknown }> {
@@ -2029,6 +2035,7 @@ export const databaseService = {
       if (payload.image_url !== undefined) patch.image_url = payload.image_url.trim();
       if (payload.caption !== undefined) patch.caption = payload.caption?.trim() || null;
       if (payload.tags !== undefined) patch.tags = payload.tags.length ? payload.tags : [];
+      if (payload.is_oficial !== undefined) patch.is_oficial = payload.is_oficial === true;
       if (payload.is_archived !== undefined) patch.is_archived = payload.is_archived;
       const { data, error } = await supabase.from(STATEMENT_TABLE).update(patch).eq('id', id).select().single();
       if (error) return { data: null, error };

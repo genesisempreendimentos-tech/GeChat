@@ -300,7 +300,7 @@ export default function AdminSolicitacoesPage() {
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl blur-xl -z-10" />
                 <div
-                  className="relative h-full flex flex-col justify-between p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-2"
+                  className="relative h-full flex flex-col justify-between p-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-white/80 dark:bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg hover:border-primary/30 hover:bg-white/90 dark:hover:bg-[#0d1520]/90 hover:shadow-primary/5 hover:-translate-y-2"
                   style={
                     channel.color && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(channel.color)
                       ? { borderLeftWidth: 4, borderLeftColor: channel.color }
@@ -311,7 +311,7 @@ export default function AdminSolicitacoesPage() {
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="relative group/icon shrink-0">
                         <div className="absolute inset-0 bg-primary/20 blur-lg rounded-xl opacity-0 group-hover/icon:opacity-50 transition-opacity duration-500" />
-                        <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center text-primary shadow-inner group-hover/icon:border-primary/30 transition-colors overflow-hidden">
+                        <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-slate-50 to-white dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-primary shadow-inner group-hover/icon:border-primary/30 transition-colors overflow-hidden">
                           {channel.icon ? (
                             renderIcon(channel.icon, 'w-7 h-7 object-contain drop-shadow')
                           ) : (
@@ -320,7 +320,7 @@ export default function AdminSolicitacoesPage() {
                         </div>
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-lg font-bold text-white tracking-tight truncate group-hover:text-primary transition-colors duration-300">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate group-hover:text-primary transition-colors duration-300">
                           {channel.name}
                         </h3>
                         <span
@@ -363,7 +363,7 @@ export default function AdminSolicitacoesPage() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="pt-4 border-t border-white/5 flex justify-end">
+                  <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex justify-end">
                     {channel.url ? (
                       <Button
                         size="sm"

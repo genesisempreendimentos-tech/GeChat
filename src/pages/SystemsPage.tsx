@@ -200,7 +200,7 @@ export default function SystemsPage() {
     if (system.status === 'arquivado') { setArchivedSystem(system); return; }
     if (system.status === 'excluído' || system.status === 'excluido') { setDeletedSystem(system); return; }
     const accessStatus = (system.status ?? '') as string;
-    if (['beta', 'rascunho', 'lancamento'].includes(accessStatus)) { setComingSoonSystem(system); return; }
+    if (accessStatus === 'rascunho') { setComingSoonSystem(system); return; }
     window.open(url, '_blank');
   };
 

@@ -158,6 +158,7 @@ export default function ComunicadosPage() {
   const [tagsRaw, setTagsRaw] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [useOfficialComunicadoImage, setUseOfficialComunicadoImage] = useState(false);
+  const [isOfficial, setIsOfficial] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState('');
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
@@ -170,6 +171,7 @@ export default function ComunicadosPage() {
   const [editTagsRaw, setEditTagsRaw] = useState('');
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editUseOfficialComunicadoImage, setEditUseOfficialComunicadoImage] = useState(false);
+  const [editIsOfficial, setEditIsOfficial] = useState(false);
   const [editImagePreview, setEditImagePreview] = useState('');
   const [editFormError, setEditFormError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
@@ -279,6 +281,7 @@ export default function ComunicadosPage() {
     setTagsRaw('');
     setImageFile(null);
     setUseOfficialComunicadoImage(false);
+    setIsOfficial(false);
     setFormError('');
     setImagePreviewUrl((prev) => {
       if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
@@ -319,6 +322,7 @@ export default function ComunicadosPage() {
       setEditTagsRaw('');
       setEditImageFile(null);
       setEditUseOfficialComunicadoImage(false);
+      setEditIsOfficial(false);
       setEditImagePreview('');
       setEditFormError('');
       if (editFileInputRef.current) editFileInputRef.current.value = '';
@@ -330,6 +334,7 @@ export default function ComunicadosPage() {
     setEditImageFile(null);
     const initialImg = (editStatement.imageUrl ?? '').trim();
     setEditUseOfficialComunicadoImage(initialImg === COMUNICADO_OFICIAL_IMAGE_URL.trim());
+    setEditIsOfficial(editStatement.isOfficial === true);
     setEditImagePreview(editStatement.imageUrl);
     setEditFormError('');
     if (editFileInputRef.current) editFileInputRef.current.value = '';
@@ -369,6 +374,7 @@ export default function ComunicadosPage() {
     setImageFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setUseOfficialComunicadoImage(true);
+    setIsOfficial(true);
     setImagePreviewUrl((prev) => {
       if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
       return COMUNICADO_OFICIAL_IMAGE_URL;
@@ -436,6 +442,7 @@ export default function ComunicadosPage() {
       image_url: imageUrl,
       caption: caption.trim(),
       tags,
+      is_oficial: isOfficial,
       user_id: user.id,
       creator_name: user.name?.trim() || null,
     });
@@ -493,6 +500,7 @@ export default function ComunicadosPage() {
     setEditImageFile(null);
     if (editFileInputRef.current) editFileInputRef.current.value = '';
     setEditUseOfficialComunicadoImage(true);
+    setEditIsOfficial(true);
     setEditImagePreview((prev) => {
       if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
       return COMUNICADO_OFICIAL_IMAGE_URL;
@@ -549,6 +557,7 @@ export default function ComunicadosPage() {
       image_url: imageUrl,
       caption: editCaption.trim() || null,
       tags,
+      is_oficial: editIsOfficial,
     });
     setEditLoading(false);
 
@@ -618,6 +627,39 @@ export default function ComunicadosPage() {
     setConfirmTarget(s);
     setConfirmAction('delete');
   }, []);
+
+  const handleSetStatementViewed = useCallback(
+    async (statement: Statement, viewed: boolean) => {
+      const prevViewed = statement.viewed === true;
+
+      // Atualização otimista da UI
+      setStatements((prev) =>
+        prev.map((s) => (s.id === statement.id ? { ...s, viewed } : s))
+      );
+      setDetailStatement((prev) =>
+        prev?.id === statement.id ? { ...prev, viewed } : prev
+      );
+      emitCommunicadosUnreadChanged();
+
+      const { error } = await databaseService.upsertStatementReaction(statement.id, { viewed });
+      if (error) {
+        // Rollback em caso de erro
+        setStatements((prev) =>
+          prev.map((s) => (s.id === statement.id ? { ...s, viewed: prevViewed } : s))
+        );
+        setDetailStatement((prev) =>
+          prev?.id === statement.id ? { ...prev, viewed: prevViewed } : prev
+        );
+        emitCommunicadosUnreadChanged();
+        toast.error('Não foi possível atualizar o status de leitura.');
+        return;
+      }
+
+      toast.success(viewed ? 'Marcado como lido.' : 'Marcado como não lido.');
+      void loadData();
+    },
+    [loadData]
+  );
 
   const handleDeleteStatement = async (s: Statement) => {
     const { error } = await databaseService.deleteStatement(s.id);
@@ -1157,6 +1199,24 @@ export default function ComunicadosPage() {
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleSetStatementViewed(s, !(s.viewed === true));
+                            }}
+                          >
+                            {s.viewed ? (
+                              <>
+                                <AlertCircle className="mr-2 h-4 w-4" />
+                                Não lido
+                              </>
+                            ) : (
+                              <>
+                                <CircleCheck className="mr-2 h-4 w-4" />
+                                Lido
+                              </>
+                            )}
+                          </DropdownMenuItem>
                           {s.isArchived ? (
                             <DropdownMenuItem
                               onClick={(e) => {
@@ -1432,6 +1492,26 @@ export default function ComunicadosPage() {
                           >
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              void handleSetStatementViewed(
+                                detailStatement,
+                                !(detailStatement.viewed === true)
+                              );
+                            }}
+                          >
+                            {detailStatement.viewed ? (
+                              <>
+                                <AlertCircle className="mr-2 h-4 w-4" />
+                                Não lido
+                              </>
+                            ) : (
+                              <>
+                                <CircleCheck className="mr-2 h-4 w-4" />
+                                Lido
+                              </>
+                            )}
                           </DropdownMenuItem>
                           {detailStatement.isArchived ? (
                             <DropdownMenuItem
@@ -1862,6 +1942,37 @@ export default function ComunicadosPage() {
                 </p>
               </div>
 
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <BadgeCheck className="w-3.5 h-3.5" />
+                  </span>
+                  Comunicado oficial
+                </label>
+                <div className="h-12 rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/10 px-3 flex items-center justify-between shadow-sm">
+                  <span className="text-sm text-muted-foreground">
+                    {isOfficial ? 'Marcado como oficial' : 'Não oficial'}
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isOfficial}
+                    onClick={() => setIsOfficial((v) => !v)}
+                    className={cn(
+                      'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                      isOfficial ? 'bg-primary' : 'bg-muted-foreground/30'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'inline-block h-5 w-5 transform rounded-full bg-white transition-transform',
+                        isOfficial ? 'translate-x-5' : 'translate-x-0.5'
+                      )}
+                    />
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label htmlFor="comunicado-tags" className="text-sm font-semibold text-foreground flex items-center gap-2">
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -2042,6 +2153,37 @@ export default function ComunicadosPage() {
               </p>
             </div>
 
+            <div className="space-y-3">
+              <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <BadgeCheck className="w-3.5 h-3.5" />
+                </span>
+                Comunicado oficial
+              </label>
+              <div className="h-12 rounded-2xl border border-border/60 bg-gradient-to-b from-background to-muted/10 px-3 flex items-center justify-between shadow-sm">
+                <span className="text-sm text-muted-foreground">
+                  {editIsOfficial ? 'Marcado como oficial' : 'Não oficial'}
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={editIsOfficial}
+                  onClick={() => setEditIsOfficial((v) => !v)}
+                  className={cn(
+                    'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                    editIsOfficial ? 'bg-primary' : 'bg-muted-foreground/30'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'inline-block h-5 w-5 transform rounded-full bg-white transition-transform',
+                      editIsOfficial ? 'translate-x-5' : 'translate-x-0.5'
+                    )}
+                  />
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label htmlFor="edit-comunicado-tags" className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -2049,6 +2191,7 @@ export default function ComunicadosPage() {
                 </span>
                 Tags
               </label>
+              <p className="text-xs text-muted-foreground -mt-1">Separe por vírgula (ex.: RH, aviso, plantão).</p>
               <Input
                 id="edit-comunicado-tags"
                 placeholder="tag1, tag2, tag3"

@@ -6,7 +6,6 @@ import {
   Users,
   UserKey,
   UserStar,
-  Pin,
   LibraryBig,
   Check,
   Boxes,
@@ -62,24 +61,10 @@ export default function AdminSidebar() {
   const hasUnviewedComunicados = useUnviewedComunicados();
   const isInAdmin = location.pathname.startsWith('/admin');
   const layoutMode = useSidebarLayoutStore((s) => s.mode);
-  const [pinned, setPinned] = useState(() => {
-    const saved = localStorage.getItem('sidebar-admin-pinned');
-    return saved ? JSON.parse(saved) : false;
-  });
   const [isHovered, setIsHovered] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem('sidebar-admin-pinned', JSON.stringify(pinned));
-  }, [pinned]);
-
-  useEffect(() => {
-    if (layoutMode === 'expanded' || layoutMode === 'collapsed') {
-      setPinned(false);
-    }
-  }, [layoutMode]);
-
   const isExpanded =
-    layoutMode === 'expanded' ? true : layoutMode === 'collapsed' ? false : pinned || isHovered;
+    layoutMode === 'expanded' ? true : layoutMode === 'collapsed' ? false : isHovered;
   const setSidebarWidth = useSetSidebarWidth();
 
   useEffect(() => {
@@ -94,11 +79,11 @@ export default function AdminSidebar() {
         transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
         onMouseEnter={() => {
           if (layoutMode !== 'hover') return;
-          if (!pinned) setIsHovered(true);
+          setIsHovered(true);
         }}
         onMouseLeave={() => {
           if (layoutMode !== 'hover') return;
-          if (!pinned) setIsHovered(false);
+          setIsHovered(false);
         }}
         className="hidden md:flex fixed left-0 top-0 h-screen bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
         role="navigation"
@@ -253,30 +238,6 @@ export default function AdminSidebar() {
           <SidebarFooterControl isExpanded={isExpanded} />
         </div>
       </motion.aside>
-
-      {layoutMode === 'hover' ? (
-        <motion.button
-          initial={false}
-          animate={{ x: isExpanded ? 264 : 72 }}
-          transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-          onClick={() => setPinned(!pinned)}
-          className={cn(
-            'fixed top-4 z-50 p-2 rounded-full shadow-lg transition-all duration-200',
-            'hover:scale-110 active:scale-95',
-            pinned
-              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-              : 'bg-card/70 dark:bg-card/60 backdrop-blur-lg border border-border/80 hover:bg-accent/80'
-          )}
-          title={pinned ? 'Desafixar menu' : 'Fixar menu'}
-        >
-          <Pin
-            className={cn(
-              'w-4 h-4 transition-all duration-200',
-              pinned ? 'rotate-0' : 'rotate-45'
-            )}
-          />
-        </motion.button>
-      ) : null}
 
     </>
   );
