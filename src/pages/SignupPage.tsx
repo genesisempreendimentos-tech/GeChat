@@ -277,7 +277,7 @@ export default function SignupPage() {
               <div>
                 <h3 className="text-xl font-semibold text-green-600">Conta criada com sucesso!</h3>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Verifique seu email para confirmar a conta.
+                  Verificamos o seu email e ele tem habilitação para acessar o GêApps.
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Redirecionando para login...

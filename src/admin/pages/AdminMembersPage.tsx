@@ -27,6 +27,7 @@ import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { databaseService } from '@/services/supabase';
+import { GEAPPS_APP_ID } from '@/services/supabase';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { User } from '@/types';
 import { format } from 'date-fns';
@@ -71,6 +72,21 @@ interface SystemAccess {
   original: boolean; // estado original para detectar mudanças
 }
 
+function normalizeGeAppsName(value: string): string {
+  return (value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '');
+}
+
+function isGeAppsSystem(system: SystemAccess): boolean {
+  if (!system) return false;
+  if (system.id === GEAPPS_APP_ID) return true;
+  const normalized = normalizeGeAppsName(system.name);
+  return normalized === 'geapps';
+}
+
 function emailNeonKey(email: string | undefined): string {
   return (email ?? '').toLowerCase().trim();
 }
@@ -104,6 +120,7 @@ export default function AdminMembersPage() {
   const [systemAccesses, setSystemAccesses] = useState<SystemAccess[]>([]);
   const [loadingAccess, setLoadingAccess] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
+  const [geAppsRevokeConfirmOpen, setGeAppsRevokeConfirmOpen] = useState(false);
   const [accessSearch, setAccessSearch] = useState('');
   const [accessFilter, setAccessFilter] = useState<'all' | 'granted' | 'denied'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'user' | 'creator' | 'admin'>('all');
@@ -226,7 +243,12 @@ export default function AdminMembersPage() {
     );
   };
 
-  const handleSaveAccess = async () => {
+  const hasGeAppsAccessRevokeInChanges = useCallback(() => {
+    const geAppsAccess = systemAccesses.find((s) => isGeAppsSystem(s));
+    return !!geAppsAccess && geAppsAccess.original === true && geAppsAccess.canAccess === false;
+  }, [systemAccesses]);
+
+  const persistAccessChanges = useCallback(async () => {
     if (!accessModal) return;
     setSavingAccess(true);
 
@@ -240,6 +262,19 @@ export default function AdminMembersPage() {
     // Atualiza originais
     setSystemAccesses(prev => prev.map(s => ({ ...s, original: s.canAccess })));
     setSavingAccess(false);
+  }, [accessModal, systemAccesses]);
+
+  const handleSaveAccess = async () => {
+    if (hasGeAppsAccessRevokeInChanges()) {
+      setGeAppsRevokeConfirmOpen(true);
+      return;
+    }
+    await persistAccessChanges();
+  };
+
+  const handleConfirmGeAppsRevoke = async () => {
+    setGeAppsRevokeConfirmOpen(false);
+    await persistAccessChanges();
   };
 
   const renderSystemIcon = (iconPath: string) => {
@@ -956,6 +991,25 @@ export default function AdminMembersPage() {
                 {savingAccess ? 'Salvando...' : 'Salvar alterações'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={geAppsRevokeConfirmOpen} onOpenChange={setGeAppsRevokeConfirmOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Confirmar remoção de acesso</DialogTitle>
+            <DialogDescription>
+              Ao remover o acesso do GêApps, todos os aplicativos desse usuário também terão o acesso removido. Deseja continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setGeAppsRevokeConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => void handleConfirmGeAppsRevoke()}>
+              Sim
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

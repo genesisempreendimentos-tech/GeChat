@@ -41,6 +41,7 @@ function createSupabaseClient(): SupabaseClient {
 }
 
 export const supabase = createSupabaseClient();
+export const GEAPPS_APP_ID = 'd1623d11-e393-48a2-b402-279d013ae246' as const;
 
 /**
  * Tabela Supabase para canais de solicitação (criar no dashboard quando for aplicar o SQL).
@@ -1333,6 +1334,27 @@ export const databaseService = {
   },
 
   /**
+   * Retorna o valor explícito de access para o app GêApps.
+   * Regras:
+   * - `true`: possui linha com access = true
+   * - `false`: possui linha com access = false (deve bloquear)
+   * - `null`: sem linha / valor não determinável
+   */
+  async getGeAppsExplicitAccess(userId: string): Promise<{ data: boolean | null; error: unknown | null }> {
+    const { data, error } = await supabase
+      .from('user_app_access')
+      .select('access')
+      .eq('user_id', userId)
+      .eq('app_id', GEAPPS_APP_ID)
+      .maybeSingle();
+    if (error) return { data: null, error };
+    if (!data) return { data: null, error: null };
+    if (data.access === true) return { data: true, error: null };
+    if (data.access === false) return { data: false, error: null };
+    return { data: null, error: null };
+  },
+
+  /**
    * Apps visíveis para um membro: user_app_access.access = true para o user_id,
    * e app com status ativo/beta. Só esses aparecem em "aplicativos disponíveis".
    */
@@ -1466,6 +1488,16 @@ export const databaseService = {
   },
 
   async setUserSystemAccess(userId: string, systemId: string, canAccess: boolean) {
+    // Regra central: se remover acesso ao GêApps, remove acesso de TODOS os apps.
+    if (!canAccess && systemId === GEAPPS_APP_ID) {
+      const { data, error } = await supabase
+        .from('user_app_access')
+        .update({ access: false, is_favorite: false, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .select();
+      return { data, error };
+    }
+
     // Revogação precisa ser "forte": atualiza todas as linhas do par user/app
     // para evitar manter acesso por registro duplicado/variação de tipo.
     if (!canAccess) {

@@ -28,7 +28,7 @@ import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
-import { databaseService, storageService } from '@/services/supabase';
+import { databaseService, storageService, GEAPPS_APP_ID } from '@/services/supabase';
 import { getAllCollaboratorsSectors } from '@/services/corporateProfile';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { SystemCategory, Category } from '@/types';
@@ -90,6 +90,20 @@ interface AdminSystem {
   next_release_date?: string;
   anchor_pdf_url?: string;
   github_url?: string;
+}
+
+function normalizeGeAppsName(value: string): string {
+  return (value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '');
+}
+
+function isGeAppsApp(app: Pick<AdminSystem, 'id' | 'name'> | null): boolean {
+  if (!app) return false;
+  if (app.id === GEAPPS_APP_ID) return true;
+  return normalizeGeAppsName(app.name) === 'geapps';
 }
 
 function renderIcon(iconPath: string, className: string = '') {
@@ -173,6 +187,7 @@ export default function AdminSystemsPage() {
   const [sectors, setSectors] = useState<string[]>([]);
   const [loadingAccess, setLoadingAccess] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
+  const [geAppsAccessConfirmOpen, setGeAppsAccessConfirmOpen] = useState(false);
   const [accessSearch, setAccessSearch] = useState('');
   const [accessFilter, setAccessFilter] = useState<'all' | 'granted' | 'denied'>('all');
   const [accessSectorFilter, setAccessSectorFilter] = useState<string>('all');
@@ -366,7 +381,7 @@ export default function AdminSystemsPage() {
     );
   };
 
-  const handleSaveAccess = async () => {
+  const persistAccessChanges = async () => {
     if (!accessModalSystem) return;
     setSavingAccess(true);
 
@@ -386,6 +401,19 @@ export default function AdminSystemsPage() {
     // setAccessModalSystem(null); // Keep open if they want to do more changes, or close. Let's keep the user's choice to close manually or close on success.
     // Close on success
     setAccessModalSystem(null);
+  };
+
+  const handleSaveAccess = async () => {
+    if (isGeAppsApp(accessModalSystem)) {
+      setGeAppsAccessConfirmOpen(true);
+      return;
+    }
+    await persistAccessChanges();
+  };
+
+  const handleConfirmGeAppsAccess = async () => {
+    setGeAppsAccessConfirmOpen(false);
+    await persistAccessChanges();
   };
 
   const filteredAccesses = memberAccesses.filter(m => {
@@ -1738,6 +1766,25 @@ export default function AdminSystemsPage() {
                 {savingAccess ? 'Salvando...' : 'Salvar alterações'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={geAppsAccessConfirmOpen} onOpenChange={setGeAppsAccessConfirmOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Confirmar alteração de acesso no GêApps</DialogTitle>
+            <DialogDescription>
+              Ao liberar acesso ao GêApps, o usuário poderá criar a conta. Se remover o acesso ao GêApps, o acesso a todos os demais aplicativos desse usuário também será removido. Deseja continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setGeAppsAccessConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => void handleConfirmGeAppsAccess()}>
+              Confirmar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
