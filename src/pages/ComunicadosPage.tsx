@@ -85,6 +85,7 @@ const DEFAULT_AVATAR =
 /** Imagem padrão já publicada no bucket GeComunicado (sem upload pelo usuário). */
 const COMUNICADO_OFICIAL_IMAGE_URL =
   'https://shmrdhpjlsrqiffcykzw.supabase.co/storage/v1/object/public/GeComunicado/ComunicadoOficial01.png';
+const AUTO_OPEN_COMUNICADO_ID_KEY = 'geapps:auto-open-comunicado-id';
 
 type StatementReactionSummary = {
   uniqueEmojis: string[];
@@ -769,6 +770,16 @@ export default function ComunicadosPage() {
       void loadData();
     });
   };
+
+  useEffect(() => {
+    if (loading || statements.length === 0) return;
+    const pendingAutoOpenId = sessionStorage.getItem(AUTO_OPEN_COMUNICADO_ID_KEY);
+    if (!pendingAutoOpenId) return;
+    const target = statements.find((s) => s.id === pendingAutoOpenId);
+    if (!target) return;
+    sessionStorage.removeItem(AUTO_OPEN_COMUNICADO_ID_KEY);
+    handleOpenPost(target);
+  }, [loading, statements]);
 
   const handleReactToStatement = useCallback(
     async (statementId: string, reaction: string | null) => {

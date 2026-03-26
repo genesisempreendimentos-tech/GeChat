@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import Sidebar from '@/components/layout/Sidebar';
 import Topbar from '@/components/layout/Topbar';
@@ -7,18 +7,11 @@ import { SidebarProvider, useSidebarWidth } from '@/contexts/SidebarContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useState, useEffect } from 'react';
 import { databaseService, type Statement } from '@/services/supabase';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { emitCommunicadosUnreadChanged } from '@/lib/communicadosEvents';
 
 const OFFICIAL_COMUNICADO_IMAGE_URL =
   'https://shmrdhpjlsrqiffcykzw.supabase.co/storage/v1/object/public/GeComunicado/ComunicadoOficial01.png';
+const AUTO_OPEN_COMUNICADO_ID_KEY = 'geapps:auto-open-comunicado-id';
 
 function normalizeOfficialText(value: string): string {
   return (value ?? '')
@@ -70,9 +63,9 @@ function MainContent() {
 
 export default function MainLayout() {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [zoomLevelBack, setZoomLevelBack] = useState(100);
-  const [autoOfficialOpen, setAutoOfficialOpen] = useState(false);
-  const [autoOfficialStatement, setAutoOfficialStatement] = useState<Statement | null>(null);
   const [autoOfficialCheckedUserId, setAutoOfficialCheckedUserId] = useState<string | null>(null);
 
   // Polling para altura
@@ -94,8 +87,6 @@ export default function MainLayout() {
       if (!user?.id) {
         if (mounted) {
           setAutoOfficialCheckedUserId(null);
-          setAutoOfficialStatement(null);
-          setAutoOfficialOpen(false);
         }
         return;
       }
@@ -114,9 +105,11 @@ export default function MainLayout() {
 
       if (!unreadOfficial) return;
 
-      setAutoOfficialStatement(unreadOfficial);
-      setAutoOfficialOpen(true);
+      sessionStorage.setItem(AUTO_OPEN_COMUNICADO_ID_KEY, unreadOfficial.id);
       emitCommunicadosUnreadChanged();
+      if (location.pathname !== '/comunicados') {
+        navigate('/comunicados');
+      }
 
       // Após exibir automaticamente, marca como lido para não abrir novamente.
       void databaseService.markStatementViewed(unreadOfficial.id).then(() => {
@@ -128,7 +121,7 @@ export default function MainLayout() {
     return () => {
       mounted = false;
     };
-  }, [user?.id, autoOfficialCheckedUserId]);
+  }, [user?.id, autoOfficialCheckedUserId, navigate, location.pathname]);
 
   return (
     <SidebarProvider>
@@ -143,39 +136,6 @@ export default function MainLayout() {
         <Sidebar userRole={user?.accessType} />
         <MainContent />
       </div>
-      <Dialog
-        open={autoOfficialOpen}
-        onOpenChange={(open) => {
-          setAutoOfficialOpen(open);
-          if (!open) setAutoOfficialStatement(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-[560px]">
-          <DialogHeader>
-            <DialogTitle>{autoOfficialStatement?.title || 'Comunicado Oficial'}</DialogTitle>
-            <DialogDescription>
-              Este comunicado oficial foi aberto automaticamente por estar pendente de leitura.
-            </DialogDescription>
-          </DialogHeader>
-          {autoOfficialStatement?.imageUrl ? (
-            <div className="mt-2 overflow-hidden rounded-xl border border-border/60 bg-muted/30">
-              <img
-                src={autoOfficialStatement.imageUrl}
-                alt={autoOfficialStatement.title}
-                className="max-h-[280px] w-full object-cover"
-              />
-            </div>
-          ) : null}
-          {autoOfficialStatement?.caption ? (
-            <p className="mt-3 whitespace-pre-wrap text-sm text-foreground/90">
-              {autoOfficialStatement.caption}
-            </p>
-          ) : null}
-          <div className="mt-4 flex justify-end">
-            <Button onClick={() => setAutoOfficialOpen(false)}>Entendi</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </SidebarProvider>
   );
 }
