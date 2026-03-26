@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Send, Headset, ExternalLink, Filter, ChevronDown, Boxes, Table2, LayoutGrid } from 'lucide-react';
+import { Search, Send, Headset, ExternalLink, Filter, ChevronDown, Boxes, Table2, LayoutGrid, MoreVertical, Trash2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
 import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
+import { useAuthStore } from '@/store/authStore';
 
 const NAME_FILTER_ALL = 'all';
 const TYPE_LABELS: Record<RequestChannelType, string> = {
@@ -54,6 +55,8 @@ function renderIcon(iconPath: string, className: string = '') {
 }
 
 export default function SolicitacoesPage() {
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = String(user?.accessType ?? '').toLowerCase().trim() === 'admin';
   const [channels, setChannels] = useState<RequestChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,6 +113,17 @@ export default function SolicitacoesPage() {
   const openChannel = (c: RequestChannel) => {
     if (c.url) window.open(c.url, '_blank', 'noopener,noreferrer');
   };
+
+  const handleDeleteChannel = useCallback(async (channel: RequestChannel) => {
+    const confirmed = window.confirm(`Excluir o canal "${channel.name}"?`);
+    if (!confirmed) return;
+    const { error } = await databaseService.deleteRequestChannel(channel.id);
+    if (error) {
+      console.error('[deleteRequestChannel]', error);
+      return;
+    }
+    setChannels((prev) => prev.filter((c) => c.id !== channel.id));
+  }, []);
 
   return (
     <MainViewFluidShell>
@@ -228,6 +242,7 @@ export default function SolicitacoesPage() {
                     <th className="text-left py-3 px-4 font-semibold">Tipo</th>
                     <th className="text-left py-3 px-4 font-semibold">Descrição</th>
                     <th className="text-right py-3 px-4 font-semibold">Ação</th>
+                    {isAdmin ? <th className="text-right py-3 px-4 font-semibold w-12"> </th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -251,6 +266,34 @@ export default function SolicitacoesPage() {
                           Abrir
                         </span>
                       </td>
+                      {isAdmin ? (
+                        <td className="py-3 px-4 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                aria-label="Ações do canal"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDeleteChannel(channel);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Excluir canal
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
@@ -308,6 +351,35 @@ export default function SolicitacoesPage() {
                       {TYPE_LABELS[channel.channel_type]}
                     </span>
                   </div>
+                  {isAdmin ? (
+                    <div
+                      className="shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            aria-label="Ações do canal"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => void handleDeleteChannel(channel)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Excluir canal
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="mb-4 min-h-[40px]">

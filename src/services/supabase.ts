@@ -2064,6 +2064,15 @@ export const databaseService = {
     }
   },
 
+  async deleteRequestChannel(id: string): Promise<{ error: unknown }> {
+    try {
+      const { error } = await supabase.from(REQUEST_CHANNELS_TABLE).delete().eq('id', id);
+      return { error };
+    } catch (e) {
+      return { error: e };
+    }
+  },
+
   /** Equipes cadastradas no Supabase. */
   async listTeams(options?: { activeOnly?: boolean }): Promise<{ data: Team[]; error: null }> {
     const activeOnly = options?.activeOnly === true;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, ExternalLink, Search, AlertCircle, Send, Headset, RefreshCw, ChevronDown, Filter, Boxes } from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, Send, Headset, RefreshCw, ChevronDown, Filter, Boxes, MoreVertical, Trash2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -164,6 +164,18 @@ export default function AdminSolicitacoesPage() {
     if (c.url) window.open(c.url, '_blank', 'noopener,noreferrer');
   };
 
+  const handleDeleteChannel = useCallback(async (channel: RequestChannel) => {
+    if (!canCreate) return;
+    const confirmed = window.confirm(`Excluir o canal "${channel.name}"?`);
+    if (!confirmed) return;
+    const { error } = await databaseService.deleteRequestChannel(channel.id);
+    if (error) {
+      console.error('[deleteRequestChannel]', error);
+      return;
+    }
+    setChannels((prev) => prev.filter((c) => c.id !== channel.id));
+  }, [canCreate]);
+
   return (
     <MainViewFluidShell>
     <div className="space-y-6">
@@ -325,6 +337,31 @@ export default function AdminSolicitacoesPage() {
                         ) : null}
                       </div>
                     </div>
+                    {canCreate ? (
+                      <div className="shrink-0">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              aria-label="Ações do canal"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => void handleDeleteChannel(channel)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Excluir canal
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="pt-4 border-t border-white/5 flex justify-end">
                     {channel.url ? (
@@ -355,6 +392,7 @@ export default function AdminSolicitacoesPage() {
                   <th className="text-left py-3 px-2 font-medium">Tipo</th>
                   <th className="text-left py-3 px-2 font-medium">URL</th>
                   <th className="text-left py-3 px-2 font-medium">Ações</th>
+                  {canCreate ? <th className="text-right py-3 px-2 font-medium w-12" aria-label="Menu" /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -402,6 +440,31 @@ export default function AdminSolicitacoesPage() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </td>
+                    {canCreate ? (
+                      <td className="py-2 px-2 text-right align-middle">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label="Ações do canal"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => void handleDeleteChannel(channel)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Excluir canal
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

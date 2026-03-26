@@ -131,10 +131,14 @@ export function AdminEquipesTopicView({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
-              className="relative"
+              className={cn('relative', onSectorClick && 'cursor-pointer')}
+              onClick={() => onSectorClick?.(row)}
             >
               <div
-                className="relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg"
+                className={cn(
+                  'relative h-full flex flex-col p-5 rounded-2xl border border-white/5 bg-[#0d1520]/80 backdrop-blur-md transition-all duration-300 shadow-lg',
+                  onSectorClick && 'hover:-translate-y-1 hover:border-primary/30 hover:bg-[#0d1520]/90 hover:shadow-primary/15'
+                )}
               >
                 <div className="flex items-start gap-4 mb-4">
                   <div
@@ -263,7 +267,8 @@ export function AdminEquipesTopicView({
               return (
                 <tr
                   key={row.id}
-                  className="border-b border-border/50"
+                  className={cn('border-b border-border/50', onSectorClick && 'hover:bg-muted/30 cursor-pointer')}
+                  onClick={() => onSectorClick?.(row)}
                 >
                   <td className="py-2 px-2">
                     <div className="flex items-center gap-2">
