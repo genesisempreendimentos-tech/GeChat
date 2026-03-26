@@ -478,6 +478,7 @@ export default function EquipesPage() {
           viewMode={viewMode}
           variant="user"
           showStatusColumn={false}
+          onCardClick={openCollaboratorsModalDepartment}
           onCollaboratorBadgeClick={openCollaboratorsModalDepartment}
           onCollaboratorPreviewClick={handleDepartmentCardCollaboratorClick}
           loadingCollaboratorId={loadingCollaboratorId}
@@ -497,6 +498,7 @@ export default function EquipesPage() {
           collaboratorRows={collaboratorRows}
           onCollaboratorClick={handleCollaboratorClick}
           loadingCollaboratorId={loadingCollaboratorId}
+          onSectorClick={topicView === TOPIC_SECTORS ? openCollaboratorsModalSector : undefined}
           onSectorCollaboratorBadgeClick={topicView === TOPIC_SECTORS ? openCollaboratorsModalSector : undefined}
           onSectorCollaboratorPreviewClick={topicView === TOPIC_SECTORS ? handleSectorCardCollaboratorClick : undefined}
           emptyTitle={topicView === TOPIC_SECTORS ? 'Nenhum setor para exibir' : 'Nenhum colaborador para exibir'}

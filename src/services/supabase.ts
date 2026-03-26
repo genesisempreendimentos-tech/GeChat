@@ -1350,7 +1350,7 @@ export const databaseService = {
       .from('apps')
       .select('*')
       .in('id', appIds)
-      .in('status', ['ativo', 'beta', 'active']);
+      .in('status', ['ativo', 'lancamento', 'beta', 'active']);
     if (appsError) return { data: [], error: appsError };
     const appList = Array.isArray(appRows) ? appRows : [];
     const mapped = appList.map((r: any) => this.appRowToSystem(r));
