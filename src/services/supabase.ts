@@ -76,6 +76,13 @@ export type CompanyProfileApp = {
   geTeamsWorkspaceId: string;
 };
 
+export type AllowedUser = {
+  id: string;
+  email: string;
+  isUser: boolean;
+  isActive: boolean;
+};
+
 type CompanyProfileRow = {
   id: string;
   name: string;
@@ -92,6 +99,13 @@ type CompanyProfileRow = {
   geteams_workspace_id: string | null;
   created_at?: string;
   updated_at?: string;
+};
+
+type AllowedUserRow = {
+  id: string;
+  email: string;
+  is_user?: boolean | null;
+  is_active?: boolean | null;
 };
 
 function companyProfileRowToApp(row: CompanyProfileRow): CompanyProfileApp {
@@ -832,7 +846,7 @@ export const authService = {
         };
       }
 
-      // Validar elegibilidade de cadastro antes do signUp (tabela allowed_users via RPC).
+      // Validar elegibilidade de cadastro antes do signUp (tabela allowed_users via RPC + is_active).
       const { data: allowed, error: allowedErr } = await supabase.rpc('is_email_allowed', {
         check_email: normalizedEmail,
       });
@@ -850,6 +864,29 @@ export const authService = {
         return {
           data: null,
           error: { message: 'Este e-mail não está elegível para criar uma conta.' },
+        };
+      }
+
+      // Endurece regra: além de existir em allowed_users, precisa estar ativo.
+      const { data: allowedRows, error: allowedActiveErr } = await supabase
+        .from('allowed_users')
+        .select('id, is_active')
+        .ilike('email', normalizedEmail);
+      if (allowedActiveErr) {
+        console.error('❌ [SignUp] Erro ao validar is_active em allowed_users:', allowedActiveErr);
+        return {
+          data: null,
+          error: {
+            message:
+              'Não foi possível validar a elegibilidade do e-mail agora. Tente novamente em instantes.',
+          },
+        };
+      }
+      const hasActiveAllowed = (allowedRows ?? []).some((r) => r?.is_active === true);
+      if (!hasActiveAllowed) {
+        return {
+          data: null,
+          error: { message: 'Este e-mail não está ativo para criar conta.' },
         };
       }
 
@@ -1030,6 +1067,111 @@ export const databaseService = {
     if (error) return { data: null, error };
     const mapped = (data ?? []).map((row) => profileToUser(row as ProfileRow));
     return { data: mapped, error: null };
+  },
+
+  /** Elegíveis de cadastro (tabela allowed_users). */
+  async getAllowedUsers(options?: { activeOnly?: boolean }): Promise<{ data: AllowedUser[]; error: unknown | null }> {
+    const activeOnly = options?.activeOnly !== false;
+    let query = supabase
+      .from('allowed_users')
+      .select('id, email, is_user, is_active')
+      .order('email', { ascending: true });
+    if (activeOnly) query = query.eq('is_active', true);
+    const { data, error } = await query;
+    if (error) return { data: [], error };
+    const mapped = ((data ?? []) as AllowedUserRow[]).map((row) => ({
+      id: row.id,
+      email: String(row.email ?? '').trim(),
+      isUser: row.is_user === true,
+      isActive: row.is_active !== false,
+    }));
+    return { data: mapped, error: null };
+  },
+
+  /** Cadastra e-mails elegíveis em `allowed_users` (ignora duplicados). */
+  async addAllowedUsers(emails: string[]): Promise<{
+    inserted: number;
+    reactivated: number;
+    skipped: number;
+    errors: string[];
+    error: unknown | null;
+  }> {
+    const normalized = [...new Set((emails ?? []).map((e) => String(e ?? '').trim().toLowerCase()).filter(Boolean))];
+    if (normalized.length === 0) {
+      return { inserted: 0, reactivated: 0, skipped: 0, errors: [], error: null };
+    }
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id ?? null;
+
+    let inserted = 0;
+    let reactivated = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    for (const email of normalized) {
+      const { data: existingRows, error: existingErr } = await supabase
+        .from('allowed_users')
+        .select('id, email, is_active')
+        .ilike('email', email);
+      if (existingErr) {
+        errors.push(`${email}: erro ao verificar existência`);
+        continue;
+      }
+      const existing = (existingRows ?? []).find((row) => {
+        const rowEmail = String((row as { email?: unknown }).email ?? '').trim().toLowerCase();
+        return rowEmail === email;
+      }) as { id: string; is_active?: boolean | null } | undefined;
+      if (existing?.id) {
+        if (existing.is_active === false) {
+          const { error: reactivateErr } = await supabase
+            .from('allowed_users')
+            .update({ is_active: true, updated_at: new Date().toISOString() })
+            .eq('id', existing.id);
+          if (reactivateErr) {
+            errors.push(`${email}: erro ao reativar`);
+            continue;
+          }
+          reactivated += 1;
+          continue;
+        }
+        skipped += 1;
+        continue;
+      }
+
+      const { error } = await supabase.from('allowed_users').insert([
+        {
+          email,
+          is_user: false,
+          is_active: true,
+          created_by: userId,
+        },
+      ]);
+      if (!error) {
+        inserted += 1;
+        continue;
+      }
+      const code = typeof error === 'object' && error !== null && 'code' in error ? String((error as { code: string }).code) : '';
+      if (code === '23505') {
+        skipped += 1;
+        continue;
+      }
+      errors.push(`${email}: ${'message' in (error as object) ? String((error as { message?: unknown }).message ?? 'erro') : 'erro'}`);
+    }
+    return {
+      inserted,
+      reactivated,
+      skipped,
+      errors,
+      error: errors.length > 0 ? new Error('Falha ao salvar alguns e-mails.') : null,
+    };
+  },
+
+  /** Desativa elegível (allowed_users.is_active = false). */
+  async deactivateAllowedUser(id: string): Promise<{ error: unknown | null }> {
+    const { error } = await supabase
+      .from('allowed_users')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    return { error: error ?? null };
   },
 
   async getAdministrators() {
