@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Building2, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { TreePalm, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { EmpresaCompanyCard } from '@/components/empresa/EmpresaCompanyCard';
@@ -166,8 +166,8 @@ export default function AdminEmpresaPage() {
     <MainViewFluidShell>
       <div className="space-y-6">
         <MainViewHeader
-          icon={<Building2 className="h-6 w-6" />}
-          title="Empresa"
+          icon={<TreePalm className="h-6 w-6" />}
+          title="Coco"
           description="Gerencie as informações institucionais e configurações da empresa."
           button={
             <Button
@@ -194,7 +194,7 @@ export default function AdminEmpresaPage() {
           <DialogHeader>
             <DialogTitle>Editar dados da empresa</DialogTitle>
             <DialogDescription>
-              Atualize as informações da empresa. Esta tela já está pronta para integração futura com o Supabase.
+              Atualize as informações da empresa (campos visuais — sem API real).
             </DialogDescription>
           </DialogHeader>
 
@@ -305,7 +305,7 @@ export default function AdminEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <FieldLabel htmlFor="geTeamsWorkspace">Workspace no GêTeams</FieldLabel>
+                <FieldLabel htmlFor="geTeamsWorkspace">Workspace (demo)</FieldLabel>
                 <Select
                   value={draft.geTeamsWorkspace}
                   onValueChange={(value) => {

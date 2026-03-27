@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Building2 } from 'lucide-react';
+import { TreePalm } from 'lucide-react';
 import { toast } from 'sonner';
 import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
@@ -51,8 +51,8 @@ export default function EmpresaPage() {
     <MainViewFluidShell>
       <div className="space-y-6">
         <MainViewHeader
-          icon={<Building2 className="h-6 w-6" />}
-          title="Empresa"
+          icon={<TreePalm className="h-6 w-6" />}
+          title="Coco"
           description="Consulte as informações institucionais da empresa."
         />
 

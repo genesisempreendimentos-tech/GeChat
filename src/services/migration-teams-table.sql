@@ -1,4 +1,4 @@
--- Tabela de equipes (GêApps) — vincula ao departamento no Neon (GêTeams) via neon_department_id.
+-- Legado / referência — frontend deste repo é mock de UI.
 -- Execute no SQL Editor do Supabase.
 --
 -- Requer a função public.is_appsadmin() (mesmo padrão das outras migrations do projeto).
@@ -20,7 +20,7 @@ create index if not exists idx_teams_status on public.teams (status);
 create index if not exists idx_teams_name on public.teams (name);
 
 comment on table public.teams is
-  'Equipes no GêApps; membros/setores vêm do Neon. status controla visibilidade (active no app usuário).';
+  'Equipes (legado de schema).';
 
 comment on column public.teams.status is 'active | archived | deleted (soft delete).';
 

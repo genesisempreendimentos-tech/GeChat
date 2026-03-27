@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes, Archive, ArchiveRestore, RefreshCw, Check, X, Loader2, SquareCheck, Rocket, TestTubeDiagonal, SquarePen, ChevronDown, FileText, Github, Filter } from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes, Cherry, Archive, ArchiveRestore, RefreshCw, Check, X, Loader2, SquareCheck, Rocket, TestTubeDiagonal, SquarePen, ChevronDown, FileText, Github, Filter } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -504,7 +504,7 @@ export default function AdminSystemsPage() {
     const { url, error } = await storageService.uploadSystemImage(file);
     setLogoUploading(false);
     if (error || !url) {
-      setFormError('Falha no upload da imagem. Verifique o bucket GeImage no Supabase.');
+      setFormError('Falha no upload (mock — sem storage real).');
       return;
     }
     setLogo(url);
@@ -516,7 +516,7 @@ export default function AdminSystemsPage() {
     const { url, error } = await storageService.uploadSystemAnchorPdf(file);
     setAnchorUploading(false);
     if (error || !url) {
-      setFormError('Falha no upload do PDF. Verifique o bucket Files/GeApps - Public/Ancora no Supabase.');
+      setFormError('Falha no upload do PDF (mock — sem storage real).');
       return;
     }
     setPdfUrl(url);
@@ -527,9 +527,9 @@ export default function AdminSystemsPage() {
     <TooltipProvider delayDuration={200}>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Boxes className="h-6 w-6" />}
-        title="Aplicativos"
-        description="Gerencie os aplicativos disponíveis no GêApps."
+        icon={<Cherry className="h-6 w-6" />}
+        title="Morango"
+        description="Gerencie os aplicativos disponíveis no genovo."
         button={
           <Button
             onClick={() => setIsCreateOpen(true)}
@@ -1339,7 +1339,7 @@ export default function AdminSystemsPage() {
                           {anchorUploading ? 'Enviando...' : editForm.anchor_pdf_url ? 'Substituir PDF' : 'Enviar PDF'}
                         </Button>
                       </div>
-                      <p className="text-[11px] text-muted-foreground/70">Bucket: Files / Pasta: GeApps - Public/Ancora</p>
+                      <p className="text-[11px] text-muted-foreground/70">Anexo PDF (mock — sem bucket real)</p>
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-foreground">Link do GitHub</label>
@@ -1782,9 +1782,9 @@ export default function AdminSystemsPage() {
       <Dialog open={geAppsAccessConfirmOpen} onOpenChange={setGeAppsAccessConfirmOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Confirmar alteração de acesso no GêApps</DialogTitle>
+            <DialogTitle>Confirmar alteração de acesso ao hub</DialogTitle>
             <DialogDescription>
-              Ao liberar acesso ao GêApps, o usuário poderá criar a conta. Se remover o acesso ao GêApps, o acesso a todos os demais aplicativos desse usuário também será removido. Deseja continuar?
+              No mock, liberar o hub permite o fluxo de conta; revogar remove o acesso aos demais apps simulados. Continuar?
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">

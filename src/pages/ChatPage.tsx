@@ -308,7 +308,7 @@ export default function ChatPage() {
                 <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
                 <p className="font-medium">Selecione uma conversa</p>
                 <p className="text-sm mt-1">
-                  Ou inicie uma nova conversa com um usuário do GêApps.
+                  Ou inicie uma nova conversa com outro usuário (mock).
                 </p>
               </div>
             </motion.div>
@@ -322,7 +322,7 @@ export default function ChatPage() {
           <DialogHeader>
             <DialogTitle>Nova conversa</DialogTitle>
             <DialogDescription>
-              Escolha um usuário do GêApps para iniciar a conversa.
+              Escolha um usuário para iniciar a conversa (mock).
             </DialogDescription>
           </DialogHeader>
           <div className="relative mt-2 group/search">

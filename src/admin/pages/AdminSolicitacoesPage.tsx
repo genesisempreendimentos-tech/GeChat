@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, ExternalLink, Search, AlertCircle, Send, Headset, RefreshCw, ChevronDown, Filter, Boxes, MoreVertical, Trash2 } from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, Send, Headset, Citrus, RefreshCw, ChevronDown, Filter, Boxes, MoreVertical, Trash2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -134,7 +134,7 @@ export default function AdminSolicitacoesPage() {
     const workspaceName = String(company.geTeamsWorkspace ?? '').trim();
     if (!workspaceName) {
       setFormError(
-        'Configure o nome do workspace no GêTeams em Admin → Empresa antes de criar canais.'
+        'Configure o workspace em Admin → Coco antes de criar canais (mock).'
       );
       return;
     }
@@ -156,7 +156,7 @@ export default function AdminSolicitacoesPage() {
       const msg =
         typeof error === 'object' && error !== null && 'message' in error
           ? String((error as { message: string }).message)
-          : 'Erro ao criar canal. Verifique se a tabela existe no Supabase.';
+          : 'Erro ao criar canal (mock — sem persistência real).';
       setFormError(msg);
       return;
     }
@@ -196,8 +196,8 @@ export default function AdminSolicitacoesPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Headset className="h-6 w-6" />}
-        title="Solicitações"
+        icon={<Citrus className="h-6 w-6" />}
+        title="Manga"
         description="Crie canais de solicitações para departamentos e setores."
         button={
           canCreate ? (
@@ -299,8 +299,8 @@ export default function AdminSolicitacoesPage() {
             {channels.length === 0 && (
               <p className="text-xs mt-2 max-w-md mx-auto">
                 Quando a tabela for criada no Supabase, os canais aparecerão aqui. Administradores podem{' '}
-                <strong className="text-foreground">Adicionar equipe</strong> para vincular departamentos do GêTeams ao
-                link do GêForms.
+                <strong className="text-foreground">Adicionar equipe</strong> para vincular departamentos (mock) ao
+                link do formulário.
               </p>
             )}
           </div>
@@ -512,7 +512,7 @@ export default function AdminSolicitacoesPage() {
                     Adicionar equipe ao canal de solicitações
                   </DialogTitle>
                   <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-                    Selecione um departamento existente no GêTeams e informe o link do formulário no GêForms.
+                    Selecione um departamento (mock) e informe o link do formulário externo.
                   </DialogDescription>
                 </div>
               </div>
@@ -553,7 +553,7 @@ export default function AdminSolicitacoesPage() {
                     setDepsLoading(false);
                   }}
                   disabled={depsLoading}
-                  title="Recarregar departamentos do GêTeams"
+                  title="Recarregar departamentos (mock)"
                   className="h-8 px-2.5 rounded-lg text-xs text-muted-foreground hover:text-primary"
                 >
                   <RefreshCw className={cn('w-3.5 h-3.5 mr-1.5', depsLoading && 'animate-spin')} />
@@ -563,12 +563,12 @@ export default function AdminSolicitacoesPage() {
               {depsLoading ? (
                 <div className="flex items-center gap-3 rounded-2xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
                   <LoadingGif size="sm" />
-                  Carregando departamentos do GêTeams…
+                  Carregando departamentos (mock)…
                 </div>
               ) : departments.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-amber-500/30 bg-amber-500/[0.06] px-4 py-4 text-sm text-muted-foreground space-y-1">
                   <p>
-                    Nenhum departamento no workspace atual. Em <strong className="text-foreground">Empresa</strong>, o workspace
+                    Nenhum departamento no workspace atual. Em <strong className="text-foreground">Coco</strong>, o workspace
                     deve corresponder ao registo em <code className="text-xs">public.workspaces</code>; os departamentos são filtrados
                     por <code className="text-xs">departments.workspace_id</code> (igual ao id no Neon ou a{' '}
                     <code className="text-xs">geteams_workspace_id</code> no Supabase).
@@ -655,7 +655,7 @@ export default function AdminSolicitacoesPage() {
                 URL do formulário
               </label>
               <p className="text-xs text-muted-foreground -mt-1">
-                Link externo do GêForms.
+                Link externo do formulário.
               </p>
               <div className="relative">
                 <ExternalLink className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none z-10" />

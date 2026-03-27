@@ -20,19 +20,19 @@ export function useKeyboardShortcuts() {
       key: "h",
       altKey: true,
       action: () => navigate("/dashboard"),
-      description: "Ir para Dashboard",
+      description: "Ir para Uva",
     },
     {
       key: "s",
       altKey: true,
       action: () => navigate("/systems"),
-      description: "Ir para Sistemas",
+      description: "Ir para Morango",
     },
     {
       key: "f",
       altKey: true,
       action: () => navigate("/favorites"),
-      description: "Ir para Favoritos",
+      description: "Ir para Pitanga",
     },
     {
       key: "c",
@@ -100,9 +100,9 @@ export function useKeyboardShortcuts() {
   const showShortcutsHelp = () => {
     const shortcuts = `Atalhos de Teclado:
 • Ctrl+K - Busca global
-• Alt+H - Dashboard
-• Alt+S - Sistemas
-• Alt+F - Favoritos
+• Alt+H - Uva
+• Alt+S - Morango
+• Alt+F - Pitanga
 • Alt+C - Chat
 • Alt+U - Usuários
 • Alt+P - Perfil

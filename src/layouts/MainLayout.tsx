@@ -9,9 +9,8 @@ import { useState, useEffect } from 'react';
 import { databaseService, type Statement } from '@/services/supabase';
 import { emitCommunicadosUnreadChanged } from '@/lib/communicadosEvents';
 
-const OFFICIAL_COMUNICADO_IMAGE_URL =
-  'https://shmrdhpjlsrqiffcykzw.supabase.co/storage/v1/object/public/GeComunicado/ComunicadoOficial01.png';
-const AUTO_OPEN_COMUNICADO_ID_KEY = 'geapps:auto-open-comunicado-id';
+const OFFICIAL_COMUNICADO_IMAGE_URL = '/assets/banners/demo/1.jpg';
+const AUTO_OPEN_COMUNICADO_ID_KEY = 'ui-shell:auto-open-comunicado-id';
 
 function normalizeOfficialText(value: string): string {
   return (value ?? '')

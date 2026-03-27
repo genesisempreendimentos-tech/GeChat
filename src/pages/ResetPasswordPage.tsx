@@ -113,7 +113,7 @@ export default function ResetPasswordPage() {
                   animate={{ rotate: [0, 5, 0, -5, 0], scale: [1, 1.05, 1] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  <img src="/assets/GêApps.svg" alt="GêApps" className="w-full h-full object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)' }} />
+                  <img src="/assets/brand-mock.svg" alt="genovo" className="w-full h-full object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)' }} />
                 </motion.div>
               </div>
             </motion.div>
@@ -122,10 +122,10 @@ export default function ResetPasswordPage() {
                 Nova senha
               </CardTitle>
               <CardDescription className="text-base">
-                Defina uma nova senha para acessar o GêApps
+                Defina uma nova senha para acessar o genovo (mock)
               </CardDescription>
               <div className="pt-2">
-                <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">Genesis Empreendimentos</span>
+                <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">Demo UI</span>
               </div>
             </motion.div>
           </CardHeader>
@@ -171,7 +171,7 @@ export default function ResetPasswordPage() {
         </Card>
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8, duration: 0.3 }} className="mt-6 text-center">
-          <p className="text-xs text-white/70">© 2026 Genesis Empreendimentos. Todos os direitos reservados.</p>
+          <p className="text-xs text-white/70">© Demo UI — sem dados reais.</p>
         </motion.div>
       </motion.div>
     </div>

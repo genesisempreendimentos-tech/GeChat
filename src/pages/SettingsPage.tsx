@@ -62,7 +62,7 @@ export default function SettingsPage() {
         <MainViewHeader
           icon={<SettingsIcon className="h-6 w-6" />}
           title="Configurações"
-          description="Personalize sua experiência no GêApps"
+          description="Personalize a experiência no mock"
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

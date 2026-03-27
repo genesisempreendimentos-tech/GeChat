@@ -113,8 +113,8 @@ export function SystemUsageChart({ data }: { data: SystemUsageData[] }) {
   return (
     <Card className="transition-shadow hover:shadow-md">
       <CardHeader>
-        <CardTitle>Aplicativos Mais Acessados</CardTitle>
-        <CardDescription>Top 5 aplicativos que você mais acessou nesta semana</CardDescription>
+        <CardTitle>Morango mais acessado</CardTitle>
+        <CardDescription>Top 5 itens do Morango que você mais abriu nesta semana</CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer

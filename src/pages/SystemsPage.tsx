@@ -30,7 +30,7 @@ import {
   ArchiveRestore,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
-import { Boxes } from 'lucide-react';
+import { Boxes, Cherry } from 'lucide-react';
 import { BANNER_CATEGORIES } from '@/views/profile/ProfileBanner/ProfileBannerImages';
 import { cn } from '@/lib/utils';
 import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
@@ -65,7 +65,7 @@ interface UserSystemAccess {
 type SystemStatusTabValue = 'all' | 'ativo' | 'lancamentos' | 'beta';
 
 const getSystemBanner = (systemId: string) => {
-  const images = BANNER_CATEGORIES.genesis.images;
+  const images = BANNER_CATEGORIES.demo.images;
   if (!images || images.length === 0) return '';
   let hash = 0;
   for (let i = 0; i < systemId.length; i++) {
@@ -302,8 +302,8 @@ export default function SystemsPage() {
       <TooltipProvider delayDuration={200}>
       <div className="space-y-6">
       <MainViewHeader
-        icon={<Boxes className="h-6 w-6" />}
-        title="Aplicativos"
+        icon={<Cherry className="h-6 w-6" />}
+        title="Morango"
         description="Acesse todos os seus aplicativos corporativos."
         button={
           <Button
@@ -587,7 +587,7 @@ export default function SystemsPage() {
           <DialogTitle className="sr-only">{selectedSystem?.name ?? 'Detalhes do sistema'}</DialogTitle>
           <DialogDescription className="sr-only">{selectedSystem?.description ?? 'Informações do sistema'}</DialogDescription>
           <div className="relative">
-            {/* Header com banner Genesis */}
+            {/* Header com banner demo */}
             <div className="h-40 relative overflow-hidden bg-slate-100 dark:bg-[#0d1520]">
               {selectedSystem && (
                 <img 

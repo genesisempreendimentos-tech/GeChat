@@ -126,7 +126,7 @@ export default function AdminAdministratorsPage() {
           <DialogHeader>
             <DialogTitle>Adicionar admin</DialogTitle>
             <DialogDescription>
-              Selecione um membro do GêApps para promover a appsadmin. Apenas membros existentes aparecem na lista.
+              Selecione um membro para promover a appsadmin (mock). Apenas membros existentes aparecem na lista.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

@@ -17,7 +17,6 @@ import {
   Boxes,
   Monitor,
   RefreshCw,
-  ChevronRight,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -195,7 +194,7 @@ export default function DashboardPage() {
   const stats = useMemo(
     () => [
       {
-        title: 'Aplicativos Disponíveis',
+        title: 'Morango disponível',
         value: systems.length,
         icon: Boxes,
         color: 'text-blue-500',
@@ -203,7 +202,7 @@ export default function DashboardPage() {
         trend: null as number | null,
       },
       {
-        title: 'Favoritos',
+        title: 'Pitanga',
         value: favoriteSystems.length,
         icon: Star,
         color: 'text-yellow-500',
@@ -270,11 +269,9 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between" data-tour="dashboard-welcome">
         <div>
-          <h1 className="text-3xl font-bold">
-            Bem-vindo, {user?.name?.split(' ')[0]}! 👋
-          </h1>
+          <h1 className="text-3xl font-bold">Uva</h1>
           <p className="text-muted-foreground mt-2">
-            Aqui está um resumo dos seus aplicativos e atividades recentes.
+            Bem-vindo, {user?.name?.split(' ')[0]}! Aqui está um resumo do seu Morango e das atividades recentes.
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -364,10 +361,10 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Star className="w-5 h-5 text-yellow-500" />
-                Aplicativos Favoritos
+                Pitanga
               </CardTitle>
               <CardDescription>
-                Acesso rápido aos seus aplicativos mais usados
+                Acesso rápido ao Morango que você mais usa
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -404,24 +401,9 @@ export default function DashboardPage() {
                   <Link
                     key={`favorite-placeholder-${i}`}
                     to="/favorites"
-                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-dashed bg-yellow-500/15 px-3 py-2 outline-none transition-colors hover:border-yellow-500/50 hover:bg-yellow-500/25 focus-visible:ring-2 focus-visible:ring-yellow-500/50"
-                  >
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <div className="shrink-0 rounded-lg bg-yellow-500/30 p-1.5">
-                        <Star className="h-8 w-8 text-yellow-600 dark:text-yellow-400" strokeWidth={1.75} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-yellow-950 dark:text-yellow-100">Favorito</p>
-                        <Badge
-                          variant="outline"
-                          className="mt-0.5 w-fit border-yellow-600/40 bg-yellow-500/20 text-xs text-yellow-950 dark:text-yellow-100"
-                        >
-                          vago
-                        </Badge>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-yellow-700/70 dark:text-yellow-300/80" aria-hidden />
-                  </Link>
+                    className="block w-full min-h-[52px] rounded-lg border border-dashed border-muted-foreground/25 bg-muted/5 px-3 py-2 outline-none transition-colors hover:border-muted-foreground/40 hover:bg-muted/15 focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label="Gerenciar favoritos"
+                  />
                 ))}
               </div>
             </CardContent>
@@ -487,7 +469,7 @@ export default function DashboardPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Todos os Aplicativos</CardTitle>
+                <CardTitle>Todo o Morango</CardTitle>
                 <CardDescription>
                   Clique em um aplicativo para acessá-lo
                 </CardDescription>

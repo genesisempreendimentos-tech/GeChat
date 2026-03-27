@@ -1,4 +1,4 @@
--- GêApps — status da conta de utilizador em `profiles` (arquivar sem apagar)
+-- Legado — profile_status em profiles (referência)
 -- Execute no SQL Editor do Supabase se a coluna ainda não existir.
 
 ALTER TABLE public.profiles

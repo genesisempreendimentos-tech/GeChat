@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   Megaphone,
+  Nut,
   Search,
   Filter,
   ChevronDown,
@@ -80,12 +81,11 @@ const TAG_FILTER_ALL = 'all';
 /** Acima disto, mostramos "Ler mais" no card (legenda colapsada ~3 linhas). */
 const CAPTION_COLLAPSE_CHARS = 140;
 const DEFAULT_AVATAR =
-  'https://api.dicebear.com/7.x/initials/svg?seed=GeApps';
+  'https://api.dicebear.com/7.x/initials/svg?seed=Demo';
 
-/** Imagem padrão já publicada no bucket GeComunicado (sem upload pelo usuário). */
-const COMUNICADO_OFICIAL_IMAGE_URL =
-  'https://shmrdhpjlsrqiffcykzw.supabase.co/storage/v1/object/public/GeComunicado/ComunicadoOficial01.png';
-const AUTO_OPEN_COMUNICADO_ID_KEY = 'geapps:auto-open-comunicado-id';
+/** Placeholder local (modo mock — sem bucket externo). */
+const COMUNICADO_OFICIAL_IMAGE_URL = '/assets/banners/demo/1.jpg';
+const AUTO_OPEN_COMUNICADO_ID_KEY = 'ui-shell:auto-open-comunicado-id';
 
 type StatementReactionSummary = {
   uniqueEmojis: string[];
@@ -935,8 +935,8 @@ export default function ComunicadosPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Megaphone className="h-6 w-6" />}
-        title="Comunicados"
+        icon={<Nut className="h-6 w-6" />}
+        title="Caju"
         description="Avisos e informações importantes da empresa."
         button={
           canCreateStatements ? (
@@ -1828,7 +1828,7 @@ export default function ComunicadosPage() {
                   <div className="space-y-1 pt-0.5 min-w-0">
                     <DialogTitle className="text-xl font-semibold tracking-tight">Novo comunicado</DialogTitle>
                     <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-                      Crie um novo comunicado para todos os usuários do GêApps.
+                      Crie um novo comunicado para todos os usuários (mock).
                     </DialogDescription>
                   </div>
                 </div>

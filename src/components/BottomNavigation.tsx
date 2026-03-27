@@ -1,14 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom"
 import {
-  Home,
-  Boxes,
-  Star,
-  MessageCircle,
-  Users,
+  Grape,
+  Cherry,
+  Apple,
+  Citrus,
+  Flower2,
   Settings,
   Shield,
-  LayoutDashboard,
-  Headset,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
@@ -29,23 +27,23 @@ export function BottomNavigation() {
 
   const navItems: NavItem[] = [
     {
-      icon: Home,
-      label: "Início",
+      icon: Grape,
+      label: "Uva",
       path: "/dashboard",
     },
     {
-      icon: Boxes,
-      label: "Aplicativos",
+      icon: Cherry,
+      label: "Morango",
       path: "/systems",
     },
     {
-      icon: Star,
-      label: "Favoritos",
+      icon: Apple,
+      label: "Pitanga",
       path: "/favorites",
     },
     {
-      icon: Headset,
-      label: "Solicitações",
+      icon: Citrus,
+      label: "Manga",
       path: "/solicitacoes",
     },
     // {
@@ -55,13 +53,13 @@ export function BottomNavigation() {
     // },
     {
       icon: Shield,
-      label: "Admin",
+      label: "Jabuticaba",
       path: "/admin/home",
       showWhenAdmin: true,
     },
     {
       icon: Settings,
-      label: "Config",
+      label: "Tamarindo",
       path: "/settings",
     },
   ]
@@ -71,12 +69,12 @@ export function BottomNavigation() {
 
   /** Em < md o sidebar admin fica oculto; estes itens espelham o menu admin (incl. Solicitações). */
   const adminMobileNavItems: NavItem[] = [
-    { icon: LayoutDashboard, label: "Início", path: "/admin/home" },
-    { icon: Boxes, label: "Apps", path: "/admin/systems" },
-    { icon: Star, label: "Favoritos", path: "/favorites" },
-    { icon: Headset, label: "Solicitações", path: "/admin/solicitacoes" },
-    { icon: Users, label: "Membros", path: "/admin/members" },
-    { icon: Settings, label: "Config", path: "/settings" },
+    { icon: Grape, label: "Uva", path: "/admin/home" },
+    { icon: Cherry, label: "Morango", path: "/admin/systems" },
+    { icon: Apple, label: "Pitanga", path: "/favorites" },
+    { icon: Citrus, label: "Manga", path: "/admin/solicitacoes" },
+    { icon: Flower2, label: "Pitaya", path: "/admin/members" },
+    { icon: Settings, label: "Tamarindo", path: "/settings" },
   ]
 
   const filteredNavItems = isAdminPath

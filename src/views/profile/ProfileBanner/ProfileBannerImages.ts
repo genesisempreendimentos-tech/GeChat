@@ -10,19 +10,19 @@ export interface BannerCategory {
 }
 
 export const BANNER_CATEGORIES: Record<string, BannerCategory> = {
-  genesis: {
-    label: 'Gênesis',
+  demo: {
+    label: 'Demo',
     icon: 'Home',
     images: [
-      '/assets/banners/genesis/1.jpg',
-      '/assets/banners/genesis/2.jpg',
-      '/assets/banners/genesis/3.jpg',
-      '/assets/banners/genesis/4.jpg',
-      '/assets/banners/genesis/5.jpg',
-      '/assets/banners/genesis/6.jpg',
-      '/assets/banners/genesis/7.jpg',
-      '/assets/banners/genesis/8.jpg',
-      '/assets/banners/genesis/9.jpg',
+      '/assets/banners/demo/1.jpg',
+      '/assets/banners/demo/2.jpg',
+      '/assets/banners/demo/3.jpg',
+      '/assets/banners/demo/4.jpg',
+      '/assets/banners/demo/5.jpg',
+      '/assets/banners/demo/6.jpg',
+      '/assets/banners/demo/7.jpg',
+      '/assets/banners/demo/8.jpg',
+      '/assets/banners/demo/9.jpg',
     ],
   },
   universo: {

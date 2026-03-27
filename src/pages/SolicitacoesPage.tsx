@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Send, Headset, ExternalLink, Filter, ChevronDown, Boxes, Table2, LayoutGrid, MoreVertical, Trash2 } from 'lucide-react';
+import { Search, Send, Headset, Citrus, ExternalLink, Filter, ChevronDown, Boxes, Table2, LayoutGrid, MoreVertical, Trash2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -65,7 +65,7 @@ export default function SolicitacoesPage() {
   const [mainTab, setMainTab] = useState<SolicitacoesMainTab>('canais');
 
   /**
-   * Um item por nome distinto de canal; `icon` vem do BD (`icon_url`), alinhado ao ícone do departamento no GêTeams.
+   * Um item por nome distinto de canal; `icon` vem do mock (`icon_url`).
    */
   const channelFilterOptions = useMemo(() => {
     const byName = new Map<string, string>();
@@ -129,8 +129,8 @@ export default function SolicitacoesPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Headset className="h-6 w-6" />}
-        title="Solicitações"
+        icon={<Citrus className="h-6 w-6" />}
+        title="Manga"
         description="Envie solicitações para outros departamentos."
       />
 

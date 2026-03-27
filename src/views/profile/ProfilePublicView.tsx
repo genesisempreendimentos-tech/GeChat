@@ -66,13 +66,13 @@ export function ProfilePublicView({ userId }: ProfilePublicViewProps) {
         label: 'Acesso',
       },
       {
-        title: 'Favoritos',
-        description: `${stats.favoriteCount} sistema${stats.favoriteCount !== 1 ? 's' : ''} nos favoritos`,
+        title: 'Pitanga',
+        description: `${stats.favoriteCount} item${stats.favoriteCount !== 1 ? 's' : ''} na Pitanga`,
         label: 'Preferidos',
       },
       {
         title: 'Resumo',
-        description: 'Suas métricas de uso no GêApps',
+        description: 'Suas métricas de uso no genovo',
         label: 'Visão geral',
       },
     ],

@@ -73,7 +73,7 @@ export function NotificationsPanel({ open, onOpenChange, items = [] }: Notificat
             )}
           </div>
           <DialogDescription className="sr-only">
-            Lista de notificações do GêApps
+            Lista de notificações (mock)
           </DialogDescription>
         </DialogHeader>
 

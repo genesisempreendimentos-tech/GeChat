@@ -1,4 +1,4 @@
--- GêApps — Limites de comunicados e comentários (validação na base de dados).
+-- Legado — limites de comunicados (referência).
 -- Executar no SQL Editor do Supabase após garantir que os dados existentes respeitam os limites
 -- (ou ajustar títulos/legendas/comentários longos antes de aplicar).
 

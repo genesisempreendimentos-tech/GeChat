@@ -1,18 +1,17 @@
 import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Star,
-  Users,
-  Building2,
-  MessageCircle,
+  Grape,
+  Cherry,
+  Citrus,
+  Nut,
+  Flower2,
+  TreePalm,
+  Apple,
   ExternalLink,
   Check,
   UserKey,
   UserStar,
-  Boxes,
-  Headset,
-  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -33,14 +32,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Boxes, label: 'Aplicativos', path: '/systems' },
-  { icon: Headset, label: 'Solicitações', path: '/solicitacoes' },
-  { icon: Megaphone, label: 'Comunicados', path: '/comunicados' },
-  { icon: Users, label: 'Equipes', path: '/equipes' },
-  { icon: Building2, label: 'Empresa', path: '/empresa' },
-  { icon: Star, label: 'Favoritos', path: '/favorites' },
-  // { icon: MessageCircle, label: 'Chat', path: '/chat' },
+  { icon: Grape, label: 'Uva', path: '/dashboard' },
+  { icon: Cherry, label: 'Morango', path: '/systems' },
+  { icon: Citrus, label: 'Manga', path: '/solicitacoes' },
+  { icon: Nut, label: 'Caju', path: '/comunicados' },
+  { icon: Flower2, label: 'Pitaya', path: '/equipes' },
+  { icon: TreePalm, label: 'Coco', path: '/empresa' },
+  { icon: Apple, label: 'Pitanga', path: '/favorites' },
 ];
 
 interface SidebarProps {
@@ -149,8 +147,8 @@ export default function Sidebar({ userRole }: SidebarProps) {
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
                     <img
-                      src="/assets/GêApps.svg"
-                      alt="GêApps"
+                      src="/assets/brand-mock.svg"
+                      alt="genovo"
                       className="w-full h-full object-contain"
                       style={{
                         filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
@@ -163,7 +161,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
                       isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'
                     )}
                   >
-                    GêApps
+                    genovo
                   </span>
                 </div>
               </div>
@@ -188,8 +186,8 @@ export default function Sidebar({ userRole }: SidebarProps) {
             <div className="flex items-center gap-2 min-w-0">
               <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
                 <img
-                  src="/assets/GêApps.svg"
-                  alt="GêApps"
+                  src="/assets/brand-mock.svg"
+                  alt="genovo"
                   className="w-full h-full object-contain"
                   style={{
                     filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
@@ -202,7 +200,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
                   isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'
                 )}
               >
-                GêApps
+                genovo
               </span>
             </div>
           </div>

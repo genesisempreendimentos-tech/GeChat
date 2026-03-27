@@ -167,7 +167,7 @@ export function ProfileCorporativoTab({
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="w-max text-xs">
                     Essas informações são adicionadas pelo <br /> departamento de RH. <br /> Qualquer dúvida, entrar em contato com<br />{' '}
-                    <a href="mailto:rh@genesisempreendimentos.com.br" className="text-primary underline">rh@genesisempreendimentos.com.br</a>
+                    <a href="mailto:rh@example.com" className="text-primary underline">rh@example.com</a>
                   </TooltipContent>
                 </Tooltip>
               </div>

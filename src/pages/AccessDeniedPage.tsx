@@ -60,8 +60,8 @@ export default function AccessDeniedPage() {
           <CardContent className="pt-10 pb-10 px-8">
             <div className="flex justify-center mb-6">
               <img
-                src="/assets/GêApps.svg"
-                alt="GêApps"
+                src="/assets/brand-mock.svg"
+                alt="genovo"
                 className="w-16 h-16 object-contain"
                 style={{
                   filter:
@@ -91,7 +91,7 @@ export default function AccessDeniedPage() {
           className="mt-6 text-center"
         >
           <p className="text-xs text-white/70">
-            © 2026 Genesis Empreendimentos. Todos os direitos reservados.
+            © Demo UI — sem dados reais.
           </p>
         </motion.div>
       </motion.div>

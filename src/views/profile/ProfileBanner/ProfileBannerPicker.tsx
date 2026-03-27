@@ -75,7 +75,7 @@ export function ProfileBannerPicker({
   onSelectImage,
   currentUrl,
 }: ProfileBannerPickerProps) {
-  const [activeCategory, setActiveCategory] = useState(BANNER_ORDER[0] ?? 'genesis');
+  const [activeCategory, setActiveCategory] = useState(BANNER_ORDER[0] ?? 'demo');
 
   const category = BANNER_CATEGORIES[activeCategory];
 

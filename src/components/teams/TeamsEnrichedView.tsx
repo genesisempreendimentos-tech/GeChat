@@ -46,7 +46,7 @@ export interface TeamDisplayRow {
   icon: string | null;
   color: string | null;
   sectors: string[];
-  /** Ícone/cor por setor (GêTeams); usado nas miniboxes em vez de chips. */
+  /** Ícone/cor por setor (mock); usado nas miniboxes em vez de chips. */
   sectorItems?: TeamSectorItem[];
   collaboratorCount: number;
   collaborators?: TeamCollaboratorPreview[];

@@ -349,7 +349,7 @@
   filter: brightness(1.05) contrast(1.02) saturate(1.1);
 }
 
-.genesis-logo {
+.hub-mock-logo {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -373,13 +373,13 @@
   animation: logoFloat 6s ease-in-out infinite, logoPulse 3s ease-in-out infinite;
 }
 
-.pc-card:hover .genesis-logo,
-.pc-card.active .genesis-logo {
+.pc-card:hover .hub-mock-logo,
+.pc-card.active .hub-mock-logo {
   opacity: 0.6;
   animation: logoFloat 6s ease-in-out infinite, logoPulse 3s ease-in-out infinite;
 }
 
-.genesis-logo-img {
+.hub-mock-logo-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -388,8 +388,8 @@
   transition: opacity 0.3s ease;
 }
 
-.pc-card:hover .genesis-logo-img,
-.pc-card.active .genesis-logo-img {
+.pc-card:hover .hub-mock-logo-img,
+.pc-card.active .hub-mock-logo-img {
   opacity: 1;
 }
 
@@ -676,7 +676,7 @@
   }
 }
 
-/* Animações do Logo GêApps */
+/* Animações do logo (mock) */
 @keyframes logoFloat {
   0%, 100% {
     transform: 

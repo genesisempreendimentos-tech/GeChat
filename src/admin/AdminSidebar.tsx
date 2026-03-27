@@ -2,16 +2,16 @@ import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   type LucideIcon,
-  LayoutDashboard,
-  Users,
+  Grape,
+  Flower2,
   UserKey,
   UserStar,
   LibraryBig,
   Check,
-  Boxes,
-  Headset,
-  Megaphone,
-  Building2,
+  Cherry,
+  Citrus,
+  Nut,
+  TreePalm,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
@@ -37,21 +37,21 @@ type AdminNavSection = { title: string; items: AdminNavItem[] };
 
 const adminMenuSections: AdminNavSection[] = [
   {
-    title: 'GêApps',
+    title: 'genovo',
     items: [
-      { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/home' },
-      { icon: Boxes, label: 'Aplicativos', path: '/admin/systems' },
-      { icon: LibraryBig, label: 'Categorias', path: '/admin/categories' },
-      { icon: UserKey, label: 'Usuários', path: '/admin/members' },
+      { icon: Grape, label: 'Uva', path: '/admin/home' },
+      { icon: Cherry, label: 'Morango', path: '/admin/systems' },
+      { icon: LibraryBig, label: 'Kiwi', path: '/admin/categories' },
+      { icon: UserKey, label: 'Romã', path: '/admin/members' },
     ],
   },
   {
     title: 'Integrações',
     items: [
-      { icon: Users, label: 'Equipes', path: '/admin/equipes' },
-      { icon: Headset, label: 'Solicitações', path: '/admin/solicitacoes' },
-      { icon: Megaphone, label: 'Comunicados', path: '/admin/comunicados' },
-      { icon: Building2, label: 'Empresa', path: '/admin/empresa' },
+      { icon: Flower2, label: 'Pitaya', path: '/admin/equipes' },
+      { icon: Citrus, label: 'Manga', path: '/admin/solicitacoes' },
+      { icon: Nut, label: 'Caju', path: '/admin/comunicados' },
+      { icon: TreePalm, label: 'Coco', path: '/admin/empresa' },
     ],
   },
 ];
@@ -105,8 +105,8 @@ export default function AdminSidebar() {
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
                     <img
-                      src="/assets/GêApps.svg"
-                      alt="GêApps"
+                      src="/assets/brand-mock.svg"
+                      alt="genovo"
                       className="w-full h-full object-contain"
                       style={{
                         filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
@@ -144,8 +144,8 @@ export default function AdminSidebar() {
             <div className="flex items-center gap-2 min-w-0">
               <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
                 <img
-                  src="/assets/GêApps.svg"
-                  alt="GêApps"
+                  src="/assets/brand-mock.svg"
+                  alt="genovo"
                   className="w-full h-full object-contain"
                   style={{
                     filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',

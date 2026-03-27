@@ -140,9 +140,9 @@ export default function Topbar() {
       <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Sair do GêApps</DialogTitle>
+            <DialogTitle>Sair do genovo</DialogTitle>
             <DialogDescription>
-              Deseja realmente sair do GêApps? Você precisará fazer login novamente para acessar.
+              Deseja realmente sair? No mock você precisará entrar de novo para acessar.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

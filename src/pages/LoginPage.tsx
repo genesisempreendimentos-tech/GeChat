@@ -59,7 +59,7 @@ export default function LoginPage() {
 
   const validReturnTo = returnTo && isAllowedReturnToUrl(returnTo) ? returnTo : null;
 
-  const REMEMBER_EMAIL_KEY = "geapps-login-remember-email";
+  const REMEMBER_EMAIL_KEY = "ui-shell-login-remember-email";
 
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_EMAIL_KEY);
@@ -250,8 +250,8 @@ export default function LoginPage() {
                   }}
                 >
                   <img
-                    src="/assets/GêApps.svg"
-                    alt="GêApps"
+                    src="/assets/brand-mock.svg"
+                    alt="genovo"
                     className="w-full h-full object-contain"
                     style={{
                       filter:
@@ -283,11 +283,11 @@ export default function LoginPage() {
                   className="text-4xl font-bold bg-gradient-to-r from-primary via-teal-400 to-primary bg-clip-text text-transparent"
                   style={{ backgroundSize: "200% auto" }}
                 >
-                  GêApps
+                  genovo
                 </CardTitle>
               </motion.div>
               <CardDescription className="text-base">
-                Hub de Sistemas Corporativos da Gênesis Empreendimentos
+                Hub do Morango — layout demo (sem backend)
               </CardDescription>
               <div className="pt-2"></div>
             </motion.div>
@@ -310,7 +310,7 @@ export default function LoginPage() {
                     id="login-email"
                     type="email"
                     name="email"
-                    placeholder="seu.nome@genesisempreendimentos.com.br"
+                    placeholder="voce@example.com"
                     className="pl-10 h-11"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -476,7 +476,7 @@ export default function LoginPage() {
                       Entrando...
                     </span>
                   ) : (
-                    "Entrar no GêApps"
+                    "Entrar no genovo"
                   )}
                 </Button>
               </motion.div>
@@ -573,7 +573,7 @@ export default function LoginPage() {
                 <label className="text-sm font-medium">Email</label>
                 <Input
                   type="email"
-                  placeholder="seu.nome@genesisempreendimentos.com.br"
+                  placeholder="voce@example.com"
                   value={requestEmailValue}
                   onChange={(e) => setRequestEmailValue(e.target.value)}
                   required
@@ -623,7 +623,7 @@ export default function LoginPage() {
           className="mt-6 text-center"
         >
           <p className="text-xs text-white/70">
-            © 2026 Genesis Empreendimentos. Todos os direitos reservados.
+            © Demo UI — sem dados reais.
           </p>
         </motion.div>
       </motion.div>

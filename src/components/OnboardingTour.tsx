@@ -18,13 +18,13 @@ const onboardingSteps: OnboardingStep[] = [
   {
     title: "Menu principal",
     description:
-      "Este é o menu lateral. Aqui você navega por todas as áreas do GêApps.",
+      "Este é o menu lateral. Aqui você navega por todas as áreas do genovo.",
     route: "/dashboard",
     targetSelector: '[data-tour=\"sidebar\"]',
     placement: "right",
   },
   {
-    title: "Dashboard",
+    title: "Uva",
     description: "Aqui você acompanha o resumo geral da sua experiência e acessos no sistema.",
     route: "/dashboard",
     targetSelector: '[data-tour=\"menu-dashboard\"]',
@@ -38,35 +38,35 @@ const onboardingSteps: OnboardingStep[] = [
     placement: "right",
   },
   {
-    title: "Solicitações",
+    title: "Manga",
     description: "Use esta área para abrir e acompanhar suas solicitações internas.",
     route: "/dashboard",
     targetSelector: '[data-tour=\"menu-solicitacoes\"]',
     placement: "right",
   },
   {
-    title: "Comunicados",
+    title: "Caju",
     description: "Aqui ficam os avisos e comunicados oficiais da empresa.",
     route: "/dashboard",
     targetSelector: '[data-tour=\"menu-comunicados\"]',
     placement: "right",
   },
   {
-    title: "Equipes",
+    title: "Pitaya",
     description: "Nesta seção você visualiza departamentos, setores e colaboradores.",
     route: "/dashboard",
     targetSelector: '[data-tour=\"menu-equipes\"]',
     placement: "right",
   },
   {
-    title: "Empresa",
+    title: "Coco",
     description: "Aqui estão as informações institucionais e dados gerais da organização.",
     route: "/dashboard",
     targetSelector: '[data-tour=\"menu-empresa\"]',
     placement: "right",
   },
   {
-    title: "Favoritos",
+    title: "Pitanga",
     description: "Acesse rapidamente os aplicativos que você marcou como favoritos.",
     route: "/dashboard",
     targetSelector: '[data-tour=\"menu-favoritos\"]',
@@ -83,7 +83,7 @@ const onboardingSteps: OnboardingStep[] = [
   {
     title: "Perfil",
     description:
-      "Agora vamos para o seu perfil. Você precisa completar suas informações públicas para continuar sua experiência no GêApps.",
+      "Agora vamos para o seu perfil. Complete as informações públicas para continuar o tour (mock).",
     route: "/dashboard",
     targetSelector: '[data-tour=\"profile-area\"]',
     placement: "left",

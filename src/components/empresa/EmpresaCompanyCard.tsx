@@ -38,7 +38,7 @@ function buildInfoItems(
   return [
     ...base,
     {
-      label: 'Workspace no GêTeams',
+      label: 'Workspace (demo)',
       value: (() => {
         const n = profile.geTeamsWorkspace?.trim() ?? '';
         const id = profile.geTeamsWorkspaceId?.trim() ?? '';

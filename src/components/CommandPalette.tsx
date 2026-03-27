@@ -10,14 +10,14 @@ import {
   CommandSeparator,
 } from "@/components/ui/command"
 import {
-  LayoutDashboard,
-  Boxes,
-  Star,
+  Grape,
+  Cherry,
+  Apple,
   UserCircle,
   Settings,
   ExternalLink,
   Shield,
-  Headset,
+  Citrus,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import { databaseService } from "@/services/supabase"
@@ -60,7 +60,7 @@ export function CommandPalette() {
       <div className="flex items-center gap-3 border-b border-border bg-muted/40 dark:bg-muted/20 px-4 py-3 pr-14 min-h-[52px]">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 dark:bg-primary/20">
           <img
-            src="/assets/GêApps.svg"
+            src="/assets/brand-mock.svg"
             alt=""
             className="h-4 w-4 dark:opacity-95"
             style={{
@@ -73,36 +73,36 @@ export function CommandPalette() {
           aria-hidden
         />
         <span className="min-w-0 flex-shrink-0 font-semibold text-foreground text-sm tracking-tight whitespace-nowrap">
-          GêApps
+          genovo
         </span>
-        {/* Espaço reservado para o botão fechar (evita o "o" de GêApps ser cortado) */}
+        {/* Espaço reservado para o botão fechar */}
         <div className="w-12 shrink-0" aria-hidden />
       </div>
-      <CommandInput placeholder="Buscar aplicativos, páginas e ações..." />
+      <CommandInput placeholder="Buscar no Morango, páginas e ações..." />
       <CommandList>
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
         <CommandGroup heading="Navegação">
           <CommandItem
             onSelect={() => runCommand(() => navigate(isAdminPath ? "/admin/home" : "/dashboard"))}
           >
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            <span>{isAdminPath ? "Dashboard Admin" : "Dashboard"}</span>
+            <Grape className="mr-2 h-4 w-4" />
+            <span>{isAdminPath ? "Uva (admin)" : "Uva"}</span>
           </CommandItem>
           {!isAdminPath && (
             <>
           <CommandItem onSelect={() => runCommand(() => navigate("/systems"))}>
-            <Boxes className="mr-2 h-4 w-4" />
-            <span>Aplicativos</span>
+            <Cherry className="mr-2 h-4 w-4" />
+            <span>Morango</span>
           </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => navigate("/favorites"))}
           >
-            <Star className="mr-2 h-4 w-4" />
-            <span>Favoritos</span>
+            <Apple className="mr-2 h-4 w-4" />
+            <span>Pitanga</span>
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate("/solicitacoes"))}>
-            <Headset className="mr-2 h-4 w-4" />
-            <span>Solicitações</span>
+            <Citrus className="mr-2 h-4 w-4" />
+            <span>Manga</span>
           </CommandItem>
           {!isAdminPath && user?.accessType === "admin" ? (
             <CommandItem onSelect={() => runCommand(() => navigate("/admin/home"))}>
@@ -124,7 +124,7 @@ export function CommandPalette() {
           </CommandItem>
         </CommandGroup>
         <CommandSeparator />
-        <CommandGroup heading="Aplicativos">
+        <CommandGroup heading="Morango">
           {systems.map((system) => (
             <CommandItem
               key={system.id}

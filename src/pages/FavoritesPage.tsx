@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Star, ExternalLink, Calendar, Plus, Search, Boxes } from 'lucide-react';
+import { Star, Apple, ExternalLink, Calendar, Plus, Search, Boxes } from 'lucide-react';
 import { LoadingGifScreen, LoadingGif } from '@/components/LoadingGif';
 import * as Icons from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -26,7 +26,7 @@ import { isAppEligibleForFavoriteShortcut } from '@/lib/appFavoriteEligibility';
 import { emitFavoritesChanged } from '@/lib/favoritesEvents';
 
 const getSystemBanner = (systemId: string) => {
-  const images = BANNER_CATEGORIES.genesis.images;
+  const images = BANNER_CATEGORIES.demo.images;
   if (!images || images.length === 0) return '';
   let hash = 0;
   for (let i = 0; i < systemId.length; i++) {
@@ -164,9 +164,9 @@ export default function FavoritesPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />}
-        title="Favoritos"
-        description="Seus sistemas favoritos para acesso rápido."
+        icon={<Apple className="h-6 w-6 text-primary" />}
+        title="Pitanga"
+        description="Seu Morango favorito para acesso rápido."
         button={
           <Button
             type="button"
@@ -296,10 +296,10 @@ export default function FavoritesPage() {
               </div>
               <div className="min-w-0 flex-1 space-y-1">
                 <DialogTitle className="text-lg font-semibold leading-tight tracking-tight">
-                  Adicionar favoritos
+                  Gerir Pitanga
                 </DialogTitle>
                 <DialogDescription className="text-sm leading-snug">
-                  Aplicativos liberados para você. Adicione ou remova atalhos na sua lista de favoritos.
+                  Itens do Morango liberados para você. Adicione ou remova atalhos na sua Pitanga.
                 </DialogDescription>
               </div>
             </div>
@@ -379,7 +379,7 @@ export default function FavoritesPage() {
           <DialogTitle className="sr-only">{selectedSystem?.name ?? 'Detalhes do sistema'}</DialogTitle>
           <DialogDescription className="sr-only">{selectedSystem?.description ?? 'Informações do sistema'}</DialogDescription>
           <div className="relative">
-            {/* Header com banner Genesis */}
+            {/* Header com banner demo */}
             <div className="h-40 relative overflow-hidden bg-slate-100 dark:bg-[#0d1520]">
               {selectedSystem && (
                 <img 

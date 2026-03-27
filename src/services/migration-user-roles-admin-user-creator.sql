@@ -1,4 +1,4 @@
--- GêApps — migração de perfis para novo modelo de papéis.
+-- Legado / referência — mock UI no frontend.
 -- Modelo alvo: admin | user | creator
 
 -- 1) Papel legado manager vira user.

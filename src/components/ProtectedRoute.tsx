@@ -65,7 +65,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           <DialogHeader>
             <DialogTitle>Acesso removido</DialogTitle>
             <DialogDescription>
-              Você não tem permissão para acessar o GêApps e nenhum outro aplicativo da Gênesis Empreendimentos.
+              Você não tem permissão para acessar esta área no modo demo.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end">

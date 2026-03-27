@@ -1,4 +1,4 @@
--- Equipes: escopo por workspace GêTeams (paridade com request_channels / company_profile).
+-- Legado — equipes por workspace (referência)
 -- Execute no SQL Editor do Supabase.
 
 alter table public.teams
@@ -11,7 +11,7 @@ comment on column public.teams.workspace_id is
   'Id do workspace no Neon (public.workspaces); alinha a company_profile.geteams_workspace_id.';
 
 comment on column public.teams.workspace_name is
-  'Nome do workspace no GêTeams no cadastro; alinha a company_profile.ge_teams_workspace.';
+  'Nome do workspace (legado).';
 
 create index if not exists idx_teams_workspace_id on public.teams (workspace_id);
 

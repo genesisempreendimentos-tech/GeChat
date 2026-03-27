@@ -1,11 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, type MouseEvent, type ComponentType } from 'react';
+import { useState, useEffect, useCallback, type MouseEvent, type ComponentType } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  type LucideIcon,
   User as UserIconLucide,
   UserKey,
-  UserCheck,
-  UserX,
   Search,
   ShieldCheck,
   Check,
@@ -40,7 +37,7 @@ import { getAllCollaboratorsNeonMeta, type CollaboratorNeonMeta } from '@/servic
 import ProfileCardInfoPopup from '@/components/profile/ProfileCard/ProfileCardInfoPopup';
 import * as Icons from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TabButtons } from '@/components/ui/tab-buttons';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,36 +59,6 @@ const MEMBER_TYPE_FILTER_SEGMENTS: {
   { value: 'all', label: 'Todos', Icon: UserIconLucide },
   { value: 'user', label: 'Users', Icon: UserKey },
   { value: 'creator', label: 'Creators', Icon: UserPen },
-  { value: 'admin', label: 'Admins', Icon: UserStar },
-];
-
-const MEMBER_SCOPE_SEGMENTS: {
-  value: 'users' | 'eligible';
-  label: string;
-  Icon: ComponentType<{ className?: string }>;
-}[] = [
-  { value: 'users', label: 'Usuários', Icon: UserKey },
-  { value: 'eligible', label: 'Elegíveis', Icon: UserCheck },
-];
-
-const ELIGIBLE_FILTER_SEGMENTS: {
-  value: 'all' | 'user' | 'pending';
-  label: string;
-  Icon: ComponentType<{ className?: string }>;
-}[] = [
-  { value: 'all', label: 'Todos', Icon: UserIconLucide },
-  { value: 'user', label: 'Usuários', Icon: UserKey },
-  { value: 'pending', label: 'Pendentes', Icon: UserX },
-];
-
-const MANAGE_USERS_TAB_SEGMENTS: {
-  value: 'eligible' | 'users' | 'creators' | 'admin';
-  label: string;
-  Icon: LucideIcon;
-}[] = [
-  { value: 'eligible', label: 'Elegíveis', Icon: UserCheck },
-  { value: 'users', label: 'Users', Icon: UserKey },
-  { value: 'creators', label: 'Creators', Icon: UserPen },
   { value: 'admin', label: 'Admins', Icon: UserStar },
 ];
 
@@ -130,7 +97,7 @@ function memberAccessLabel(member: User): 'Admin' | 'Creator' | 'User' {
   return 'User';
 }
 
-/** Conta no GeApps — `profiles.created_at` (Supabase). */
+/** Conta criada (mock). */
 function formatProfileCreatedAt(createdAt: Date | undefined): string {
   if (!createdAt || !(createdAt instanceof Date) || Number.isNaN(createdAt.getTime())) return '—';
   return format(createdAt, 'dd/MM/yyyy', { locale: ptBR });
@@ -139,7 +106,6 @@ function formatProfileCreatedAt(createdAt: Date | undefined): string {
 export default function AdminMembersPage() {
   const { user: currentUser } = useAuthStore();
   const [members, setMembers] = useState<User[]>([]);
-  const [eligibleEntries, setEligibleEntries] = useState<{ id: string; email: string; isUser: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [searchQuery, setSearchQuery] = useState('');
@@ -157,19 +123,13 @@ export default function AdminMembersPage() {
   const [geAppsRevokeConfirmOpen, setGeAppsRevokeConfirmOpen] = useState(false);
   const [accessSearch, setAccessSearch] = useState('');
   const [accessFilter, setAccessFilter] = useState<'all' | 'granted' | 'denied'>('all');
-  const [memberScope, setMemberScope] = useState<'users' | 'eligible'>('users');
   const [typeFilter, setTypeFilter] = useState<'all' | 'user' | 'creator' | 'admin'>('all');
-  const [eligibleFilter, setEligibleFilter] = useState<'all' | 'user' | 'pending'>('all');
 
   const [manageUsersOpen, setManageUsersOpen] = useState(false);
-  const [promoteTab, setPromoteTab] = useState<'eligible' | 'users' | 'creators' | 'admin'>('eligible');
-  const [manageEmailQuery, setManageEmailQuery] = useState('');
+  const [promoteTab, setPromoteTab] = useState<'creators' | 'admin'>('creators');
   const [promotionSelection, setPromotionSelection] = useState<Record<string, boolean>>({});
   const [promotionSaving, setPromotionSaving] = useState(false);
   const [memberActionsLoadingId, setMemberActionsLoadingId] = useState<string | null>(null);
-  const [eligibleInputs, setEligibleInputs] = useState<string[]>(['']);
-  const [eligibleSaving, setEligibleSaving] = useState(false);
-  const [pendingDeactivateEligibleIds, setPendingDeactivateEligibleIds] = useState<Record<string, boolean>>({});
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -183,19 +143,9 @@ export default function AdminMembersPage() {
     setLoading(false);
   }, []);
 
-  const loadEligibleEntries = useCallback(async () => {
-    const { data, error } = await databaseService.getAllowedUsers();
-    if (error) {
-      console.error(error);
-      return;
-    }
-    setEligibleEntries(data ?? []);
-  }, []);
-
   useEffect(() => {
     loadMembers();
-    loadEligibleEntries();
-  }, [loadMembers, loadEligibleEntries]);
+  }, [loadMembers]);
 
   const handleOpenProfile = async (memberId: string) => {
     setLoadingProfile(memberId);
@@ -271,7 +221,7 @@ export default function AdminMembersPage() {
       setMemberActionsLoadingId(null);
       if (error) {
         toast.error(
-          'Não foi possível atualizar o status. Confirme a coluna profile_status no Supabase (ver migration-profiles-profile-status.sql).'
+          'Não foi possível atualizar o status (mock).'
         );
         return;
       }
@@ -402,7 +352,7 @@ export default function AdminMembersPage() {
             }}
           >
             <Boxes className="mr-2 h-4 w-4" />
-            Aplicativos
+            Morango
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -483,7 +433,7 @@ export default function AdminMembersPage() {
     );
   };
 
-  const filteredUsers = members.filter((m) => {
+  const filtered = members.filter((m) => {
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     const neon = neonMeta[emailNeonKey(m.email)];
@@ -496,67 +446,17 @@ export default function AdminMembersPage() {
       (neon?.setor ?? '').toLowerCase().includes(q)
     );
   });
-  const filteredUsersByType = filteredUsers.filter(
-    (m) => typeFilter === 'all' || m.accessType === typeFilter
+  const filteredByType = filtered.filter((m) => typeFilter === 'all' || m.accessType === typeFilter);
+
+  const promotionCandidates = members.filter((m) =>
+    promoteTab === 'creators'
+      ? m.accessType === 'user'
+      : m.accessType === 'user' || m.accessType === 'creator'
   );
-
-  const filteredEligible = eligibleEntries.filter((entry) => {
-    const q = searchQuery.toLowerCase().trim();
-    if (q && !entry.email.toLowerCase().includes(q)) return false;
-    if (eligibleFilter === 'all') return true;
-    if (eligibleFilter === 'user') return entry.isUser === true;
-    return entry.isUser === false;
-  });
-
-  const memberByEmail = useMemo(
-    () => new Map(members.map((m) => [emailNeonKey(m.email), m])),
-    [members]
-  );
-
-  const filteredByType: User[] =
-    memberScope === 'users'
-      ? filteredUsersByType
-      : filteredEligible.map((entry) => {
-          const fromProfile = entry.isUser ? memberByEmail.get(emailNeonKey(entry.email)) : undefined;
-          if (fromProfile) {
-            return fromProfile;
-          }
-          return {
-            id: entry.id,
-            email: entry.email,
-            name: entry.email.split('@')[0] || entry.email,
-            role: 'user',
-            accessType: 'user',
-          };
-        });
-
-  const eligibleByEmail = useMemo(
-    () => new Map(filteredEligible.map((entry) => [emailNeonKey(entry.email), entry.isUser])),
-    [filteredEligible]
-  );
-
-  const promotionCandidates = members.filter((m) => {
-    if (promoteTab !== 'users' && promoteTab !== 'creators' && promoteTab !== 'admin') return false;
-    if ((m.profileStatus ?? 'active') !== 'active') return false;
-    const q = manageEmailQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      (m.email ?? '').toLowerCase().includes(q) ||
-      (m.name ?? '').toLowerCase().includes(q)
-    );
-  });
-
-  const targetAccessType =
-    promoteTab === 'users' ? 'user' : promoteTab === 'creators' ? 'creator' : promoteTab === 'admin' ? 'admin' : null;
 
   const selectedPromotionIds = Object.entries(promotionSelection)
     .filter(([, selected]) => selected)
-    .map(([id]) => id)
-    .filter((id) => {
-      const m = members.find((x) => x.id === id);
-      if (!m || !targetAccessType) return false;
-      return m.accessType !== targetAccessType;
-    });
+    .map(([id]) => id);
 
   const togglePromotionSelection = (userId: string) => {
     setPromotionSelection((prev) => ({ ...prev, [userId]: !prev[userId] }));
@@ -566,19 +466,14 @@ export default function AdminMembersPage() {
     setManageUsersOpen(open);
     if (!open) {
       setPromotionSelection({});
-      setPromoteTab('eligible');
-      setManageEmailQuery('');
+      setPromoteTab('creators');
       setPromotionSaving(false);
-      setEligibleInputs(['']);
-      setEligibleSaving(false);
-      setPendingDeactivateEligibleIds({});
     }
   };
 
   const handleConfirmPromotions = async () => {
     if (selectedPromotionIds.length === 0) return;
-    const nextRole =
-      promoteTab === 'users' ? 'user' : promoteTab === 'creators' ? 'creator' : 'admin';
+    const nextRole = promoteTab === 'creators' ? 'creator' : 'admin';
     setPromotionSaving(true);
     try {
       const results = await Promise.all(
@@ -588,11 +483,7 @@ export default function AdminMembersPage() {
       if (errors.length > 0) {
         toast.error(`Falha ao promover ${errors.length} usuário(s).`);
       } else {
-        toast.success(
-          `Usuários atualizados para ${
-            nextRole === 'creator' ? 'creator' : nextRole === 'admin' ? 'admin' : 'user'
-          }.`
-        );
+        toast.success(`Usuários promovidos para ${nextRole === 'creator' ? 'creator' : 'admin'}.`);
       }
       await loadMembers();
       handleCloseManageUsers(false);
@@ -601,77 +492,13 @@ export default function AdminMembersPage() {
     }
   };
 
-  const handleAddEligibleInput = () => {
-    setEligibleInputs((prev) => [...prev, '']);
-  };
-
-  const handleChangeEligibleInput = (index: number, value: string) => {
-    setEligibleInputs((prev) => prev.map((item, i) => (i === index ? value : item)));
-  };
-
-  const handleSaveEligibleEmails = async () => {
-    const emails = eligibleInputs.map((v) => v.trim()).filter(Boolean);
-    const pendingIds = Object.entries(pendingDeactivateEligibleIds)
-      .filter(([, selected]) => selected)
-      .map(([id]) => id);
-    if (emails.length === 0 && pendingIds.length === 0) {
-      toast.error('Adicione um e-mail ou selecione algum elegível para desativar.');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const invalid = emails.filter((e) => !emailRegex.test(e));
-    if (invalid.length > 0) {
-      toast.error(`E-mail inválido: ${invalid[0]}`);
-      return;
-    }
-    setEligibleSaving(true);
-    try {
-      if (emails.length > 0) {
-        const result = await databaseService.addAllowedUsers(emails);
-        if (result.inserted > 0 || result.reactivated > 0) {
-          const parts = [];
-          if (result.inserted > 0) parts.push(`${result.inserted} adicionado(s)`);
-          if (result.reactivated > 0) parts.push(`${result.reactivated} reativado(s)`);
-          if (result.skipped > 0) parts.push(`${result.skipped} já ativo(s)`);
-          toast.success(`Elegíveis: ${parts.join(' • ')}.`);
-        } else if (result.skipped > 0) {
-          toast.message('Todos os e-mails já existiam na lista de elegíveis.');
-        }
-        if (result.errors.length > 0) {
-          toast.error(`Falha em ${result.errors.length} e-mail(s).`);
-          console.error('[allowed_users] add errors:', result.errors);
-        }
-      }
-      if (pendingIds.length > 0) {
-        const results = await Promise.all(
-          pendingIds.map((id) => databaseService.deactivateAllowedUser(id))
-        );
-        const failed = results.filter((r) => r.error);
-        if (failed.length > 0) {
-          toast.error(`Falha ao desativar ${failed.length} elegível(is).`);
-        } else {
-          toast.success(`${pendingIds.length} elegível(is) desativado(s).`);
-        }
-      }
-      await loadEligibleEntries();
-      setEligibleInputs(['']);
-      setPendingDeactivateEligibleIds({});
-    } finally {
-      setEligibleSaving(false);
-    }
-  };
-
-  const handleToggleDeactivateEligible = (entryId: string) => {
-    setPendingDeactivateEligibleIds((prev) => ({ ...prev, [entryId]: !prev[entryId] }));
-  };
-
   return (
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
         icon={<UserKey className="h-6 w-6" />}
-        title="Usuários"
-        description="Usuários que criaram ou podem criar conta no GeApps."
+        title="Romã"
+        description="Usuários que criaram conta no genovo."
         button={
           <Button
             onClick={() => setManageUsersOpen(true)}
@@ -687,124 +514,43 @@ export default function AdminMembersPage() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         leftContent={
-          <div className="flex max-w-full items-center gap-2">
-            <div className="flex rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80">
-              {MEMBER_SCOPE_SEGMENTS.map(({ value, label, Icon }) => {
-                const active = memberScope === value;
-                return (
-                  <Button
-                    key={value}
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      'h-8 rounded-lg text-sm font-medium transition-all duration-300 flex items-center',
-                      active
-                        ? 'bg-primary text-primary-foreground shadow-md px-3'
-                        : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+          <div className="flex max-w-full rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80">
+            {MEMBER_TYPE_FILTER_SEGMENTS.map(({ value, label, Icon }) => {
+              const active = typeFilter === value;
+              return (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-8 rounded-lg text-sm font-medium transition-all duration-300 flex items-center',
+                    active
+                      ? 'bg-primary text-primary-foreground shadow-md px-3'
+                      : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                  )}
+                  onClick={() => setTypeFilter(value)}
+                  aria-pressed={active}
+                  aria-label={label}
+                  title={label}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <AnimatePresence initial={false}>
+                    {active && (
+                      <motion.span
+                        initial={{ width: 0, opacity: 0, marginLeft: 0 }}
+                        animate={{ width: 'auto', opacity: 1, marginLeft: 6 }}
+                        exit={{ width: 0, opacity: 0, marginLeft: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeInOut' }}
+                        className="overflow-hidden whitespace-nowrap"
+                      >
+                        {label}
+                      </motion.span>
                     )}
-                    onClick={() => setMemberScope(value)}
-                    aria-pressed={active}
-                    aria-label={label}
-                    title={label}
-                  >
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <AnimatePresence initial={false}>
-                      {active && (
-                        <motion.span
-                          initial={{ width: 0, opacity: 0, marginLeft: 0 }}
-                          animate={{ width: 'auto', opacity: 1, marginLeft: 6 }}
-                          exit={{ width: 0, opacity: 0, marginLeft: 0 }}
-                          transition={{ duration: 0.2, ease: 'easeInOut' }}
-                          className="overflow-hidden whitespace-nowrap"
-                        >
-                          {label}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </Button>
-                );
-              })}
-            </div>
-            {memberScope === 'users' ? (
-              <div className="flex rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80">
-                {MEMBER_TYPE_FILTER_SEGMENTS.map(({ value, label, Icon }) => {
-                  const active = typeFilter === value;
-                  return (
-                    <Button
-                      key={value}
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className={cn(
-                        'h-8 rounded-lg text-sm font-medium transition-all duration-300 flex items-center',
-                        active
-                          ? 'bg-primary text-primary-foreground shadow-md px-3'
-                          : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                      )}
-                      onClick={() => setTypeFilter(value)}
-                      aria-pressed={active}
-                      aria-label={label}
-                      title={label}
-                    >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <AnimatePresence initial={false}>
-                        {active && (
-                          <motion.span
-                            initial={{ width: 0, opacity: 0, marginLeft: 0 }}
-                            animate={{ width: 'auto', opacity: 1, marginLeft: 6 }}
-                            exit={{ width: 0, opacity: 0, marginLeft: 0 }}
-                            transition={{ duration: 0.2, ease: 'easeInOut' }}
-                            className="overflow-hidden whitespace-nowrap"
-                          >
-                            {label}
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
-                    </Button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80">
-                {ELIGIBLE_FILTER_SEGMENTS.map(({ value, label, Icon }) => {
-                  const active = eligibleFilter === value;
-                  return (
-                    <Button
-                      key={value}
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className={cn(
-                        'h-8 rounded-lg text-sm font-medium transition-all duration-300 flex items-center',
-                        active
-                          ? 'bg-primary text-primary-foreground shadow-md px-3'
-                          : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                      )}
-                      onClick={() => setEligibleFilter(value)}
-                      aria-pressed={active}
-                      aria-label={label}
-                      title={label}
-                    >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <AnimatePresence initial={false}>
-                        {active && (
-                          <motion.span
-                            initial={{ width: 0, opacity: 0, marginLeft: 0 }}
-                            animate={{ width: 'auto', opacity: 1, marginLeft: 6 }}
-                            exit={{ width: 0, opacity: 0, marginLeft: 0 }}
-                            transition={{ duration: 0.2, ease: 'easeInOut' }}
-                            className="overflow-hidden whitespace-nowrap"
-                          >
-                            {label}
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
-                    </Button>
-                  );
-                })}
-              </div>
-            )}
+                  </AnimatePresence>
+                </Button>
+              );
+            })}
           </div>
         }
         centerContent={
@@ -826,7 +572,7 @@ export default function AdminMembersPage() {
           <LoadingGifScreen className="h-64" />
         ) : filteredByType.length === 0 ? (
           (() => {
-            const emptyByFilterUsers: Record<
+            const emptyByFilter: Record<
               'all' | 'user' | 'creator' | 'admin',
               { Icon: ComponentType<{ className?: string }>; message: string }
             > = {
@@ -835,18 +581,7 @@ export default function AdminMembersPage() {
               creator: { Icon: UserPen, message: 'Nenhum creator encontrado.' },
               admin: { Icon: UserStar, message: 'Nenhum user encontrado.' },
             };
-            const emptyByFilterEligible: Record<
-              'all' | 'user' | 'pending',
-              { Icon: ComponentType<{ className?: string }>; message: string }
-            > = {
-              all: { Icon: UserIconLucide, message: 'Nenhum elegível encontrado.' },
-              user: { Icon: UserKey, message: 'Nenhum usuário elegível encontrado.' },
-              pending: { Icon: UserX, message: 'Nenhum pendente encontrado.' },
-            };
-            const { Icon: EmptyIcon, message } =
-              memberScope === 'users'
-                ? emptyByFilterUsers[typeFilter]
-                : emptyByFilterEligible[eligibleFilter];
+            const { Icon: EmptyIcon, message } = emptyByFilter[typeFilter];
             return (
               <div className="py-12 text-center text-muted-foreground">
                 <EmptyIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -858,7 +593,6 @@ export default function AdminMembersPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredByType.map((member, index) => {
               const neon = neonMeta[emailNeonKey(member.email)];
-              const eligibleIsUser = eligibleByEmail.get(emailNeonKey(member.email)) ?? false;
               return (
               <motion.div
                 key={member.id}
@@ -867,19 +601,12 @@ export default function AdminMembersPage() {
                 transition={{ delay: index * 0.03 }}
               >
                 <Card
-                  className={cn(
-                    'relative h-full transition-all duration-200 group',
-                    memberScope === 'users'
-                      ? 'cursor-pointer hover:shadow-md hover:border-primary/30'
-                      : 'hover:shadow-sm'
-                  )}
-                  onClick={memberScope === 'users' ? () => handleOpenProfile(member.id) : undefined}
+                  className="relative h-full cursor-pointer hover:shadow-md hover:border-primary/30 transition-all duration-200 group"
+                  onClick={() => handleOpenProfile(member.id)}
                 >
-                  {memberScope === 'users' ? (
-                    <div className="absolute right-1.5 top-1.5 z-10" onClick={(e) => e.stopPropagation()}>
-                      {renderMemberOverflowMenu(member)}
-                    </div>
-                  ) : null}
+                  <div className="absolute right-1.5 top-1.5 z-10" onClick={(e) => e.stopPropagation()}>
+                    {renderMemberOverflowMenu(member)}
+                  </div>
                   <CardHeader className="pb-2 pr-10 pt-4">
                     <div className="flex items-start gap-2">
                       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -899,12 +626,12 @@ export default function AdminMembersPage() {
                             <CardTitle className="text-base truncate group-hover:text-primary transition-colors">
                               {member.name || '—'}
                             </CardTitle>
-                            {memberScope === 'users' && member.profileStatus === 'archived' ? (
+                            {member.profileStatus === 'archived' ? (
                               <span className="shrink-0 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
                                 Arquivado
                               </span>
                             ) : null}
-                            {memberScope === 'users' && member.profileStatus === 'deleted' ? (
+                            {member.profileStatus === 'deleted' ? (
                               <span className="shrink-0 rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">
                                 Excluído
                               </span>
@@ -918,16 +645,8 @@ export default function AdminMembersPage() {
                   <CardContent className="pt-0 text-sm">
                     <div className="space-y-1.5 mb-3">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-muted-foreground text-xs shrink-0">
-                          {memberScope === 'users' ? 'Acesso' : 'Status'}
-                        </span>
-                        <span className="font-medium text-xs text-right">
-                          {memberScope === 'users'
-                            ? memberAccessLabel(member)
-                            : eligibleIsUser
-                              ? 'Usuário'
-                              : 'Pendente'}
-                        </span>
+                        <span className="text-muted-foreground text-xs shrink-0">Acesso</span>
+                        <span className="font-medium text-xs text-right">{memberAccessLabel(member)}</span>
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-muted-foreground text-xs shrink-0">Departamento</span>
@@ -947,14 +666,12 @@ export default function AdminMembersPage() {
                           {neon?.setor || '—'}
                         </span>
                       </div>
-                      {memberScope === 'users' ? (
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-muted-foreground text-xs shrink-0">Criado</span>
-                          <span className="font-medium text-xs text-right tabular-nums" title="profiles.created_at (Supabase)">
-                            {formatProfileCreatedAt(member.createdAt)}
-                          </span>
-                        </div>
-                      ) : null}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground text-xs shrink-0">Criado</span>
+                        <span className="font-medium text-xs text-right tabular-nums" title="Data de cadastro (mock)">
+                          {formatProfileCreatedAt(member.createdAt)}
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -979,15 +696,11 @@ export default function AdminMembersPage() {
               <tbody>
                 {filteredByType.map((member) => {
                   const neon = neonMeta[emailNeonKey(member.email)];
-                  const eligibleIsUser = eligibleByEmail.get(emailNeonKey(member.email)) ?? false;
                   return (
                   <tr
                     key={member.id}
-                    className={cn(
-                      'border-b border-border/50 transition-colors',
-                      memberScope === 'users' ? 'hover:bg-muted/30 cursor-pointer' : 'hover:bg-muted/20'
-                    )}
-                    onClick={memberScope === 'users' ? () => handleOpenProfile(member.id) : undefined}
+                    className="border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors"
+                    onClick={() => handleOpenProfile(member.id)}
                   >
                     <td className="py-2 px-2 font-medium">
                       <div className="flex items-center gap-2 min-w-0">
@@ -1003,12 +716,12 @@ export default function AdminMembersPage() {
                           )}
                         </div>
                         <span className="truncate">{member.name || '—'}</span>
-                        {memberScope === 'users' && member.profileStatus === 'archived' ? (
+                        {member.profileStatus === 'archived' ? (
                           <span className="shrink-0 rounded border border-amber-500/30 bg-amber-500/10 px-1 py-0.5 text-[9px] font-semibold uppercase text-amber-700 dark:text-amber-400">
                             Arquivado
                           </span>
                         ) : null}
-                        {memberScope === 'users' && member.profileStatus === 'deleted' ? (
+                        {member.profileStatus === 'deleted' ? (
                           <span className="shrink-0 rounded border border-destructive/30 bg-destructive/10 px-1 py-0.5 text-[9px] font-semibold uppercase text-destructive">
                             Excluído
                           </span>
@@ -1016,20 +729,18 @@ export default function AdminMembersPage() {
                       </div>
                     </td>
                     <td className="py-2 px-2 text-muted-foreground">{member.email || '—'}</td>
-                    <td className="py-2 px-2">
-                      {memberScope === 'users' ? memberAccessLabel(member) : eligibleIsUser ? 'Usuário' : 'Pendente'}
-                    </td>
+                    <td className="py-2 px-2">{memberAccessLabel(member)}</td>
                     <td className="py-2 px-2 text-muted-foreground truncate max-w-[140px]" title={neon?.departamento || undefined}>
                       {neon?.departamento || '—'}
                     </td>
                     <td className="py-2 px-2 text-muted-foreground truncate max-w-[140px]" title={neon?.setor || undefined}>
                       {neon?.setor || '—'}
                     </td>
-                    <td className="py-2 px-2 text-muted-foreground tabular-nums whitespace-nowrap" title="profiles.created_at (Supabase)">
-                      {memberScope === 'users' ? formatProfileCreatedAt(member.createdAt) : '—'}
+                    <td className="py-2 px-2 text-muted-foreground tabular-nums whitespace-nowrap" title="Data de cadastro (mock)">
+                      {formatProfileCreatedAt(member.createdAt)}
                     </td>
                     <td className="py-2 px-2 w-[52px] text-right" onClick={(e) => e.stopPropagation()}>
-                      {memberScope === 'users' ? renderMemberOverflowMenu(member) : null}
+                      {renderMemberOverflowMenu(member)}
                     </td>
                   </tr>
                 );
@@ -1044,106 +755,35 @@ export default function AdminMembersPage() {
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Gerenciar usuários</DialogTitle>
-            <DialogDescription>Gerencie usuários e seus status no GêApps.</DialogDescription>
+            <DialogDescription>Promova usuários para creators ou admins.</DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 flex flex-col">
-            <TabButtons
-              value={promoteTab}
-              items={MANAGE_USERS_TAB_SEGMENTS}
-              onChange={(v) => {
-                setPromoteTab(v);
-                setPromotionSelection({});
-              }}
-              className="w-fit"
-            />
+          <Tabs
+            value={promoteTab}
+            onValueChange={(v) => {
+              setPromoteTab(v as 'creators' | 'admin');
+              setPromotionSelection({});
+            }}
+            className="flex-1 min-h-0 flex flex-col"
+          >
+            <TabsList className="w-fit">
+              <TabsTrigger value="creators">Creators</TabsTrigger>
+              <TabsTrigger value="admin">Admin</TabsTrigger>
+            </TabsList>
 
             <div className="mt-4 flex-1 overflow-y-auto rounded-xl border border-border/60 p-3 space-y-2">
-              {promoteTab !== 'eligible' ? (
-                <div className="pb-2">
-                  <Input
-                    value={manageEmailQuery}
-                    onChange={(e) => setManageEmailQuery(e.target.value)}
-                    placeholder="Buscar e-mail em profiles..."
-                    type="email"
-                    className="h-9 rounded-lg"
-                  />
-                </div>
-              ) : null}
-              {promoteTab === 'eligible' ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Adicione e-mails que poderão criar conta no GeApps.
-                  </p>
-                  {eligibleInputs.map((value, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={value}
-                        onChange={(e) => handleChangeEligibleInput(index, e.target.value)}
-                        placeholder="email@empresa.com"
-                        type="email"
-                        className="h-9 rounded-lg"
-                      />
-                    </div>
-                  ))}
-                  <Button type="button" variant="outline" onClick={handleAddEligibleInput} className="h-9 px-3 rounded-lg">
-                    +
-                  </Button>
-                  <div className="pt-2">
-                    <p className="text-xs font-medium text-muted-foreground mb-2">Elegíveis ativos</p>
-                    {eligibleEntries.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-3 text-center border rounded-lg border-dashed">
-                        Nenhum e-mail elegível ativo.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {eligibleEntries.map((entry) => (
-                          <button
-                            key={entry.id}
-                            type="button"
-                            onClick={() => handleToggleDeactivateEligible(entry.id)}
-                            disabled={eligibleSaving}
-                            className={cn(
-                              'w-full rounded-lg border px-3 py-2 text-left flex items-center justify-between transition-colors',
-                              pendingDeactivateEligibleIds[entry.id]
-                                ? 'border-red-500/40 bg-red-500/10 text-red-700'
-                                : 'border-border hover:bg-muted/30'
-                            )}
-                            title="Clique para marcar/desmarcar desativação (aplica em Salvar)"
-                          >
-                            <span className="truncate text-sm">{entry.email}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {pendingDeactivateEligibleIds[entry.id] ? 'Desativar' : 'Desativar'}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : promotionCandidates.length === 0 ? (
+              {promotionCandidates.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">Nenhum usuário elegível nesta aba.</p>
               ) : (
                 promotionCandidates.map((candidate) => (
                   <button
                     key={candidate.id}
                     type="button"
-                    onClick={() => {
-                      const alreadyHasRole =
-                        (promoteTab === 'users' && candidate.accessType === 'user') ||
-                        (promoteTab === 'creators' && candidate.accessType === 'creator') ||
-                        (promoteTab === 'admin' && candidate.accessType === 'admin');
-                      if (alreadyHasRole) return;
-                      togglePromotionSelection(candidate.id);
-                    }}
+                    onClick={() => togglePromotionSelection(candidate.id)}
                     className={cn(
                       'w-full rounded-lg border px-3 py-2 text-left flex items-center justify-between transition-colors',
-                      (promoteTab === 'users' && candidate.accessType === 'user') ||
-                        (promoteTab === 'creators' && candidate.accessType === 'creator') ||
-                        (promoteTab === 'admin' && candidate.accessType === 'admin')
+                      promotionSelection[candidate.id]
                         ? 'border-primary/40 bg-primary/5'
-                        : promotionSelection[candidate.id]
-                        ? 'border-orange-500/40 bg-orange-500/10'
                         : 'border-border hover:bg-muted/30'
                     )}
                   >
@@ -1151,42 +791,23 @@ export default function AdminMembersPage() {
                       <p className="text-sm font-medium truncate">{candidate.name || '—'}</p>
                       <p className="text-xs text-muted-foreground truncate">{candidate.email || '—'}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {((promoteTab === 'users' && candidate.accessType === 'user') ||
-                        (promoteTab === 'creators' && candidate.accessType === 'creator') ||
-                        (promoteTab === 'admin' && candidate.accessType === 'admin') ||
-                        !!promotionSelection[candidate.id]) ? (
-                        <Check
-                          className={cn(
-                            'h-4 w-4',
-                            promotionSelection[candidate.id] ? 'text-orange-600' : 'text-primary'
-                          )}
-                        />
-                      ) : null}
-                      <span className="text-xs text-muted-foreground">{memberAccessLabel(candidate)}</span>
-                    </div>
+                    <span className="text-xs text-muted-foreground">{memberAccessLabel(candidate)}</span>
                   </button>
                 ))
               )}
             </div>
-          </div>
+          </Tabs>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
             <Button variant="outline" onClick={() => handleCloseManageUsers(false)}>
               Cancelar
             </Button>
-            {promoteTab === 'eligible' ? (
-              <Button onClick={handleSaveEligibleEmails} disabled={eligibleSaving}>
-                {eligibleSaving ? 'Salvando...' : 'Salvar e-mails'}
-              </Button>
-            ) : (
-              <Button
-                onClick={handleConfirmPromotions}
-                disabled={promotionSaving || selectedPromotionIds.length === 0}
-              >
-                {promotionSaving ? 'Confirmando...' : 'Confirmar'}
-              </Button>
-            )}
+            <Button
+              onClick={handleConfirmPromotions}
+              disabled={promotionSaving || selectedPromotionIds.length === 0}
+            >
+              {promotionSaving ? 'Confirmando...' : 'Confirmar'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1379,7 +1000,7 @@ export default function AdminMembersPage() {
           <DialogHeader>
             <DialogTitle>Confirmar remoção de acesso</DialogTitle>
             <DialogDescription>
-              Ao remover o acesso do GêApps, todos os aplicativos desse usuário também terão o acesso removido. Deseja continuar?
+              Ao remover o acesso ao hub (genovo), no mock todos os aplicativos desse usuário também perdem acesso. Continuar?
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">

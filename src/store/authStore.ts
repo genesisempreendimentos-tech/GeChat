@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { User, UserRole } from '@/types';
 import { authService, databaseService } from '@/services/supabase';
-import { emitGeAppsAuditAppLogin } from '@/assets/audit-log';
 import { useThemeStore } from '@/store/themeStore';
 import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 
@@ -22,42 +21,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true,
 
   login: async (email: string, password: string) => {
-    console.log('🔵 [Login] Iniciando login:', email);
-    
-    // Validar domínio permitido
-    const allowedDomain = '@genesisempreendimentos.com.br';
-    if (!email.endsWith(allowedDomain)) {
-      console.log('❌ [Login] Domínio inválido');
-      return { success: false, error: 'Acesso restrito: Apenas colaboradores da Genesis Empreendimentos podem acessar o GêApps' };
-    }
-
-    // Verificar se o email existe em profiles (coluna email) antes de tentar login
-    const emailExists = await databaseService.profilesEmailExists(email);
-    if (!emailExists) {
-      console.log('❌ [Login] Email não encontrado em profiles');
-      return { success: false, error: 'USUARIO_NAO_EXISTE' };
-    }
-
-    console.log('🔵 [Login] Chamando authService.signIn...');
     const { data, error } = await authService.signIn(email, password);
-    
-    console.log('🔵 [Login] Resposta do signIn:', { data, error });
-    
     if (error || !data || !data.user) {
-      console.log('❌ [Login] Erro de autenticação (email existe → senha incorreta)');
       return { success: false, error: 'SENHA_INCORRETA' };
     }
-
-    console.log('✅ [Login] Autenticação bem-sucedida! User ID:', data.user.id);
-    console.log('🔵 [Login] Buscando dados completos do usuário...');
-    
-    // Buscar dados completos do usuário
     const { data: userData, error: userError } = await authService.getCurrentUser();
-    
-    console.log('🔵 [Login] Dados do usuário retornados:', { userData, userError });
-    
     if (userData) {
-      useThemeStore.getState().applyFromProfileThema(userData.thema);
+      useThemeStore.getState().applyFromProfileThema(undefined);
       useSidebarLayoutStore.getState().applyFromProfile(userData.sidebar);
 
       const user: User = {
@@ -66,48 +36,28 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: userData.email,
         role: (userData.accessType as UserRole) || 'user',
         avatar: userData.avatar,
-        createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
+        createdAt: userData.createdAt ? new Date(userData.createdAt) : new Date(),
         accessType: userData.accessType,
         sidebar: userData.sidebar,
       };
-      
-      console.log('✅ [Login] Login completo! Usuário:', user);
-      console.log('✅ [Login] Role detalhado:', {
-        role: user.role,
-        roleType: typeof user.role,
-        roleLength: user.role?.length,
-        isAdmin: user.accessType === 'admin',
-        isCreator: user.accessType === 'creator',
-        roleRaw: JSON.stringify(user.role)
-      });
-      set({ user, isAuthenticated: true });
-      void emitGeAppsAuditAppLogin(user.id, user.email);
+      set({ user, isAuthenticated: true, loading: false });
       return { success: true };
     }
-    
-    console.error('❌ [Login] Usuário não encontrado na tabela profiles. Erro:', userError);
+    void userError;
     return { success: false, error: 'USUARIO_NAO_CADASTRADO' };
   },
 
   register: async (email: string, password: string, fullName: string) => {
-    console.log('🟢 [Register] Iniciando registro:', { email, fullName });
-    
     const { data, error } = await authService.signUp(email, password, fullName);
-    
-    console.log('🟢 [Register] Resultado:', { data, error });
-    
     if (error) {
       const errorMessage = (error as any).message || 'Erro ao criar conta';
-      console.error('❌ [Register] Erro:', errorMessage);
       return { success: false, error: errorMessage };
     }
 
     if (!data || !data.user) {
-      console.error('❌ [Register] Dados inválidos retornados');
       return { success: false, error: 'Erro ao criar usuário - dados inválidos' };
     }
 
-    console.log('✅ [Register] Registro concluído com sucesso!');
     return { success: true };
   },
 
@@ -127,7 +77,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { data: userData } = await authService.getCurrentUser();
     
     if (userData) {
-      useThemeStore.getState().applyFromProfileThema(userData.thema);
+      useThemeStore.getState().applyFromProfileThema(undefined);
       useSidebarLayoutStore.getState().applyFromProfile(userData.sidebar);
 
       const user: User = {
@@ -136,7 +86,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: userData.email,
         role: (userData.accessType as UserRole) || 'user',
         avatar: userData.avatar,
-        createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
+        createdAt: userData.createdAt ? new Date(userData.createdAt) : new Date(),
         accessType: userData.accessType,
         sidebar: userData.sidebar,
       };
@@ -147,5 +97,5 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 }));
 
-// Initialize auth state from Supabase session
+// Estado de auth inicial (mock local)
 useAuthStore.getState().checkAuth();

@@ -13,7 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 import { databaseService } from '@/services/supabase';
 
-const DEFAULT_BANNER = '/assets/banners/genesis/1.jpg';
+const DEFAULT_BANNER = '/assets/banners/demo/1.jpg';
 const LS_KEY = (userId?: string | null) =>
   userId ? `profile_banner_${userId}` : 'profile_banner_guest';
 

@@ -1,4 +1,4 @@
--- GêApps — Comunicados: estado “visto” só na tabela `statement` (coluna `viewed`).
+-- Legado — comunicados vistos em statement (referência)
 -- O app não usa a tabela `statement_reads`; pode ignorar ficheiros/SQL antigos que a criavam.
 
 ALTER TABLE public.statement

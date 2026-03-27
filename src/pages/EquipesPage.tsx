@@ -1,7 +1,7 @@
 import type { ElementType } from 'react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import * as LucideIcons from 'lucide-react';
-import { Search, Users, Layers, Loader2, Grid2x2, Shapes, LayoutGrid, Table2 } from 'lucide-react';
+import { Search, Users, Layers, Loader2, Grid2x2, Shapes, LayoutGrid, Table2, Flower2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -435,8 +435,8 @@ export default function EquipesPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Users className="h-6 w-6" />}
-        title="Equipes"
+        icon={<Flower2 className="h-6 w-6" />}
+        title="Pitaya"
         description="Visualize todas as equipes da empresa em departamentos, setores e colaboradores."
       />
 

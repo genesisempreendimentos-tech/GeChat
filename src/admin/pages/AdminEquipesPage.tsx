@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Search, Users, RefreshCw, AlertCircle, Building2, Loader2, Check, Unlock, LayoutGrid, Layers, Grid2x2, Shapes, Table2 } from 'lucide-react';
+import { Plus, Search, Users, Flower2, RefreshCw, AlertCircle, Building2, Loader2, Check, Unlock, LayoutGrid, Layers, Grid2x2, Shapes, Table2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -301,7 +301,7 @@ export default function AdminEquipesPage() {
     const workspaceName = String(company.geTeamsWorkspace ?? '').trim();
     if (!workspaceName) {
       setFormError(
-        'Configure o nome do workspace no GêTeams em Admin → Empresa antes de criar equipes.',
+        'Configure o workspace em Admin → Coco antes de criar equipes (mock).',
       );
       return;
     }
@@ -325,7 +325,7 @@ export default function AdminEquipesPage() {
       const msg =
         typeof error === 'object' && error !== null && 'message' in error
           ? String((error as { message: string }).message)
-          : 'Erro ao criar equipe. Verifique a tabela teams e as políticas RLS no Supabase.';
+          : 'Erro ao criar equipe (mock — sem persistência real).';
       setFormError(msg);
       return;
     }
@@ -617,7 +617,7 @@ export default function AdminEquipesPage() {
       setSelectedProfileData(data);
       setProfilePopupOpen(true);
     } else {
-      // Colaborador não tem perfil no GêApps ainda — mostra dados básicos do Neon
+      // Colaborador sem perfil local — mostra dados mínimos (mock)
       setSelectedProfileData({
         full_name: collab.name,
         email: collab.email,
@@ -659,9 +659,9 @@ export default function AdminEquipesPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Users className="h-6 w-6" />}
-        title="Equipes"
-        description="Cadastre equipes e defina quem pode vê-las no GeApps."
+        icon={<Flower2 className="h-6 w-6" />}
+        title="Pitaya"
+        description="Cadastre equipes e defina quem pode vê-las no genovo."
         button={
           <Button
             type="button"
@@ -724,7 +724,7 @@ export default function AdminEquipesPage() {
             emptyTitle="Nenhuma equipe encontrada"
             emptyHint={
               teams.length === 0
-                ? 'Use Adicionar equipe para vincular um departamento do GêTeams. Confira se a tabela teams existe no Supabase e se as políticas RLS permitem leitura para appsadmin.'
+                ? 'Use Adicionar equipe para vincular um departamento (mock). Sem banco real neste projeto.'
                 : 'Tente ajustar a busca.'
             }
           />
@@ -743,10 +743,10 @@ export default function AdminEquipesPage() {
             }
             emptyHint={
               teams.length === 0
-                ? 'Cadastre equipes (departamentos) para carregar setores e colaboradores do GêTeams.'
+                ? 'Cadastre equipes (departamentos) para carregar setores e colaboradores (mock).'
                 : topicView === TOPIC_SECTORS
                   ? 'Não há setores associados aos departamentos das equipes ou a busca não encontrou resultados.'
-                  : 'Não há colaboradores ativos ligados a esses departamentos no Neon ou a busca não encontrou resultados.'
+                  : 'Não há colaboradores ativos ligados a esses departamentos no mock ou a busca não encontrou resultados.'
             }
           />
         )}
@@ -773,7 +773,7 @@ export default function AdminEquipesPage() {
                 <div className="space-y-1 pt-0.5 min-w-0">
                   <DialogTitle className="text-xl font-semibold tracking-tight">Nova equipe</DialogTitle>
                   <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-                    Escolha o departamento no GêTeams para ser exibido no GêApps.
+                    Escolha o departamento de origem para exibir no hub (mock).
                   </DialogDescription>
                 </div>
               </div>
@@ -814,7 +814,7 @@ export default function AdminEquipesPage() {
                     setDepsLoading(false);
                   }}
                   disabled={depsLoading}
-                  title="Recarregar departamentos do GêTeams"
+                  title="Recarregar departamentos (mock)"
                   className="h-8 px-2.5 rounded-lg text-xs text-muted-foreground hover:text-primary"
                 >
                   <RefreshCw className={cn('w-3.5 h-3.5 mr-1.5', depsLoading && 'animate-spin')} />
@@ -824,11 +824,11 @@ export default function AdminEquipesPage() {
               {depsLoading ? (
                 <div className="flex items-center gap-3 rounded-2xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
                   <LoadingGif size="sm" />
-                  Carregando departamentos do GêTeams…
+                  Carregando departamentos (mock)…
                 </div>
               ) : modalDepartments.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-amber-500/30 bg-amber-500/[0.06] px-4 py-4 text-sm text-muted-foreground">
-                  Nenhum departamento para este <code className="text-xs">workspace_id</code> no Neon. Verifique a API e use{' '}
+                  Nenhum departamento para este <code className="text-xs">workspace_id</code> no mock. Ajuste os dados ou use{' '}
                   <strong className="text-foreground">Atualizar lista</strong>.
                 </div>
               ) : (
@@ -952,7 +952,7 @@ export default function AdminEquipesPage() {
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                       }`}
                     >
-                      {panel === 'systems' ? 'Aplicativos' : 'Colaboradores'}
+                      {panel === 'systems' ? 'Morango' : 'Colaboradores'}
                     </button>
                   ))}
                 </div>
@@ -1561,7 +1561,7 @@ export default function AdminEquipesPage() {
                   if (noProfiles && !sectorModalLoading) {
                     return (
                       <p className="text-sm text-amber-600 dark:text-amber-400">
-                        Nenhum colaborador com perfil GêApps neste setor — cadastre ou vincule e-mails para aplicar acessos.
+                        Nenhum colaborador com perfil neste setor (mock) — cadastre ou vincule e-mails para simular acessos.
                       </p>
                     );
                   }

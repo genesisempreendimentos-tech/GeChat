@@ -76,7 +76,7 @@ export default function SignupPage() {
           scale: { duration: 4, repeat: Infinity, ease: "easeInOut" }
         }}
       >
-        <img src={LogoSvg} alt="Genesis Logo" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
+        <img src={LogoSvg} alt="" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
       </motion.div>
       
       <motion.div 
@@ -90,7 +90,7 @@ export default function SignupPage() {
           scale: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }
         }}
       >
-        <img src={LogoSvg} alt="Genesis Logo" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
+        <img src={LogoSvg} alt="" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
       </motion.div>
       
       <motion.div 
@@ -104,7 +104,7 @@ export default function SignupPage() {
           rotate: { duration: 15, repeat: Infinity, ease: "linear" }
         }}
       >
-        <img src={LogoSvg} alt="Genesis Logo" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
+        <img src={LogoSvg} alt="" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
       </motion.div>
       
       <motion.div 
@@ -118,7 +118,7 @@ export default function SignupPage() {
           rotate: { duration: 18, repeat: Infinity, ease: "linear" }
         }}
       >
-        <img src={LogoSvg} alt="Genesis Logo" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
+        <img src={LogoSvg} alt="" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
       </motion.div>
       
       <motion.div 
@@ -132,7 +132,7 @@ export default function SignupPage() {
           scale: { duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }
         }}
       >
-        <img src={LogoSvg} alt="Genesis Logo" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
+        <img src={LogoSvg} alt="" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
       </motion.div>
       
       <motion.div 
@@ -146,7 +146,7 @@ export default function SignupPage() {
           x: { duration: 6.5, repeat: Infinity, ease: "easeInOut" }
         }}
       >
-        <img src={LogoSvg} alt="Genesis Logo" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
+        <img src={LogoSvg} alt="" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
       </motion.div>
       
       <motion.div 
@@ -160,7 +160,7 @@ export default function SignupPage() {
           y: { duration: 5.5, repeat: Infinity, ease: "easeInOut", delay: 0.8 }
         }}
       >
-        <img src={LogoSvg} alt="Genesis Logo" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
+        <img src={LogoSvg} alt="" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
       </motion.div>
       
       <motion.div 
@@ -174,7 +174,7 @@ export default function SignupPage() {
           scale: { duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1.5 }
         }}
       >
-        <img src={LogoSvg} alt="Genesis Logo" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
+        <img src={LogoSvg} alt="" className="w-full h-full" style={{ filter: 'brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)' }} />
       </motion.div>
       
       {/* Padrão de fundo */}
@@ -219,8 +219,8 @@ export default function SignupPage() {
                   }}
                 >
                   <img 
-                    src="/assets/GêApps.svg" 
-                    alt="GêApps" 
+                    src="/assets/brand-mock.svg" 
+                    alt="genovo" 
                     className="w-full h-full object-contain"
                     style={{
                       filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)'
@@ -248,15 +248,15 @@ export default function SignupPage() {
                 }}
               >
                 <CardTitle className="text-4xl font-bold bg-gradient-to-r from-primary via-teal-400 to-primary bg-clip-text text-transparent" style={{ backgroundSize: '200% auto' }}>
-                  GêApps
+                  genovo
                 </CardTitle>
               </motion.div>
               <CardDescription className="text-base">
-                Cadastre-se no GêApps
+                Cadastro visual (mock — sem backend)
               </CardDescription>
               <div className="pt-2">
                 <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                  Genesis Empreendimentos
+                  Demo UI
                 </span>
               </div>
             </motion.div>
@@ -277,7 +277,7 @@ export default function SignupPage() {
               <div>
                 <h3 className="text-xl font-semibold text-green-600">Conta criada com sucesso!</h3>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Verificamos o seu email e ele tem habilitação para acessar o GêApps.
+                  Verificamos o seu email no fluxo demo (sem validação real).
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Redirecionando para login...
@@ -298,7 +298,7 @@ export default function SignupPage() {
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     type="email"
-                    placeholder="seu.nome@genesisempreendimentos.com.br"
+                    placeholder="voce@example.com"
                     className="pl-10 h-11"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -430,7 +430,7 @@ export default function SignupPage() {
         className="mt-6 text-center"
       >
         <p className="text-xs text-white/70">
-          © 2026 Genesis Empreendimentos. Todos os direitos reservados.
+          © Demo UI — sem dados reais.
         </p>
       </motion.div>
       </motion.div>

@@ -203,10 +203,10 @@ export function ProfileView() {
       <Dialog open={tourWelcomeOpen} onOpenChange={(open) => { if (!open) handleCloseTourWelcome(); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Bem-vindo ao GêApps!</DialogTitle>
+            <DialogTitle>Bem-vindo ao genovo!</DialogTitle>
             <DialogDescription className="pt-2 space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
-                Esta e a intranet oficial da Genesis, criada para centralizar recursos, comunicações e acessos importantes do seu dia a dia.
+                Esta é uma interface demo para explorar layout, navegação e componentes — sem dados corporativos reais.
               </p>
               <p>
                 Para aproveitar melhor a plataforma, pedimos que você preencha suas informações públicas no perfil. Isso ajudará na sua identificação dentro do sistema e melhorará sua experiência de uso.

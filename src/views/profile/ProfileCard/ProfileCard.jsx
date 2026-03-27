@@ -6,7 +6,7 @@ import './ProfileCard.css';
 import ProfileCardInfoPopup from '@/components/profile/ProfileCardInfoPopup';
 
 const DEFAULT_INNER_GRADIENT = 'linear-gradient(145deg,#60496e8c 0%,#71C4FF44 100%)';
-const DEFAULT_ICON_URL = 'https://qnrpiwdfmzoulnakdmxp.supabase.co/storage/v1/object/public/Interno/logogenesis.png';
+const DEFAULT_ICON_URL = '/assets/brand-mock.svg';
 
 const ANIMATION_CONFIG = {
   INITIAL_DURATION: 1200,

@@ -155,7 +155,7 @@ export default function NotificationsPage() {
         <MainViewHeader
           icon={<Bell className="h-6 w-6" />}
           title="Notificações"
-          description="Acompanhe todas as notificações do GêApps"
+          description="Acompanhe notificações (mock)"
         />
 
         <div className="space-y-4">

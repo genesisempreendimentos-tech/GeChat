@@ -1,4 +1,4 @@
--- GêApps – coluna `profiles.sidebar` (modo da sidebar na UI)
+-- Legado — coluna profiles.sidebar (referência)
 -- Valores: hover (padrão) | expanded | collapsed
 
 ALTER TABLE public.profiles

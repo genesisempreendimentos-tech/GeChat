@@ -1,13 +1,7 @@
 /*
-  Colunas esperadas na tabela public.profiles pelo GêApps
+  Legado — colunas esperadas em public.profiles (referência)
   
-  O projeto usa as tabelas do seu Supabase:
-  - profiles (usuários) – convenção: full_name, avatar_url; o app aceita name/avatar como fallback
-  - apps (sistemas/aplicações) – mesmas colunas que "systems": name, description, icon, url, category, active
-  - user_app_access – user_id, app_id, can_access, is_favorite (ou favorite)
-  - audit_logs – user_id, app_id, timestamp (ou created_at)
-  
-  Se a tabela profiles já existe, execute os ALTERs abaixo para adicionar as colunas que faltam.
+  SQL de referência; o frontend deste repositório não depende de DB real.
 */
 
 -- Adicionar colunas que podem estar faltando (ignore erros "column already exists")
