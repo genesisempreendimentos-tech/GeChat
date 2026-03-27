@@ -268,7 +268,7 @@ export default function DashboardPage() {
   return (
     <MainViewFluidShell>
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-tour="dashboard-welcome">
         <div>
           <h1 className="text-3xl font-bold">
             Bem-vindo, {user?.name?.split(' ')[0]}! 👋
@@ -299,6 +299,7 @@ export default function DashboardPage() {
         initial="hidden"
         animate="show"
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        data-tour="dashboard-stats"
       >
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -334,7 +335,7 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" data-tour="dashboard-charts">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -480,6 +481,7 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
+        data-tour="dashboard-all-apps"
       >
         <Card className="transition-shadow hover:shadow-md">
           <CardHeader>

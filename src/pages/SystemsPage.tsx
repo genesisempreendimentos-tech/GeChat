@@ -543,7 +543,7 @@ export default function SystemsPage() {
                   {/* Footer: quem tem acesso + Acessar */}
                   <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
                     <div
-                      className="flex min-w-0 flex-1 items-center"
+                      className="flex min-h-[30px] min-w-0 flex-1 items-center"
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
                     >
@@ -553,13 +553,14 @@ export default function SystemsPage() {
                             users={appAccessUsers[system.id] || []}
                             onUserClick={handleAppAccessUserClick}
                             loadingUserId={profileLoadingUserId}
+                            className="items-center"
                           />
-                          <span className="ml-2 hidden text-[10px] text-muted-foreground xl:inline-block">
+                          <span className="ml-2 hidden min-w-[16px] text-center text-[10px] text-muted-foreground xl:inline-block">
                             {appAccessUsers[system.id].length}
                           </span>
                         </>
                       ) : (
-                        <span className="text-[10px] italic text-muted-foreground/50">Sem acessos</span>
+                        <span className="text-[10px] italic leading-none text-muted-foreground/50">Sem acessos</span>
                       )}
                     </div>
                     <Button
@@ -627,14 +628,19 @@ export default function SystemsPage() {
                         </span>
                       </div>
                       
-                      {selectedSystem.next_release_version && (
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-amber-600 dark:text-amber-400 font-medium mt-1">
-                          <span className="flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20">
-                            Próximo lançamento: Versão {selectedSystem.next_release_version} 
-                            {selectedSystem.next_release_date && selectedSystem.next_release_date !== 'TBA' ? ` para ${formatDate(selectedSystem.next_release_date)}` : ' (em breve)'}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-amber-600 dark:text-amber-400 font-medium mt-1">
+                        <span className="flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20">
+                          {(() => {
+                            const nextVersion = String(selectedSystem.next_release_version ?? '').trim();
+                            const hasNextVersion = nextVersion.length > 0 && !['0', '0.0', '0.0.0'].includes(nextVersion);
+                            const releaseDate = String(selectedSystem.next_release_date ?? '').trim();
+                            const hasDefinedDate = Boolean(releaseDate) && releaseDate !== 'TBA';
+                            return hasNextVersion
+                              ? `Próxima versão: ${nextVersion}${hasDefinedDate ? ` (lançamento em ${formatDate(releaseDate)})` : ' (data ainda não prevista)'}`
+                              : 'Sem previsão de nova versão no momento';
+                          })()}
+                        </span>
+                      </div>
                     </div>
                   </div>
 

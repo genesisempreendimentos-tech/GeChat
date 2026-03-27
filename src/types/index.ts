@@ -55,6 +55,7 @@ export interface System {
   createdAt: Date;
   /** Status do app no painel admin */
   status?: AppStatus;
+  initial_version?: string;
   next_release_version?: string;
   next_release_date?: string;
 }

@@ -1390,6 +1390,7 @@ export const databaseService = {
       status,
       active,
       createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+      initial_version: row.initial_version ?? '',
       next_release_version: row.next_release_version ?? '',
       next_release_date: row.next_release_date ?? '',
       anchor_pdf_url: row.anchor_pdf_url ?? '',
@@ -1530,14 +1531,31 @@ export const databaseService = {
       anchor_pdf_url: systemData.anchor_pdf_url || null,
       github_url: systemData.github_url || null,
     };
+    if (systemData.initial_version !== undefined) row.initial_version = systemData.initial_version || null;
+    if (systemData.created_at !== undefined) row.created_at = systemData.created_at || null;
     if (systemData.category != null) row.category = systemData.category;
     const icon = systemData.icon ?? systemData.icon_url ?? systemData.logo;
     if (icon && (String(icon).startsWith('/') || String(icon).startsWith('http') || /\.(svg|png|jpg|jpeg)$/i.test(String(icon)))) {
       row.icon_url = icon;
     }
-    const { data, error } = await supabase.from('apps').insert([row]).select().single();
-    if (error) return { data: null, error };
-    return { data: data ? this.appRowToSystem(data) : null, error: null };
+    let payload = { ...row } as Record<string, unknown>;
+    let lastError: unknown = null;
+    for (let i = 0; i < 3; i++) {
+      const { data, error } = await supabase.from('apps').insert([payload]).select().single();
+      if (!error) return { data: data ? this.appRowToSystem(data) : null, error: null };
+      lastError = error;
+      const msg = String((error as any)?.message ?? '');
+      if (msg.includes('initial_version') && 'initial_version' in payload) {
+        delete payload.initial_version;
+        continue;
+      }
+      if (msg.includes('created_at') && 'created_at' in payload) {
+        delete payload.created_at;
+        continue;
+      }
+      return { data: null, error };
+    }
+    return { data: null, error: lastError };
   },
 
   async updateSystem(systemId: string, systemData: any) {
@@ -1557,15 +1575,32 @@ export const databaseService = {
     if (systemData.category != null) row.category = systemData.category;
     if (systemData.next_release_version !== undefined) row.next_release_version = systemData.next_release_version || null;
     if (systemData.next_release_date !== undefined) row.next_release_date = systemData.next_release_date || null;
+    if (systemData.initial_version !== undefined) row.initial_version = systemData.initial_version || null;
+    if (systemData.created_at !== undefined) row.created_at = systemData.created_at || null;
     if (systemData.anchor_pdf_url !== undefined) row.anchor_pdf_url = systemData.anchor_pdf_url || null;
     if (systemData.github_url !== undefined) row.github_url = systemData.github_url || null;
     if (Object.keys(row).length === 0) {
       const { data } = await supabase.from('apps').select('*').eq('id', systemId).single();
       return { data: data ? this.appRowToSystem(data) : null, error: null };
     }
-    const { data, error } = await supabase.from('apps').update(row).eq('id', systemId).select().single();
-    if (error) return { data: null, error };
-    return { data: data ? this.appRowToSystem(data) : null, error: null };
+    let payload = { ...row } as Record<string, unknown>;
+    let lastError: unknown = null;
+    for (let i = 0; i < 3; i++) {
+      const { data, error } = await supabase.from('apps').update(payload).eq('id', systemId).select().single();
+      if (!error) return { data: data ? this.appRowToSystem(data) : null, error: null };
+      lastError = error;
+      const msg = String((error as any)?.message ?? '');
+      if (msg.includes('initial_version') && 'initial_version' in payload) {
+        delete payload.initial_version;
+        continue;
+      }
+      if (msg.includes('created_at') && 'created_at' in payload) {
+        delete payload.created_at;
+        continue;
+      }
+      return { data: null, error };
+    }
+    return { data: null, error: lastError };
   },
 
   async deleteSystem(systemId: string) {

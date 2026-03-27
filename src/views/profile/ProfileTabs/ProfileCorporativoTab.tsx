@@ -1,5 +1,6 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import {
   Building2,
   User,
@@ -212,7 +213,7 @@ export function ProfileCorporativoTab({
               </div>
               <div className="space-y-1.5">
                 <FieldLabel icon={Calendar} label="Data de nascimento" />
-                <Input type="date" value={formData.birth_date} disabled readOnly className={roClass} />
+                <DateInput value={formData.birth_date} disabled readOnly className={roClass} />
               </div>
               <div className="space-y-1.5">
                 <FieldLabel icon={CreditCard} label="CPF" />
@@ -275,7 +276,7 @@ export function ProfileCorporativoTab({
               </div>
               <div className="space-y-1.5">
                 <FieldLabel icon={CalendarCheck} label="Data de admissão" />
-                <Input type="date" value={formData.hire_date} disabled readOnly className={roClass} />
+                <DateInput value={formData.hire_date} disabled readOnly className={roClass} />
               </div>
               <div className="space-y-1.5">
                 <FieldLabel icon={FileSignature} label="Contrato" />

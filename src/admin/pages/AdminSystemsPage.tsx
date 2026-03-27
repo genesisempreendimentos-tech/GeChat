@@ -4,6 +4,7 @@ import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, 
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AppAccessAvatarRow, type AppAccessUserPreview } from '@/components/apps/AppAccessAvatarRow';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -86,6 +87,7 @@ interface AdminSystem {
   active: boolean;
   status?: string;
   createdAt: Date;
+  initial_version?: string;
   next_release_version?: string;
   next_release_date?: string;
   anchor_pdf_url?: string;
@@ -119,6 +121,7 @@ function renderIcon(iconPath: string, className: string = '') {
 }
 
 export default function AdminSystemsPage() {
+  const todayInput = new Date().toISOString().slice(0, 10);
   const createReleaseDateFieldId = useId();
   const editReleaseDateFieldId = useId();
   const { user: currentUser } = useAuthStore();
@@ -161,6 +164,8 @@ export default function AdminSystemsPage() {
     url: string;
     anchor_pdf_url: string;
     github_url: string;
+    created_at: string;
+    initial_version: string;
     next_release_version: string;
     next_release_date: string;
   }>({
@@ -172,6 +177,8 @@ export default function AdminSystemsPage() {
     url: '',
     anchor_pdf_url: '',
     github_url: '',
+    created_at: todayInput,
+    initial_version: '',
     next_release_version: '',
     next_release_date: '',
   });
@@ -179,7 +186,7 @@ export default function AdminSystemsPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [appUsers, setAppUsers] = useState<Record<string, { id: string; name: string; avatar?: string }[]>>({});
   const [editingSystem, setEditingSystem] = useState<AdminSystem | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', logo: '', category: '' as SystemCategory, url: '', status: 'rascunho' as string, anchor_pdf_url: '', github_url: '', next_release_version: '', next_release_date: '' });
+  const [editForm, setEditForm] = useState({ name: '', description: '', logo: '', category: '' as SystemCategory, url: '', status: 'rascunho' as string, anchor_pdf_url: '', github_url: '', created_at: todayInput, initial_version: '', next_release_version: '', next_release_date: '' });
   
   // Modal de acessos em massa
   const [accessModalSystem, setAccessModalSystem] = useState<AdminSystem | null>(null);
@@ -275,6 +282,8 @@ export default function AdminSystemsPage() {
       status: editForm.status,
       anchor_pdf_url: editForm.anchor_pdf_url.trim() || undefined,
       github_url: editForm.github_url.trim() || undefined,
+      created_at: editForm.created_at || undefined,
+      initial_version: editForm.initial_version.trim() || undefined,
       next_release_version: editForm.next_release_version.trim() || undefined,
       next_release_date: editForm.next_release_date.trim() || undefined,
     });
@@ -443,6 +452,8 @@ export default function AdminSystemsPage() {
         status: system.status ?? 'rascunho',
         anchor_pdf_url: (system as any).anchor_pdf_url ?? '',
         github_url: (system as any).github_url ?? '',
+        created_at: system.createdAt ? new Date(system.createdAt).toISOString().slice(0, 10) : todayInput,
+        initial_version: (system as any).initial_version ?? '',
         next_release_version: system.next_release_version ?? '',
         next_release_date: system.next_release_date ?? '',
       });
@@ -456,6 +467,10 @@ export default function AdminSystemsPage() {
       setFormError('Nome é obrigatório.');
       return;
     }
+    if (!form.created_at) {
+      setFormError('Data de criação é obrigatória.');
+      return;
+    }
     setFormLoading(true);
     const { data, error } = await databaseService.createSystem({
       name: form.name.trim(),
@@ -466,6 +481,8 @@ export default function AdminSystemsPage() {
       url: form.url.trim() || undefined,
       anchor_pdf_url: form.anchor_pdf_url.trim() || undefined,
       github_url: form.github_url.trim() || undefined,
+      created_at: form.created_at || undefined,
+      initial_version: form.initial_version.trim() || undefined,
       next_release_version: form.next_release_version.trim() || undefined,
       next_release_date: form.next_release_date.trim() || undefined,
     });
@@ -477,7 +494,7 @@ export default function AdminSystemsPage() {
     if (data) {
       setSystems((prev) => [...prev, data as AdminSystem].sort((a, b) => a.name.localeCompare(b.name)));
       setIsCreateOpen(false);
-      setForm({ name: '', logo: '', description: '', category: categories[0]?.name || '', status: 'rascunho', url: '', anchor_pdf_url: '', github_url: '', next_release_version: '', next_release_date: '' });
+      setForm({ name: '', logo: '', description: '', category: categories[0]?.name || '', status: 'rascunho', url: '', anchor_pdf_url: '', github_url: '', created_at: todayInput, initial_version: '', next_release_version: '', next_release_date: '' });
     }
   };
 
@@ -898,66 +915,67 @@ export default function AdminSystemsPage() {
             )}
 
             <div className="grid grid-cols-1 gap-6">
-              {/* Nome e Descrição */}
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Nome do app <span className="text-destructive">*</span></label>
-                  <Input
-                    placeholder="Ex: GêNovo"
-                    value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                    className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Descrição</label>
-                  <Input
-                    placeholder="Breve descrição do aplicativo"
-                    value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                    className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
-                  />
-                </div>
-              </div>
-
-              {/* Logo */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Ícone / Logo</label>
-                <div className="flex items-start gap-4 mt-1">
-                  <div className="w-16 h-16 rounded-2xl bg-muted/30 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
+              {/* Nome, descrição e logo */}
+              <div className="grid grid-cols-[110px_1fr] gap-4 items-start">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Ícone / Logo</label>
+                  <div className="w-[88px] h-[88px] rounded-2xl bg-muted/30 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
                     {form.logo ? (
                       form.logo.startsWith('http') ? (
-                        <img src={form.logo} alt="Logo" className="w-10 h-10 object-contain drop-shadow" />
+                        <img src={form.logo} alt="Logo" className="w-12 h-12 object-contain drop-shadow" />
                       ) : (
-                        <Icons.Image className="w-6 h-6 text-muted-foreground/50" />
+                        <Icons.Image className="w-7 h-7 text-muted-foreground/50" />
                       )
                     ) : (
-                      <Icons.Image className="w-6 h-6 text-muted-foreground/50" />
+                      <Icons.Image className="w-7 h-7 text-muted-foreground/50" />
                     )}
                   </div>
-                  <div className="flex flex-col gap-2 flex-1">
-                    <input
-                      ref={createLogoInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleLogoUpload(file, (url) => setForm((f) => ({ ...f, logo: url })));
-                        e.target.value = '';
-                      }}
+                  <input
+                    ref={createLogoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleLogoUpload(file, (url) => setForm((f) => ({ ...f, logo: url })));
+                      e.target.value = '';
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-[88px] h-8 rounded-lg border-dashed border hover:border-primary/50 hover:bg-primary/5 transition-all text-xs"
+                    disabled={logoUploading}
+                    onClick={() => createLogoInputRef.current?.click()}
+                  >
+                    {logoUploading ? <LoadingGif size="sm" className="w-3.5 h-3.5 mr-1.5" /> : <Upload className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />}
+                    {logoUploading ? 'Enviando' : (form.logo ? 'Trocar' : 'Upload')}
+                  </Button>
+                  <p className="text-[11px] leading-tight text-muted-foreground/70">Recomendado: 512x512px, PNG/SVG.</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">Nome do app <span className="text-destructive">*</span></label>
+                    <Input
+                      placeholder="Ex: GêNovo"
+                      value={form.name}
+                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                      className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full h-10 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all"
-                      disabled={logoUploading}
-                      onClick={() => createLogoInputRef.current?.click()}
-                    >
-                      {logoUploading ? <LoadingGif size="sm" className="w-4 h-4 mr-2" /> : <Upload className="w-4 h-4 mr-2 text-muted-foreground" />}
-                      <span className="font-normal text-muted-foreground">{logoUploading ? 'Enviando...' : 'Clique para enviar imagem'}</span>
-                    </Button>
-                    <p className="text-[11px] text-muted-foreground/70">Recomendado: 512x512px, formato PNG ou SVG transparente.</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">Descrição</label>
+                    <textarea
+                      placeholder="Breve descrição do aplicativo"
+                      value={form.description}
+                      onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                      maxLength={200}
+                      rows={3}
+                      className="flex w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <p className="text-[11px] text-muted-foreground text-right">{form.description.length}/200</p>
                   </div>
                 </div>
               </div>
@@ -1110,46 +1128,28 @@ export default function AdminSystemsPage() {
                 </div>
               </div>
 
-              {/* Lançamento / Versão */}
+              {/* Versões e datas */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Próxima Versão</label>
-                  <Input
-                    placeholder="Ex: 2.0"
-                    value={form.next_release_version}
-                    onChange={(e) => setForm((f) => ({ ...f, next_release_version: e.target.value }))}
-                    className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                <div className="space-y-1.5 flex flex-col">
+                  <label htmlFor={createReleaseDateFieldId} className="text-sm font-medium text-foreground">
+                    Data de lançamento <span className="text-destructive">*</span>
+                  </label>
+                  <DateInput
+                    id={createReleaseDateFieldId}
+                    value={form.created_at}
+                    onChange={(e) => setForm((f) => ({ ...f, created_at: e.target.value }))}
+                    className={releaseDateInputClassName}
                   />
                 </div>
                 <div className="space-y-1.5 flex flex-col">
-                  <label htmlFor={createReleaseDateFieldId} className="text-sm font-medium text-foreground">
-                    Data do Lançamento
+                  <label htmlFor="create-launch-date" className="text-sm font-medium text-foreground">
+                    Data da próxima versão
                   </label>
-                  <Input
-                    id={createReleaseDateFieldId}
-                    type="date"
+                  <DateInput
+                    id="create-launch-date"
                     value={form.next_release_date === 'TBA' ? '' : form.next_release_date}
                     onChange={(e) => setForm((f) => ({ ...f, next_release_date: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Tab') return;
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
-                        try {
-                          el.showPicker?.();
-                        } catch {
-                          /* ignorar */
-                        }
-                        return;
-                      }
-                      e.preventDefault();
-                    }}
-                    onPaste={(e) => e.preventDefault()}
-                    disabled={form.next_release_date === 'TBA'}
-                    className={cn(
-                      releaseDateInputClassName,
-                      !form.next_release_date || form.next_release_date === 'TBA' ? 'text-muted-foreground' : ''
-                    )}
+                    className={releaseDateInputClassName}
                   />
                   <label className="flex items-center gap-2 mt-1 cursor-pointer group w-fit">
                     <div className="relative flex items-center justify-center">
@@ -1173,6 +1173,24 @@ export default function AdminSystemsPage() {
                       Data ainda não prevista
                     </span>
                   </label>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Versão inicial</label>
+                  <Input
+                    placeholder="Ex: 1.0.0"
+                    value={form.initial_version}
+                    onChange={(e) => setForm((f) => ({ ...f, initial_version: e.target.value }))}
+                    className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Próxima versão</label>
+                  <Input
+                    placeholder="Ex: 2.0.0"
+                    value={form.next_release_version}
+                    onChange={(e) => setForm((f) => ({ ...f, next_release_version: e.target.value }))}
+                    className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                  />
                 </div>
               </div>
             </div>
@@ -1219,66 +1237,65 @@ export default function AdminSystemsPage() {
                 )}
 
                 <div className="grid grid-cols-1 gap-6">
-                  {/* Nome e Descrição */}
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-foreground">Nome do app <span className="text-destructive">*</span></label>
-                      <Input
-                        value={editForm.name}
-                        onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                        className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-foreground">Descrição</label>
-                      <Input
-                        value={editForm.description}
-                        onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                        className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Logo */}
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Ícone / Logo</label>
-                    <div className="flex items-start gap-4 mt-1">
-                      <div className="w-16 h-16 rounded-2xl bg-muted/30 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
+                  {/* Nome, descrição e logo */}
+                  <div className="grid grid-cols-[110px_1fr] gap-4 items-start">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">Ícone / Logo</label>
+                      <div className="w-[88px] h-[88px] rounded-2xl bg-muted/30 border border-border/50 flex items-center justify-center overflow-hidden shrink-0">
                         {editForm.logo ? (
                           (editForm.logo.startsWith('http') || editForm.logo.startsWith('/')) ? (
-                            <img src={editForm.logo} alt="Logo" className="w-10 h-10 object-contain drop-shadow" />
+                            <img src={editForm.logo} alt="Logo" className="w-12 h-12 object-contain drop-shadow" />
                           ) : (
-                            <Icons.Image className="w-6 h-6 text-muted-foreground/50" />
+                            <Icons.Image className="w-7 h-7 text-muted-foreground/50" />
                           )
                         ) : (
-                          <Icons.Image className="w-6 h-6 text-muted-foreground/50" />
+                          <Icons.Image className="w-7 h-7 text-muted-foreground/50" />
                         )}
                       </div>
-                      <div className="flex flex-col gap-2 flex-1">
-                        <input
-                          ref={editLogoInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleLogoUpload(file, (url) => setEditForm((f) => ({ ...f, logo: url })));
-                            e.target.value = '';
-                          }}
+                      <input
+                        ref={editLogoInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleLogoUpload(file, (url) => setEditForm((f) => ({ ...f, logo: url })));
+                          e.target.value = '';
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-[88px] h-8 rounded-lg border-dashed border hover:border-primary/50 hover:bg-primary/5 transition-all text-xs"
+                        disabled={logoUploading}
+                        onClick={() => editLogoInputRef.current?.click()}
+                      >
+                        {logoUploading ? <LoadingGif size="sm" className="w-3.5 h-3.5 mr-1.5" /> : <Upload className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />}
+                        {logoUploading ? 'Enviando' : (editForm.logo ? 'Trocar' : 'Upload')}
+                      </Button>
+                      <p className="text-[11px] leading-tight text-muted-foreground/70">Recomendado: 512x512px, PNG/SVG.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-foreground">Nome do app <span className="text-destructive">*</span></label>
+                        <Input
+                          value={editForm.name}
+                          onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                          className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full h-10 rounded-xl border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all"
-                          disabled={logoUploading}
-                          onClick={() => editLogoInputRef.current?.click()}
-                        >
-                          {logoUploading ? <LoadingGif size="sm" className="w-4 h-4 mr-2" /> : <Upload className="w-4 h-4 mr-2 text-muted-foreground" />}
-                          <span className="font-normal text-muted-foreground">
-                            {logoUploading ? 'Enviando...' : editForm.logo ? 'Substituir imagem' : 'Clique para enviar imagem'}
-                          </span>
-                        </Button>
-                        <p className="text-[11px] text-muted-foreground/70">Recomendado: 512x512px, formato PNG ou SVG transparente.</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-foreground">Descrição</label>
+                        <textarea
+                          value={editForm.description}
+                          onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                          maxLength={200}
+                          rows={3}
+                          className="flex w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                        <p className="text-[11px] text-muted-foreground text-right">{editForm.description.length}/200</p>
                       </div>
                     </div>
                   </div>
@@ -1431,55 +1448,29 @@ export default function AdminSystemsPage() {
                     </div>
                   </div>
 
-                  {/* Lançamento / Versão */}
+                  {/* Versões e datas */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-foreground">Próxima Versão</label>
-                      <Input
-                        placeholder="Ex: 2.0"
-                        value={editForm.next_release_version}
-                        onChange={(e) => setEditForm((f) => ({ ...f, next_release_version: e.target.value }))}
-                        className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                    <div className="space-y-1.5 flex flex-col">
+                      <label htmlFor={editReleaseDateFieldId} className="text-sm font-medium text-foreground">
+                        Data de lançamento <span className="text-destructive">*</span>
+                      </label>
+                      <DateInput
+                        id={editReleaseDateFieldId}
+                        value={editForm.created_at}
+                        onChange={(e) => setEditForm((f) => ({ ...f, created_at: e.target.value }))}
+                        className={releaseDateInputClassName}
                       />
                     </div>
                     <div className="space-y-1.5 flex flex-col">
-                      <label htmlFor={editReleaseDateFieldId} className="text-sm font-medium text-foreground">
-                        Data do Lançamento
+                      <label htmlFor="edit-launch-date" className="text-sm font-medium text-foreground">
+                        Data da próxima versão
                       </label>
-                      {editForm.next_release_date === 'TBA' ? (
-                        <Input
-                          type="text"
-                          readOnly
-                          value="Não definida"
-                          className="h-10 rounded-xl bg-background/50 text-muted-foreground cursor-default"
-                        />
-                      ) : (
-                        <Input
-                          id={editReleaseDateFieldId}
-                          type="date"
-                          value={editForm.next_release_date}
-                          onChange={(e) => setEditForm((f) => ({ ...f, next_release_date: e.target.value }))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Tab') return;
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
-                              try {
-                                el.showPicker?.();
-                              } catch {
-                                /* ignorar */
-                              }
-                              return;
-                            }
-                            e.preventDefault();
-                          }}
-                          onPaste={(e) => e.preventDefault()}
-                          className={cn(
-                            releaseDateInputClassName,
-                            !editForm.next_release_date ? 'text-muted-foreground' : ''
-                          )}
-                        />
-                      )}
+                      <DateInput
+                        id="edit-launch-date"
+                        value={editForm.next_release_date === 'TBA' ? '' : editForm.next_release_date}
+                        onChange={(e) => setEditForm((f) => ({ ...f, next_release_date: e.target.value }))}
+                        className={releaseDateInputClassName}
+                      />
                       <label className="flex items-center gap-2 mt-1 cursor-pointer group w-fit">
                         <div className="relative flex items-center justify-center">
                           <input
@@ -1502,6 +1493,24 @@ export default function AdminSystemsPage() {
                           Data ainda não prevista
                         </span>
                       </label>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Versão inicial</label>
+                      <Input
+                        placeholder="Ex: 1.0.0"
+                        value={editForm.initial_version}
+                        onChange={(e) => setEditForm((f) => ({ ...f, initial_version: e.target.value }))}
+                        className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Próxima versão</label>
+                      <Input
+                        placeholder="Ex: 2.0.0"
+                        value={editForm.next_release_version}
+                        onChange={(e) => setEditForm((f) => ({ ...f, next_release_version: e.target.value }))}
+                        className="h-10 rounded-xl bg-background/50 focus-visible:ring-primary/20"
+                      />
                     </div>
                   </div>
                 </div>

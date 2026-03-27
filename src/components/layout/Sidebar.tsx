@@ -131,6 +131,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
           }, 1000);
         }}
         className="hidden md:flex fixed left-0 top-0 bottom-0 bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
+        data-tour="sidebar"
         role="navigation"
         aria-label="Navegação principal"
       >
@@ -220,7 +221,29 @@ export default function Sidebar({ userRole }: SidebarProps) {
 
           return (
             <div key={item.path} className="space-y-0.5">
-              <Link to={item.path} className="block" title={item.label} aria-label={item.label}>
+              <Link
+                to={item.path}
+                className="block"
+                title={item.label}
+                aria-label={item.label}
+                data-tour={
+                  item.path === "/dashboard"
+                    ? "menu-dashboard"
+                    : item.path === "/systems"
+                    ? "menu-apps"
+                    : item.path === "/solicitacoes"
+                    ? "menu-solicitacoes"
+                    : item.path === "/comunicados"
+                    ? "menu-comunicados"
+                    : item.path === "/equipes"
+                    ? "menu-equipes"
+                    : item.path === "/empresa"
+                    ? "menu-empresa"
+                    : item.path === "/favorites"
+                    ? "menu-favoritos"
+                    : undefined
+                }
+              >
                 <motion.div
                   whileHover={isActive ? undefined : { scale: 1.02 }}
                   whileTap={isActive ? undefined : { scale: 0.98 }}

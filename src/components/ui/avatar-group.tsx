@@ -57,7 +57,7 @@ export const AvatarGroup = ({
                   zIndex: 50,
                   transition: { type: "spring", stiffness: 300, damping: 20 }
                 }}
-                className="relative cursor-pointer transition-all hover:z-50"
+                className="relative flex items-center self-center cursor-pointer transition-all hover:z-50"
                 style={{ zIndex: index }}
                 onClick={(e) => {
                   forwardClickToAvatarAction(e.currentTarget as HTMLDivElement, e.target)
@@ -113,7 +113,7 @@ export const AvatarGroupItem = ({
         onClick()
       }}
       className={cn(
-        "relative rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0d1520]",
+        "relative inline-flex items-center justify-center align-middle rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0d1520]",
         loading && "opacity-70",
         buttonClassName,
       )}
@@ -127,11 +127,11 @@ export const AvatarGroupItem = ({
       ) : null}
     </button>
   ) : (
-    <div className="relative">{children}</div>
+    <div className="relative inline-flex items-center align-middle">{children}</div>
   )
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative flex items-center", className)}>
       {content}
       <AvatarGroupTooltip>{tooltip}</AvatarGroupTooltip>
     </div>

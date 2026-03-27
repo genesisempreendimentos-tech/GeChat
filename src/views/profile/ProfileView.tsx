@@ -17,6 +17,15 @@ import { LoadingGif } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { MainViewHeader } from '@/components/layout/header';
+import { useSearchParams } from 'react-router-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export type MascoteOption = 'gato' | 'cachorro' | 'passaro' | 'terra' | 'tigre' | 'cavalo' | 'peixe' | 'leao' | '';
 
@@ -47,6 +56,9 @@ function generateUsername(name: string): string {
 }
 
 export function ProfileView() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fromTour = searchParams.get('fromTour') === '1';
+  const [tourWelcomeOpen, setTourWelcomeOpen] = useState(fromTour);
   const { user: currentUser, updateUser } = useAuthStore();
   const [formData, setFormData] = useState<ProfileFormData>({
     name: currentUser?.name ?? '',
@@ -145,6 +157,18 @@ export function ProfileView() {
     loadCorporate();
   }, [loadCorporate]);
 
+  useEffect(() => {
+    if (!fromTour) return;
+    setTourWelcomeOpen(true);
+  }, [fromTour]);
+
+  const handleCloseTourWelcome = () => {
+    setTourWelcomeOpen(false);
+    const params = new URLSearchParams(searchParams);
+    params.delete('fromTour');
+    setSearchParams(params, { replace: true });
+  };
+
   const userDataForCard = useCallback(
     () => ({
       name: corporateData?.name || formData.name || formData.apelido,
@@ -176,6 +200,26 @@ export function ProfileView() {
   return (
     <MainViewFluidShell>
     <div className="space-y-6">
+      <Dialog open={tourWelcomeOpen} onOpenChange={(open) => { if (!open) handleCloseTourWelcome(); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Bem-vindo ao GêApps!</DialogTitle>
+            <DialogDescription className="pt-2 space-y-3 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                Esta e a intranet oficial da Genesis, criada para centralizar recursos, comunicações e acessos importantes do seu dia a dia.
+              </p>
+              <p>
+                Para aproveitar melhor a plataforma, pedimos que você preencha suas informações públicas no perfil. Isso ajudará na sua identificação dentro do sistema e melhorará sua experiência de uso.
+              </p>
+              <p>Seja bem-vindo(a)!</p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={handleCloseTourWelcome}>Entendi, vamos configurar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <MainViewHeader
         icon={<User className="h-6 w-6" />}
         title="Perfil"

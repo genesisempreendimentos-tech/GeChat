@@ -27,7 +27,7 @@ function buildInfoItems(
   const formattedCreationDate = formatCompanyCreationDate(profile.createdAt);
   const base: { label: string; value: string; icon: LucideIcon }[] = [
     { label: 'Segmento', value: profile.segment, icon: Tags },
-    { label: 'Data de criação', value: formattedCreationDate, icon: CalendarDays },
+    { label: 'Data de Lançamento', value: formattedCreationDate, icon: CalendarDays },
     { label: 'Localização', value: profile.location, icon: MapPin },
     { label: 'Site', value: profile.site, icon: Globe },
     { label: 'Telefone', value: profile.phone, icon: Phone },

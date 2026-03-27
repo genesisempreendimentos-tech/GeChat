@@ -420,14 +420,19 @@ export default function FavoritesPage() {
                         </span>
                       </div>
                       
-                      {(selectedSystem as any).next_release_version && (
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-amber-600 dark:text-amber-400 font-medium mt-1">
-                          <span className="flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20">
-                            Próximo lançamento: Versão {(selectedSystem as any).next_release_version} 
-                            {(selectedSystem as any).next_release_date && (selectedSystem as any).next_release_date !== 'TBA' ? ` para ${formatDate((selectedSystem as any).next_release_date)}` : ' (em breve)'}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-amber-600 dark:text-amber-400 font-medium mt-1">
+                        <span className="flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20">
+                          {(() => {
+                            const nextVersion = String((selectedSystem as any).next_release_version ?? '').trim();
+                            const hasNextVersion = nextVersion.length > 0 && !['0', '0.0', '0.0.0'].includes(nextVersion);
+                            const releaseDate = String((selectedSystem as any).next_release_date ?? '').trim();
+                            const hasDefinedDate = Boolean(releaseDate) && releaseDate !== 'TBA';
+                            return hasNextVersion
+                              ? `Próxima versão: ${nextVersion}${hasDefinedDate ? ` (lançamento em ${formatDate(releaseDate)})` : ' (data ainda não prevista)'}`
+                              : 'Sem previsão de nova versão no momento';
+                          })()}
+                        </span>
+                      </div>
                     </div>
                   </div>
 

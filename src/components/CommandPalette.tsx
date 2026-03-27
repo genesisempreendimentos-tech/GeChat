@@ -13,7 +13,6 @@ import {
   LayoutDashboard,
   Boxes,
   Star,
-  MessageCircle,
   UserCircle,
   Settings,
   ExternalLink,
@@ -33,7 +32,7 @@ export function CommandPalette() {
 
   React.useEffect(() => {
     if (!user?.id) return
-    databaseService.getSystems().then(({ data }) => {
+    databaseService.getSystemsForMember(user.id).then(({ data }) => {
       setSystems(data ?? [])
     })
   }, [user?.id])
@@ -79,7 +78,7 @@ export function CommandPalette() {
         {/* Espaço reservado para o botão fechar (evita o "o" de GêApps ser cortado) */}
         <div className="w-12 shrink-0" aria-hidden />
       </div>
-      <CommandInput placeholder="Buscar sistemas, páginas, ações..." />
+      <CommandInput placeholder="Buscar aplicativos, páginas e ações..." />
       <CommandList>
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
         <CommandGroup heading="Navegação">
@@ -93,7 +92,7 @@ export function CommandPalette() {
             <>
           <CommandItem onSelect={() => runCommand(() => navigate("/systems"))}>
             <Boxes className="mr-2 h-4 w-4" />
-            <span>Sistemas</span>
+            <span>Aplicativos</span>
           </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => navigate("/favorites"))}
@@ -104,10 +103,6 @@ export function CommandPalette() {
           <CommandItem onSelect={() => runCommand(() => navigate("/solicitacoes"))}>
             <Headset className="mr-2 h-4 w-4" />
             <span>Solicitações</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate("/chat"))}>
-            <MessageCircle className="mr-2 h-4 w-4" />
-            <span>Chat</span>
           </CommandItem>
           {!isAdminPath && user?.accessType === "admin" ? (
             <CommandItem onSelect={() => runCommand(() => navigate("/admin/home"))}>
@@ -129,7 +124,7 @@ export function CommandPalette() {
           </CommandItem>
         </CommandGroup>
         <CommandSeparator />
-        <CommandGroup heading="Sistemas">
+        <CommandGroup heading="Aplicativos">
           {systems.map((system) => (
             <CommandItem
               key={system.id}

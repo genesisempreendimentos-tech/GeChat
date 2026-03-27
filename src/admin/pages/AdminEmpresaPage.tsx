@@ -5,6 +5,7 @@ import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { EmpresaCompanyCard } from '@/components/empresa/EmpresaCompanyCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
@@ -243,10 +244,9 @@ export default function AdminEmpresaPage() {
               </div>
 
               <div className="space-y-2">
-                <FieldLabel htmlFor="createdAt">Data de criação</FieldLabel>
-                <Input
+                <FieldLabel htmlFor="createdAt">Data de Lançamento</FieldLabel>
+                <DateInput
                   id="createdAt"
-                  type="date"
                   value={draft.createdAt}
                   onChange={(event) => setDraft((prev) => ({ ...prev, createdAt: event.target.value }))}
                   onClick={openDatePicker}
