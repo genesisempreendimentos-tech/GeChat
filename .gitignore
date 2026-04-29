@@ -1,8 +1,13 @@
-# Dependencies
-node_modules
-dist
-dist-ssr
-*.local
+# Dependências
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Builds
+dist/
+dist-ssr/
+frontend/dist/
+backend/dist/
 
 # Editor directories and files
 .vscode/*
@@ -20,7 +25,8 @@ dist-ssr
 .env
 .env.local
 .env.production
+frontend/.env
+backend/.env
 
-# API PHP – credenciais (copie api/.env.example para api/.env no servidor)
-public/api/.env
-dist/api/.env
+# Legado PHP
+backend/legacy/php-api/.env

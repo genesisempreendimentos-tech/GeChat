@@ -113,8 +113,8 @@ export function SystemUsageChart({ data }: { data: SystemUsageData[] }) {
   return (
     <Card className="transition-shadow hover:shadow-md">
       <CardHeader>
-        <CardTitle>Morango mais acessado</CardTitle>
-        <CardDescription>Top 5 itens do Morango que você mais abriu nesta semana</CardDescription>
+        <CardTitle>Módulos mais acessados</CardTitle>
+        <CardDescription>Top 5 módulos que você mais abriu nesta semana</CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer
@@ -215,7 +215,10 @@ export function DonutChart({
             </Pie>
             <Tooltip
               cursor={false}
-              formatter={(value: number | undefined) => [value ?? 0, undefined]}
+              formatter={(value) => {
+                const numeric = typeof value === 'number' ? value : Number(value ?? 0);
+                return [Number.isFinite(numeric) ? numeric : 0, 'Valor'];
+              }}
               contentStyle={tooltipPanelStyle(isDark)}
               labelStyle={{ color: isDark ? "#f3f4f6" : "#111827" }}
               itemStyle={{ color: isDark ? "#f3f4f6" : "#111827" }}

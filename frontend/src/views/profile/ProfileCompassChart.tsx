@@ -88,7 +88,11 @@ export function ProfileCompassChart({ categoryCounts }: ProfileCompassChartProps
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '8px',
               }}
-              formatter={(value: number | undefined) => [`${value ?? 0}%`, 'Peso']}
+              formatter={(value) => {
+                const numeric = typeof value === 'number' ? value : Number(value ?? 0);
+                const safe = Number.isFinite(numeric) ? numeric : 0;
+                return [`${safe}%`, 'Peso'];
+              }}
               labelFormatter={(label) => label}
             />
           </RadarChart>

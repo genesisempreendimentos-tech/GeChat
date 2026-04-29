@@ -98,7 +98,7 @@ export default function DashboardPage() {
 
       const [total, foregroundMs, { data: logsAll }, { data: recentLogs }] = await Promise.all([
         databaseService.getUserAccessCount(user.id),
-        databaseService.getUserForegroundScreenTimeMsForGeApps(user.id),
+        databaseService.getUserForegroundScreenTimeMsForGenovo(user.id),
         databaseService.getAccessLogs(user.id, 500),
         databaseService.getAccessLogs(user.id, 5),
       ]);
@@ -546,3 +546,4 @@ export default function DashboardPage() {
     </MainViewFluidShell>
   );
 }
+

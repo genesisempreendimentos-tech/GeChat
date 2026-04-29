@@ -86,7 +86,10 @@ export function ProfileTagsWaveChart({ categoryCounts }: ProfileTagsWaveChartPro
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '8px',
               }}
-              formatter={(value: number | undefined) => [value ?? 0, 'Sistemas']}
+              formatter={(value) => {
+                const numeric = typeof value === 'number' ? value : Number(value ?? 0);
+                return [Number.isFinite(numeric) ? numeric : 0, 'Sistemas'];
+              }}
             />
             <Area
               type="monotone"
