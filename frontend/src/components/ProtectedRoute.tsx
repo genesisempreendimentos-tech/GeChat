@@ -1,8 +1,8 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { ReactNode, useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { databaseService } from '@/services/supabase';
+import { LoadingGif } from '@/components/LoadingGif';
 import {
   Dialog,
   DialogContent,
@@ -19,37 +19,37 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, loading, user, logout } = useAuthStore();
   const location = useLocation();
-  const [checkingGeAppsAccess, setCheckingGeAppsAccess] = useState(true);
-  const [geAppsExplicitlyBlocked, setGeAppsExplicitlyBlocked] = useState(false);
+  const [checkingGeNovoAccess, setCheckingGeNovoAccess] = useState(true);
+  const [geNovoExplicitlyBlocked, setGeNovoExplicitlyBlocked] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    const checkGeAppsAccess = async () => {
+    const checkGeNovoAccess = async () => {
       if (!isAuthenticated || !user?.id) {
         if (mounted) {
-          setGeAppsExplicitlyBlocked(false);
-          setCheckingGeAppsAccess(false);
+          setGeNovoExplicitlyBlocked(false);
+          setCheckingGeNovoAccess(false);
         }
         return;
       }
 
-      setCheckingGeAppsAccess(true);
-      const { data } = await databaseService.getGeAppsExplicitAccess(user.id);
+      setCheckingGeNovoAccess(true);
+      const { data } = await databaseService.getGeNovoExplicitAccess(user.id);
       if (!mounted) return;
       // Regra explícita: bloquear APENAS quando access = false.
-      setGeAppsExplicitlyBlocked(data === false);
-      setCheckingGeAppsAccess(false);
+      setGeNovoExplicitlyBlocked(data === false);
+      setCheckingGeNovoAccess(false);
     };
-    void checkGeAppsAccess();
+    void checkGeNovoAccess();
     return () => {
       mounted = false;
     };
   }, [isAuthenticated, user?.id]);
 
-  if (loading || checkingGeAppsAccess) {
+  if (loading || checkingGeNovoAccess) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-label="Carregando sessão" />
+        <LoadingGif size="lg" />
       </div>
     );
   }
@@ -58,7 +58,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (geAppsExplicitlyBlocked) {
+  if (geNovoExplicitlyBlocked) {
     return (
       <Dialog open>
         <DialogContent className="sm:max-w-md">

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { TreePalm } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { EmpresaCompanyCard } from '@/components/empresa/EmpresaCompanyCard';
+import { LoadingGifScreen } from '@/components/LoadingGif';
 import { databaseService, type CompanyProfileApp } from '@/services/supabase';
 
 const EMPTY_PROFILE: CompanyProfileApp = {
@@ -51,15 +52,13 @@ export default function EmpresaPage() {
     <MainViewFluidShell>
       <div className="space-y-6">
         <MainViewHeader
-          icon={<TreePalm className="h-6 w-6" />}
-          title="Coco"
+          icon={<Building2 className="h-6 w-6" />}
+          title="Item 3"
           description="Consulte as informações institucionais da empresa."
         />
 
         {profileLoading ? (
-          <div className="rounded-2xl border border-border/60 bg-muted/20 p-8 text-center text-sm text-muted-foreground">
-            Carregando...
-          </div>
+          <LoadingGifScreen className="rounded-2xl border border-border/60 bg-muted/20" />
         ) : (
           <EmpresaCompanyCard profile={companyProfile} showGeTeamsWorkspace={false} />
         )}

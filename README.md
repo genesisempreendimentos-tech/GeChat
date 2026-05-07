@@ -1,4 +1,4 @@
-# genovo — mock de UI
+# GeNovo — mock de UI
 
 Repositório **somente para design / protótipo**: não há empresa, domínio nem banco reais ligados ao código.
 

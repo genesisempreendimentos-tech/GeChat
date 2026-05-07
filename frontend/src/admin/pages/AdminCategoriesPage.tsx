@@ -176,8 +176,8 @@ export default function AdminCategoriesPage() {
     <div className="space-y-6">
       <MainViewHeader
         icon={<LibraryBig className="h-6 w-6" />}
-        title="Kiwi"
-        description="Gerencie as categorias do Morango."
+        title="Categorias"
+        description="Gerencie as categorias do Item 1."
         button={
           <Button
             onClick={() => handleOpenModal()}

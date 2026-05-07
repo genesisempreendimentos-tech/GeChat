@@ -8,7 +8,7 @@ import {
   type Location as RouterLocation,
 } from 'react-router-dom';
 import { useEffect } from 'react';
-import { initGeAppsAudit } from '@/assets/audit-log';
+import { initGeNovoAudit } from '@/assets/audit-log';
 import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
@@ -22,6 +22,7 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { BottomNavigation } from '@/components/BottomNavigation';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { OnboardingTour } from '@/components/OnboardingTour';
+import { LoadingGif } from '@/components/LoadingGif';
 import AuthLayout from '@/layouts/AuthLayout';
 import MainLayout from '@/layouts/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -77,7 +78,7 @@ function LoginRoute() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-muted-foreground">Carregando...</p>
+        <LoadingGif size="lg" />
       </div>
     );
   }
@@ -86,7 +87,7 @@ function LoginRoute() {
   if (validReturnTo) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-muted-foreground">Redirecionando...</p>
+        <LoadingGif size="lg" />
       </div>
     );
   }
@@ -114,7 +115,7 @@ function AppRoutes() {
       // Auditoria: app_access_daily + tempos de ecrã (audit_logs), não por clique em outros apps
   useEffect(() => {
     if (!isAuthenticated) return;
-    const cleanup = initGeAppsAudit();
+    const cleanup = initGeNovoAudit();
     return () => {
       cleanup?.();
     };

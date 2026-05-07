@@ -8,6 +8,7 @@ dist/
 dist-ssr/
 frontend/dist/
 backend/dist/
+backend/.server-port
 
 # Editor directories and files
 .vscode/*

@@ -18,9 +18,9 @@ import {
   UserPlus,
   Search,
   ArrowLeft,
-  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LoadingGif } from '@/components/LoadingGif';
 import type { Conversation, ChatMessage } from '@/types';
 import type { User } from '@/types';
 
@@ -162,7 +162,7 @@ export default function ChatPage() {
           )}
           {loadingConversations ? (
             <div className="flex items-center justify-center p-8">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              <LoadingGif size="lg" />
             </div>
           ) : conversations.length === 0 ? (
             <div className="p-6 text-center text-muted-foreground text-sm">
@@ -243,7 +243,7 @@ export default function ChatPage() {
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {loadingMessages ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <LoadingGif size="md" />
                   </div>
                 ) : (
                   messages.map((msg) => {
@@ -289,7 +289,7 @@ export default function ChatPage() {
                 />
                 <Button type="submit" size="icon" disabled={sending || !inputText.trim()}>
                   {sending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <LoadingGif size="sm" />
                   ) : (
                     <Send className="w-4 h-4" />
                   )}

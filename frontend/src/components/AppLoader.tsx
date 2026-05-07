@@ -50,7 +50,7 @@ export function AppLoader({ children }: { children: React.ReactNode }) {
           aria-label="Carregando o site"
         >
           <img
-            src="/GeIcons/Gen-Moviment.gif"
+            src="/Gen-Moviment.gif"
             alt=""
             className="h-24 w-24 object-contain sm:h-32 sm:w-32"
           />

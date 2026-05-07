@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
 import Zoom from './Zoom';
 import { NotificationsPanel, type NotificationItem } from '@/components/notifications/NotificationsPanel';
@@ -27,8 +27,6 @@ import { Quotes } from '@/components/ui/quotes';
 export default function Topbar() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
-  const location = useLocation();
-  const isInAdmin = location.pathname.startsWith('/admin');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -37,7 +35,7 @@ export default function Topbar() {
   const notificationUnreadCount = notificationItems.filter((n) => !n.read).length;
 
   const handleProfileClick = () => {
-    navigate(isInAdmin ? '/admin/profile' : '/profile');
+    window.location.href = 'https://geapps.genesisapps.com.br/profile';
   };
 
   const handleLogout = () => {
@@ -140,7 +138,7 @@ export default function Topbar() {
       <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Sair do genovo</DialogTitle>
+            <DialogTitle>Sair do GeNovo</DialogTitle>
             <DialogDescription>
               Deseja realmente sair? No mock você precisará entrar de novo para acessar.
             </DialogDescription>

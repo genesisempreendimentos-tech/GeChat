@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Search, Users, Flower2, RefreshCw, AlertCircle, Building2, Loader2, Check, Unlock, LayoutGrid, Layers, Grid2x2, Shapes, Table2 } from 'lucide-react';
+import { Plus, Search, Users, UsersRound, RefreshCw, AlertCircle, Building2, Check, Unlock, LayoutGrid, Layers, Grid2x2, Shapes, Table2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -301,7 +301,7 @@ export default function AdminEquipesPage() {
     const workspaceName = String(company.geTeamsWorkspace ?? '').trim();
     if (!workspaceName) {
       setFormError(
-        'Configure o workspace em Admin → Coco antes de criar equipes (mock).',
+        'Configure o workspace em Admin → Item 3 antes de criar equipes (mock).',
       );
       return;
     }
@@ -441,7 +441,7 @@ export default function AdminEquipesPage() {
     });
   }, [collaboratorsWithAvatar, searchQuery]);
 
-  const resolveGeappsUserIdsByEmail = useCallback(
+  const resolveGeNovoUserIdsByEmail = useCallback(
     async (emails: string[]) => {
       const normalized = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
       if (!normalized.length) return new Map<string, string>();
@@ -481,7 +481,7 @@ export default function AdminEquipesPage() {
       return;
     }
 
-    const emailToUserId = await resolveGeappsUserIdsByEmail(collabs.map((c) => c.email));
+    const emailToUserId = await resolveGeNovoUserIdsByEmail(collabs.map((c) => c.email));
 
     // Para cada sistema, verifica se algum colaborador do dept tem acesso
     const systemAccessResults = await Promise.all(
@@ -506,7 +506,7 @@ export default function AdminEquipesPage() {
 
     setDeptModalSystems(systemAccessResults);
     setDeptModalLoading(false);
-  }, [collaboratorsWithAvatar, teams, resolveGeappsUserIdsByEmail]);
+  }, [collaboratorsWithAvatar, teams, resolveGeNovoUserIdsByEmail]);
 
   const handleSaveDeptAccess = useCallback(async () => {
     if (!deptModalRow) return;
@@ -515,7 +515,7 @@ export default function AdminEquipesPage() {
     const team = teams.find((t) => t.id === deptModalRow.id);
     const deptId = team?.neonDepartmentId ?? '';
     const collabPreviews = collaboratorsByDeptId.get(deptId) ?? [];
-    const emailToUserId = await resolveGeappsUserIdsByEmail(collabPreviews.map((c) => c.email));
+    const emailToUserId = await resolveGeNovoUserIdsByEmail(collabPreviews.map((c) => c.email));
     const targetUserIds = [...new Set(collabPreviews
       .map((c) => emailToUserId.get(c.email.toLowerCase()) ?? '')
       .filter(Boolean))];
@@ -534,7 +534,7 @@ export default function AdminEquipesPage() {
     );
     setDeptModalSaving(false);
     toast.success('Acessos do departamento atualizados.');
-  }, [deptModalRow, deptModalSystems, collaboratorsByDeptId, teams, resolveGeappsUserIdsByEmail]);
+  }, [deptModalRow, deptModalSystems, collaboratorsByDeptId, teams, resolveGeNovoUserIdsByEmail]);
 
   const handleSectorClick = useCallback(
     async (sector: SectorTopicRow) => {
@@ -558,7 +558,7 @@ export default function AdminEquipesPage() {
         return;
       }
 
-      const emailToUserId = await resolveGeappsUserIdsByEmail(collabs.map((c) => c.email));
+      const emailToUserId = await resolveGeNovoUserIdsByEmail(collabs.map((c) => c.email));
 
       const systemAccessResults = await Promise.all(
         allSystems.map(async (sys: any) => {
@@ -582,7 +582,7 @@ export default function AdminEquipesPage() {
       setSectorModalSystems(systemAccessResults);
       setSectorModalLoading(false);
     },
-    [collaboratorsWithAvatar, resolveGeappsUserIdsByEmail],
+    [collaboratorsWithAvatar, resolveGeNovoUserIdsByEmail],
   );
 
   const handleSaveSectorAccess = useCallback(async () => {
@@ -590,7 +590,7 @@ export default function AdminEquipesPage() {
     setSectorModalSaving(true);
 
     const previews = sectorModalRow.collaborators ?? [];
-    const emailToUserId = await resolveGeappsUserIdsByEmail(previews.map((c) => c.email));
+    const emailToUserId = await resolveGeNovoUserIdsByEmail(previews.map((c) => c.email));
     const targetUserIds = [...new Set(previews
       .map((c) => emailToUserId.get(c.email.toLowerCase()) ?? '')
       .filter(Boolean))];
@@ -607,7 +607,7 @@ export default function AdminEquipesPage() {
     setSectorModalSystems((prev) => prev.map((s) => ({ ...s, original: s.canAccess })));
     setSectorModalSaving(false);
     toast.success('Acessos do setor atualizados.');
-  }, [sectorModalRow, sectorModalSystems, resolveGeappsUserIdsByEmail]);
+  }, [sectorModalRow, sectorModalSystems, resolveGeNovoUserIdsByEmail]);
 
   const handleCollaboratorClick = useCallback(async (collab: CollaboratorWithAvatar) => {
     setLoadingCollaboratorId(collab.id);
@@ -659,9 +659,9 @@ export default function AdminEquipesPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Flower2 className="h-6 w-6" />}
-        title="Pitaya"
-        description="Cadastre equipes e defina quem pode vê-las no genovo."
+        icon={<UsersRound className="h-6 w-6" />}
+        title="Equipes"
+        description="Cadastre equipes e defina quem pode vê-las no GeNovo."
         button={
           <Button
             type="button"
@@ -817,7 +817,7 @@ export default function AdminEquipesPage() {
                   title="Recarregar departamentos (mock)"
                   className="h-8 px-2.5 rounded-lg text-xs text-muted-foreground hover:text-primary"
                 >
-                  <RefreshCw className={cn('w-3.5 h-3.5 mr-1.5', depsLoading && 'animate-spin')} />
+                  {depsLoading ? <LoadingGif size="sm" className="mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
                   Atualizar lista
                 </Button>
               </div>
@@ -952,7 +952,7 @@ export default function AdminEquipesPage() {
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                       }`}
                     >
-                      {panel === 'systems' ? 'Morango' : 'Colaboradores'}
+                      {panel === 'systems' ? 'Item 1' : 'Colaboradores'}
                     </button>
                   ))}
                 </div>
@@ -1063,7 +1063,7 @@ export default function AdminEquipesPage() {
                               <p className="text-xs text-muted-foreground truncate">{c.email}</p>
                             </div>
                             {loadingCollaboratorId === c.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                              <LoadingGif size="sm" className="shrink-0" />
                             ) : null}
                           </button>
                         </motion.div>
@@ -1077,7 +1077,7 @@ export default function AdminEquipesPage() {
                     transition={{ duration: 0.35, ease: EASE_MODAL }}
                     className="flex flex-col items-center justify-center py-16 gap-3"
                   >
-                    <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+                    <LoadingGif size="lg" />
                     <span className="text-sm text-muted-foreground animate-pulse">Carregando aplicativos...</span>
                   </motion.div>
                 ) : (() => {
@@ -1226,7 +1226,7 @@ export default function AdminEquipesPage() {
                   !deptModalSystems.some((s) => s.canAccess !== s.original)
                 }
               >
-                {deptModalSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
+                {deptModalSaving ? <LoadingGif size="sm" /> : <Unlock className="w-4 h-4" />}
                 {deptModalSaving ? 'Salvando...' : 'Salvar alterações'}
               </Button>
             </div>
@@ -1425,7 +1425,7 @@ export default function AdminEquipesPage() {
                               <p className="text-xs text-muted-foreground truncate">{c.email}</p>
                             </div>
                             {loadingCollaboratorId === c.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                              <LoadingGif size="sm" className="shrink-0" />
                             ) : null}
                           </button>
                         </motion.div>
@@ -1439,7 +1439,7 @@ export default function AdminEquipesPage() {
                     transition={{ duration: 0.35, ease: EASE_MODAL }}
                     className="flex flex-col items-center justify-center py-16 gap-3"
                   >
-                    <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+                    <LoadingGif size="lg" />
                     <span className="text-sm text-muted-foreground animate-pulse">Carregando aplicativos...</span>
                   </motion.div>
                 ) : (() => {
@@ -1596,7 +1596,7 @@ export default function AdminEquipesPage() {
                   (sectorModalRow?.collaborators ?? []).length === 0
                 }
               >
-                {sectorModalSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
+                {sectorModalSaving ? <LoadingGif size="sm" /> : <Unlock className="w-4 h-4" />}
                 {sectorModalSaving ? 'Salvando...' : 'Salvar alterações'}
               </Button>
             </div>

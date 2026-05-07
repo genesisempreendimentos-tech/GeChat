@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
-  Grape,
+  LayoutDashboard,
   UserKey,
   UserStar,
   SquareCheck,
@@ -120,8 +120,8 @@ export default function AdminDashboardPage() {
       <MainViewFluidShell>
       <div className="space-y-6">
         <MainViewHeader
-          icon={<Grape className="h-6 w-6" />}
-          title="Uva"
+          icon={<LayoutDashboard className="h-6 w-6" />}
+          title="Dashboard"
           description="Visão geral do painel administrativo."
         />
         <AdminBigBox>
@@ -136,8 +136,8 @@ export default function AdminDashboardPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Grape className="h-6 w-6" />}
-        title="Uva"
+        icon={<LayoutDashboard className="h-6 w-6" />}
+        title="Dashboard"
         description="Visão geral do painel administrativo."
       />
 
@@ -188,7 +188,7 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{counts?.apps ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Morango cadastrado</p>
+                <p className="text-xs text-muted-foreground">Item 1 cadastrado</p>
               </CardContent>
             </Card>
           </motion.div>

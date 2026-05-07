@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes, Cherry, Archive, ArchiveRestore, RefreshCw, Check, X, Loader2, SquareCheck, Rocket, TestTubeDiagonal, SquarePen, ChevronDown, FileText, Github, Filter } from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, MoreVertical, Pencil, Unlock, Trash2, UserPlus, Upload, Zap, Boxes, Archive, ArchiveRestore, RefreshCw, Check, X, SquareCheck, Rocket, TestTubeDiagonal, SquarePen, ChevronDown, FileText, Github, Filter } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +29,7 @@ import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
-import { databaseService, storageService, GEAPPS_APP_ID } from '@/services/supabase';
+import { databaseService, storageService, GENOVO_APP_ID } from '@/services/supabase';
 import { getAllCollaboratorsSectors } from '@/services/corporateProfile';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { SystemCategory, Category } from '@/types';
@@ -94,7 +94,7 @@ interface AdminSystem {
   github_url?: string;
 }
 
-function normalizeGeAppsName(value: string): string {
+function normalizeGeNovoName(value: string): string {
   return (value ?? '')
     .toLowerCase()
     .normalize('NFD')
@@ -102,10 +102,10 @@ function normalizeGeAppsName(value: string): string {
     .replace(/\s+/g, '');
 }
 
-function isGeAppsApp(app: Pick<AdminSystem, 'id' | 'name'> | null): boolean {
+function isGeNovoApp(app: Pick<AdminSystem, 'id' | 'name'> | null): boolean {
   if (!app) return false;
-  if (app.id === GEAPPS_APP_ID) return true;
-  return normalizeGeAppsName(app.name) === 'geapps';
+  if (app.id === GENOVO_APP_ID) return true;
+  return normalizeGeNovoName(app.name) === 'GeNovo';
 }
 
 function renderIcon(iconPath: string, className: string = '') {
@@ -194,7 +194,7 @@ export default function AdminSystemsPage() {
   const [sectors, setSectors] = useState<string[]>([]);
   const [loadingAccess, setLoadingAccess] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
-  const [geAppsAccessConfirmOpen, setGeAppsAccessConfirmOpen] = useState(false);
+  const [geNovoAccessConfirmOpen, setGeNovoAccessConfirmOpen] = useState(false);
   const [accessSearch, setAccessSearch] = useState('');
   const [accessFilter, setAccessFilter] = useState<'all' | 'granted' | 'denied'>('all');
   const [accessSectorFilter, setAccessSectorFilter] = useState<string>('all');
@@ -413,15 +413,15 @@ export default function AdminSystemsPage() {
   };
 
   const handleSaveAccess = async () => {
-    if (isGeAppsApp(accessModalSystem)) {
-      setGeAppsAccessConfirmOpen(true);
+    if (isGeNovoApp(accessModalSystem)) {
+      setGeNovoAccessConfirmOpen(true);
       return;
     }
     await persistAccessChanges();
   };
 
-  const handleConfirmGeAppsAccess = async () => {
-    setGeAppsAccessConfirmOpen(false);
+  const handleConfirmGeNovoAccess = async () => {
+    setGeNovoAccessConfirmOpen(false);
     await persistAccessChanges();
   };
 
@@ -527,9 +527,9 @@ export default function AdminSystemsPage() {
     <TooltipProvider delayDuration={200}>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Cherry className="h-6 w-6" />}
-        title="Morango"
-        description="Gerencie os aplicativos disponíveis no genovo."
+        icon={<Boxes className="h-6 w-6" />}
+        title="Item 1"
+        description="Gerencie os aplicativos disponíveis no GeNovo."
         button={
           <Button
             onClick={() => setIsCreateOpen(true)}
@@ -1664,7 +1664,7 @@ export default function AdminSystemsPage() {
           <div className="flex-1 overflow-y-auto p-6 space-y-2.5 min-h-0 bg-background/50">
             {loadingAccess ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+                <LoadingGif size="lg" />
                 <span className="text-sm text-muted-foreground animate-pulse">Carregando membros...</span>
               </div>
             ) : filteredAccesses.length === 0 ? (
@@ -1771,7 +1771,7 @@ export default function AdminSystemsPage() {
                 onClick={handleSaveAccess}
                 disabled={savingAccess || changedCount === 0}
               >
-                {savingAccess ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
+                {savingAccess ? <LoadingGif size="sm" /> : <Unlock className="w-4 h-4" />}
                 {savingAccess ? 'Salvando...' : 'Salvar alterações'}
               </Button>
             </div>
@@ -1779,7 +1779,7 @@ export default function AdminSystemsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={geAppsAccessConfirmOpen} onOpenChange={setGeAppsAccessConfirmOpen}>
+      <Dialog open={geNovoAccessConfirmOpen} onOpenChange={setGeNovoAccessConfirmOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Confirmar alteração de acesso ao hub</DialogTitle>
@@ -1788,10 +1788,10 @@ export default function AdminSystemsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setGeAppsAccessConfirmOpen(false)}>
+            <Button variant="outline" onClick={() => setGeNovoAccessConfirmOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => void handleConfirmGeAppsAccess()}>
+            <Button onClick={() => void handleConfirmGeNovoAccess()}>
               Confirmar
             </Button>
           </div>
@@ -1849,7 +1849,7 @@ export default function AdminSystemsPage() {
               Não
             </Button>
             <Button className="flex-1 rounded-xl gap-2" onClick={handleUnarchive} disabled={unarchiveLoading}>
-              {unarchiveLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArchiveRestore className="w-4 h-4" />}
+              {unarchiveLoading ? <LoadingGif size="sm" /> : <ArchiveRestore className="w-4 h-4" />}
               Sim, desarquivar
             </Button>
           </div>

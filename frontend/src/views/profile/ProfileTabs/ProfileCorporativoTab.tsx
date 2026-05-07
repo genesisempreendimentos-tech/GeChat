@@ -27,6 +27,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { LoadingGif } from '@/components/LoadingGif';
 
 export interface CorporativoFormData {
   name: string;
@@ -177,7 +178,7 @@ export function ProfileCorporativoTab({
           <div className="flex items-center gap-2">
             {onRefresh && (
               <Button type="button" variant="ghost" size="icon" onClick={onRefresh} disabled={loading} className="w-7 h-7" aria-label="Atualizar">
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? <LoadingGif size="sm" /> : <RefreshCw className="w-3.5 h-3.5" />}
               </Button>
             )}
           </div>

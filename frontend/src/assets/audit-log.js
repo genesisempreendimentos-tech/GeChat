@@ -1,9 +1,9 @@
 /**
- * Auditoria centralizada GeApps → public.audit_logs (modelo híbrido: colunas + metadata).
+ * Auditoria centralizada GeNovo → public.audit_logs (modelo híbrido: colunas + metadata).
  * Eventos: app_login, app_access_daily (1×/utilizador/app/dia, validado na BD), screen_time_active, screen_time_background.
  * ## Contexto
 
-Este projeto deve enviar auditoria para a **mesma** instância Supabase que o GeApps, na tabela **`public.audit_logs`**, usando o mesmo modelo de eventos do ficheiro `audit-log.js` (já anexado / em contexto).
+Este projeto deve enviar auditoria para a **mesma** instância Supabase que o GeNovo, na tabela **`public.audit_logs`**, usando o mesmo modelo de eventos do ficheiro `audit-log.js` (já anexado / em contexto).
 
 **Objetivos de produto**
 
@@ -17,10 +17,10 @@ Este projeto deve enviar auditoria para a **mesma** instância Supabase que o Ge
 Cada `INSERT` deve preencher (como no ficheiro de referência):
 
 - **`actor_user_id`**: UUID do utilizador (`supabase.auth.getUser()` → `user.id`). **Nunca** misturar com outra coluna legada; é a chave para contagem por utilizador.
-- **`app_id`**: UUID da linha em **`public.apps`** correspondente a **este** produto (GeTeams), obtido por **slug** (ver abaixo).
+- **`app_id`**: UUID da linha em **`public.apps`** correspondente a **este** produto (GeNovo), obtido por **slug** (ver abaixo).
 - **`action`**: um de: `app_login`, `app_access_daily`, `screen_time_active`, `screen_time_background`.
 - **`entity_type`**: `'app'`.
-- **`entity_id`**: **slug string** do app (ex.: `geteams`), igual ao usado na tabela `apps` / env — serve como identificador legível no modelo híbrido.
+- **`entity_id`**: **slug string** do app (ex.: `genovo`), igual ao usado na tabela `apps` / env — serve como identificador legível no modelo híbrido.
 - **`email`**, **`url`**, **`hostname`**: contexto opcional (URL e hostname da página).
 - **`screen_time_seconds`** / **`screen_time_ms`**: preenchidos nos eventos `screen_time_*` (duração **desse** intervalo).
 - **`metadata`**: JSON com pelo menos `event_source: 'app_runtime'`, `visibility_based: true` para `screen_time_*`, mais `referrer` / `browser` se possível.
@@ -31,10 +31,10 @@ Tabela: **`audit_logs`**. Inserções vêm do cliente com **anon key**; é neces
 
 ## Resolução do `app_id` e slug
 
-- Definir variável de ambiente no GeTeams, análoga ao GeApps, por exemplo: **`VITE_GETEAMS_AUDIT_SLUG=geteams`** (ou o slug **exacto** da linha em `public.apps`).
+- Definir variável de ambiente do GeNovo, por exemplo: **`VITE_GENOVO_AUDIT_SLUG=genovo`** (ou o slug **exacto** da linha em `public.apps`).
 - Função **`auditSlug()`** deve devolver esse slug em minúsculas.
 - Implementar **`resolveAppId()`**: `getAppBySlug(auditSlug())` → `app.id`. Se não existir app com esse slug, **não** inserir auditoria (log de aviso).
-- No GeTeams, ligar isto ao vosso `databaseService` / cliente Supabase existente (o referencial importa `supabase` + `databaseService` de `@/services/supabase`).
+- No GeNovo, ligar isto ao vosso `databaseService` / cliente Supabase existente (o referencial importa `supabase` + `databaseService` de `@/services/supabase`).
 
 ---
 
@@ -44,7 +44,7 @@ Tabela: **`audit_logs`**. Inserções vêm do cliente com **anon key**; é neces
 
 - Ao arranque após sessão válida (`init*Audit()`): chamar **`maybeEmitAppAccessDaily(actor, appId)`**.
 - **Deduplicação:** antes de inserir, consultar se já existe linha com mesmo `actor_user_id`, `app_id`, `action = 'app_access_daily'`, e **`created_at` no dia civil local** (intervalo meia-noite → meia-noite local, como `getLocalDayBounds()` + `.gte` / `.lt` em ISO).
-- **localStorage:** chave tipo `geteams_audit_app_access_daily_${userId}_${appId}_${yyyy-mm-dd}` para evitar queries repetidas no mesmo browser/dia (a BD continua a ser a verdade).
+- **localStorage:** chave tipo `genovo_audit_app_access_daily_${userId}_${appId}_${yyyy-mm-dd}` para evitar queries repetidas no mesmo browser/dia (a BD continua a ser a verdade).
 
 ### `screen_time_active` / `screen_time_background`
 
@@ -60,15 +60,15 @@ Tabela: **`audit_logs`**. Inserções vêm do cliente com **anon key**; é neces
 
 ---
 
-## Adaptação de nomes (GeApps → GeTeams)
+## Adaptação de nomes (GeNovo → GeNovo)
 
 Renomear para o projeto atual, mantendo a **lógica** igual:
 
-- `initGeAppsAudit` → por exemplo `initGeTeamsAudit`.
-- `emitGeAppsAuditAppLogin` → `emitGeTeamsAuditAppLogin` (ou nome do produto).
-- Prefixo **localStorage** e comentários: trocar `geapps` por `geteams` (ou slug escolhido).
+- `initGeNovoAudit` → por exemplo `initGeNovoAudit`.
+- `emitGeNovoAuditAppLogin` → `emitGeNovoAuditAppLogin` (ou nome do produto).
+- Prefixo **localStorage** e comentários devem usar `genovo` (ou o slug escolhido).
 
-Manter **valores literais** de `action` (`app_access_daily`, `screen_time_active`, etc.) **iguais** ao GeApps para relatórios cruzados no mesmo `audit_logs`.
+Manter **valores literais** de `action` (`app_access_daily`, `screen_time_active`, etc.) **iguais** ao GeNovo para relatórios cruzados no mesmo `audit_logs`.
 
 ---
 
@@ -87,10 +87,10 @@ Manter **valores literais** de `action` (`app_access_daily`, `screen_time_active
 
 ---
 
-## Entregáveis esperados no GeTeams
+## Entregáveis esperados no GeNovo
 
 - Módulo JS/TS equivalente ao `audit-log.js`, com imports do **vosso** `supabase` + função **`getAppBySlug`**.
-- Variável de ambiente do **slug** do app GeTeams na tabela `apps`.
+- Variável de ambiente do **slug** do app GeNovo na tabela `apps`.
 - Chamadas integradas no fluxo de auth / `App.tsx` (ou equivalente).
 - Confirmação de que existe **linha em `apps`** para esse slug e **RLS** em `audit_logs` permite INSERT/SELECT conforme necessário.
 
@@ -99,7 +99,7 @@ Implementa de ponta a ponta seguindo o ficheiro em contexto, apenas adaptando im
 import { supabase, databaseService } from '@/services/supabase';
 
 function auditSlug() {
-  return (import.meta.env.VITE_GEAPPS_AUDIT_SLUG ?? 'geapps').toString().trim().toLowerCase() || 'geapps';
+  return (import.meta.env.VITE_GENOVO_AUDIT_SLUG ?? 'genovo').toString().trim().toLowerCase() || 'genovo';
 }
 
 function pageContext() {
@@ -199,7 +199,7 @@ async function resolveAppId() {
 /**
  * Login com palavra-passe concluído (não chamar em checkAuth / sessão restaurada).
  */
-export async function emitGeAppsAuditAppLogin(userId, email) {
+export async function emitGeNovoAuditAppLogin(userId, email) {
   const appId = await resolveAppId();
   if (!appId || !userId) return;
   await insertAuditEvent({
@@ -228,7 +228,7 @@ function getLocalDayBounds() {
 }
 
 function appAccessDailyStorageKey(userId, appId) {
-  return `geapps_audit_app_access_daily_${userId}_${appId}_${todayLocalDateKey()}`;
+  return `genovo_audit_app_access_daily_${userId}_${appId}_${todayLocalDateKey()}`;
 }
 
 /**
@@ -300,7 +300,7 @@ let cleanupRef = null;
 /**
  * Inicializa auditoria após autenticação: app_access_daily (se ainda não existir hoje na BD), tempos de ecrã.
  */
-export function initGeAppsAudit() {
+export function initGeNovoAudit() {
   if (cleanupRef) {
     cleanupRef();
     cleanupRef = null;

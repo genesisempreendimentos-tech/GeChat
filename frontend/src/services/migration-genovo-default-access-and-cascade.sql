@@ -1,10 +1,10 @@
 /*
   SQL legado de referência — o frontend deste repo roda só como mock de UI.
-  UUID do app hub alinhado ao mock em `src/services/supabase.ts` (GEAPPS_APP_ID).
+  UUID do app hub alinhado ao mock em `src/services/supabase.ts` (GENOVO_APP_ID).
 */
 
 -- 1) Acesso padrão ao hub no cadastro do auth.users
-create or replace function public.grant_default_geapps_access()
+create or replace function public.grant_default_genovo_access()
 returns trigger
 language plpgsql
 security definer
@@ -20,13 +20,13 @@ begin
 end;
 $$;
 
-drop trigger if exists on_auth_user_default_geapps_access on auth.users;
-create trigger on_auth_user_default_geapps_access
+drop trigger if exists on_auth_user_default_genovo_access on auth.users;
+create trigger on_auth_user_default_genovo_access
   after insert on auth.users
-  for each row execute procedure public.grant_default_geapps_access();
+  for each row execute procedure public.grant_default_genovo_access();
 
 -- 2) Cascata de bloqueio: hub false => todos os apps false
-create or replace function public.cascade_geapps_access_revoke()
+create or replace function public.cascade_genovo_access_revoke()
 returns trigger
 language plpgsql
 security definer
@@ -46,7 +46,7 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_cascade_geapps_access_revoke on public.user_app_access;
-create trigger trg_cascade_geapps_access_revoke
+drop trigger if exists trg_cascade_genovo_access_revoke on public.user_app_access;
+create trigger trg_cascade_genovo_access_revoke
   after insert or update of access on public.user_app_access
-  for each row execute procedure public.cascade_geapps_access_revoke();
+  for each row execute procedure public.cascade_genovo_access_revoke();

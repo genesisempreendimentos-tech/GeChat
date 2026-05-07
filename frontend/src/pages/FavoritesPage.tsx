@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Star, Apple, ExternalLink, Calendar, Plus, Search, Boxes } from 'lucide-react';
+import { Star, ExternalLink, Calendar, Plus, Search, Boxes } from 'lucide-react';
 import { LoadingGifScreen, LoadingGif } from '@/components/LoadingGif';
 import * as Icons from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
@@ -164,9 +164,9 @@ export default function FavoritesPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Apple className="h-6 w-6 text-primary" />}
-        title="Pitanga"
-        description="Seu Morango favorito para acesso rápido."
+        icon={<Star className="h-6 w-6 text-primary" />}
+        title="Item 4"
+        description="Seu Item 1 favorito para acesso rápido."
         button={
           <Button
             type="button"
@@ -296,10 +296,10 @@ export default function FavoritesPage() {
               </div>
               <div className="min-w-0 flex-1 space-y-1">
                 <DialogTitle className="text-lg font-semibold leading-tight tracking-tight">
-                  Gerir Pitanga
+                  Gerir Item 4
                 </DialogTitle>
                 <DialogDescription className="text-sm leading-snug">
-                  Itens do Morango liberados para você. Adicione ou remova atalhos na sua Pitanga.
+                  Itens do Item 1 liberados para você. Adicione ou remova atalhos na sua Item 4.
                 </DialogDescription>
               </div>
             </div>

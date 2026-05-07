@@ -1,5 +1,5 @@
 /*
-  GEAPPS – Appsadmin pode atualizar access_type em profiles
+  GENOVO – Appsadmin pode atualizar access_type em profiles
 
   Permite que usuários com access_type = 'appsadmin' (ou admin/softadmin)
   atualizem a coluna access_type de qualquer perfil (promover a appsadmin ou rebaixar a member).

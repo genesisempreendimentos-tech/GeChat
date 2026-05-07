@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/store/authStore';
-import LogoSvg from '../../assets/logo-gen-sem-fundo-svg.svg';
+const LogoSvg = '/assets/logo-gen-sem-fundo-svg.svg';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -220,7 +220,7 @@ export default function SignupPage() {
                 >
                   <img 
                     src="/assets/brand-mock.svg" 
-                    alt="genovo" 
+                    alt="GeNovo" 
                     className="w-full h-full object-contain"
                     style={{
                       filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)'
@@ -248,7 +248,7 @@ export default function SignupPage() {
                 }}
               >
                 <CardTitle className="text-4xl font-bold bg-gradient-to-r from-primary via-teal-400 to-primary bg-clip-text text-transparent" style={{ backgroundSize: '200% auto' }}>
-                  genovo
+                  GeNovo
                 </CardTitle>
               </motion.div>
               <CardDescription className="text-base">
@@ -395,7 +395,7 @@ export default function SignupPage() {
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
-                      <img src="/GeIcons/Gen-Moviment.gif" alt="" className="h-5 w-5 object-contain" />
+                  <img src="/Gen-Moviment.gif" alt="" className="h-5 w-5 object-contain" />
                       Criando conta...
                     </span>
                   ) : (

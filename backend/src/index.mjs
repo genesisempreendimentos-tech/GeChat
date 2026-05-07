@@ -10,6 +10,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 import pg from 'pg';
 import { getBearerJwt, resolveUserFromJwt } from './authSupabase.mjs';
+import { createAuthRouter } from './routes/auth.mjs';
 import {
   resolveNeonWorkspaceFilter,
   fetchCompanyGeTeamsWorkspaceName,
@@ -27,8 +28,15 @@ const app = express();
 const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.json());
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
@@ -43,6 +51,9 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABA
 /** Opcional: só no servidor; permite validar profiles em corporate-profile-by-email para qualquer e-mail (RLS). */
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const neonUrl = process.env.NEON_GETEAMS_DATABASE_URL;
+app.locals.supabaseUrl = supabaseUrl;
+app.locals.supabaseAnonKey = supabaseAnonKey;
+app.locals.supabaseServiceRoleKey = supabaseServiceRoleKey;
 
 if (supabaseUrl) {
   try {
@@ -51,8 +62,10 @@ if (supabaseUrl) {
     /* ignore */
   }
 } else {
-  console.warn('[server] Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env da raiz.');
+  console.warn('[server] Defina SUPABASE_URL e SUPABASE_ANON_KEY no .env do backend.');
 }
+
+app.use('/api/auth', createAuthRouter());
 
 // Mapeamento: campo do CorporativoFormData -> colunas da tabela collaborators (Neon GeTeams)
 // Colunas exatas: departamento <- department_cadeira_principal | setor <- setor_cadeira_principal
@@ -233,7 +246,7 @@ app.get('/api/corporate-profile-by-email', async (req, res) => {
     if (!hasProfile) {
       return res.status(404).json({
         notFound: true,
-        message: 'Nenhum perfil GêApps para este e-mail.',
+        message: 'Nenhum perfil GeNovo para este e-mail.',
       });
     }
 

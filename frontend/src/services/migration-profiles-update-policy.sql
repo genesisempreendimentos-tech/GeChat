@@ -1,5 +1,5 @@
 /*
-  GEAPPS – Política UPDATE em profiles (evita 406 Not Acceptable no PATCH)
+  GENOVO – Política UPDATE em profiles (evita 406 Not Acceptable no PATCH)
   
   O 406 ocorre porque, com RLS ativo, só existia política SELECT.
   Sem política UPDATE, o PATCH é negado e o PostgREST não consegue retornar a linha.

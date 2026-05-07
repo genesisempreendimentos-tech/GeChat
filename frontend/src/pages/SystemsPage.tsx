@@ -30,7 +30,7 @@ import {
   ArchiveRestore,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
-import { Boxes, Cherry } from 'lucide-react';
+import { Boxes } from 'lucide-react';
 import { BANNER_CATEGORIES } from '@/views/profile/ProfileBanner/ProfileBannerImages';
 import { cn } from '@/lib/utils';
 import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
@@ -302,8 +302,8 @@ export default function SystemsPage() {
       <TooltipProvider delayDuration={200}>
       <div className="space-y-6">
       <MainViewHeader
-        icon={<Cherry className="h-6 w-6" />}
-        title="Morango"
+        icon={<Boxes className="h-6 w-6" />}
+        title="Item 1"
         description="Acesse todos os seus aplicativos corporativos."
         button={
           <Button
@@ -703,7 +703,7 @@ export default function SystemsPage() {
               Não
             </Button>
             <Button className="flex-1 rounded-xl gap-2" onClick={handleUnarchive} disabled={unarchiveLoading}>
-              {unarchiveLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArchiveRestore className="w-4 h-4" />}
+              {unarchiveLoading ? <LoadingGif size="sm" /> : <ArchiveRestore className="w-4 h-4" />}
               Sim, desarquivar
             </Button>
           </div>

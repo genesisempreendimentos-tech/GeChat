@@ -1,18 +1,16 @@
-import { motion } from 'framer-motion';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   type LucideIcon,
-  Grape,
-  Flower2,
+  LayoutDashboard,
+  UsersRound,
   UserKey,
   UserStar,
   LibraryBig,
   Check,
-  Cherry,
-  Citrus,
-  Nut,
-  TreePalm,
+  Megaphone,
+  Star,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
@@ -37,21 +35,22 @@ type AdminNavSection = { title: string; items: AdminNavItem[] };
 
 const adminMenuSections: AdminNavSection[] = [
   {
-    title: 'genovo',
+    title: 'GeNovo',
     items: [
-      { icon: Grape, label: 'Uva', path: '/admin/home' },
-      { icon: Cherry, label: 'Morango', path: '/admin/systems' },
-      { icon: LibraryBig, label: 'Kiwi', path: '/admin/categories' },
-      { icon: UserKey, label: 'Romã', path: '/admin/members' },
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/home' },
+      { icon: Megaphone, label: 'Comunicados', path: '/admin/comunicados' },
+      { icon: UsersRound, label: 'Equipes', path: '/admin/equipes' },
+      { icon: Star, label: 'Item 1', path: '/admin/systems' },
+      { icon: Star, label: 'Item 2', path: '/admin/solicitacoes' },
+      { icon: Star, label: 'Item 3', path: '/admin/empresa' },
+      { icon: Star, label: 'Item 4', path: '/favorites' },
     ],
   },
   {
-    title: 'Integrações',
+    title: 'Admin',
     items: [
-      { icon: Flower2, label: 'Pitaya', path: '/admin/equipes' },
-      { icon: Citrus, label: 'Manga', path: '/admin/solicitacoes' },
-      { icon: Nut, label: 'Caju', path: '/admin/comunicados' },
-      { icon: TreePalm, label: 'Coco', path: '/admin/empresa' },
+      { icon: UserKey, label: 'Usuários', path: '/admin/members' },
+      { icon: LibraryBig, label: 'Categorias', path: '/admin/categories' },
     ],
   },
 ];
@@ -106,7 +105,7 @@ export default function AdminSidebar() {
                   <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
                     <img
                       src="/assets/brand-mock.svg"
-                      alt="genovo"
+                      alt="GeNovo"
                       className="w-full h-full object-contain"
                       style={{
                         filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
@@ -145,7 +144,7 @@ export default function AdminSidebar() {
               <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
                 <img
                   src="/assets/brand-mock.svg"
-                  alt="genovo"
+                  alt="GeNovo"
                   className="w-full h-full object-contain"
                   style={{
                     filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',

@@ -6,25 +6,25 @@
   Depois execute no SQL Editor: Cole este script → Run.
 */
 
--- 1) Permitir usuários autenticados a fazer INSERT em storage.objects no bucket GeImage, pasta GeApps
-DROP POLICY IF EXISTS "Allow authenticated upload to GeImage GeApps" ON storage.objects;
-CREATE POLICY "Allow authenticated upload to GeImage GeApps"
+-- 1) Permitir usuários autenticados a fazer INSERT em storage.objects no bucket GeImage, pasta GeNovo
+DROP POLICY IF EXISTS "Allow authenticated upload to GeImage GeNovo" ON storage.objects;
+CREATE POLICY "Allow authenticated upload to GeImage GeNovo"
 ON storage.objects
 FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'GeImage'
-  AND (storage.foldername(name))[1] = 'GeApps'
+  AND (storage.foldername(name))[1] = 'GeNovo'
 );
 
 -- 2) Permitir UPDATE (necessário para upsert: true no cliente)
-DROP POLICY IF EXISTS "Allow authenticated update GeImage GeApps" ON storage.objects;
-CREATE POLICY "Allow authenticated update GeImage GeApps"
+DROP POLICY IF EXISTS "Allow authenticated update GeImage GeNovo" ON storage.objects;
+CREATE POLICY "Allow authenticated update GeImage GeNovo"
 ON storage.objects
 FOR UPDATE
 TO authenticated
-USING (bucket_id = 'GeImage' AND (storage.foldername(name))[1] = 'GeApps')
-WITH CHECK (bucket_id = 'GeImage' AND (storage.foldername(name))[1] = 'GeApps');
+USING (bucket_id = 'GeImage' AND (storage.foldername(name))[1] = 'GeNovo')
+WITH CHECK (bucket_id = 'GeImage' AND (storage.foldername(name))[1] = 'GeNovo');
 
 -- 3) Permitir leitura pública dos objetos do bucket (para a URL pública da imagem funcionar)
 DROP POLICY IF EXISTS "Allow public read GeImage" ON storage.objects;

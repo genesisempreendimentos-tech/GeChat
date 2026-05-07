@@ -1,4 +1,4 @@
-# GêApps - SPA (React Router) na Hostinger / LiteSpeed + Apache
+# GeNovo - SPA (React Router) na Hostinger / LiteSpeed + Apache
 SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
 
 <IfModule mod_rewrite.c>

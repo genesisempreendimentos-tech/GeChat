@@ -6,7 +6,6 @@ import {
   Search,
   ShieldCheck,
   Check,
-  Loader2,
   Boxes,
   UserPen,
   UserStar,
@@ -27,7 +26,7 @@ import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { databaseService } from '@/services/supabase';
-import { GEAPPS_APP_ID } from '@/services/supabase';
+import { GENOVO_APP_ID } from '@/services/supabase';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { User } from '@/types';
 import { format } from 'date-fns';
@@ -72,7 +71,7 @@ interface SystemAccess {
   original: boolean; // estado original para detectar mudanças
 }
 
-function normalizeGeAppsName(value: string): string {
+function normalizeGeNovoName(value: string): string {
   return (value ?? '')
     .toLowerCase()
     .normalize('NFD')
@@ -80,11 +79,11 @@ function normalizeGeAppsName(value: string): string {
     .replace(/\s+/g, '');
 }
 
-function isGeAppsSystem(system: SystemAccess): boolean {
+function isGeNovoSystem(system: SystemAccess): boolean {
   if (!system) return false;
-  if (system.id === GEAPPS_APP_ID) return true;
-  const normalized = normalizeGeAppsName(system.name);
-  return normalized === 'geapps';
+  if (system.id === GENOVO_APP_ID) return true;
+  const normalized = normalizeGeNovoName(system.name);
+  return normalized === 'GeNovo';
 }
 
 function emailNeonKey(email: string | undefined): string {
@@ -120,7 +119,7 @@ export default function AdminMembersPage() {
   const [systemAccesses, setSystemAccesses] = useState<SystemAccess[]>([]);
   const [loadingAccess, setLoadingAccess] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
-  const [geAppsRevokeConfirmOpen, setGeAppsRevokeConfirmOpen] = useState(false);
+  const [geNovoRevokeConfirmOpen, setGeNovoRevokeConfirmOpen] = useState(false);
   const [accessSearch, setAccessSearch] = useState('');
   const [accessFilter, setAccessFilter] = useState<'all' | 'granted' | 'denied'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'user' | 'creator' | 'admin'>('all');
@@ -243,9 +242,9 @@ export default function AdminMembersPage() {
     );
   };
 
-  const hasGeAppsAccessRevokeInChanges = useCallback(() => {
-    const geAppsAccess = systemAccesses.find((s) => isGeAppsSystem(s));
-    return !!geAppsAccess && geAppsAccess.original === true && geAppsAccess.canAccess === false;
+  const hasGeNovoAccessRevokeInChanges = useCallback(() => {
+    const geNovoAccess = systemAccesses.find((s) => isGeNovoSystem(s));
+    return !!geNovoAccess && geNovoAccess.original === true && geNovoAccess.canAccess === false;
   }, [systemAccesses]);
 
   const persistAccessChanges = useCallback(async () => {
@@ -265,15 +264,15 @@ export default function AdminMembersPage() {
   }, [accessModal, systemAccesses]);
 
   const handleSaveAccess = async () => {
-    if (hasGeAppsAccessRevokeInChanges()) {
-      setGeAppsRevokeConfirmOpen(true);
+    if (hasGeNovoAccessRevokeInChanges()) {
+      setGeNovoRevokeConfirmOpen(true);
       return;
     }
     await persistAccessChanges();
   };
 
-  const handleConfirmGeAppsRevoke = async () => {
-    setGeAppsRevokeConfirmOpen(false);
+  const handleConfirmGeNovoRevoke = async () => {
+    setGeNovoRevokeConfirmOpen(false);
     await persistAccessChanges();
   };
 
@@ -342,7 +341,7 @@ export default function AdminMembersPage() {
             disabled={loading}
             aria-label="Mais ações"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+            {loading ? <LoadingGif size="sm" /> : <MoreVertical className="h-4 w-4" />}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52" onClick={(e: MouseEvent) => e.stopPropagation()}>
@@ -352,7 +351,7 @@ export default function AdminMembersPage() {
             }}
           >
             <Boxes className="mr-2 h-4 w-4" />
-            Morango
+            Item 1
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -497,8 +496,8 @@ export default function AdminMembersPage() {
     <div className="space-y-6">
       <MainViewHeader
         icon={<UserKey className="h-6 w-6" />}
-        title="Romã"
-        description="Usuários que criaram conta no genovo."
+        title="Usuários"
+        description="Usuários que criaram conta no GeNovo."
         button={
           <Button
             onClick={() => setManageUsersOpen(true)}
@@ -876,7 +875,7 @@ export default function AdminMembersPage() {
           <div className="flex-1 overflow-y-auto p-6 space-y-2.5 min-h-0 bg-background/50">
             {loadingAccess ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+                <LoadingGif size="lg" />
                 <span className="text-sm text-muted-foreground animate-pulse">Carregando sistemas...</span>
               </div>
             ) : filteredAccesses.length === 0 ? (
@@ -987,7 +986,7 @@ export default function AdminMembersPage() {
                 onClick={handleSaveAccess}
                 disabled={savingAccess || changedCount === 0}
               >
-                {savingAccess ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                {savingAccess ? <LoadingGif size="sm" /> : <ShieldCheck className="w-4 h-4" />}
                 {savingAccess ? 'Salvando...' : 'Salvar alterações'}
               </Button>
             </div>
@@ -995,19 +994,19 @@ export default function AdminMembersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={geAppsRevokeConfirmOpen} onOpenChange={setGeAppsRevokeConfirmOpen}>
+      <Dialog open={geNovoRevokeConfirmOpen} onOpenChange={setGeNovoRevokeConfirmOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Confirmar remoção de acesso</DialogTitle>
             <DialogDescription>
-              Ao remover o acesso ao hub (genovo), no mock todos os aplicativos desse usuário também perdem acesso. Continuar?
+              Ao remover o acesso ao hub (GeNovo), no mock todos os aplicativos desse usuário também perdem acesso. Continuar?
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setGeAppsRevokeConfirmOpen(false)}>
+            <Button variant="outline" onClick={() => setGeNovoRevokeConfirmOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => void handleConfirmGeAppsRevoke()}>
+            <Button onClick={() => void handleConfirmGeNovoRevoke()}>
               Sim
             </Button>
           </div>

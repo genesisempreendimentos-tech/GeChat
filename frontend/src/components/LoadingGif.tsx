@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 
-const GIF_SRC = '/GeIcons/Gen-Moviment.gif';
+const GIF_SRC = '/Gen-Moviment.gif';
 
 type Size = 'sm' | 'md' | 'lg' | 'xl';
 

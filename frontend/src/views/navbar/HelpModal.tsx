@@ -45,7 +45,7 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             Ajuda
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Informações sobre o genovo, dicas de uso e contato com o suporte.
+            Informações sobre o GeNovo, dicas de uso e contato com o suporte.
           </DialogDescription>
         </DialogHeader>
 
@@ -53,10 +53,10 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
           <section className="space-y-2 rounded-xl border border-border/50 bg-card/40 p-4">
             <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              Sobre o genovo
+              Sobre o GeNovo
             </h3>
             <p>
-              O genovo é apenas um mock de interface: não há empresa real, dados reais nem suporte
+              O GeNovo é apenas um mock de interface: não há empresa real, dados reais nem suporte
               ligado a este repositório.
             </p>
           </section>

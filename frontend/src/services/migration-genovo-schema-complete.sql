@@ -1,5 +1,5 @@
 /*
-  GEAPPS – Schema completo para Supabase
+  GENOVO – Schema completo para Supabase
   
   Execute no Supabase: SQL Editor → New query → Cole → Run.
   Garante tabelas e colunas necessárias para o painel admin e evita 400 em PATCH/GET.

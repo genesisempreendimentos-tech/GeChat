@@ -10,14 +10,14 @@ import {
   CommandSeparator,
 } from "@/components/ui/command"
 import {
-  Grape,
-  Cherry,
-  Apple,
+  LayoutDashboard,
+  Megaphone,
+  UsersRound,
+  Star,
   UserCircle,
   Settings,
   ExternalLink,
   Shield,
-  Citrus,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import { databaseService } from "@/services/supabase"
@@ -73,36 +73,48 @@ export function CommandPalette() {
           aria-hidden
         />
         <span className="min-w-0 flex-shrink-0 font-semibold text-foreground text-sm tracking-tight whitespace-nowrap">
-          genovo
+          GeNovo
         </span>
         {/* Espaço reservado para o botão fechar */}
         <div className="w-12 shrink-0" aria-hidden />
       </div>
-      <CommandInput placeholder="Buscar no Morango, páginas e ações..." />
+      <CommandInput placeholder="Buscar p?ginas e a??es..." />
       <CommandList>
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
         <CommandGroup heading="Navegação">
           <CommandItem
             onSelect={() => runCommand(() => navigate(isAdminPath ? "/admin/home" : "/dashboard"))}
           >
-            <Grape className="mr-2 h-4 w-4" />
-            <span>{isAdminPath ? "Uva (admin)" : "Uva"}</span>
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            <span>{isAdminPath ? "Dashboard (admin)" : "Dashboard"}</span>
           </CommandItem>
           {!isAdminPath && (
             <>
+          <CommandItem onSelect={() => runCommand(() => navigate("/comunicados"))}>
+            <Megaphone className="mr-2 h-4 w-4" />
+            <span>Comunicados</span>
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => navigate("/equipes"))}>
+            <UsersRound className="mr-2 h-4 w-4" />
+            <span>Equipes</span>
+          </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate("/systems"))}>
-            <Cherry className="mr-2 h-4 w-4" />
-            <span>Morango</span>
+            <Star className="mr-2 h-4 w-4" />
+            <span>Item 1</span>
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => navigate("/solicitacoes"))}>
+            <Star className="mr-2 h-4 w-4" />
+            <span>Item 2</span>
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => navigate("/empresa"))}>
+            <Star className="mr-2 h-4 w-4" />
+            <span>Item 3</span>
           </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => navigate("/favorites"))}
           >
-            <Apple className="mr-2 h-4 w-4" />
-            <span>Pitanga</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate("/solicitacoes"))}>
-            <Citrus className="mr-2 h-4 w-4" />
-            <span>Manga</span>
+            <Star className="mr-2 h-4 w-4" />
+            <span>Item 4</span>
           </CommandItem>
           {!isAdminPath && user?.accessType === "admin" ? (
             <CommandItem onSelect={() => runCommand(() => navigate("/admin/home"))}>
@@ -124,7 +136,7 @@ export function CommandPalette() {
           </CommandItem>
         </CommandGroup>
         <CommandSeparator />
-        <CommandGroup heading="Morango">
+        <CommandGroup heading="Apps">
           {systems.map((system) => (
             <CommandItem
               key={system.id}

@@ -1,7 +1,7 @@
 import type { ElementType } from 'react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import * as LucideIcons from 'lucide-react';
-import { Search, Users, Layers, Loader2, Grid2x2, Shapes, LayoutGrid, Table2, Flower2 } from 'lucide-react';
+import { Search, Users, Layers, Grid2x2, Shapes, LayoutGrid, Table2, UsersRound } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -21,6 +21,7 @@ import { useAuthStore } from '@/store/authStore';
 import { TabButtons, type TabButtonItem } from '@/components/ui/tab-buttons';
 import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
+import { LoadingGif } from '@/components/LoadingGif';
 
 const SECTOR_COLOR_HEX_MAP: Record<string, string> = {
   'bg-red-500': '#ef4444',
@@ -435,8 +436,8 @@ export default function EquipesPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Flower2 className="h-6 w-6" />}
-        title="Pitaya"
+        icon={<UsersRound className="h-6 w-6" />}
+        title="Equipes"
         description="Visualize todas as equipes da empresa em departamentos, setores e colaboradores."
       />
 
@@ -593,7 +594,7 @@ export default function EquipesPage() {
                       <p className="text-xs text-muted-foreground truncate">{c.email}</p>
                     </div>
                     {loadingCollaboratorId === c.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" aria-hidden />
+                      <LoadingGif size="sm" className="shrink-0" />
                     ) : null}
                   </button>
                 ))}

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
-import LogoSvg from '../../assets/logo-gen-sem-fundo-svg.svg';
+const LogoSvg = '/assets/logo-gen-sem-fundo-svg.svg';
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');
@@ -113,7 +113,7 @@ export default function ResetPasswordPage() {
                   animate={{ rotate: [0, 5, 0, -5, 0], scale: [1, 1.05, 1] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  <img src="/assets/brand-mock.svg" alt="genovo" className="w-full h-full object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)' }} />
+                  <img src="/assets/brand-mock.svg" alt="GeNovo" className="w-full h-full object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)' }} />
                 </motion.div>
               </div>
             </motion.div>
@@ -122,7 +122,7 @@ export default function ResetPasswordPage() {
                 Nova senha
               </CardTitle>
               <CardDescription className="text-base">
-                Defina uma nova senha para acessar o genovo (mock)
+                Defina uma nova senha para acessar o GeNovo (mock)
               </CardDescription>
               <div className="pt-2">
                 <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">Demo UI</span>
@@ -158,7 +158,7 @@ export default function ResetPasswordPage() {
                 <Button type="submit" className="w-full h-12 text-base font-medium shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all" disabled={loading}>
                   {loading ? (
                     <span className="flex items-center gap-2">
-                      <img src="/GeIcons/Gen-Moviment.gif" alt="" className="h-5 w-5 object-contain" />
+                  <img src="/Gen-Moviment.gif" alt="" className="h-5 w-5 object-contain" />
                       Alterando...
                     </span>
                   ) : (

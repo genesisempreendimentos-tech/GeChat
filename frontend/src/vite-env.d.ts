@@ -1,10 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_SUPABASE_URL: string
-  readonly VITE_SUPABASE_ANON_KEY: string
-  /** Slug do app GeApps na tabela `apps` para auditoria (padrão: `geapps`). */
-  readonly VITE_GEAPPS_AUDIT_SLUG?: string
+  readonly VITE_API_URL?: string
+  /** Slug do app GeNovo na tabela `apps` para auditoria (padrao: `genovo`). */
+  readonly VITE_GENOVO_AUDIT_SLUG?: string
 }
 
 interface ImportMeta {
@@ -42,6 +41,6 @@ declare module '*.webp' {
 }
 
 declare module '@/assets/audit-log' {
-  export function initGeAppsAudit(): () => void
-  export function emitGeAppsAuditAppLogin(userId: string, email: string): Promise<void>
+  export function initGeNovoAudit(): (() => void) | undefined
+  export function emitGeNovoAuditAppLogin(userId: string, email?: string): Promise<void>
 }

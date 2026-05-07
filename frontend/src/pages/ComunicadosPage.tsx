@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   Megaphone,
-  Nut,
   Search,
   Filter,
   ChevronDown,
@@ -644,7 +643,7 @@ export default function ComunicadosPage() {
 
       const { error } = await databaseService.upsertStatementReaction(statement.id, { viewed });
       if (error) {
-        // Rollback em caso de erro
+        // fallback em caso de erro
         setStatements((prev) =>
           prev.map((s) => (s.id === statement.id ? { ...s, viewed: prevViewed } : s))
         );
@@ -935,8 +934,8 @@ export default function ComunicadosPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Nut className="h-6 w-6" />}
-        title="Caju"
+        icon={<Megaphone className="h-6 w-6" />}
+        title="Comunicados"
         description="Avisos e informações importantes da empresa."
         button={
           canCreateStatements ? (

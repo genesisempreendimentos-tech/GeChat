@@ -15,7 +15,7 @@ import {
 import { delayMock, randomId } from '@/mocks/uiShellUtils';
 
 /** ID fixo do app “hub” apenas para o mock de UI (não é recurso real). */
-export const GEAPPS_APP_ID = '00000000-0000-4000-8000-000000000001' as const;
+export const GENOVO_APP_ID = '00000000-0000-4000-8000-000000000001' as const;
 
 /** Nomes de tabelas usados só como contrato de tipos no mock. */
 export const REQUEST_CHANNELS_TABLE = 'request_channels';
@@ -150,8 +150,8 @@ const mockDb = {
   systems: [...uiShellSystems],
   categories: [...uiShellCategories],
   access: [
-    { user_id: uiShellUser.id, app_id: GEAPPS_APP_ID, access: true, is_favorite: false, access_type: 'member' },
-    { user_id: uiShellAdminUser.id, app_id: GEAPPS_APP_ID, access: true, is_favorite: false, access_type: 'admin' },
+    { user_id: uiShellUser.id, app_id: GENOVO_APP_ID, access: true, is_favorite: false, access_type: 'member' },
+    { user_id: uiShellAdminUser.id, app_id: GENOVO_APP_ID, access: true, is_favorite: false, access_type: 'admin' },
   ] as AccessRow[],
   /** Dashboard / histórico de acesso: vazio para UI shell só visual. */
   accessLogs: [] as Array<Record<string, unknown>>,
@@ -198,6 +198,159 @@ function currentSession(): MockSession | null {
   }
   return session;
 }
+
+function normalizeRole(value: unknown): User['role'] {
+  return value === 'admin' || value === 'creator' || value === 'user' ? value : 'user';
+}
+
+function profileRecordToUser(row: Record<string, any>, fallback: { id: string; email?: string | null }): UserProfile {
+  const name =
+    row.full_name ??
+    row.name ??
+    row.nome ??
+    row.display_name ??
+    fallback.email?.split('@')[0] ??
+    'Usuário';
+  const accessType = String(row.access_type ?? row.accessType ?? row.role ?? 'user');
+  return {
+    id: String(row.user_id ?? row.id ?? fallback.id),
+    name: String(name),
+    full_name: String(name),
+    email: String(row.email ?? fallback.email ?? ''),
+    role: normalizeRole(accessType),
+    accessType,
+    profileStatus: row.profile_status ?? row.profileStatus ?? 'active',
+    avatar: row.avatar_url ?? row.avatar ?? undefined,
+    createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+    sidebar: row.sidebar,
+    banner_url: row.banner_url ?? null,
+    profession: row.profession ?? null,
+    birth_date: row.birth_date ?? null,
+    hire_date: row.hire_date ?? null,
+  };
+}
+
+function authUserToProfile(authUser: { id: string; email?: string | null; user_metadata?: Record<string, any> }): UserProfile {
+  const meta = authUser.user_metadata ?? {};
+  const name = meta.full_name ?? meta.name ?? authUser.email?.split('@')[0] ?? 'Usuário';
+  const accessType = String(meta.access_type ?? meta.role ?? 'user');
+  return {
+    id: authUser.id,
+    name: String(name),
+    full_name: String(name),
+    email: String(authUser.email ?? ''),
+    role: normalizeRole(accessType),
+    accessType,
+    profileStatus: 'active',
+    avatar: meta.avatar_url ?? meta.avatar ?? undefined,
+    createdAt: new Date(),
+  };
+}
+
+async function loadRealProfileForAuthUser(authUser: { id: string; email?: string | null; user_metadata?: Record<string, any> }) {
+  return authUserToProfile(authUser);
+}
+
+type ApiAuthUser = UserProfile;
+
+function apiError(message: string) {
+  return { message };
+}
+
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<{ data: T | null; error: any }> {
+  try {
+    const response = await fetch(path, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers ?? {}),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { data: null, error: apiError(payload?.error ?? 'Erro na API.') };
+    }
+    return { data: payload as T, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+function setCurrentUserFromApi(user: ApiAuthUser | null | undefined) {
+  mockDb.currentUser = user ? { ...user, createdAt: user.createdAt ? new Date(user.createdAt) : new Date() } : null;
+  if (mockDb.currentUser && !mockDb.profiles.some((u) => u.id === mockDb.currentUser?.id)) {
+    mockDb.profiles.push(mockDb.currentUser);
+  }
+  session = mockDb.currentUser
+    ? { access_token: 'server-cookie-session', user: { id: mockDb.currentUser.id, email: mockDb.currentUser.email } }
+    : null;
+}
+
+const serverAuth = {
+  async signInWithPassword({ email, password }: { email: string; password: string }) {
+    const { data, error } = await apiFetch<{ user: ApiAuthUser }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    setCurrentUserFromApi(data?.user);
+    notifyAuth(error ? 'SIGNED_OUT' : 'SIGNED_IN');
+    return { data: { user: data?.user ?? null, session: currentSession() }, error };
+  },
+
+  async signUp({ email, password, options }: { email: string; password: string; options?: { data?: Record<string, any> } }) {
+    const fullName = String(options?.data?.full_name ?? options?.data?.name ?? '');
+    const role = String(options?.data?.role ?? 'user');
+    const { data, error } = await apiFetch<{ user: ApiAuthUser }>('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, fullName, role }),
+    });
+    setCurrentUserFromApi(data?.user);
+    notifyAuth(error ? 'SIGNED_OUT' : 'SIGNED_IN');
+    return { data: { user: data?.user ?? null, session: currentSession() }, error };
+  },
+
+  async signOut() {
+    const { error } = await apiFetch<{ ok: boolean }>('/api/auth/logout', { method: 'POST' });
+    setCurrentUserFromApi(null);
+    notifyAuth('SIGNED_OUT');
+    return { error };
+  },
+
+  async getUser() {
+    const { data, error } = await apiFetch<{ user: ApiAuthUser | null }>('/api/auth/me');
+    setCurrentUserFromApi(data?.user);
+    return { data: { user: data?.user ?? null }, error };
+  },
+
+  async getSession() {
+    const { data, error } = await apiFetch<{ user: ApiAuthUser | null }>('/api/auth/me');
+    setCurrentUserFromApi(data?.user);
+    return { data: { session: data?.user ? currentSession() : null }, error };
+  },
+
+  async resetPasswordForEmail(email: string, options?: { redirectTo?: string }) {
+    const { data, error } = await apiFetch<{ data: unknown }>('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, redirectTo: options?.redirectTo }),
+    });
+    return { data, error };
+  },
+
+  async updateUser(payload: { password?: string }) {
+    const { data, error } = await apiFetch<{ user: ApiAuthUser | null }>('/api/auth/password', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    if (data?.user) setCurrentUserFromApi(data.user);
+    return { data: { user: data?.user ?? null }, error };
+  },
+
+  onAuthStateChange(callback: (event: string) => void) {
+    listeners.add(callback);
+    return { data: { subscription: { unsubscribe: () => listeners.delete(callback) } } };
+  },
+};
 
 class MockQuery {
   private filters: Array<(row: Record<string, unknown>) => boolean> = [];
@@ -264,56 +417,7 @@ class MockQuery {
 }
 
 export const supabase = {
-  auth: {
-    async signInWithPassword({ email }: { email: string; password: string }) {
-      await delayMock();
-      const found = mockDb.profiles.find((u) => u.email.toLowerCase() === email.toLowerCase());
-      if (!found) return { data: null, error: { message: 'Invalid login credentials' } };
-      mockDb.currentUser = found;
-      session = { access_token: 'ui-shell-token', user: { id: found.id, email: found.email } };
-      notifyAuth('SIGNED_IN');
-      return { data: { user: session.user, session }, error: null };
-    },
-    async signUp({ email, options }: { email: string; password: string; options?: { data?: Record<string, unknown> } }) {
-      await delayMock();
-      const user: UserProfile = {
-        ...uiShellUser,
-        id: randomId('user'),
-        name: String(options?.data?.full_name ?? options?.data?.name ?? 'Novo Usuário'),
-        full_name: String(options?.data?.full_name ?? options?.data?.name ?? 'Novo Usuário'),
-        email,
-      };
-      mockDb.profiles.push(user);
-      return { data: { user: { id: user.id, email: user.email } }, error: null };
-    },
-    async signOut() {
-      mockDb.currentUser = null;
-      session = null;
-      notifyAuth('SIGNED_OUT');
-      return { error: null };
-    },
-    async resetPasswordForEmail(_email: string, _options?: { redirectTo?: string }) {
-      await delayMock(180);
-      return { data: { sent: true }, error: null };
-    },
-    async getSession() {
-      return { data: { session: currentSession() }, error: null };
-    },
-    async refreshSession() {
-      return { data: { session: currentSession() }, error: null };
-    },
-    async getUser() {
-      const s = currentSession();
-      return { data: { user: s ? s.user : null }, error: null };
-    },
-    async updateUser(_payload: Record<string, unknown>): Promise<{ data: { user: { id: string; email: string } | null }; error: { message: string } | null }> {
-      return { data: { user: currentSession()?.user ?? null }, error: null };
-    },
-    onAuthStateChange(callback: (event: string) => void) {
-      listeners.add(callback);
-      return { data: { subscription: { unsubscribe: () => listeners.delete(callback) } } };
-    },
-  },
+  auth: serverAuth,
   storage: {
     from(_bucket: string) {
       return {
@@ -352,13 +456,13 @@ export const storageService = {
     return { error: null };
   },
 
-  /** Upload de imagem do sistema/app para o bucket GeImage, pasta GeApps. Retorna a URL pública. */
+  /** Upload de imagem do sistema/app para o bucket GeImage, pasta GeNovo. Retorna a URL pública. */
   async uploadSystemImage(file: File) { return { url: `https://mock.local/system/${file.name}`, error: null }; },
 
   /** Ícone de canal de solicitação — pasta dedicada no bucket GeImage. */
   async uploadRequestChannelIcon(file: File) { return { url: `https://mock.local/channel/${file.name}`, error: null }; },
 
-  /** PDF da descrição âncora dos apps — bucket Files/pasta GeApps - Public/Ancora. */
+  /** PDF da descrição âncora dos apps — bucket Files/pasta GeNovo - Public/Ancora. */
   async uploadSystemAnchorPdf(file: File) { return { url: `https://mock.local/pdf/${file.name}`, error: null }; },
 
   /** Upload de imagem (mock — sem storage real). */
@@ -369,14 +473,26 @@ export const storageService = {
 
 // Auth Service
 export const authService = {
-  async signIn(email: string, password: string) { return supabase.auth.signInWithPassword({ email, password }); },
+  async signIn(email: string, password: string) {
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    if (result.data?.user) {
+      setCurrentUserFromApi(result.data.user as UserProfile);
+    }
+    return result;
+  },
   async signUp(email: string, password: string, fullName: string, role: 'admin' | 'creator' | 'user' = 'user') {
-    return supabase.auth.signUp({ email, password, options: { data: { full_name: fullName, role } } } as any);
+    const result = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName, name: fullName, role } } } as any);
+    if (result.data?.user) {
+      setCurrentUserFromApi(result.data.user as UserProfile);
+    }
+    return result;
   },
 
   async signOut() {
     try {
       const { error } = await supabase.auth.signOut();
+      mockDb.currentUser = null;
+      session = null;
       return { error };
     } catch (error) {
       return { error };
@@ -404,8 +520,20 @@ export const authService = {
   },
 
   async getCurrentUser() {
-    await delayMock();
-    return { data: mockDb.currentUser ? mapUser(mockDb.currentUser) : null, error: null };
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) {
+        mockDb.currentUser = null;
+        return { data: null, error };
+      }
+      setCurrentUserFromApi(data.user as UserProfile);
+      const exists = mockDb.profiles.some((u) => u.id === mockDb.currentUser?.id);
+      if (mockDb.currentUser && !exists) mockDb.profiles.push(mockDb.currentUser);
+      return { data: mockDb.currentUser ? mapUser(mockDb.currentUser) : null, error: null };
+    } catch (error) {
+      mockDb.currentUser = null;
+      return { data: null, error };
+    }
   },
 };
 
@@ -456,10 +584,10 @@ export const databaseService = {
   async getUserAccessCount(userId: string) { return mockDb.accessLogs.filter((l) => l.actor_user_id === userId).length; },
 
   /**
-   * Soma o tempo em primeiro plano (eventos `screen_time_active`) para o utilizador no app GeApps (slug em VITE_GEAPPS_AUDIT_SLUG).
+   * Soma o tempo em primeiro plano (eventos `screen_time_active`) para o utilizador no app GeNovo (slug em VITE_GENOVO_AUDIT_SLUG).
    * Pagina resultados para não truncar em 1000 linhas.
    */
-  async getUserForegroundScreenTimeMsForGeApps(_userId: string) { return 3_600_000; },
+  async getUserForegroundScreenTimeMsForGeNovo(_userId: string) { return 3_600_000; },
 
   async getAccessLogsAll(limit = 500) {
     return this.getAccessLogs(undefined, limit);
@@ -540,8 +668,8 @@ export const databaseService = {
    * - `false`: possui linha com access = false (deve bloquear)
    * - `null`: sem linha / valor não determinável
    */
-  async getGeAppsExplicitAccess(userId: string) {
-    const row = mockDb.access.find((r) => r.user_id === userId && r.app_id === GEAPPS_APP_ID);
+  async getGeNovoExplicitAccess(userId: string) {
+    const row = mockDb.access.find((r) => r.user_id === userId && r.app_id === GENOVO_APP_ID);
     return { data: row ? row.access : null, error: null };
   },
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, ExternalLink, Search, AlertCircle, Send, Headset, Citrus, RefreshCw, ChevronDown, Filter, Boxes, MoreVertical, Trash2 } from 'lucide-react';
+import { Plus, ExternalLink, Search, AlertCircle, Send, Headset, ClipboardList, RefreshCw, ChevronDown, Filter, Boxes, MoreVertical, Trash2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -134,7 +134,7 @@ export default function AdminSolicitacoesPage() {
     const workspaceName = String(company.geTeamsWorkspace ?? '').trim();
     if (!workspaceName) {
       setFormError(
-        'Configure o workspace em Admin → Coco antes de criar canais (mock).'
+        'Configure o workspace em Admin → Item 3 antes de criar canais (mock).'
       );
       return;
     }
@@ -196,8 +196,8 @@ export default function AdminSolicitacoesPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Citrus className="h-6 w-6" />}
-        title="Manga"
+        icon={<ClipboardList className="h-6 w-6" />}
+        title="Item 2"
         description="Crie canais de solicitações para departamentos e setores."
         button={
           canCreate ? (
@@ -556,7 +556,7 @@ export default function AdminSolicitacoesPage() {
                   title="Recarregar departamentos (mock)"
                   className="h-8 px-2.5 rounded-lg text-xs text-muted-foreground hover:text-primary"
                 >
-                  <RefreshCw className={cn('w-3.5 h-3.5 mr-1.5', depsLoading && 'animate-spin')} />
+                  {depsLoading ? <LoadingGif size="sm" className="mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
                   Atualizar lista
                 </Button>
               </div>
@@ -568,7 +568,7 @@ export default function AdminSolicitacoesPage() {
               ) : departments.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-amber-500/30 bg-amber-500/[0.06] px-4 py-4 text-sm text-muted-foreground space-y-1">
                   <p>
-                    Nenhum departamento no workspace atual. Em <strong className="text-foreground">Coco</strong>, o workspace
+                    Nenhum departamento no workspace atual. Em <strong className="text-foreground">Item 3</strong>, o workspace
                     deve corresponder ao registo em <code className="text-xs">public.workspaces</code>; os departamentos são filtrados
                     por <code className="text-xs">departments.workspace_id</code> (igual ao id no Neon ou a{' '}
                     <code className="text-xs">geteams_workspace_id</code> no Supabase).

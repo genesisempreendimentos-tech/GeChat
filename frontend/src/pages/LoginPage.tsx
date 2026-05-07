@@ -29,7 +29,7 @@ import { useAuthStore } from "@/store/authStore";
 import { authService } from "@/services/supabase";
 import { isAllowedReturnToUrl } from "@/services/authStorage";
 import { getSafeInternalReturnPath } from "@/lib/postLoginRedirect";
-import LogoSvg from "../../assets/logo-gen-sem-fundo-svg.svg";
+const LogoSvg = '/assets/logo-gen-sem-fundo-svg.svg';
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
@@ -251,7 +251,7 @@ export default function LoginPage() {
                 >
                   <img
                     src="/assets/brand-mock.svg"
-                    alt="genovo"
+                    alt="GeNovo"
                     className="w-full h-full object-contain"
                     style={{
                       filter:
@@ -283,11 +283,11 @@ export default function LoginPage() {
                   className="text-4xl font-bold bg-gradient-to-r from-primary via-teal-400 to-primary bg-clip-text text-transparent"
                   style={{ backgroundSize: "200% auto" }}
                 >
-                  genovo
+                  GeNovo
                 </CardTitle>
               </motion.div>
               <CardDescription className="text-base">
-                Hub do Morango — layout demo (sem backend)
+                Hub do Item 1 — layout demo (sem backend)
               </CardDescription>
               <div className="pt-2"></div>
             </motion.div>
@@ -469,14 +469,14 @@ export default function LoginPage() {
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <img
-                        src="/GeIcons/Gen-Moviment.gif"
+                      src="/Gen-Moviment.gif"
                         alt=""
                         className="h-5 w-5 object-contain"
                       />
                       Entrando...
                     </span>
                   ) : (
-                    "Entrar no genovo"
+                    "Entrar no GeNovo"
                   )}
                 </Button>
               </motion.div>

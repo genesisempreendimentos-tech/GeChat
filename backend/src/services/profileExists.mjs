@@ -1,5 +1,5 @@
 /**
- * Verifica se existe linha em public.profiles para o e-mail (merge corporativo só com perfil GêApps).
+ * Verifica se existe linha em public.profiles para o e-mail (merge corporativo só com perfil GeNovo).
  * Com SUPABASE_SERVICE_ROLE_KEY no servidor, ignora RLS (admins podem ver popups de outros membros).
  * Sem service role, usa o JWT do utilizador (só vê perfis que a RLS permitir).
  */

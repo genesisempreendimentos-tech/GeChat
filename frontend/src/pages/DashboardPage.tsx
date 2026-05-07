@@ -98,7 +98,7 @@ export default function DashboardPage() {
 
       const [total, foregroundMs, { data: logsAll }, { data: recentLogs }] = await Promise.all([
         databaseService.getUserAccessCount(user.id),
-        databaseService.getUserForegroundScreenTimeMsForGenovo(user.id),
+        databaseService.getUserForegroundScreenTimeMsForGeNovo(user.id),
         databaseService.getAccessLogs(user.id, 500),
         databaseService.getAccessLogs(user.id, 5),
       ]);
@@ -194,7 +194,7 @@ export default function DashboardPage() {
   const stats = useMemo(
     () => [
       {
-        title: 'Morango disponível',
+        title: 'Item 1 disponível',
         value: systems.length,
         icon: Boxes,
         color: 'text-blue-500',
@@ -202,7 +202,7 @@ export default function DashboardPage() {
         trend: null as number | null,
       },
       {
-        title: 'Pitanga',
+        title: 'Item 4',
         value: favoriteSystems.length,
         icon: Star,
         color: 'text-yellow-500',
@@ -269,9 +269,9 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between" data-tour="dashboard-welcome">
         <div>
-          <h1 className="text-3xl font-bold">Uva</h1>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-2">
-            Bem-vindo, {user?.name?.split(' ')[0]}! Aqui está um resumo do seu Morango e das atividades recentes.
+            Bem-vindo, {user?.name?.split(' ')[0]}! Aqui está um resumo do seu Item 1 e das atividades recentes.
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -361,10 +361,10 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Star className="w-5 h-5 text-yellow-500" />
-                Pitanga
+                Item 4
               </CardTitle>
               <CardDescription>
-                Acesso rápido ao Morango que você mais usa
+                Acesso rápido ao Item 1 que você mais usa
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -469,7 +469,7 @@ export default function DashboardPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Todo o Morango</CardTitle>
+                <CardTitle>Todo o Item 1</CardTitle>
                 <CardDescription>
                   Clique em um aplicativo para acessá-lo
                 </CardDescription>

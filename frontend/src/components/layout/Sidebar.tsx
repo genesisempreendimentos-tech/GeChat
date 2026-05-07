@@ -1,18 +1,15 @@
-import { motion } from 'framer-motion';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Grape,
-  Cherry,
-  Citrus,
-  Nut,
-  Flower2,
-  TreePalm,
-  Apple,
+  LayoutDashboard,
+  Megaphone,
+  UsersRound,
+  Star,
   ExternalLink,
   Check,
   UserKey,
   UserStar,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '@/store/authStore';
@@ -32,13 +29,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const menuItems = [
-  { icon: Grape, label: 'Uva', path: '/dashboard' },
-  { icon: Cherry, label: 'Morango', path: '/systems' },
-  { icon: Citrus, label: 'Manga', path: '/solicitacoes' },
-  { icon: Nut, label: 'Caju', path: '/comunicados' },
-  { icon: Flower2, label: 'Pitaya', path: '/equipes' },
-  { icon: TreePalm, label: 'Coco', path: '/empresa' },
-  { icon: Apple, label: 'Pitanga', path: '/favorites' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: Megaphone, label: 'Comunicados', path: '/comunicados' },
+  { icon: UsersRound, label: 'Equipes', path: '/equipes' },
+  { icon: Star, label: 'Item 1', path: '/systems' },
+  { icon: Star, label: 'Item 2', path: '/solicitacoes' },
+  { icon: Star, label: 'Item 3', path: '/empresa' },
+  { icon: Star, label: 'Item 4', path: '/favorites' },
 ];
 
 interface SidebarProps {
@@ -46,6 +43,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ userRole }: SidebarProps) {
+  void userRole;
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -148,7 +146,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
                   <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
                     <img
                       src="/assets/brand-mock.svg"
-                      alt="genovo"
+                      alt="GeNovo"
                       className="w-full h-full object-contain"
                       style={{
                         filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
@@ -161,7 +159,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
                       isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'
                     )}
                   >
-                    genovo
+                    GeNovo
                   </span>
                 </div>
               </div>
@@ -187,7 +185,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
               <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
                 <img
                   src="/assets/brand-mock.svg"
-                  alt="genovo"
+                  alt="GeNovo"
                   className="w-full h-full object-contain"
                   style={{
                     filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
@@ -200,7 +198,7 @@ export default function Sidebar({ userRole }: SidebarProps) {
                   isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'
                 )}
               >
-                genovo
+                GeNovo
               </span>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import type { ElementType } from 'react';
 import { motion } from 'framer-motion';
 import * as Icons from 'lucide-react';
-import { Users, MoreVertical, Check, Loader2, Layers, SquareCheck, Archive, Trash2 } from 'lucide-react';
+import { Users, MoreVertical, Check, Layers, SquareCheck, Archive, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { LoadingGifScreen } from '@/components/LoadingGif';
+import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
 import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
 import type { TeamLifecycleStatus } from '@/services/supabase';
@@ -301,7 +301,7 @@ function TeamStatusActionsMenu({
           )}
           aria-label="Opções da equipe"
         >
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+          {pending ? <LoadingGif size="sm" /> : <MoreVertical className="h-4 w-4" />}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[180px]">

@@ -13,19 +13,19 @@ interface BreadcrumbsProps {
 }
 
 const routeNames: Record<string, string> = {
-  dashboard: "Uva",
-  systems: "Morango",
-  favorites: "Pitanga",
-  solicitacoes: "Manga",
-  comunicados: "Caju",
-  equipes: "Pitaya",
-  empresa: "Coco",
-  members: "Romã",
-  categories: "Kiwi",
+  dashboard: "Dashboard",
+  systems: "Item 1",
+  favorites: "Item 4",
+  solicitacoes: "Item 2",
+  comunicados: "Comunicados",
+  equipes: "Equipes",
+  empresa: "Item 3",
+  members: "Usuários",
+  categories: "Categorias",
   profile: "Perfil",
   settings: "Configurações",
   admin: "Admin",
-  home: "Uva",
+  home: "Dashboard",
 }
 
 export function Breadcrumbs({ items, className }: BreadcrumbsProps) {

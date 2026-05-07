@@ -34,7 +34,7 @@ export function getAuthStorage(): Storage {
 }
 
 /** Base URL do app (mock): origin atual. */
-export const GEAPPS_BASE_URL =
+export const GENOVO_BASE_URL =
   typeof window !== 'undefined'
     ? `${window.location.protocol}//${window.location.host}`
     : '';

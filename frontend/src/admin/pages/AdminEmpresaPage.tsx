@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { TreePalm, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { Building2, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { EmpresaCompanyCard } from '@/components/empresa/EmpresaCompanyCard';
@@ -166,8 +166,8 @@ export default function AdminEmpresaPage() {
     <MainViewFluidShell>
       <div className="space-y-6">
         <MainViewHeader
-          icon={<TreePalm className="h-6 w-6" />}
-          title="Coco"
+          icon={<Building2 className="h-6 w-6" />}
+          title="Item 3"
           description="Gerencie as informações institucionais e configurações da empresa."
           button={
             <Button

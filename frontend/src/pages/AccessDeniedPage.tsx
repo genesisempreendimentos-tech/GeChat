@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import LogoSvg from "../../assets/logo-gen-sem-fundo-svg.svg";
+const LogoSvg = '/assets/logo-gen-sem-fundo-svg.svg';
 
 const logoFilter =
   "brightness(0) saturate(100%) invert(72%) sepia(47%) saturate(558%) hue-rotate(126deg) brightness(94%) contrast(89%)";
@@ -61,7 +61,7 @@ export default function AccessDeniedPage() {
             <div className="flex justify-center mb-6">
               <img
                 src="/assets/brand-mock.svg"
-                alt="genovo"
+                alt="GeNovo"
                 className="w-16 h-16 object-contain"
                 style={{
                   filter:

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Send, Headset, Citrus, ExternalLink, Filter, ChevronDown, Boxes, Table2, LayoutGrid, MoreVertical, Trash2 } from 'lucide-react';
+import { Search, Send, Headset, ClipboardList, ExternalLink, Filter, ChevronDown, Boxes, Table2, LayoutGrid, MoreVertical, Trash2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -129,8 +129,8 @@ export default function SolicitacoesPage() {
     <MainViewFluidShell>
     <div className="space-y-6">
       <MainViewHeader
-        icon={<Citrus className="h-6 w-6" />}
-        title="Manga"
+        icon={<ClipboardList className="h-6 w-6" />}
+        title="Item 2"
         description="Envie solicitações para outros departamentos."
       />
 

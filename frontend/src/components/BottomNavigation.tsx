@@ -1,13 +1,11 @@
-import { useLocation, useNavigate } from "react-router-dom"
 import {
-  Grape,
-  Cherry,
-  Apple,
-  Citrus,
-  Flower2,
+  LayoutDashboard,
+  Megaphone,
+  UsersRound,
   Settings,
-  Shield,
+  Star,
 } from "lucide-react"
+import { useLocation, useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/authStore"
 import { cn } from "@/lib/utils"
 
@@ -27,40 +25,39 @@ export function BottomNavigation() {
 
   const navItems: NavItem[] = [
     {
-      icon: Grape,
-      label: "Uva",
+      icon: LayoutDashboard,
+      label: "Dashboard",
       path: "/dashboard",
     },
     {
-      icon: Cherry,
-      label: "Morango",
+      icon: Megaphone,
+      label: "Comunicados",
+      path: "/comunicados",
+    },
+    {
+      icon: UsersRound,
+      label: "Equipes",
+      path: "/equipes",
+    },
+    {
+      icon: Star,
+      label: "Item 1",
       path: "/systems",
     },
     {
-      icon: Apple,
-      label: "Pitanga",
-      path: "/favorites",
-    },
-    {
-      icon: Citrus,
-      label: "Manga",
+      icon: Star,
+      label: "Item 2",
       path: "/solicitacoes",
     },
-    // {
-    //   icon: MessageCircle,
-    //   label: "Chat",
-    //   path: "/chat",
-    // },
     {
-      icon: Shield,
-      label: "Jabuticaba",
-      path: "/admin/home",
-      showWhenAdmin: true,
+      icon: Star,
+      label: "Item 3",
+      path: "/empresa",
     },
     {
-      icon: Settings,
-      label: "Tamarindo",
-      path: "/settings",
+      icon: Star,
+      label: "Item 4",
+      path: "/favorites",
     },
   ]
 
@@ -69,12 +66,14 @@ export function BottomNavigation() {
 
   /** Em < md o sidebar admin fica oculto; estes itens espelham o menu admin (incl. Solicitações). */
   const adminMobileNavItems: NavItem[] = [
-    { icon: Grape, label: "Uva", path: "/admin/home" },
-    { icon: Cherry, label: "Morango", path: "/admin/systems" },
-    { icon: Apple, label: "Pitanga", path: "/favorites" },
-    { icon: Citrus, label: "Manga", path: "/admin/solicitacoes" },
-    { icon: Flower2, label: "Pitaya", path: "/admin/members" },
-    { icon: Settings, label: "Tamarindo", path: "/settings" },
+    { icon: LayoutDashboard, label: "Dashboard", path: "/admin/home" },
+    { icon: Megaphone, label: "Comunicados", path: "/admin/comunicados" },
+    { icon: UsersRound, label: "Equipes", path: "/admin/equipes" },
+    { icon: Star, label: "Item 1", path: "/admin/systems" },
+    { icon: Star, label: "Item 2", path: "/admin/solicitacoes" },
+    { icon: Star, label: "Item 3", path: "/admin/empresa" },
+    { icon: Star, label: "Item 4", path: "/favorites" },
+    { icon: Settings, label: "Configurações", path: "/settings" },
   ]
 
   const filteredNavItems = isAdminPath
@@ -102,7 +101,7 @@ export function BottomNavigation() {
           "flex h-16 items-stretch",
           isAdminPath
             ? "justify-start gap-0.5 overflow-x-auto overflow-y-hidden px-1.5 [scrollbar-width:thin]"
-            : "justify-around"
+            : "justify-start gap-0.5 overflow-x-auto overflow-y-hidden px-1.5 [scrollbar-width:thin]"
         )}
       >
         {filteredNavItems.map((item) => {
@@ -116,7 +115,7 @@ export function BottomNavigation() {
               onClick={() => navigate(item.path)}
               className={cn(
                 "relative flex flex-col items-center justify-center h-full transition-colors shrink-0",
-                isAdminPath ? "min-w-[4.25rem] max-w-[5.5rem] flex-1 px-0.5" : "flex-1 min-w-0",
+                "min-w-[4.25rem] max-w-[5.5rem] flex-1 px-0.5",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"

@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { LoadingGif } from "@/components/LoadingGif"
 import {
   Tooltip,
   TooltipContent,
@@ -122,7 +122,7 @@ export const AvatarGroupItem = ({
       {children}
       {loading ? (
         <span className="absolute inset-0 z-10 flex items-center justify-center rounded-full bg-background/60">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
+          <LoadingGif size="sm" />
         </span>
       ) : null}
     </button>
