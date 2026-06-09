@@ -10,20 +10,9 @@ type ScoreGaugeChartProps = {
   className?: string;
 };
 
-function polar(cx: number, cy: number, r: number, angleDeg: number) {
-  const rad = (angleDeg * Math.PI) / 180;
-  return {
-    x: cx + r * Math.cos(rad),
-    y: cy + r * Math.sin(rad),
-  };
-}
-
-function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: number) {
-  const start = polar(cx, cy, r, startDeg);
-  const end = polar(cx, cy, r, endDeg);
-  const sweep = startDeg > endDeg ? 0 : 1;
-  const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} ${sweep} ${end.x} ${end.y}`;
+/** Semicírculo aberto para baixo (∪): esquerda → direita. */
+function downwardSemiArcPath(cx: number, cy: number, r: number) {
+  return `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
 }
 
 export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) {
@@ -31,11 +20,10 @@ export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) 
   const clamped = clampScore(value);
   const scoreEmoji = getScoreEmoji(clamped);
   const cx = 60;
-  const cy = 54;
-  const r = 36;
-  const startDeg = 180;
-  const endDeg = 0;
-  const valueEndDeg = startDeg - (clamped / 100) * 180;
+  const cy = 34;
+  const r = 30;
+  const arcPath = downwardSemiArcPath(cx, cy, r);
+  const arcUnits = 100;
 
   return (
     <div
@@ -51,7 +39,8 @@ export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) 
           aria-hidden
         >
           <path
-            d={arcPath(cx, cy, r, startDeg, endDeg)}
+            d={arcPath}
+            pathLength={arcUnits}
             fill="none"
             stroke="currentColor"
             strokeWidth="7"
@@ -60,11 +49,13 @@ export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) 
           />
           {clamped > 0 ? (
             <path
-              d={arcPath(cx, cy, r, startDeg, valueEndDeg)}
+              d={arcPath}
+              pathLength={arcUnits}
               fill="none"
               stroke="currentColor"
               strokeWidth="7"
-              strokeLinecap="round"
+              strokeLinecap="butt"
+              strokeDasharray={`${clamped} ${arcUnits - clamped}`}
               className="text-primary"
             />
           ) : null}
@@ -72,7 +63,7 @@ export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) 
 
         <motion.div
           key={scoreEmoji.notoCode}
-          className="pointer-events-none absolute inset-x-0 top-[26%] flex -translate-y-1/2 justify-center"
+          className="pointer-events-none absolute inset-x-0 top-[38%] flex -translate-y-1/2 justify-center"
           title={scoreEmoji.label}
           initial={motionCfg.enabled ? { opacity: 0, scale: 0.6 } : false}
           animate={motionCfg.enabled ? { opacity: 1, scale: 1 } : undefined}
@@ -81,12 +72,12 @@ export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) 
           <NotoEmoji
             code={scoreEmoji.notoCode}
             alt={scoreEmoji.emoji}
-            size={40}
+            size={36}
             className="drop-shadow-sm"
           />
         </motion.div>
 
-        <p className="pointer-events-none absolute inset-x-0 top-[70%] -translate-y-1/2 text-center text-3xl font-bold tabular-nums leading-none text-foreground lg:text-[2.125rem]">
+        <p className="pointer-events-none absolute inset-x-0 top-[78%] -translate-y-1/2 text-center text-3xl font-bold tabular-nums leading-none text-foreground lg:text-[2.125rem]">
           <MotionFlipNumber value={clamped} />
         </p>
       </div>
