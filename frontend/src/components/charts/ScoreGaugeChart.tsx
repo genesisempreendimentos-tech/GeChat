@@ -1,5 +1,5 @@
 import { NotoEmoji } from '@/components/leads/NotoEmoji';
-import { MotionNumber } from '@/components/motion/AppMotion';
+import { MotionFlipNumber } from '@/components/motion/AppMotion';
 import { getScoreEmoji, clampScore } from '@/lib/scoreEmoji';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -31,25 +31,22 @@ export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) 
   const clamped = clampScore(value);
   const scoreEmoji = getScoreEmoji(clamped);
   const cx = 60;
-  const cy = 58;
-  const r = 40;
+  const cy = 54;
+  const r = 36;
   const startDeg = 180;
   const endDeg = 0;
   const valueEndDeg = startDeg - (clamped / 100) * 180;
 
   return (
     <div
-      className={cn(
-        'flex w-full min-w-0 flex-col items-center justify-center overflow-visible px-1 py-2',
-        className,
-      )}
+      className={cn('flex shrink-0 items-center justify-center', className)}
       role="img"
       aria-label={`Pontuação ${clamped} — ${scoreEmoji.label}`}
     >
-      <div className="relative w-full max-w-[10.5rem]">
+      <div className="relative aspect-[5/4] w-full max-w-[11rem] lg:max-w-[12.5rem]">
         <svg
-          viewBox="0 0 120 76"
-          className="h-auto w-full overflow-visible"
+          viewBox="0 0 120 80"
+          className="absolute inset-0 h-full w-full overflow-visible"
           preserveAspectRatio="xMidYMid meet"
           aria-hidden
         >
@@ -72,9 +69,10 @@ export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) 
             />
           ) : null}
         </svg>
+
         <motion.div
           key={scoreEmoji.notoCode}
-          className="pointer-events-none absolute inset-x-0 top-[37%] flex -translate-y-1/2 justify-center"
+          className="pointer-events-none absolute inset-x-0 top-[26%] flex -translate-y-1/2 justify-center"
           title={scoreEmoji.label}
           initial={motionCfg.enabled ? { opacity: 0, scale: 0.6 } : false}
           animate={motionCfg.enabled ? { opacity: 1, scale: 1 } : undefined}
@@ -83,14 +81,15 @@ export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) 
           <NotoEmoji
             code={scoreEmoji.notoCode}
             alt={scoreEmoji.emoji}
-            size={46}
+            size={40}
             className="drop-shadow-sm"
           />
         </motion.div>
+
+        <p className="pointer-events-none absolute inset-x-0 top-[70%] -translate-y-1/2 text-center text-3xl font-bold tabular-nums leading-none text-foreground lg:text-[2.125rem]">
+          <MotionFlipNumber value={clamped} />
+        </p>
       </div>
-      <p className="-mt-4 text-3xl font-bold tabular-nums leading-none text-foreground lg:text-4xl">
-        <MotionNumber value={clamped} />
-      </p>
     </div>
   );
 }

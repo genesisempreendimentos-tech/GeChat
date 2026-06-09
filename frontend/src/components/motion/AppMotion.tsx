@@ -1,6 +1,6 @@
 import type { HTMLMotionProps, Variants } from 'framer-motion';
-import { AnimatePresence, motion } from 'framer-motion';
-import type { ReactNode } from 'react';
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
+import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 import { useAppMotion } from '@/hooks/useAppMotion';
 import {
   motionFadeUp,
@@ -180,26 +180,139 @@ type MotionNumberProps = {
   className?: string;
 };
 
-/** Número com leve “pop” na entrada ou ao mudar. */
-export function MotionNumber({ value, className }: MotionNumberProps) {
+const ODOMETER_DIGIT_HEIGHT = '1em';
+
+type DisplayToken = {
+  key: string;
+  char: string;
+  isDigit: boolean;
+  digit: number | null;
+};
+
+function tokenizeDisplayValue(value: number | string): DisplayToken[] {
+  return String(value).split('').map((char, index) => ({
+    key: `pos-${index}`,
+    char,
+    isDigit: /\d/.test(char),
+    digit: /\d/.test(char) ? Number(char) : null,
+  }));
+}
+
+function OdometerDigit({ digit }: { digit: number }) {
   const motionCfg = useAppMotion();
 
-  if (!motionCfg.enabled) {
-    return <span className={className}>{value}</span>;
+  return (
+    <span
+      className="relative inline-flex shrink-0 items-center justify-center overflow-hidden leading-none"
+      style={{ height: ODOMETER_DIGIT_HEIGHT, width: '1ch' }}
+      aria-hidden
+    >
+      <motion.span
+        className="absolute left-0 top-0 flex w-[1ch] flex-col tabular-nums leading-none"
+        initial={false}
+        animate={{ y: `calc(-${digit} * ${ODOMETER_DIGIT_HEIGHT})` }}
+        transition={motionCfg.odometerSpring}
+      >
+        {Array.from({ length: 10 }, (_, d) => (
+          <span
+            key={d}
+            className="flex w-[1ch] items-center justify-center leading-none"
+            style={{ height: ODOMETER_DIGIT_HEIGHT }}
+          >
+            {d}
+          </span>
+        ))}
+      </motion.span>
+    </span>
+  );
+}
+
+/** Número com odômetro: cada dígito anima individualmente até o próximo valor. */
+export function MotionFlipNumber({ value, className }: MotionNumberProps) {
+  const motionCfg = useAppMotion();
+  const text = String(value);
+  const tokens = tokenizeDisplayValue(text);
+  const hasDigits = tokens.some((token) => token.isDigit);
+
+  if (!motionCfg.enabled || !hasDigits) {
+    return <span className={cn('tabular-nums', className)}>{text}</span>;
   }
 
   return (
-    <AnimatePresence mode="popLayout">
-      <motion.span
-        key={String(value)}
-        initial={{ opacity: 0, scale: 0.82, y: 6 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: -4 }}
-        transition={motionCfg.springSoft}
-        className={cn('inline-block', className)}
-      >
-        {value}
-      </motion.span>
-    </AnimatePresence>
+    <span
+      className={cn(
+        'inline-flex h-[1em] items-center leading-none tabular-nums',
+        className,
+      )}
+      aria-label={text}
+    >
+      <AnimatePresence mode="popLayout" initial={false}>
+        {tokens.map((token) =>
+          token.isDigit && token.digit != null ? (
+            <motion.span
+              key={token.key}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={motionCfg.odometerSlotTransition}
+              className="inline-flex h-[1em] items-center"
+            >
+              <OdometerDigit digit={token.digit} />
+            </motion.span>
+          ) : (
+            <motion.span
+              key={token.key}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={motionCfg.odometerSlotTransition}
+              className="inline-flex h-[1em] items-center leading-none"
+            >
+              {token.char}
+            </motion.span>
+          ),
+        )}
+      </AnimatePresence>
+    </span>
   );
 }
+
+/** Alias legado — usa FLIP vertical. */
+export function MotionNumber({ value, className }: MotionNumberProps) {
+  return <MotionFlipNumber value={value} className={className} />;
+}
+
+type MotionFlipListItemProps = ComponentPropsWithoutRef<'tr'>;
+
+/** Linha de lista/tabela com FLIP de posição ao reordenar ou filtrar. */
+export function MotionFlipListItem({ children, className, ...props }: MotionFlipListItemProps) {
+  const motionCfg = useAppMotion();
+
+  if (!motionCfg.enabled) {
+    return (
+      <tr className={className} {...props}>
+        {children}
+      </tr>
+    );
+  }
+
+  return (
+    <motion.tr
+      layout="position"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{
+        layout: motionCfg.springSoft,
+        opacity: motionCfg.pageTransition,
+        y: motionCfg.springSoft,
+      }}
+      className={className}
+      {...props}
+    >
+      {children}
+    </motion.tr>
+  );
+}
+
+export { LayoutGroup };

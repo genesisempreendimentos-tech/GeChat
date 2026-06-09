@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { GesiteBalanceComparison } from '@/components/charts/Balance';
-import { MotionReveal } from '@/components/motion/AppMotion';
+import { MotionFlipNumber, MotionReveal } from '@/components/motion/AppMotion';
 
 type InfoBoxCor = 'emerald' | 'blue' | 'amber' | 'violet' | 'muted';
 
@@ -116,8 +116,14 @@ export function InfoBox({
           </Tooltip>
         ) : null}
       </div>
-      <div className="mt-auto flex items-end justify-between gap-2">
-        <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
+      <div className="mt-auto flex items-center justify-between gap-2">
+        <p className="inline-flex min-h-[1em] items-center text-2xl font-bold leading-none tracking-tight text-foreground">
+          {typeof value === 'number' || typeof value === 'string' ? (
+            <MotionFlipNumber value={value} />
+          ) : (
+            value
+          )}
+        </p>
         {showDelta ? (
           <span
             className={cn(
@@ -128,7 +134,7 @@ export function InfoBox({
             )}
           >
             {deltaUp ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-            {formatBalanceDelta(balanceDelta, balanceFormat)}
+            <MotionFlipNumber value={formatBalanceDelta(balanceDelta, balanceFormat)} />
           </span>
         ) : null}
       </div>

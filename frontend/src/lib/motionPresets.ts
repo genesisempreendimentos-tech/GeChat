@@ -16,6 +16,19 @@ export const motionSpringSoft: Transition = {
   mass: 0.9,
 };
 
+/** Odômetro numérico — mais lento e estável que o spring padrão. */
+export const motionOdometerSpring: Transition = {
+  type: 'spring',
+  stiffness: 110,
+  damping: 26,
+  mass: 1.35,
+};
+
+export const motionOdometerSlotTransition: Transition = {
+  duration: 0.38,
+  ease: MOTION_EASE,
+};
+
 /** Spring fluido para modais (crescimento/redução por dados). */
 export const motionModalSpring: Transition = {
   type: 'spring',

@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAppMotion } from '@/hooks/useAppMotion';
 import { cn } from '@/lib/utils';
 
 export interface TabButtonItem<T extends string> {
@@ -22,6 +23,8 @@ export function TabButtons<T extends string>({
   onChange,
   className,
 }: TabButtonsProps<T>) {
+  const motionCfg = useAppMotion();
+
   return (
     <div
       className={cn(
@@ -53,7 +56,7 @@ export function TabButtons<T extends string>({
                   initial={{ width: 0, opacity: 0, marginLeft: 0 }}
                   animate={{ width: 'auto', opacity: 1, marginLeft: 6 }}
                   exit={{ width: 0, opacity: 0, marginLeft: 0 }}
-                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  transition={motionCfg.springSoft}
                   className="overflow-hidden whitespace-nowrap"
                 >
                   {label}

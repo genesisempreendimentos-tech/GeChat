@@ -7,6 +7,8 @@ import {
   motionPageTransition,
   motionSpring,
   motionSpringSoft,
+  motionOdometerSpring,
+  motionOdometerSlotTransition,
 } from '@/lib/motionPresets';
 
 const INSTANT: Transition = { duration: 0 };
@@ -20,6 +22,8 @@ export function useAppMotion() {
       pageTransition: animations ? motionPageTransition : INSTANT,
       spring: animations ? motionSpring : INSTANT,
       springSoft: animations ? motionSpringSoft : INSTANT,
+      odometerSpring: animations ? motionOdometerSpring : INSTANT,
+      odometerSlotTransition: animations ? motionOdometerSlotTransition : INSTANT,
       modalSpring: animations ? motionModalSpring : INSTANT,
       modalTransition: animations ? motionModalTransition : INSTANT,
       staggerStep: animations ? 0.06 : 0,

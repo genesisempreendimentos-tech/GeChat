@@ -1,9 +1,15 @@
 import { useEffect, useImperativeHandle, useMemo, useState, forwardRef, type ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { InfoBox, INFOBOX_TOOLTIP_CONTENT_CLASS } from '@/components/ui/infoboxes';
 import { Iris, type IrisVariant } from '@/components/ui/Iris';
 import { GesiteControlLine } from '@/components/gesite/GesiteControlLine';
-import type { GesitePageControlFilters } from '@/lib/gesiteControlLine';
+import type { GesiteMetricaFiltro, GesitePageControlFilters } from '@/lib/gesiteControlLine';
 import { filterRowsByBalancoRange, getGesiteBalancoRanges } from '@/lib/gesiteBalanco';
+import {
+  computeGesiteLeadsInfoboxStats,
+  filterLeadsByMetrica,
+  getGesiteBalancoScopedRows,
+} from '@/lib/gesiteLeadsMetrics';
 import {
   computeGesiteLeadQualificacao,
   gesiteLeadRespondeuFormularioPerfil,
@@ -16,6 +22,8 @@ import { profileDataFillRatio } from '@/lib/motionPresets';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { TabButtons } from '@/components/ui/tab-buttons';
+import { ViewModeToggle, type ViewMode } from '@/components/ui/ViewModeToggle';
+import { GesiteLeadCard } from '@/components/gesite/GesiteLeadCard';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -33,18 +41,23 @@ import {
   Copy,
   MonitorSmartphone,
   MessageCircleCheck,
-  Eye,
   Users,
   User,
-  StickyNote,
-  Info,
-  ClipboardList,
+  HandCoins,
   MessageSquare,
   CalendarCheck,
+  CreditCard,
+  Info,
 } from 'lucide-react';
 import { ScoreGaugeChart } from '@/components/charts/ScoreGaugeChart';
-import { MotionReveal } from '@/components/motion/AppMotion';
+import {
+  LayoutGroup,
+  MotionFlipListItem,
+  MotionFlipNumber,
+  MotionReveal,
+} from '@/components/motion/AppMotion';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAppMotion } from '@/hooks/useAppMotion';
 
 
 /** Linhas por página nas tabelas das subabas Leads e Acessos (GêSite). */
@@ -52,6 +65,7 @@ const GESITE_SUBTAB_TABLE_PAGE_SIZE = 50;
 const PAGE_SIZE = GESITE_SUBTAB_TABLE_PAGE_SIZE;
 const LEADS_PAGE_SIZE = GESITE_SUBTAB_TABLE_PAGE_SIZE;
 const ACESSOS_PAGINA_PAGE_SIZE = GESITE_SUBTAB_TABLE_PAGE_SIZE;
+const GESITE_LEADS_VIEW_MODE_KEY = 'geleads_gesite_leads_view_mode';
 
 /** Opções de múltipla escolha — relacionamento. */
 type GesiteLeadRelacionamento =
@@ -104,9 +118,6 @@ function gesiteLeadPerfilCompleto(row: GesiteLeadMockRow): boolean {
 
 type GesiteLeadsTableTab = 'fonte' | 'perfil';
 
-/** Vista principal da tabela na subaba Leads (GêSite). */
-type GesiteLeadsPrimaryTableTab = 'paginas' | 'leads';
-
 type GesiteLeadsPaginaRow = {
   id: string;
   nome: string;
@@ -142,12 +153,11 @@ export const GESITE_LEADS_INFOBOX_MOCK = {
   forms: 162,
   whatsapp: 86,
   taxaConversaoPct: 11.8,
-  formsConversaoPct: 65.3,
-  whatsappConversaoPct: 34.7,
-  formsIncompletos: 37,
-  atendimentoCorretor: 29,
+  pontuacao: 72,
+  vendas: 12,
   visitasAgendadas: 18,
-  origemDominante: 'Google',
+  atendimentoCorretor: 29,
+  analiseCredito: 21,
 };
 
 function createGesiteLeadsTimeSeriesMock(reference: Date = new Date()): GesiteLeadMockRow[] {
@@ -169,6 +179,7 @@ function createGesiteLeadsTimeSeriesMock(reference: Date = new Date()): GesiteLe
   ];
   const perfis: GesiteLeadPerfilTipo[] = ['Morador', 'Investidor', 'Corretor'];
   const cidades = ['São Paulo — SP', 'Rio de Janeiro — RJ', 'Curitiba — PR', ''];
+  const pagamentos = ['PIX', 'Financiamento', 'Cartão / parcelado', 'Transferência'];
   for (let d = 0; d < 400; d++) {
     const day = new Date(today);
     day.setDate(day.getDate() - d);
@@ -200,7 +211,7 @@ function createGesiteLeadsTimeSeriesMock(reference: Date = new Date()): GesiteLe
         perfilLead: preenche ? perfis[n % 3] : '',
         perfilOutrasRespostas: '',
         dispositivo: ['Celular', 'Computador'][n % 2],
-        pagamentoPreferencia: '',
+        pagamentoPreferencia: preenche ? pagamentos[n % pagamentos.length] : '',
       };
       out.push({ ...rowBase, qualificacao: computeGesiteLeadQualificacao(rowBase) });
       n++;
@@ -321,21 +332,30 @@ function gesiteLeadContatoIsForm(contato: string): boolean {
   return contato.includes('@');
 }
 
-function gesiteTaxaConversaoLeadsPct(rows: GesiteLeadMockRow[]): number {
-  if (!rows.length) return 0;
-  const forms = rows.filter((r) => gesiteLeadContatoIsForm(r.contato)).length;
-  return (forms / rows.length) * 100;
-}
-
 const GESITE_LEADS_TAB_BUTTON_ITEMS = [
   { value: 'fonte' as const, label: 'Origem', Icon: Globe },
   { value: 'perfil' as const, label: 'Perfil', Icon: User },
 ];
 
-const GESITE_LEADS_PRIMARY_TAB_ITEMS = [
-  { value: 'paginas' as const, label: 'Páginas', Icon: StickyNote },
-  { value: 'leads' as const, label: 'Leads', Icon: Users },
-];
+const GESITE_LEAD_MODAL_TAB_ORDER: Record<GesiteLeadsTableTab, number> = {
+  fonte: 0,
+  perfil: 1,
+};
+
+const gesiteTabPanelVariants = {
+  enter: (dir: number) => ({
+    opacity: 0,
+    x: dir > 0 ? 18 : dir < 0 ? -18 : 0,
+  }),
+  center: {
+    opacity: 1,
+    x: 0,
+  },
+  exit: (dir: number) => ({
+    opacity: 0,
+    x: dir > 0 ? -18 : dir < 0 ? 18 : 0,
+  }),
+};
 
 export const GESITE_LEADS_PAGINAS_TABLE_MOCK: GesiteLeadsPaginaRow[] = [
   {
@@ -726,13 +746,13 @@ function gesiteLeadsPaginaCellContent(row: GesiteLeadsPaginaRow, col: GesiteLead
     case 'nome':
       return row.nome;
     case 'leads':
-      return row.leads.toLocaleString('pt-BR');
+      return <MotionFlipNumber value={row.leads.toLocaleString('pt-BR')} />;
     case 'ultimoLead':
       return formatGesiteUltimoLeadDmyHms(row.ultimoLeadIso);
     case 'perfilPct':
-      return formatGesitePct0to100(row.perfilPct);
+      return <MotionFlipNumber value={formatGesitePct0to100(row.perfilPct)} />;
     case 'qualificacaoPct':
-      return formatGesitePct0to100(row.qualificacaoPct);
+      return <MotionFlipNumber value={formatGesitePct0to100(row.qualificacaoPct)} />;
   }
 }
 
@@ -782,6 +802,106 @@ function GesiteLeadModalPerfilPanel({ row }: { row: GesiteLeadMockRow }) {
   );
 }
 
+const GESITE_FILTROS_PANEL_GAP_PX = 32;
+
+function GesiteFiltrosPanelMotion({
+  open,
+  children,
+}: {
+  open: boolean;
+  children: ReactNode;
+}) {
+  const motionCfg = useAppMotion();
+
+  if (!motionCfg.enabled) {
+    return open ? <div className="mb-8">{children}</div> : null;
+  }
+
+  return (
+    <AnimatePresence initial={false}>
+      {open ? (
+        <motion.div
+          key="gesite-filtros-panel"
+          initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+          animate={{ opacity: 1, height: 'auto', marginBottom: GESITE_FILTROS_PANEL_GAP_PX }}
+          exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+          transition={{
+            opacity: motionCfg.pageTransition,
+            height: motionCfg.springSoft,
+            marginBottom: motionCfg.springSoft,
+          }}
+          className="overflow-hidden"
+        >
+          {children}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function GesiteAnimatedTabPanel({
+  viewKey,
+  direction,
+  children,
+  className,
+}: {
+  viewKey: string;
+  direction: number;
+  children: ReactNode;
+  className?: string;
+}) {
+  const motionCfg = useAppMotion();
+
+  if (!motionCfg.enabled) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return (
+    <AnimatePresence mode="wait" custom={direction}>
+      <motion.div
+        key={viewKey}
+        custom={direction}
+        layout
+        className={className}
+        variants={gesiteTabPanelVariants}
+        initial="enter"
+        animate="center"
+        exit="exit"
+        transition={{
+          opacity: motionCfg.pageTransition,
+          x: motionCfg.pageTransition,
+          layout: motionCfg.springSoft,
+        }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function GesiteLeadModalTabPanels({
+  tab,
+  row,
+  direction,
+}: {
+  tab: GesiteLeadsTableTab;
+  row: GesiteLeadMockRow;
+  direction: number;
+}) {
+  const panel =
+    tab === 'fonte' ? (
+      <GesiteLeadModalFontePanel row={row} />
+    ) : (
+      <GesiteLeadModalPerfilPanel row={row} />
+    );
+
+  return (
+    <GesiteAnimatedTabPanel viewKey={tab} direction={direction}>
+      {panel}
+    </GesiteAnimatedTabPanel>
+  );
+}
+
 const PONTUACAO_INFO_TOOLTIP =
   'Pontuação consolidada do GêSite (valores de exemplo). Quando existir API, pode agregar visitas, envolvimento e conversões segundo a vossa fórmula.';
 
@@ -792,7 +912,7 @@ function PontuacaoGaugeCard({ className, value = 72 }: { className?: string; val
       index={4}
       role="group"
       className={cn(
-        'flex min-h-[17rem] min-w-0 flex-col gap-4 overflow-visible rounded-2xl border border-border/70 bg-card/80 p-5 shadow-sm backdrop-blur-sm dark:bg-card/60 lg:h-full',
+        'flex min-h-[17rem] min-w-0 flex-col gap-2 overflow-visible rounded-2xl border border-border/70 bg-card/80 px-4 py-4 shadow-sm backdrop-blur-sm dark:bg-card/60 lg:h-full lg:px-5 lg:py-5',
         className,
       )}
     >
@@ -823,45 +943,39 @@ function PontuacaoGaugeCard({ className, value = 72 }: { className?: string; val
           </TooltipContent>
         </Tooltip>
       </div>
-      <div className="flex min-h-[11rem] flex-1 items-center justify-center overflow-visible">
-        <ScoreGaugeChart value={value} className="h-full w-full" />
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+        <ScoreGaugeChart value={value} className="w-full" />
       </div>
     </MotionReveal>
   );
 }
 
-export function computeGesiteLeadsBalanceCtx(balanco: GesitePageControlFilters['balanco']) {
-  const mode = balanco;
-  if (mode === 'desligado') return null;
-  const ranges = getGesiteBalancoRanges(mode);
+export function computeGesiteLeadsBalanceCtx(filtros: GesitePageControlFilters) {
+  const { balanco, metrica } = filtros;
+  if (balanco === 'desligado') return null;
+  const ranges = getGesiteBalancoRanges(balanco);
   if (!ranges) return null;
-  const comparison: GesiteBalanceComparison = { mode, current: ranges.current, previous: ranges.previous };
+  const comparison: GesiteBalanceComparison = { mode: balanco, current: ranges.current, previous: ranges.previous };
   const c = filterRowsByBalancoRange(GESITE_LEADS_TABLE_MOCK, ranges.current, (r) => r.dataHora);
   const p = filterRowsByBalancoRange(GESITE_LEADS_TABLE_MOCK, ranges.previous, (r) => r.dataHora);
 
-  const countForms = (rows: GesiteLeadMockRow[]) => rows.filter((r) => gesiteLeadContatoIsForm(r.contato)).length;
-  const countWaLeads = (rows: GesiteLeadMockRow[]) =>
-    rows.filter((r) => !gesiteLeadContatoIsForm(r.contato)).length;
-  const countFormsIncompletos = (rows: GesiteLeadMockRow[]) =>
-    rows.filter((r) => gesiteLeadContatoIsForm(r.contato) && !gesiteLeadRespondeuFormularioPerfil(r)).length;
-  const countAtendimentoCorretor = (rows: GesiteLeadMockRow[]) =>
-    rows.filter((r) => gesiteLeadRespondeuFormularioPerfil(r) && r.qualificacao === 'Média').length;
-  const countVisitasAgendadas = (rows: GesiteLeadMockRow[]) =>
-    rows.filter((r) => gesiteLeadRespondeuFormularioPerfil(r) && r.qualificacao === 'Alta').length;
+  const cFiltered = filterLeadsByMetrica(c, metrica);
+  const pFiltered = filterLeadsByMetrica(p, metrica);
 
-  const taxaC = gesiteTaxaConversaoLeadsPct(c);
-  const taxaP = gesiteTaxaConversaoLeadsPct(p);
+  const statsC = computeGesiteLeadsInfoboxStats(cFiltered);
+  const statsP = computeGesiteLeadsInfoboxStats(pFiltered);
 
   return {
     comparison,
     deltas: {
-      leads: c.length - p.length,
-      forms: countForms(c) - countForms(p),
-      whatsapp: countWaLeads(c) - countWaLeads(p),
-      taxaConversaoPct: Math.round(taxaC - taxaP),
-      formsIncompletos: countFormsIncompletos(c) - countFormsIncompletos(p),
-      atendimentoCorretor: countAtendimentoCorretor(c) - countAtendimentoCorretor(p),
-      visitasAgendadas: countVisitasAgendadas(c) - countVisitasAgendadas(p),
+      leads: statsC.leads - statsP.leads,
+      forms: statsC.forms - statsP.forms,
+      whatsapp: statsC.whatsapp - statsP.whatsapp,
+      taxaConversaoPct: Math.round(statsC.taxaConversaoPct - statsP.taxaConversaoPct),
+      vendas: statsC.vendas - statsP.vendas,
+      atendimentoCorretor: statsC.atendimentoCorretor - statsP.atendimentoCorretor,
+      visitasAgendadas: statsC.visitasAgendadas - statsP.visitasAgendadas,
+      analiseCredito: statsC.analiseCredito - statsP.analiseCredito,
     },
   };
 }
@@ -899,15 +1013,31 @@ export type GeSiteLeadsProps = {
   onFiltrosChange: (next: GesitePageControlFilters) => void;
   onApplyFiltros: () => void;
   onClearFiltros: () => void;
+  onMetricaSelect?: (metrica: GesiteMetricaFiltro) => void;
 };
 
 
 
 export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(function GeSiteLeads(
-  { filtrosPanelAberto, filtros, onFiltrosChange, onApplyFiltros, onClearFiltros },
+  { filtrosPanelAberto, filtros, onFiltrosChange, onApplyFiltros, onClearFiltros, onMetricaSelect },
   ref,
 ) {
-  const gesiteLeadsBalanceCtx = useMemo(() => computeGesiteLeadsBalanceCtx(filtros.balanco), [filtros.balanco]);
+  const gesiteLeadsBalanceCtx = useMemo(() => computeGesiteLeadsBalanceCtx(filtros), [filtros]);
+
+  const balancoScopedRows = useMemo(
+    () => getGesiteBalancoScopedRows(GESITE_LEADS_TABLE_MOCK, filtros.balanco),
+    [filtros.balanco],
+  );
+
+  const metricFilteredRows = useMemo(
+    () => filterLeadsByMetrica(balancoScopedRows, filtros.metrica),
+    [balancoScopedRows, filtros.metrica],
+  );
+
+  const infoboxStats = useMemo(
+    () => computeGesiteLeadsInfoboxStats(metricFilteredRows),
+    [metricFilteredRows],
+  );
 
   const [leadsSortKey, setLeadsSortKey] = useState<GesiteLeadSortKey>('dataHora');
   const [leadsSortDirection, setLeadsSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -917,10 +1047,20 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
   const [leadResumoSelecionado, setLeadResumoSelecionado] = useState<GesiteLeadMockRow | null>(null);
   /** Tela ativa dentro do modal de resumo (Perfil: questionário além da captura). */
   const [leadModalTela, setLeadModalTela] = useState<GesiteLeadsTableTab>('fonte');
+  /** Direção da troca de aba no modal (-1 = Perfil→Origem, 1 = Origem→Perfil). */
+  const [leadModalTabDirection, setLeadModalTabDirection] = useState(0);
   const [leadsTableTab, setLeadsTableTab] = useState<GesiteLeadsTableTab>('fonte');
-  const [leadsPrimaryTab, setLeadsPrimaryTab] = useState<GesiteLeadsPrimaryTableTab>('leads');
-  const [leadsPaginasSortKey, setLeadsPaginasSortKey] = useState<GesiteLeadsPaginaSortKey>('leads');
-  const [leadsPaginasSortDirection, setLeadsPaginasSortDirection] = useState<'asc' | 'desc'>('desc');
+  /** Direção da troca de visualização na tabela principal. */
+  const [leadsTableViewDirection, setLeadsTableViewDirection] = useState(0);
+  const [leadsViewMode, setLeadsViewMode] = useState<ViewMode>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    const stored = window.localStorage.getItem(GESITE_LEADS_VIEW_MODE_KEY);
+    return stored === 'table' || stored === 'cards' ? stored : 'cards';
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(GESITE_LEADS_VIEW_MODE_KEY, leadsViewMode);
+  }, [leadsViewMode]);
 
   const leadsTableColumns = useMemo(
     () => (leadsTableTab === 'fonte' ? GESITE_LEADS_COL_FONTE : GESITE_LEADS_COL_PERFIL),
@@ -929,8 +1069,8 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
 
   const filteredLeadsRows = useMemo(() => {
     const q = leadsSearchQuery.trim().toLowerCase();
-    if (!q) return GESITE_LEADS_TABLE_MOCK;
-    return GESITE_LEADS_TABLE_MOCK.filter((row) =>
+    if (!q) return metricFilteredRows;
+    return metricFilteredRows.filter((row) =>
       [
         row.nome,
         row.contato,
@@ -953,7 +1093,7 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
         .toLowerCase()
         .includes(q),
     );
-  }, [leadsSearchQuery]);
+  }, [leadsSearchQuery, metricFilteredRows]);
 
   const sortedLeadsRows = useMemo(() => {
     const sorted = [...filteredLeadsRows].sort((a, b) => {
@@ -988,41 +1128,10 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
     return leadsSortDirection === 'asc' ? sorted : sorted.reverse();
   }, [filteredLeadsRows, leadsSortDirection, leadsSortKey]);
 
-  const filteredLeadsPaginasRows = useMemo(() => {
-    const q = leadsSearchQuery.trim().toLowerCase();
-    if (!q) return GESITE_LEADS_PAGINAS_TABLE_MOCK;
-    return GESITE_LEADS_PAGINAS_TABLE_MOCK.filter((row) => row.nome.toLowerCase().includes(q));
-  }, [leadsSearchQuery]);
-
-  const sortedLeadsPaginasRows = useMemo(() => {
-    const sorted = [...filteredLeadsPaginasRows].sort((a, b) => {
-      if (leadsPaginasSortKey === 'ultimoLead') {
-        return new Date(a.ultimoLeadIso).getTime() - new Date(b.ultimoLeadIso).getTime();
-      }
-      if (leadsPaginasSortKey === 'leads') return a.leads - b.leads;
-      if (leadsPaginasSortKey === 'perfilPct') return a.perfilPct - b.perfilPct;
-      if (leadsPaginasSortKey === 'qualificacaoPct') return a.qualificacaoPct - b.qualificacaoPct;
-      return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
-    });
-    return leadsPaginasSortDirection === 'asc' ? sorted : sorted.reverse();
-  }, [filteredLeadsPaginasRows, leadsPaginasSortDirection, leadsPaginasSortKey]);
-
   const totalLeadsSectionPages = useMemo(
-    () =>
-      Math.max(
-        1,
-        Math.ceil(
-          (leadsPrimaryTab === 'leads' ? sortedLeadsRows.length : sortedLeadsPaginasRows.length) /
-            LEADS_PAGE_SIZE,
-        ),
-      ),
-    [leadsPrimaryTab, sortedLeadsPaginasRows.length, sortedLeadsRows.length],
+    () => Math.max(1, Math.ceil(sortedLeadsRows.length / LEADS_PAGE_SIZE)),
+    [sortedLeadsRows.length],
   );
-
-  const paginatedLeadsPaginasRows = useMemo(() => {
-    const start = leadsPage * LEADS_PAGE_SIZE;
-    return sortedLeadsPaginasRows.slice(start, start + LEADS_PAGE_SIZE);
-  }, [leadsPage, sortedLeadsPaginasRows]);
 
   const paginatedLeadsRows = useMemo(() => {
     const start = leadsPage * LEADS_PAGE_SIZE;
@@ -1050,15 +1159,6 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
     ]);
   }, [leadResumoSelecionado]);
 
-  const handleLeadsPaginasSort = (key: GesiteLeadsPaginaSortKey) => {
-    if (leadsPaginasSortKey === key) {
-      setLeadsPaginasSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
-      return;
-    }
-    setLeadsPaginasSortKey(key);
-    setLeadsPaginasSortDirection('asc');
-  };
-
   const handleLeadsSort = (key: GesiteLeadSortKey) => {
     if (leadsSortKey === key) {
       setLeadsSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -1068,17 +1168,23 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
     setLeadsSortDirection('asc');
   };
 
+  const leadsTableViewKey = `leads-${leadsTableTab}`;
+
   const handleLeadsTableTabChange = (tab: GesiteLeadsTableTab) => {
+    if (tab === leadsTableTab) return;
+    setLeadsTableViewDirection(
+      GESITE_LEAD_MODAL_TAB_ORDER[tab] - GESITE_LEAD_MODAL_TAB_ORDER[leadsTableTab],
+    );
     setLeadsTableTab(tab);
-    if (leadsPrimaryTab !== 'leads') {
-      setLeadsPrimaryTab('leads');
-      setLeadsPage(0);
-    }
   };
 
   useEffect(() => {
     setLeadsPage(0);
   }, [leadsSearchQuery]);
+
+  useEffect(() => {
+    setLeadsPage(0);
+  }, [filtros.metrica]);
 
   useEffect(() => {
     setLeadsSortKey('dataHora');
@@ -1087,15 +1193,18 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
 
   useEffect(() => {
     setLeadModalTela('fonte');
+    setLeadModalTabDirection(0);
   }, [leadResumoSelecionado?.id]);
+
+  const handleLeadModalTabChange = (next: GesiteLeadsTableTab) => {
+    if (next === leadModalTela) return;
+    setLeadModalTabDirection(GESITE_LEAD_MODAL_TAB_ORDER[next] - GESITE_LEAD_MODAL_TAB_ORDER[leadModalTela]);
+    setLeadModalTela(next);
+  };
 
   useEffect(() => {
     setLeadsPage((p) => Math.min(p, totalLeadsSectionPages - 1));
   }, [totalLeadsSectionPages]);
-
-  useEffect(() => {
-    setLeadsPage(0);
-  }, [leadsPrimaryTab]);
 
   useImperativeHandle(
     ref,
@@ -1106,24 +1215,24 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
   );
 
   return (
-    <div className="space-y-8">
-      {filtrosPanelAberto ? (
-        <MotionReveal index={0}>
+    <div className="flex flex-col">
+      <GesiteFiltrosPanelMotion open={filtrosPanelAberto}>
         <GesiteControlLine
           value={filtros}
           onChange={onFiltrosChange}
           onApply={onApplyFiltros}
           onClear={onClearFiltros}
+          onMetricaSelect={onMetricaSelect}
           variant="leads"
+          className="mb-0"
         />
-        </MotionReveal>
-      ) : null}
+      </GesiteFiltrosPanelMotion>
 
       <div className="grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(13.5rem,1.2fr)] lg:grid-rows-2 lg:items-stretch lg:gap-x-6 lg:gap-y-6">
                 <InfoBox
                   motionIndex={0}
                   title="Leads"
-                  value={GESITE_LEADS_INFOBOX_MOCK.leads}
+                  value={infoboxStats.leads}
                   balanceDelta={gesiteLeadsBalanceCtx?.deltas.leads}
                   balanceComparison={gesiteLeadsBalanceCtx?.comparison}
                   icon={<Users />}
@@ -1134,7 +1243,7 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
                 <InfoBox
                   motionIndex={1}
                   title="Forms"
-                  value={GESITE_LEADS_INFOBOX_MOCK.forms}
+                  value={infoboxStats.forms}
                   balanceDelta={gesiteLeadsBalanceCtx?.deltas.forms}
                   balanceComparison={gesiteLeadsBalanceCtx?.comparison}
                   icon={<BookOpen />}
@@ -1145,7 +1254,7 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
                 <InfoBox
                   motionIndex={2}
                   title="WhatsApp"
-                  value={GESITE_LEADS_INFOBOX_MOCK.whatsapp}
+                  value={infoboxStats.whatsapp}
                   balanceDelta={gesiteLeadsBalanceCtx?.deltas.whatsapp}
                   balanceComparison={gesiteLeadsBalanceCtx?.comparison}
                   icon={<MessageCircleCheck />}
@@ -1156,7 +1265,7 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
                 <InfoBox
                   motionIndex={3}
                   title="Taxa de Conversão"
-                  value={`${GESITE_LEADS_INFOBOX_MOCK.taxaConversaoPct}%`}
+                  value={`${infoboxStats.taxaConversaoPct}%`}
                   balanceDelta={gesiteLeadsBalanceCtx?.deltas.taxaConversaoPct}
                   balanceComparison={gesiteLeadsBalanceCtx?.comparison}
                   balanceFormat="percent-points"
@@ -1167,26 +1276,15 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
                 />
                 <PontuacaoGaugeCard
                   className={cn(
-                    'min-h-[17rem] lg:min-h-0 lg:h-full lg:min-w-[13.5rem]',
+                    'min-h-[17rem] lg:min-h-0 lg:h-full lg:min-w-[13.5rem] lg:self-stretch',
                     'lg:col-start-5 lg:row-start-1 lg:row-span-2',
                   )}
-                  value={88}
+                  value={infoboxStats.pontuacao}
                 />
                 <InfoBox
-                  motionIndex={5}
-                  title="Forms Incompletos"
-                  value={GESITE_LEADS_INFOBOX_MOCK.formsIncompletos}
-                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.formsIncompletos}
-                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
-                  icon={<ClipboardList />}
-                  cor="muted"
-                  infoTooltipAlign="end"
-                  infoTooltip="Leads por formulário que ainda não completaram o questionário de perfil."
-                />
-                <InfoBox
-                  motionIndex={6}
-                  title="Atendimento Corretor"
-                  value={GESITE_LEADS_INFOBOX_MOCK.atendimentoCorretor}
+                  motionIndex={4}
+                  title="Em atendimento"
+                  value={infoboxStats.atendimentoCorretor}
                   balanceDelta={gesiteLeadsBalanceCtx?.deltas.atendimentoCorretor}
                   balanceComparison={gesiteLeadsBalanceCtx?.comparison}
                   icon={<MessageSquare />}
@@ -1195,9 +1293,9 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
                   infoTooltip="Leads em conversa ativa com a equipe de corretores."
                 />
                 <InfoBox
-                  motionIndex={7}
-                  title="Visitas Agendadas"
-                  value={GESITE_LEADS_INFOBOX_MOCK.visitasAgendadas}
+                  motionIndex={5}
+                  title="Visitas"
+                  value={infoboxStats.visitasAgendadas}
                   balanceDelta={gesiteLeadsBalanceCtx?.deltas.visitasAgendadas}
                   balanceComparison={gesiteLeadsBalanceCtx?.comparison}
                   icon={<CalendarCheck />}
@@ -1206,53 +1304,52 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
                   infoTooltip="Leads com visita ao empreendimento já marcada no período."
                 />
                 <InfoBox
-                  motionIndex={8}
-                  title="Origem Dominante"
-                  value={GESITE_LEADS_INFOBOX_MOCK.origemDominante}
-                  icon={<Eye />}
+                  motionIndex={6}
+                  title="Análise de Crédito"
+                  value={infoboxStats.analiseCredito}
+                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.analiseCredito}
+                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
+                  icon={<CreditCard />}
+                  cor="muted"
+                  infoTooltipAlign="end"
+                  infoTooltip="Leads com perfil completo e preferência por financiamento ou parcelamento."
+                />
+                <InfoBox
+                  motionIndex={7}
+                  title="Vendas"
+                  value={infoboxStats.vendas}
+                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.vendas}
+                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
+                  icon={<HandCoins />}
                   cor="emerald"
                   infoTooltipAlign="end"
-                  infoTooltip="Canal de origem com maior volume de leads no período."
+                  infoTooltip="Leads qualificados como venda fechada no período."
                 />
       </div>
 
-      <MotionReveal index={9} className="space-y-5">
+      <MotionReveal index={9} className="mt-8 space-y-5">
         <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-3 sm:gap-5">
           <div className={cn('flex flex-wrap items-center gap-3 sm:justify-self-start')}>
-                    <div
-                      className={cn(
-                        'inline-flex items-center rounded-full border border-input bg-background/50 p-1 shadow-sm',
-                      )}
-                    >
-                      <span className="inline-flex h-8 items-center rounded-full px-3 text-sm font-medium text-muted-foreground">
-                        {(leadsPrimaryTab === 'leads' ? paginatedLeadsRows : paginatedLeadsPaginasRows).length}{' '}
-                        linhas exibidas
-                      </span>
-                    </div>
                     <TabButtons
-                      value={leadsPrimaryTab}
-                      onChange={setLeadsPrimaryTab}
-                      items={GESITE_LEADS_PRIMARY_TAB_ITEMS}
+                      value={leadsTableTab}
+                      onChange={handleLeadsTableTabChange}
+                      items={GESITE_LEADS_TAB_BUTTON_ITEMS}
                     />
                   </div>
                   <div className="w-full sm:justify-self-center sm:max-w-md">
                     <Input
                       value={leadsSearchQuery}
                       onChange={(e) => setLeadsSearchQuery(e.target.value)}
-                      placeholder={
-                        leadsPrimaryTab === 'leads'
-                          ? 'Busca por nome, número, e-mail...'
-                          : 'Busca por página...'
-                      }
+                      placeholder="Busca por nome, número, e-mail..."
                       className="h-10 rounded-xl"
                     />
                   </div>
           <div className="flex flex-wrap items-center justify-end gap-3 sm:justify-self-end">
-                    <TabButtons
-                      value={leadsTableTab}
-                      onChange={handleLeadsTableTabChange}
-                      items={GESITE_LEADS_TAB_BUTTON_ITEMS}
-                      className={cn(leadsPrimaryTab !== 'leads' && 'opacity-80')}
+                    <ViewModeToggle
+                      viewMode={leadsViewMode}
+                      onViewModeChange={setLeadsViewMode}
+                      tableLabel="Planilha"
+                      cardsLabel="Cards"
                     />
                     <div className="inline-flex items-center gap-1 rounded-full border border-input bg-background/50 p-1 shadow-sm">
                       <Button
@@ -1265,8 +1362,8 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
                       >
                         {'<'}
                       </Button>
-                      <span className="inline-flex h-8 min-w-[4rem] items-center justify-center rounded-full px-3 text-sm font-medium text-muted-foreground tabular-nums">
-                        {leadsPage + 1}/{totalLeadsSectionPages}
+                      <span className="inline-flex h-8 min-w-[4rem] items-center justify-center rounded-full px-3 text-sm font-medium leading-none text-muted-foreground">
+                        <MotionFlipNumber value={`${leadsPage + 1}/${totalLeadsSectionPages}`} />
                       </span>
                       <Button
                         type="button"
@@ -1281,124 +1378,101 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
                     </div>
                   </div>
         </div>
-        <div className="hidden overflow-x-auto rounded-xl border border-border bg-muted/40 dark:bg-card md:block">
-                  {leadsPrimaryTab === 'paginas' ? (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
-                          <th className="min-w-[120px] whitespace-nowrap px-4 py-3.5 font-medium">
-                            <button
-                              type="button"
-                              onClick={() => handleLeadsPaginasSort('nome')}
-                              className="inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground"
-                            >
-                              <span>Páginas</span>
-                              {leadsPaginasSortKey === 'nome' ? (
-                                leadsPaginasSortDirection === 'asc' ? (
-                                  <ArrowUp className="h-3.5 w-3.5 text-foreground" />
-                                ) : (
-                                  <ArrowDown className="h-3.5 w-3.5 text-foreground" />
-                                )
-                              ) : null}
-                            </button>
-                          </th>
-                          {GESITE_LEADS_PAGINAS_COLS.map((col) => {
-                            const isActive = leadsPaginasSortKey === col.key;
-                            const SortIcon = leadsPaginasSortDirection === 'asc' ? ArrowUp : ArrowDown;
-                            const minWidthClass = gesiteLeadsPaginaColMinWidth(col.key);
-                            return (
-                              <th
-                                key={col.key}
-                                className={cn(
-                                  'whitespace-nowrap px-4 py-3.5 font-medium',
-                                  minWidthClass,
-                                  col.key === 'ultimoLead' && 'text-right',
-                                )}
+        <AnimatePresence mode="wait">
+          {leadsViewMode === 'table' ? (
+            <motion.div
+              key="gesite-leads-table"
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 16 }}
+              transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+              className="overflow-hidden rounded-xl border border-border bg-muted/40 dark:bg-card"
+            >
+              <div className="overflow-x-auto">
+                <GesiteAnimatedTabPanel viewKey={leadsTableViewKey} direction={leadsTableViewDirection}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
+                        {leadsTableColumns.map((col) => {
+                          const isActive = leadsSortKey === col.key;
+                          const SortIcon = leadsSortDirection === 'asc' ? ArrowUp : ArrowDown;
+                          const minWidthClass = gesiteLeadColMinWidthClass(col.key);
+                          return (
+                            <th key={col.key} className={cn('whitespace-nowrap px-4 py-3.5 font-medium', minWidthClass)}>
+                              <button
+                                type="button"
+                                onClick={() => handleLeadsSort(col.key)}
+                                className="inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground"
                               >
-                                <button
-                                  type="button"
-                                  onClick={() => handleLeadsPaginasSort(col.key)}
-                                  className={cn(
-                                    'inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground',
-                                    col.key === 'ultimoLead' && 'w-full justify-end',
-                                  )}
-                                >
-                                  <span>{col.label}</span>
-                                  {isActive ? <SortIcon className="h-3.5 w-3.5 text-foreground" /> : null}
-                                </button>
-                              </th>
-                            );
-                          })}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedLeadsPaginasRows.map((row) => (
-                          <tr key={row.id} className="border-b border-border/60 hover:bg-muted/20">
-                            <th
-                              scope="row"
-                              className="px-4 py-3.5 text-left align-top text-sm font-medium text-foreground"
-                            >
-                              {row.nome}
+                                <span>{col.label}</span>
+                                {isActive ? <SortIcon className="h-3.5 w-3.5 text-foreground" /> : null}
+                              </button>
                             </th>
-                            {GESITE_LEADS_PAGINAS_COLS.map((col) => (
-                              <td key={col.key} className={gesiteLeadsPaginaTdClass(col.key)}>
-                                {gesiteLeadsPaginaCellContent(row, col.key)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
-                          {leadsTableColumns.map((col) => {
-                            const isActive = leadsSortKey === col.key;
-                            const SortIcon = leadsSortDirection === 'asc' ? ArrowUp : ArrowDown;
-                            const minWidthClass = gesiteLeadColMinWidthClass(col.key);
-                            return (
-                              <th key={col.key} className={cn('whitespace-nowrap px-4 py-3.5 font-medium', minWidthClass)}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleLeadsSort(col.key)}
-                                  className="inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground"
-                                >
-                                  <span>{col.label}</span>
-                                  {isActive ? <SortIcon className="h-3.5 w-3.5 text-foreground" /> : null}
-                                </button>
-                              </th>
-                            );
-                          })}
-                        </tr>
-                      </thead>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <LayoutGroup id="gesite-leads-rows">
                       <tbody>
-                        {paginatedLeadsRows.map((row) => (
-                          <tr
-                            key={row.id}
-                            role="button"
-                            tabIndex={0}
-                            aria-label={`Abrir resumo do lead ${row.nome}`}
-                            className="border-b border-border/60 hover:bg-muted/20 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                            onClick={() => setLeadResumoSelecionado(row)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                setLeadResumoSelecionado(row);
-                              }
-                            }}
-                          >
-                            {leadsTableColumns.map((col) => (
-                              <td key={col.key} className={gesiteLeadTdClassName(col.key)}>
-                                {gesiteLeadCellContent(row, col.key)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
+                        <AnimatePresence initial={false}>
+                          {paginatedLeadsRows.map((row) => (
+                            <MotionFlipListItem
+                              key={row.id}
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Abrir resumo do lead ${row.nome}`}
+                              className="cursor-pointer border-b border-border/60 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                              onClick={() => setLeadResumoSelecionado(row)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setLeadResumoSelecionado(row);
+                                }
+                              }}
+                            >
+                              {leadsTableColumns.map((col) => (
+                                <td key={col.key} className={gesiteLeadTdClassName(col.key)}>
+                                  {gesiteLeadCellContent(row, col.key)}
+                                </td>
+                              ))}
+                            </MotionFlipListItem>
+                          ))}
+                        </AnimatePresence>
                       </tbody>
-                    </table>
-                  )}
-        </div>
+                    </LayoutGroup>
+                  </table>
+                </GesiteAnimatedTabPanel>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="gesite-leads-cards"
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -16 }}
+              transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+            >
+              <GesiteAnimatedTabPanel viewKey={leadsTableViewKey} direction={leadsTableViewDirection}>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {paginatedLeadsRows.map((row, index) => (
+                    <motion.div
+                      key={row.id}
+                      initial={{ opacity: 0, y: 18 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.04, duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                    >
+                      <GesiteLeadCard
+                        row={row}
+                        tab={leadsTableTab}
+                        onClick={() => setLeadResumoSelecionado(row)}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </GesiteAnimatedTabPanel>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </MotionReveal>
       <Dialog
           open={leadResumoSelecionado !== null}
@@ -1425,12 +1499,13 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
               )}
             </DialogHeader>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-muted/15 to-background px-6 py-5">
-              {leadResumoSelecionado && leadModalTela === 'fonte' ? (
-                <GesiteLeadModalFontePanel row={leadResumoSelecionado} />
-              ) : null}
-              {leadResumoSelecionado && leadModalTela === 'perfil' ? (
-                <GesiteLeadModalPerfilPanel row={leadResumoSelecionado} />
+            <div className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-gradient-to-b from-muted/15 to-background px-6 py-5">
+              {leadResumoSelecionado ? (
+                <GesiteLeadModalTabPanels
+                  tab={leadModalTela}
+                  row={leadResumoSelecionado}
+                  direction={leadModalTabDirection}
+                />
               ) : null}
             </div>
 
@@ -1438,7 +1513,7 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
               <div className="flex flex-wrap items-center gap-2">
                 <TabButtons
                   value={leadModalTela}
-                  onChange={setLeadModalTela}
+                  onChange={handleLeadModalTabChange}
                   items={GESITE_LEADS_TAB_BUTTON_ITEMS}
                 />
               </div>

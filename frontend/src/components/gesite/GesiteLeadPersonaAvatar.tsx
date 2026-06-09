@@ -7,12 +7,10 @@ import {
   getLeadPersonaVariantForTheme,
   LEAD_MALE_ICON,
 } from '@/lib/leadGender';
-import type { Lead } from '@/types/lead';
-import { LEAD_STATUS_ACCENT } from '@/types/lead';
 import { useThemeStore } from '@/store/themeStore';
 
 type Props = {
-  lead: Lead;
+  nome: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 };
@@ -30,11 +28,10 @@ function initialsFromName(name: string): string {
   return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
 }
 
-export function LeadCharacterAvatar({ lead, size = 'md', className }: Props) {
+export function GesiteLeadPersonaAvatar({ nome, size = 'md', className }: Props) {
   const [failed, setFailed] = useState(false);
   const { theme } = useThemeStore();
-  const accent = LEAD_STATUS_ACCENT[lead.status];
-  const gender = getLeadGender(lead);
+  const gender = getLeadGender({ name: nome });
   const personaVariant = getLeadPersonaVariantForTheme(theme);
   const personaSrc = getLeadPersonaSrc(gender, personaVariant);
   const isDarkPersona = personaVariant === 'black';
@@ -46,19 +43,17 @@ export function LeadCharacterAvatar({ lead, size = 'md', className }: Props) {
   return (
     <div
       className={cn(
-        'relative shrink-0 overflow-hidden rounded-2xl border ring-2',
+        'relative shrink-0 overflow-hidden rounded-2xl',
         isDarkPersona ? 'bg-black' : 'bg-muted/30',
         sizeMap[size],
-        accent.border,
-        accent.ring,
         className,
       )}
-      title={lead.name}
+      title={nome}
     >
       {!failed ? (
         <img
           src={personaSrc}
-          alt={`Persona de ${lead.name}`}
+          alt={`Persona de ${nome}`}
           className="h-full w-full object-cover object-top"
           loading="lazy"
           decoding="async"
@@ -74,7 +69,7 @@ export function LeadCharacterAvatar({ lead, size = 'md', className }: Props) {
         >
           <img
             src={LEAD_MALE_ICON}
-            alt={`Ícone de ${lead.name}`}
+            alt={`Ícone de ${nome}`}
             className="h-full w-full object-contain"
             style={{ filter: getLeadMaleIconFilter() }}
             loading="lazy"
@@ -86,10 +81,10 @@ export function LeadCharacterAvatar({ lead, size = 'md', className }: Props) {
         <div
           className={cn(
             'flex h-full w-full items-center justify-center text-xs font-semibold text-primary',
-            isDarkPersona ? 'bg-black' : 'bg-primary/10',
+            isDarkPersona ? 'bg-black' : 'bg-muted/30',
           )}
         >
-          {initialsFromName(lead.name)}
+          {initialsFromName(nome)}
         </div>
       )}
     </div>

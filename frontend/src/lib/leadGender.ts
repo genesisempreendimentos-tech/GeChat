@@ -1,6 +1,8 @@
+import type { AppThemeId } from '@/lib/themeMapping';
 import type { Lead } from '@/types/lead';
 
 export type LeadGender = 'male' | 'female';
+export type LeadPersonaVariant = 'black' | 'with';
 
 const FEMALE_NAMES = new Set([
   'ana',
@@ -36,8 +38,14 @@ const MALE_NAMES = new Set([
   'eduardo',
 ]);
 
-export const LEAD_MALE_PERSONA = '/assets/men.webp';
-export const LEAD_FEMALE_PERSONA = '/assets/female.webp';
+export const LEAD_MALE_PERSONA_BLACK = '/assets/men-black.webp';
+export const LEAD_FEMALE_PERSONA_BLACK = '/assets/female-black.webp';
+export const LEAD_MALE_PERSONA_WITH = '/assets/men-with.webp';
+export const LEAD_FEMALE_PERSONA_WITH = '/assets/female-with.webp';
+/** @deprecated Use `getLeadPersonaSrc` com variante explícita. */
+export const LEAD_MALE_PERSONA = LEAD_MALE_PERSONA_WITH;
+/** @deprecated Use `getLeadPersonaSrc` com variante explícita. */
+export const LEAD_FEMALE_PERSONA = LEAD_FEMALE_PERSONA_WITH;
 export const LEAD_MALE_ICON = '/assets/logo-gen-sem-fundo-svg.svg';
 
 const BRAND_ICON_FILTER =
@@ -51,8 +59,15 @@ export function getLeadGender(lead: Pick<Lead, 'name' | 'gender'>): LeadGender {
   return 'male';
 }
 
-export function getLeadPersonaSrc(gender: LeadGender): string {
-  return gender === 'female' ? LEAD_FEMALE_PERSONA : LEAD_MALE_PERSONA;
+export function getLeadPersonaVariantForTheme(theme: AppThemeId): LeadPersonaVariant {
+  return theme === 'light' ? 'with' : 'black';
+}
+
+export function getLeadPersonaSrc(gender: LeadGender, variant: LeadPersonaVariant = 'with'): string {
+  if (variant === 'black') {
+    return gender === 'female' ? LEAD_FEMALE_PERSONA_BLACK : LEAD_MALE_PERSONA_BLACK;
+  }
+  return gender === 'female' ? LEAD_FEMALE_PERSONA_WITH : LEAD_MALE_PERSONA_WITH;
 }
 
 export function getLeadMaleIconFilter(): string {

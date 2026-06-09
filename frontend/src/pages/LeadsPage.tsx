@@ -6,6 +6,7 @@ import { MainViewHeader } from '@/components/layout/header';
 import { GeSiteLeads } from '@/views/gesite/GeSiteLeads';
 import {
   defaultGesitePageControlFilters,
+  type GesiteMetricaFiltro,
   type GesitePageControlFilters,
 } from '@/lib/gesiteControlLine';
 
@@ -18,6 +19,12 @@ export default function LeadsPage() {
 
   function handleClearFiltros() {
     const next = defaultGesitePageControlFilters();
+    setFiltros(next);
+    setAppliedFiltros(next);
+  }
+
+  function handleMetricaSelect(metrica: GesiteMetricaFiltro) {
+    const next = { ...appliedFiltros, metrica };
     setFiltros(next);
     setAppliedFiltros(next);
   }
@@ -47,6 +54,7 @@ export default function LeadsPage() {
           onFiltrosChange={setFiltros}
           onApplyFiltros={() => setAppliedFiltros(filtros)}
           onClearFiltros={handleClearFiltros}
+          onMetricaSelect={handleMetricaSelect}
         />
       </div>
     </MainViewFluidShell>
