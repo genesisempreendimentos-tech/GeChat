@@ -11,6 +11,7 @@ export type GesiteLeadMetricsRow = {
   origem: string;
   pagina: string;
   qualificacao: GesiteLeadQualificacao;
+  dispositivo?: string;
   relacionamento?: string;
   investimento?: string;
   cidadeResidencia?: string;

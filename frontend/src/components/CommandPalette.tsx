@@ -8,7 +8,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { LayoutDashboard, Users, UserCircle, Settings, Shield } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Users, UserCircle, Settings, Shield } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { BRAND_LOGO_SRC } from '@/lib/brandAssets';
 
@@ -52,10 +52,16 @@ export function CommandPalette() {
             <span>Dashboard</span>
           </CommandItem>
           {!isAdminPath && (
-            <CommandItem onSelect={() => runCommand(() => navigate('/leads'))}>
-              <Users className="mr-2 h-4 w-4" />
-              <span>Leads</span>
-            </CommandItem>
+            <>
+              <CommandItem onSelect={() => runCommand(() => navigate('/dados'))}>
+                <BarChart3 className="mr-2 h-4 w-4" />
+                <span>Dados</span>
+              </CommandItem>
+              <CommandItem onSelect={() => runCommand(() => navigate('/leads'))}>
+                <Users className="mr-2 h-4 w-4" />
+                <span>Leads</span>
+              </CommandItem>
+            </>
           )}
           <CommandItem onSelect={() => runCommand(() => navigate('/profile'))}>
             <UserCircle className="mr-2 h-4 w-4" />

@@ -17,21 +17,28 @@ interface OnboardingStep {
 const onboardingSteps: OnboardingStep[] = [
   {
     title: 'Menu principal',
-    description: 'Navegue entre Dashboard e Leads pelo menu lateral.',
+    description: 'Navegue entre Dashboard, Dados e Leads pelo menu lateral.',
     route: '/dashboard',
     targetSelector: '[data-tour="sidebar"]',
     placement: 'right',
   },
   {
     title: 'Dashboard',
-    description: 'Acompanhe mùtricas e o pipeline de leads.',
+    description: 'Vis?o geral do workspace ? widgets personalizados em breve.',
     route: '/dashboard',
     targetSelector: '[data-tour="menu-dashboard"]',
     placement: 'right',
   },
   {
+    title: 'Dados',
+    description: 'M?tricas, gr?ficos e filtros anal?ticos do G?Site.',
+    route: '/dados',
+    targetSelector: '[data-tour="menu-dados"]',
+    placement: 'right',
+  },
+  {
     title: 'Leads',
-    description: 'Cadastre, edite e acompanhe todos os seus leads.',
+    description: 'Gest?o operacional ? busca, planilha, cards e resumo por lead.',
     route: '/leads',
     targetSelector: '[data-tour="menu-leads"]',
     placement: 'right',
@@ -105,12 +112,12 @@ export function OnboardingTour() {
             <div className="mt-4 flex justify-end gap-2">
               {stepIndex < onboardingSteps.length - 1 ? (
                 <Button onClick={() => setStepIndex((i) => i + 1)}>
-                  Prùximo
+                  Pr?ximo
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               ) : (
                 <Button onClick={() => { setVisible(false); setHasSeenOnboarding(true); }}>
-                  Comeùar
+                  Come?ar
                 </Button>
               )}
             </div>

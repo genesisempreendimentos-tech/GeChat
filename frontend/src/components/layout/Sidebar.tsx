@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Users } from 'lucide-react';
 
 import { motion } from 'framer-motion';
 
@@ -20,6 +20,8 @@ import { SidebarNavItem } from '@/components/layout/SidebarNavItem';
 const menuItems = [
 
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+
+  { icon: BarChart3, label: 'Dados', path: '/dados' },
 
   { icon: Users, label: 'Leads', path: '/leads' },
 
@@ -139,6 +141,10 @@ export default function Sidebar({ userRole }: SidebarProps) {
               item.path === '/dashboard'
 
                 ? 'menu-dashboard'
+
+                : item.path === '/dados'
+
+                  ? 'menu-dados'
 
                 : item.path === '/leads'
 

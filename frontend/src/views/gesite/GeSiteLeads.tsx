@@ -1,22 +1,12 @@
 import { useEffect, useImperativeHandle, useMemo, useState, forwardRef, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { InfoBox, INFOBOX_TOOLTIP_CONTENT_CLASS } from '@/components/ui/infoboxes';
 import { Iris, type IrisVariant } from '@/components/ui/Iris';
-import { GesiteControlLine } from '@/components/gesite/GesiteControlLine';
-import type { GesiteMetricaFiltro, GesitePageControlFilters } from '@/lib/gesiteControlLine';
-import { filterRowsByBalancoRange, getGesiteBalancoRanges } from '@/lib/gesiteBalanco';
-import {
-  computeGesiteLeadsInfoboxStats,
-  filterLeadsByMetrica,
-  getGesiteBalancoScopedRows,
-} from '@/lib/gesiteLeadsMetrics';
 import {
   computeGesiteLeadQualificacao,
   gesiteLeadRespondeuFormularioPerfil,
   parseIdadeAnosFromDataNascimentoPtBr,
   type GesiteLeadQualificacao,
 } from '@/rules/qualifyGesiteLead';
-import type { GesiteBalanceComparison } from '@/components/charts/Balance';
 import { cn } from '@/lib/utils';
 import { profileDataFillRatio } from '@/lib/motionPresets';
 import { toast } from 'sonner';
@@ -37,26 +27,15 @@ import {
   Globe,
   ArrowDown,
   ArrowUp,
-  BookOpen,
   Copy,
-  MonitorSmartphone,
-  MessageCircleCheck,
-  Users,
   User,
-  HandCoins,
-  MessageSquare,
-  CalendarCheck,
-  CreditCard,
-  Info,
 } from 'lucide-react';
-import { ScoreGaugeChart } from '@/components/charts/ScoreGaugeChart';
 import {
   LayoutGroup,
   MotionFlipListItem,
   MotionFlipNumber,
   MotionReveal,
 } from '@/components/motion/AppMotion';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppMotion } from '@/hooks/useAppMotion';
 
 
@@ -65,7 +44,6 @@ const GESITE_SUBTAB_TABLE_PAGE_SIZE = 50;
 const PAGE_SIZE = GESITE_SUBTAB_TABLE_PAGE_SIZE;
 const LEADS_PAGE_SIZE = GESITE_SUBTAB_TABLE_PAGE_SIZE;
 const ACESSOS_PAGINA_PAGE_SIZE = GESITE_SUBTAB_TABLE_PAGE_SIZE;
-const GESITE_LEADS_VIEW_MODE_KEY = 'geleads_gesite_leads_view_mode';
 
 /** Opções de múltipla escolha — relacionamento. */
 type GesiteLeadRelacionamento =
@@ -802,43 +780,6 @@ function GesiteLeadModalPerfilPanel({ row }: { row: GesiteLeadMockRow }) {
   );
 }
 
-const GESITE_FILTROS_PANEL_GAP_PX = 32;
-
-function GesiteFiltrosPanelMotion({
-  open,
-  children,
-}: {
-  open: boolean;
-  children: ReactNode;
-}) {
-  const motionCfg = useAppMotion();
-
-  if (!motionCfg.enabled) {
-    return open ? <div className="mb-8">{children}</div> : null;
-  }
-
-  return (
-    <AnimatePresence initial={false}>
-      {open ? (
-        <motion.div
-          key="gesite-filtros-panel"
-          initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-          animate={{ opacity: 1, height: 'auto', marginBottom: GESITE_FILTROS_PANEL_GAP_PX }}
-          exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-          transition={{
-            opacity: motionCfg.pageTransition,
-            height: motionCfg.springSoft,
-            marginBottom: motionCfg.springSoft,
-          }}
-          className="overflow-hidden"
-        >
-          {children}
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
-  );
-}
-
 function GesiteAnimatedTabPanel({
   viewKey,
   direction,
@@ -902,84 +843,6 @@ function GesiteLeadModalTabPanels({
   );
 }
 
-const PONTUACAO_INFO_TOOLTIP =
-  'Pontuação consolidada do GêSite (valores de exemplo). Quando existir API, pode agregar visitas, envolvimento e conversões segundo a vossa fórmula.';
-
-/** Cartão no estilo `InfoBox`: título, ícone de informação + tooltip e medidor gauge. */
-function PontuacaoGaugeCard({ className, value = 72 }: { className?: string; value?: number }) {
-  return (
-    <MotionReveal
-      index={4}
-      role="group"
-      className={cn(
-        'flex min-h-[17rem] min-w-0 flex-col gap-2 overflow-visible rounded-2xl border border-border/70 bg-card/80 px-4 py-4 shadow-sm backdrop-blur-sm dark:bg-card/60 lg:h-full lg:px-5 lg:py-5',
-        className,
-      )}
-    >
-      <div className="flex shrink-0 items-center justify-between gap-2">
-        <p className="min-w-0 truncate text-sm font-medium text-muted-foreground">Pontuação</p>
-        <Tooltip delayDuration={200}>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                'inline-flex shrink-0 rounded-md p-0.5 text-muted-foreground transition-colors',
-                'hover:bg-accent hover:text-foreground',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-              )}
-              aria-label="Informação: Pontuação"
-            >
-              <Info className="size-3.5" strokeWidth={2.25} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent
-            side="bottom"
-            align="end"
-            sideOffset={8}
-            collisionPadding={20}
-            className={INFOBOX_TOOLTIP_CONTENT_CLASS}
-          >
-            {PONTUACAO_INFO_TOOLTIP}
-          </TooltipContent>
-        </Tooltip>
-      </div>
-      <div className="flex min-h-0 w-full flex-1 items-center justify-center">
-        <ScoreGaugeChart value={value} className="w-full" />
-      </div>
-    </MotionReveal>
-  );
-}
-
-export function computeGesiteLeadsBalanceCtx(filtros: GesitePageControlFilters) {
-  const { balanco, metrica } = filtros;
-  if (balanco === 'desligado') return null;
-  const ranges = getGesiteBalancoRanges(balanco);
-  if (!ranges) return null;
-  const comparison: GesiteBalanceComparison = { mode: balanco, current: ranges.current, previous: ranges.previous };
-  const c = filterRowsByBalancoRange(GESITE_LEADS_TABLE_MOCK, ranges.current, (r) => r.dataHora);
-  const p = filterRowsByBalancoRange(GESITE_LEADS_TABLE_MOCK, ranges.previous, (r) => r.dataHora);
-
-  const cFiltered = filterLeadsByMetrica(c, metrica);
-  const pFiltered = filterLeadsByMetrica(p, metrica);
-
-  const statsC = computeGesiteLeadsInfoboxStats(cFiltered);
-  const statsP = computeGesiteLeadsInfoboxStats(pFiltered);
-
-  return {
-    comparison,
-    deltas: {
-      leads: statsC.leads - statsP.leads,
-      forms: statsC.forms - statsP.forms,
-      whatsapp: statsC.whatsapp - statsP.whatsapp,
-      taxaConversaoPct: Math.round(statsC.taxaConversaoPct - statsP.taxaConversaoPct),
-      vendas: statsC.vendas - statsP.vendas,
-      atendimentoCorretor: statsC.atendimentoCorretor - statsP.atendimentoCorretor,
-      visitasAgendadas: statsC.visitasAgendadas - statsP.visitasAgendadas,
-      analiseCredito: statsC.analiseCredito - statsP.analiseCredito,
-    },
-  };
-}
-
 export function buildGesiteLeadsExportRows(rows: GesiteLeadMockRow[]) {
   return rows.map((row) => ({
     data_hora: new Date(row.dataHora).toLocaleString(),
@@ -1007,40 +870,14 @@ export type GeSiteLeadsExportRef = {
   getExportRows: () => ReturnType<typeof buildGesiteLeadsExportRows>;
 };
 
-export type GeSiteLeadsProps = {
-  filtrosPanelAberto: boolean;
-  filtros: GesitePageControlFilters;
-  onFiltrosChange: (next: GesitePageControlFilters) => void;
-  onApplyFiltros: () => void;
-  onClearFiltros: () => void;
-  onMetricaSelect?: (metrica: GesiteMetricaFiltro) => void;
-};
+export type GesiteLeadsOperacionalViewProps = Record<string, never>;
 
-
-
-export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(function GeSiteLeads(
-  { filtrosPanelAberto, filtros, onFiltrosChange, onApplyFiltros, onClearFiltros, onMetricaSelect },
-  ref,
-) {
-  const gesiteLeadsBalanceCtx = useMemo(() => computeGesiteLeadsBalanceCtx(filtros), [filtros]);
-
-  const balancoScopedRows = useMemo(
-    () => getGesiteBalancoScopedRows(GESITE_LEADS_TABLE_MOCK, filtros.balanco),
-    [filtros.balanco],
-  );
-
-  const metricFilteredRows = useMemo(
-    () => filterLeadsByMetrica(balancoScopedRows, filtros.metrica),
-    [balancoScopedRows, filtros.metrica],
-  );
-
-  const infoboxStats = useMemo(
-    () => computeGesiteLeadsInfoboxStats(metricFilteredRows),
-    [metricFilteredRows],
-  );
+export const GesiteLeadsOperacionalView = forwardRef<GeSiteLeadsExportRef, GesiteLeadsOperacionalViewProps>(
+  function GesiteLeadsOperacionalView(_props, ref) {
+  const allLeadsRows = GESITE_LEADS_TABLE_MOCK;
 
   const [leadsSortKey, setLeadsSortKey] = useState<GesiteLeadSortKey>('dataHora');
-  const [leadsSortDirection, setLeadsSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [leadsSortDirection, setLeadsSortDirection] = useState<'asc' | 'desc'>('desc');
   const [leadsSearchQuery, setLeadsSearchQuery] = useState('');
   const [leadsPage, setLeadsPage] = useState(0);
   /** Lead cuja linha foi clicada — abre modal de resumo. */
@@ -1052,15 +889,8 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
   const [leadsTableTab, setLeadsTableTab] = useState<GesiteLeadsTableTab>('fonte');
   /** Direção da troca de visualização na tabela principal. */
   const [leadsTableViewDirection, setLeadsTableViewDirection] = useState(0);
-  const [leadsViewMode, setLeadsViewMode] = useState<ViewMode>(() => {
-    if (typeof window === 'undefined') return 'cards';
-    const stored = window.localStorage.getItem(GESITE_LEADS_VIEW_MODE_KEY);
-    return stored === 'table' || stored === 'cards' ? stored : 'cards';
-  });
-
-  useEffect(() => {
-    window.localStorage.setItem(GESITE_LEADS_VIEW_MODE_KEY, leadsViewMode);
-  }, [leadsViewMode]);
+  /** Sempre abre em cards; o usuário pode alternar para planilha na sessão. */
+  const [leadsViewMode, setLeadsViewMode] = useState<ViewMode>('cards');
 
   const leadsTableColumns = useMemo(
     () => (leadsTableTab === 'fonte' ? GESITE_LEADS_COL_FONTE : GESITE_LEADS_COL_PERFIL),
@@ -1069,8 +899,8 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
 
   const filteredLeadsRows = useMemo(() => {
     const q = leadsSearchQuery.trim().toLowerCase();
-    if (!q) return metricFilteredRows;
-    return metricFilteredRows.filter((row) =>
+    if (!q) return allLeadsRows;
+    return allLeadsRows.filter((row) =>
       [
         row.nome,
         row.contato,
@@ -1093,7 +923,7 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
         .toLowerCase()
         .includes(q),
     );
-  }, [leadsSearchQuery, metricFilteredRows]);
+  }, [leadsSearchQuery, allLeadsRows]);
 
   const sortedLeadsRows = useMemo(() => {
     const sorted = [...filteredLeadsRows].sort((a, b) => {
@@ -1165,7 +995,7 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
       return;
     }
     setLeadsSortKey(key);
-    setLeadsSortDirection('asc');
+    setLeadsSortDirection(key === 'dataHora' ? 'desc' : 'asc');
   };
 
   const leadsTableViewKey = `leads-${leadsTableTab}`;
@@ -1183,12 +1013,8 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
   }, [leadsSearchQuery]);
 
   useEffect(() => {
-    setLeadsPage(0);
-  }, [filtros.metrica]);
-
-  useEffect(() => {
     setLeadsSortKey('dataHora');
-    setLeadsSortDirection('asc');
+    setLeadsSortDirection('desc');
   }, [leadsTableTab]);
 
   useEffect(() => {
@@ -1216,167 +1042,56 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
 
   return (
     <div className="flex flex-col">
-      <GesiteFiltrosPanelMotion open={filtrosPanelAberto}>
-        <GesiteControlLine
-          value={filtros}
-          onChange={onFiltrosChange}
-          onApply={onApplyFiltros}
-          onClear={onClearFiltros}
-          onMetricaSelect={onMetricaSelect}
-          variant="leads"
-          className="mb-0"
-        />
-      </GesiteFiltrosPanelMotion>
-
-      <div className="grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(13.5rem,1.2fr)] lg:grid-rows-2 lg:items-stretch lg:gap-x-6 lg:gap-y-6">
-                <InfoBox
-                  motionIndex={0}
-                  title="Leads"
-                  value={infoboxStats.leads}
-                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.leads}
-                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
-                  icon={<Users />}
-                  cor="emerald"
-                  infoTooltipAlign="start"
-                  infoTooltip="Total de leads no período filtrado."
-                />
-                <InfoBox
-                  motionIndex={1}
-                  title="Forms"
-                  value={infoboxStats.forms}
-                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.forms}
-                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
-                  icon={<BookOpen />}
-                  cor="blue"
-                  infoTooltipAlign="start"
-                  infoTooltip="Leads que chegaram por formulários."
-                />
-                <InfoBox
-                  motionIndex={2}
-                  title="WhatsApp"
-                  value={infoboxStats.whatsapp}
-                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.whatsapp}
-                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
-                  icon={<MessageCircleCheck />}
-                  cor="amber"
-                  infoTooltipAlign="start"
-                  infoTooltip="Leads iniciados por clique no WhatsApp."
-                />
-                <InfoBox
-                  motionIndex={3}
-                  title="Taxa de Conversão"
-                  value={`${infoboxStats.taxaConversaoPct}%`}
-                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.taxaConversaoPct}
-                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
-                  balanceFormat="percent-points"
-                  icon={<MonitorSmartphone />}
-                  cor="violet"
-                  infoTooltipAlign="end"
-                  infoTooltip="Conversão total (leads / visitas) no período."
-                />
-                <PontuacaoGaugeCard
-                  className={cn(
-                    'min-h-[17rem] lg:min-h-0 lg:h-full lg:min-w-[13.5rem] lg:self-stretch',
-                    'lg:col-start-5 lg:row-start-1 lg:row-span-2',
-                  )}
-                  value={infoboxStats.pontuacao}
-                />
-                <InfoBox
-                  motionIndex={4}
-                  title="Em atendimento"
-                  value={infoboxStats.atendimentoCorretor}
-                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.atendimentoCorretor}
-                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
-                  icon={<MessageSquare />}
-                  cor="blue"
-                  infoTooltipAlign="end"
-                  infoTooltip="Leads em conversa ativa com a equipe de corretores."
-                />
-                <InfoBox
-                  motionIndex={5}
-                  title="Visitas"
-                  value={infoboxStats.visitasAgendadas}
-                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.visitasAgendadas}
-                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
-                  icon={<CalendarCheck />}
-                  cor="violet"
-                  infoTooltipAlign="start"
-                  infoTooltip="Leads com visita ao empreendimento já marcada no período."
-                />
-                <InfoBox
-                  motionIndex={6}
-                  title="Análise de Crédito"
-                  value={infoboxStats.analiseCredito}
-                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.analiseCredito}
-                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
-                  icon={<CreditCard />}
-                  cor="muted"
-                  infoTooltipAlign="end"
-                  infoTooltip="Leads com perfil completo e preferência por financiamento ou parcelamento."
-                />
-                <InfoBox
-                  motionIndex={7}
-                  title="Vendas"
-                  value={infoboxStats.vendas}
-                  balanceDelta={gesiteLeadsBalanceCtx?.deltas.vendas}
-                  balanceComparison={gesiteLeadsBalanceCtx?.comparison}
-                  icon={<HandCoins />}
-                  cor="emerald"
-                  infoTooltipAlign="end"
-                  infoTooltip="Leads qualificados como venda fechada no período."
-                />
-      </div>
-
-      <MotionReveal index={9} className="mt-8 space-y-5">
+      <MotionReveal index={0} className="space-y-5">
         <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-3 sm:gap-5">
           <div className={cn('flex flex-wrap items-center gap-3 sm:justify-self-start')}>
-                    <TabButtons
-                      value={leadsTableTab}
-                      onChange={handleLeadsTableTabChange}
-                      items={GESITE_LEADS_TAB_BUTTON_ITEMS}
-                    />
-                  </div>
-                  <div className="w-full sm:justify-self-center sm:max-w-md">
-                    <Input
-                      value={leadsSearchQuery}
-                      onChange={(e) => setLeadsSearchQuery(e.target.value)}
-                      placeholder="Busca por nome, número, e-mail..."
-                      className="h-10 rounded-xl"
-                    />
-                  </div>
+            <TabButtons
+              value={leadsTableTab}
+              onChange={handleLeadsTableTabChange}
+              items={GESITE_LEADS_TAB_BUTTON_ITEMS}
+            />
+          </div>
+          <div className="w-full sm:justify-self-center sm:max-w-md">
+            <Input
+              value={leadsSearchQuery}
+              onChange={(e) => setLeadsSearchQuery(e.target.value)}
+              placeholder="Busca por nome, número, e-mail..."
+              className="h-10 rounded-xl"
+            />
+          </div>
           <div className="flex flex-wrap items-center justify-end gap-3 sm:justify-self-end">
-                    <ViewModeToggle
-                      viewMode={leadsViewMode}
-                      onViewModeChange={setLeadsViewMode}
-                      tableLabel="Planilha"
-                      cardsLabel="Cards"
-                    />
-                    <div className="inline-flex items-center gap-1 rounded-full border border-input bg-background/50 p-1 shadow-sm">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 rounded-full px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                        disabled={leadsPage <= 0}
-                        onClick={() => setLeadsPage((p) => Math.max(0, p - 1))}
-                      >
-                        {'<'}
-                      </Button>
-                      <span className="inline-flex h-8 min-w-[4rem] items-center justify-center rounded-full px-3 text-sm font-medium leading-none text-muted-foreground">
-                        <MotionFlipNumber value={`${leadsPage + 1}/${totalLeadsSectionPages}`} />
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 rounded-full px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                        disabled={leadsPage >= totalLeadsSectionPages - 1}
-                        onClick={() => setLeadsPage((p) => Math.min(totalLeadsSectionPages - 1, p + 1))}
-                      >
-                        {'>'}
-                      </Button>
-                    </div>
-                  </div>
+            <ViewModeToggle
+              viewMode={leadsViewMode}
+              onViewModeChange={setLeadsViewMode}
+              tableLabel="Planilha"
+              cardsLabel="Cards"
+            />
+            <div className="inline-flex items-center gap-1 rounded-full border border-input bg-background/50 p-1 shadow-sm">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-full px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                disabled={leadsPage <= 0}
+                onClick={() => setLeadsPage((p) => Math.max(0, p - 1))}
+              >
+                {'<'}
+              </Button>
+              <span className="inline-flex h-8 min-w-[4rem] items-center justify-center rounded-full px-3 text-sm font-medium leading-none text-muted-foreground">
+                <MotionFlipNumber value={`${leadsPage + 1}/${totalLeadsSectionPages}`} />
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-full px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                disabled={leadsPage >= totalLeadsSectionPages - 1}
+                onClick={() => setLeadsPage((p) => Math.min(totalLeadsSectionPages - 1, p + 1))}
+              >
+                {'>'}
+              </Button>
+            </div>
+          </div>
         </div>
         <AnimatePresence mode="wait">
           {leadsViewMode === 'table' ? (
@@ -1453,18 +1168,20 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
               transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
             >
               <GesiteAnimatedTabPanel viewKey={leadsTableViewKey} direction={leadsTableViewDirection}>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {paginatedLeadsRows.map((row, index) => (
                     <motion.div
                       key={row.id}
                       initial={{ opacity: 0, y: 18 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.04, duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                      className="h-full"
                     >
                       <GesiteLeadCard
                         row={row}
                         tab={leadsTableTab}
                         onClick={() => setLeadResumoSelecionado(row)}
+                        className="h-full min-h-[15.5rem]"
                       />
                     </motion.div>
                   ))}
@@ -1544,3 +1261,6 @@ export const GeSiteLeads = forwardRef<GeSiteLeadsExportRef, GeSiteLeadsProps>(fu
     </div>
   );
 });
+
+/** @deprecated Use GesiteLeadsOperacionalView */
+export const GeSiteLeads = GesiteLeadsOperacionalView;

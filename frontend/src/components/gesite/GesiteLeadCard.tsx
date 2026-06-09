@@ -89,7 +89,7 @@ export function GesiteLeadCard({ row, tab, onClick, className }: Props) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="relative z-[1] space-y-1.5 pb-4 pt-0 text-xs text-muted-foreground transition-colors duration-300 group-hover:text-muted-foreground/90">
+      <CardContent className="relative z-[1] flex flex-1 flex-col space-y-1.5 pb-4 pt-0 text-xs text-muted-foreground transition-colors duration-300 group-hover:text-muted-foreground/90">
         {tab === 'fonte' ? (
           <>
             <p>

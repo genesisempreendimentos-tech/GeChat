@@ -282,15 +282,33 @@ export function MotionNumber({ value, className }: MotionNumberProps) {
   return <MotionFlipNumber value={value} className={className} />;
 }
 
-type MotionFlipListItemProps = ComponentPropsWithoutRef<'tr'>;
+type MotionFlipListItemProps = Pick<
+  ComponentPropsWithoutRef<'tr'>,
+  'children' | 'className' | 'role' | 'tabIndex' | 'aria-label' | 'onClick' | 'onKeyDown'
+>;
 
 /** Linha de lista/tabela com FLIP de posição ao reordenar ou filtrar. */
-export function MotionFlipListItem({ children, className, ...props }: MotionFlipListItemProps) {
+export function MotionFlipListItem({
+  children,
+  className,
+  role,
+  tabIndex,
+  'aria-label': ariaLabel,
+  onClick,
+  onKeyDown,
+}: MotionFlipListItemProps) {
   const motionCfg = useAppMotion();
 
   if (!motionCfg.enabled) {
     return (
-      <tr className={className} {...props}>
+      <tr
+        className={className}
+        role={role}
+        tabIndex={tabIndex}
+        aria-label={ariaLabel}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+      >
         {children}
       </tr>
     );
@@ -308,7 +326,11 @@ export function MotionFlipListItem({ children, className, ...props }: MotionFlip
         y: motionCfg.springSoft,
       }}
       className={className}
-      {...props}
+      role={role}
+      tabIndex={tabIndex}
+      aria-label={ariaLabel}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
     >
       {children}
     </motion.tr>

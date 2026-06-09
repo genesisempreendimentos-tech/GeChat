@@ -202,15 +202,15 @@ function renderDonutSliceLabel(colors: string[]) {
 function renderDonutSliceLabelLine(colors: string[]) {
   return (props: { points?: { x: number; y: number }[]; index?: number }) => {
     const { points, index = 0 } = props
-    if (!points?.length) return null
     const color = colors[index] ?? '#94a3b8'
+    const pointStr = points?.length ? points.map((p) => `${p.x},${p.y}`).join(' ') : '0,0 0,0'
 
     return (
       <polyline
         stroke={color}
         strokeWidth={1}
         fill="none"
-        points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+        points={pointStr}
       />
     )
   }
@@ -250,12 +250,7 @@ function DonutTooltip({
   payload,
   isDark,
   total,
-}: {
-  active?: boolean
-  payload?: Array<{ payload?: DonutSlice; value?: number; color?: string }>
-  isDark: boolean
-  total: number
-}) {
+}: DonutTooltipProps) {
   if (!active || !payload?.length) return null
 
   const entry = payload[0]
@@ -279,6 +274,13 @@ function DonutTooltip({
       </p>
     </div>
   )
+}
+
+type DonutTooltipProps = {
+  active?: boolean
+  payload?: Array<{ payload?: DonutSlice; value?: number; color?: string }>
+  isDark: boolean
+  total: number
 }
 
 export function DonutChart({
@@ -329,7 +331,14 @@ export function DonutChart({
               </Pie>
               <Tooltip
                 cursor={false}
-                content={(props) => <DonutTooltip {...props} isDark={isDark} total={total} />}
+                content={(props) => (
+                  <DonutTooltip
+                    active={props.active}
+                    payload={props.payload as unknown as DonutTooltipProps['payload']}
+                    isDark={isDark}
+                    total={total}
+                  />
+                )}
               />
             </PieChart>
           </ResponsiveContainer>
