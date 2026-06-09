@@ -1,6 +1,5 @@
 /**
- * Persistência de auth para o modo UI shell: apenas `localStorage` no origin atual.
- * Sem cookies de domínio nem URLs de produção.
+ * Persist�ncia de auth: localStorage no origin atual.
  */
 
 function noopStorage(): Storage {
@@ -23,7 +22,6 @@ function noopStorage(): Storage {
   };
 }
 
-/** Adapter compatível com Supabase Auth: sempre localStorage no browser. */
 export function getAuthStorage(): Storage {
   if (typeof window === 'undefined') return noopStorage();
   try {
@@ -33,15 +31,11 @@ export function getAuthStorage(): Storage {
   }
 }
 
-/** Base URL do app (mock): origin atual. */
-export const GENOVO_BASE_URL =
+export const GEADS_BASE_URL =
   typeof window !== 'undefined'
     ? `${window.location.protocol}//${window.location.host}`
     : '';
 
-/**
- * Permite apenas redirect para a mesma origem (evita open redirect em demo).
- */
 export function isAllowedReturnToUrl(url: string): boolean {
   try {
     if (typeof window === 'undefined') return false;

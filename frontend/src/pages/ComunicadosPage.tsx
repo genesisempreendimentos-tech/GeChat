@@ -708,11 +708,12 @@ export default function ComunicadosPage() {
     setSubmittingComment(false);
 
     if (error) {
+      const err = error as any;
       const msg =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'object' && error !== null && 'message' in error
-            ? String((error as { message: string }).message)
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+            ? String(err.message)
             : 'Erro ao adicionar comentário';
       toast.error(msg);
       return;

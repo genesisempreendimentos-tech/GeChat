@@ -45,7 +45,7 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             Ajuda
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Informações sobre o GeNovo, dicas de uso e contato com o suporte.
+            Informações sobre o GêLeads, dicas de uso e contato com o suporte.
           </DialogDescription>
         </DialogHeader>
 
@@ -53,11 +53,11 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
           <section className="space-y-2 rounded-xl border border-border/50 bg-card/40 p-4">
             <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              Sobre o GeNovo
+              Sobre o GêLeads
             </h3>
             <p>
-              O GeNovo é apenas um mock de interface: não há empresa real, dados reais nem suporte
-              ligado a este repositório.
+              O GêLeads é a plataforma de acompanhamento de leads. Cadastre, acompanhe o pipeline
+              e gerencie oportunidades em um só lugar.
             </p>
           </section>
 
@@ -65,12 +65,12 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             <h3 className="text-base font-semibold text-foreground">Como usar</h3>
             <ul className="list-disc pl-5 space-y-2 marker:text-primary/70">
               <li>
-                <strong className="text-foreground font-semibold">Aplicativos:</strong>{' '}
-                visualize todos os sistemas disponíveis para o seu perfil.
+                <strong className="text-foreground font-semibold">Dashboard:</strong>{' '}
+                acompanhe métricas e o pipeline de leads.
               </li>
               <li>
-                <strong className="text-foreground font-semibold">Favoritos:</strong>{' '}
-                salve os aplicativos que você mais usa para acesso rápido.
+                <strong className="text-foreground font-semibold">Leads:</strong>{' '}
+                cadastre, edite e acompanhe o status de cada lead.
               </li>
               <li>
                 <strong className="text-foreground font-semibold">Perfil:</strong>{' '}

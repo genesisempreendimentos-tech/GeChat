@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { WhatsappIcon } from '@/components/icons/WhatsappIcon'
 import { DotLottiePlayer } from '@dotlottie/react-player'
 import '@dotlottie/react-player/dist/index.css'
+import { profileDataFillRatio } from '@/lib/motionPresets'
 
 // Helpers para construir URLs sociais
 const digitsOnly   = (v: string) => (v || '').replace(/\D+/g, '')
@@ -25,8 +26,8 @@ const buildWA = (rawWA: string, apelido: string) => {
   const phone = digitsOnly(rawWA)
   if (!phone) return ''
   const text = apelido?.trim()
-    ? `Olá, me chamo ${apelido.trim()} e vim do GeNovo.`
-    : 'Olá, vim do GeNovo.'
+    ? `Olá, me chamo ${apelido.trim()} e vim do GêLeads.`
+    : 'Olá, vim do GêLeads.'
   return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`
 }
 
@@ -89,6 +90,23 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
 
   if (!data) return null
 
+  const profileFillRatio = profileDataFillRatio([
+    data.apelido,
+    data.username,
+    data.description,
+    data.profession,
+    data.avatarUrl,
+    data.bannerUrl,
+    data.birthday,
+    data.admissionDate,
+    data.whatsapp,
+    data.instagram,
+    data.linkedin,
+    data.mascote,
+    data.icon,
+    data.sectorIcon,
+  ])
+
   const waUrl = buildWA(data.whatsapp, currentUserApelido)
   const igUrl = buildIG(data.instagram)
   const liUrl = buildLI(data.linkedin)
@@ -98,6 +116,7 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        entranceFillRatio={profileFillRatio}
         className="max-w-sm p-0 overflow-visible rounded-2xl border-0"
         style={{ boxShadow: '0 0 24px rgba(26,147,134,0.35), 0 0 48px rgba(26,147,134,0.15)' }}
       >

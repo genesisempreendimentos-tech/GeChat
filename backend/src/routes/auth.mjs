@@ -4,8 +4,8 @@ import {
   loadProfileForAuthUser,
 } from '../services/supabaseServer.mjs';
 
-const ACCESS_COOKIE = 'genovo_sb_access';
-const REFRESH_COOKIE = 'genovo_sb_refresh';
+const ACCESS_COOKIE = 'geleads_sb_access';
+const REFRESH_COOKIE = 'geleads_sb_refresh';
 
 function readCookie(req, name) {
   const raw = req.headers.cookie;
@@ -157,6 +157,17 @@ export function createAuthRouter() {
     }
     clearAuthCookies(req, res);
     return res.json({ ok: true });
+  });
+
+  router.get('/access-token', async (req, res) => {
+    try {
+      const sessionUser = await resolveSessionUser(req, res);
+      if (!sessionUser?.accessToken) return res.status(401).json({ error: 'Não autenticado.' });
+      return res.json({ accessToken: sessionUser.accessToken });
+    } catch (err) {
+      console.error('[auth/access-token]', err);
+      return res.status(500).json({ error: 'Erro ao obter token.' });
+    }
   });
 
   router.get('/me', async (req, res) => {

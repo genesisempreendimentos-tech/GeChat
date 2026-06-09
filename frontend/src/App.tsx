@@ -8,7 +8,7 @@ import {
   type Location as RouterLocation,
 } from 'react-router-dom';
 import { useEffect } from 'react';
-import { initGeNovoAudit } from '@/assets/audit-log';
+import { initGeAdsAudit } from '@/assets/audit-log';
 import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
@@ -29,37 +29,19 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import AdminRoute from '@/components/AdminRoute';
 import AdminLayout from '@/admin/AdminLayout';
 
-// Pages
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import AccessDeniedPage from '@/pages/AccessDeniedPage';
 import DashboardPage from '@/pages/DashboardPage';
-import SystemsPage from '@/pages/SystemsPage';
-import FavoritesPage from '@/pages/FavoritesPage';
+import LeadsPage from '@/pages/LeadsPage';
 import ProfilePage from '@/pages/ProfilePage';
 import SettingsPage from '@/pages/SettingsPage';
-import ChatPage from '@/pages/ChatPage';
 import NotificationsPage from '@/pages/NotificationsPage';
-import SolicitacoesPage from '@/pages/SolicitacoesPage';
-import EquipesPage from '@/pages/EquipesPage';
-import EmpresaPage from '@/pages/EmpresaPage';
-import ComunicadosPage from '@/pages/ComunicadosPage';
 
-// Admin pages
 import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
-import AdminSystemsPage from '@/admin/pages/AdminSystemsPage';
 import AdminMembersPage from '@/admin/pages/AdminMembersPage';
-import AdminCategoriesPage from '@/admin/pages/AdminCategoriesPage';
-import AdminReviewsPage from '@/admin/pages/AdminReviewsPage';
-import AdminSolicitacoesPage from '@/admin/pages/AdminSolicitacoesPage';
-import AdminEquipesPage from '@/admin/pages/AdminEquipesPage';
-import AdminEmpresaPage from '@/admin/pages/AdminEmpresaPage';
 
-/**
- * Rota /login: se já autenticado e houver returnTo válido, redireciona para o app irmão (ex.: GeTeams).
- * Caso contrário, redireciona para /dashboard ou exibe a página de login.
- */
 function LoginRoute() {
   const { isAuthenticated, loading } = useAuthStore();
   const location = useLocation();
@@ -98,50 +80,39 @@ function AppRoutes() {
   const { isAuthenticated } = useAuthStore();
   const { compactMode, animations } = useSettingsStore();
 
-  // Aplicar configurações ao montar o componente
   useEffect(() => {
-    // As configurações já são aplicadas pelo store, mas isso garante a aplicação inicial
     const root = document.documentElement;
     root.classList.toggle('compact-mode', compactMode);
     root.classList.toggle('reduce-motion', !animations);
   }, [compactMode, animations]);
 
-  // Ativar atalho CTRL + SHIFT + A para login admin
   useAdminShortcut();
-
-  // Ativar atalhos de teclado globais
   useKeyboardShortcuts();
 
-      // Auditoria: app_access_daily + tempos de ecrã (audit_logs), não por clique em outros apps
   useEffect(() => {
     if (!isAuthenticated) return;
-    const cleanup = initGeNovoAudit();
+    const cleanup = initGeAdsAudit();
     return () => {
       cleanup?.();
     };
   }, [isAuthenticated]);
 
-  // Ativar atalho CTRL + SHIFT + B para popup "Não Grita"
   const { showPopup, setShowPopup } = useNaoGritaPopup();
 
   return (
     <>
       <AnimatedBackground />
       <Routes>
-        {/* Auth Routes */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginRoute />} />
           <Route
             path="/signup"
-            element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <SignupPage />
-            }
+            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <SignupPage />}
           />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/access-denied" element={<AccessDeniedPage />} />
         </Route>
 
-        {/* Protected Routes */}
         <Route
           element={
             <ProtectedRoute>
@@ -150,19 +121,19 @@ function AppRoutes() {
           }
         >
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/systems" element={<SystemsPage />} />
-          <Route path="/favorites" element={<FavoritesPage />} />
-          <Route path="/solicitacoes" element={<SolicitacoesPage />} />
-          <Route path="/equipes" element={<EquipesPage />} />
-          <Route path="/empresa" element={<EmpresaPage />} />
-          <Route path="/comunicados" element={<ComunicadosPage />} />
-          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/leads" element={<LeadsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/systems" element={<Navigate to="/leads" replace />} />
+          <Route path="/favorites" element={<Navigate to="/leads" replace />} />
+          <Route path="/solicitacoes" element={<Navigate to="/leads" replace />} />
+          <Route path="/equipes" element={<Navigate to="/leads" replace />} />
+          <Route path="/empresa" element={<Navigate to="/leads" replace />} />
+          <Route path="/comunicados" element={<Navigate to="/leads" replace />} />
+          <Route path="/chat" element={<Navigate to="/leads" replace />} />
         </Route>
 
-        {/* Admin Routes (softadmin) */}
         <Route
           path="/admin"
           element={
@@ -173,29 +144,25 @@ function AppRoutes() {
         >
           <Route index element={<Navigate to="/admin/home" replace />} />
           <Route path="home" element={<AdminDashboardPage />} />
-          <Route path="systems" element={<AdminSystemsPage />} />
-          <Route path="solicitacoes" element={<AdminSolicitacoesPage />} />
-          <Route path="equipes" element={<AdminEquipesPage />} />
-          <Route path="comunicados" element={<ComunicadosPage />} />
-          <Route path="empresa" element={<AdminEmpresaPage />} />
           <Route path="members" element={<AdminMembersPage />} />
-          <Route path="administrators" element={<Navigate to="/admin/members" replace />} />
-          <Route path="categories" element={<AdminCategoriesPage />} />
-          <Route path="reviews" element={<AdminReviewsPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="systems" element={<Navigate to="/admin/members" replace />} />
+          <Route path="solicitacoes" element={<Navigate to="/admin/members" replace />} />
+          <Route path="equipes" element={<Navigate to="/admin/members" replace />} />
+          <Route path="comunicados" element={<Navigate to="/admin/members" replace />} />
+          <Route path="empresa" element={<Navigate to="/admin/members" replace />} />
+          <Route path="categories" element={<Navigate to="/admin/members" replace />} />
+          <Route path="reviews" element={<Navigate to="/admin/members" replace />} />
+          <Route path="administrators" element={<Navigate to="/admin/members" replace />} />
         </Route>
 
-        {/* Redirect */}
         <Route
           path="/"
-          element={
-            <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />
-          }
+          element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* Global Components */}
       <NaoGritaPopup show={showPopup} onClose={() => setShowPopup(false)} />
       {isAuthenticated && (
         <>

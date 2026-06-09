@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, LogOut, UserCircle, Settings, LifeBuoy, Lightbulb } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
@@ -23,8 +24,10 @@ import Zoom from './Zoom';
 import { NotificationsPanel, type NotificationItem } from '@/components/notifications/NotificationsPanel';
 import HelpModal from '@/views/navbar/HelpModal';
 import { Quotes } from '@/components/ui/quotes';
+import { AppBrandControl } from '@/components/layout/AppBrandHeader';
+import { SIDEBAR_BRAND_WIDTH } from '@/lib/sidebarLayout';
 
-export default function Topbar() {
+function TopbarActions() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -45,20 +48,17 @@ export default function Topbar() {
   };
 
   return (
-    <header
-      className="sticky top-0 z-30 flex items-center justify-end px-4 md:px-6 h-16 w-full border-b border-border/70 bg-card/60 dark:bg-card/50 backdrop-blur-xl shrink-0 transition-all duration-300"
-      data-tour="top-nav"
-    >
-      <div className="flex items-center gap-1.5 shrink-0 bg-muted/40 hover:bg-muted/50 border border-border/50 rounded-full p-1.5 shadow-sm transition-colors">
+    <>
+      <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/50 bg-muted/40 p-1.5 shadow-sm transition-colors hover:bg-muted/50">
         <DropdownMenu open={tipsOpen} onOpenChange={setTipsOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="relative h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 shadow-sm transition-all"
+              className="relative h-8 w-8 rounded-full text-muted-foreground shadow-sm transition-all hover:bg-background/80 hover:text-foreground"
               aria-label="Citação do dia"
             >
-              <Lightbulb className="w-[18px] h-[18px]" />
+              <Lightbulb className="h-[18px] w-[18px]" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -66,7 +66,7 @@ export default function Topbar() {
             side="bottom"
             sideOffset={6}
             collisionPadding={12}
-            className="min-w-0 w-max max-w-[min(100vw-1.5rem,22rem)] px-3 py-2 text-sm text-muted-foreground border-border/60 bg-popover shadow-md"
+            className="w-max min-w-0 max-w-[min(100vw-1.5rem,22rem)] border-border/60 bg-popover px-3 py-2 text-sm text-muted-foreground shadow-md"
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
             <Quotes open={tipsOpen} />
@@ -75,58 +75,56 @@ export default function Topbar() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 shadow-sm transition-all"
+          className="relative h-8 w-8 rounded-full text-muted-foreground shadow-sm transition-all hover:bg-background/80 hover:text-foreground"
           onClick={() => setNotificationsOpen(true)}
           aria-label="Abrir notificações"
         >
-          <Bell className="w-[18px] h-[18px]" />
+          <Bell className="h-[18px] w-[18px]" />
           {notificationUnreadCount > 0 ? (
             <span
-              className="absolute top-1 right-1 w-2 h-2 bg-destructive border-2 border-background rounded-full"
+              className="absolute right-1 top-1 h-2 w-2 rounded-full border-2 border-background bg-destructive"
               aria-hidden
             />
           ) : null}
         </Button>
-        <div className="w-px h-4 shrink-0 self-center bg-border/60 mx-0.5" aria-hidden />
-        <ThemeToggle className="relative h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 shadow-sm transition-all" />
-        <span className="hidden lg:inline-flex items-center">
+        <div className="mx-0.5 h-4 w-px shrink-0 self-center bg-border/60" aria-hidden />
+        <ThemeToggle className="relative h-8 w-8 rounded-full text-muted-foreground shadow-sm transition-all hover:bg-background/80 hover:text-foreground" />
+        <span className="hidden items-center lg:inline-flex">
           <Zoom />
         </span>
-        <div className="w-px h-4 shrink-0 self-center bg-border/60 mx-0.5" aria-hidden />
+        <div className="mx-0.5 h-4 w-px shrink-0 self-center bg-border/60" aria-hidden />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-transparent hover:ring-primary/30 transition-all shrink-0 focus-visible:outline-none focus-visible:ring-primary/50"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-2 ring-transparent transition-all hover:ring-primary/30 focus-visible:outline-none focus-visible:ring-primary/50"
               aria-label="Menu do usuário"
               data-tour="profile-area"
             >
-              <div className="w-full h-full rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shadow-sm">
+              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary/10 shadow-sm">
                 {user?.avatar ? (
-                  <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                  <img src={user.avatar} alt="Avatar" className="h-full w-full object-cover" />
                 ) : (
-                  <span className="text-primary font-semibold text-sm">
-                    {user?.name?.charAt(0) ?? '?'}
-                  </span>
+                  <span className="text-sm font-semibold text-primary">{user?.name?.charAt(0) ?? '?'}</span>
                 )}
               </div>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem onClick={handleProfileClick}>
-              <UserCircle className="w-4 h-4 mr-2" />
+              <UserCircle className="mr-2 h-4 w-4" />
               Perfil
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('/settings')}>
-              <Settings className="w-4 h-4 mr-2" />
+              <Settings className="mr-2 h-4 w-4" />
               Configurações
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowHelpModal(true)}>
-              <LifeBuoy className="w-4 h-4 mr-2" />
+              <LifeBuoy className="mr-2 h-4 w-4" />
               Ajuda
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setShowLogoutModal(true)} className="text-destructive">
-              <LogOut className="w-4 h-4 mr-2" />
+              <LogOut className="mr-2 h-4 w-4" />
               Sair
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -138,7 +136,7 @@ export default function Topbar() {
       <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Sair do GeNovo</DialogTitle>
+            <DialogTitle>Sair do GêLeads</DialogTitle>
             <DialogDescription>
               Deseja realmente sair? No mock você precisará entrar de novo para acessar.
             </DialogDescription>
@@ -159,6 +157,32 @@ export default function Topbar() {
         onOpenChange={setNotificationsOpen}
         items={notificationItems}
       />
+    </>
+  );
+}
+
+export default function Topbar() {
+  const header = (
+    <header
+      className="fixed inset-x-0 top-0 z-[100] flex h-16 items-center border-b border-border/70 bg-card/60 backdrop-blur-xl dark:bg-card/50"
+      data-tour="top-nav"
+    >
+      <div
+        className="hidden shrink-0 items-center justify-center px-6 md:flex"
+        style={{ width: SIDEBAR_BRAND_WIDTH }}
+      >
+        <AppBrandControl />
+      </div>
+
+      <div className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4 md:justify-end md:gap-4 md:px-6">
+        <div className="shrink-0 md:hidden">
+          <AppBrandControl />
+        </div>
+        <TopbarActions />
+      </div>
     </header>
   );
+
+  if (typeof document === 'undefined') return header;
+  return createPortal(header, document.body);
 }

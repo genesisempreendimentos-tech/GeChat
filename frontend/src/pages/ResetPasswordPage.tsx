@@ -113,7 +113,7 @@ export default function ResetPasswordPage() {
                   animate={{ rotate: [0, 5, 0, -5, 0], scale: [1, 1.05, 1] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  <img src="/assets/brand-mock.svg" alt="GeNovo" className="w-full h-full object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)' }} />
+                  <img src="/assets/brand-mock.svg" alt="GêLeads" className="w-full h-full object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)' }} />
                 </motion.div>
               </div>
             </motion.div>
@@ -122,7 +122,7 @@ export default function ResetPasswordPage() {
                 Nova senha
               </CardTitle>
               <CardDescription className="text-base">
-                Defina uma nova senha para acessar o GeNovo (mock)
+                Defina uma nova senha para acessar o GêLeads
               </CardDescription>
               <div className="pt-2">
                 <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">Demo UI</span>

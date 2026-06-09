@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { System, UserSystemAccess } from '@/types';
-import { mockSystems, mockUserSystemAccess } from '@/mock/data';
 
 interface SystemState {
   systems: System[];
@@ -20,8 +19,8 @@ interface SystemState {
 }
 
 export const useSystemStore = create<SystemState>((set, get) => ({
-  systems: mockSystems,
-  userAccess: mockUserSystemAccess,
+  systems: [],
+  userAccess: [],
 
   getAccessibleSystems: (userId: string) => {
     const { systems, userAccess } = get();

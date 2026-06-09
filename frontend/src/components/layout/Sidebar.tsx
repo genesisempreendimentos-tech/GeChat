@@ -1,313 +1,170 @@
-import {
-  LayoutDashboard,
-  Megaphone,
-  UsersRound,
-  Star,
-  ExternalLink,
-  Check,
-  UserKey,
-  UserStar,
-} from 'lucide-react';
+import { LayoutDashboard, Users } from 'lucide-react';
+
 import { motion } from 'framer-motion';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+
+import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuthStore } from '@/store/authStore';
-import { databaseService } from '@/services/supabase';
-import { isAppEligibleForFavoriteShortcut } from '@/lib/appFavoriteEligibility';
-import { FAVORITES_CHANGED_EVENT } from '@/lib/favoritesEvents';
+
+import { useState, useEffect, useRef } from 'react';
+
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
-import { useAdminAccess } from '@/hooks/useAdminAccess';
-import { useUnviewedComunicados } from '@/hooks/useUnviewedComunicados';
+
 import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
+
 import { SidebarFooterControl } from '@/components/layout/SidebarFooterControl';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+
+import { SidebarNavItem } from '@/components/layout/SidebarNavItem';
+
+
 
 const menuItems = [
+
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Megaphone, label: 'Comunicados', path: '/comunicados' },
-  { icon: UsersRound, label: 'Equipes', path: '/equipes' },
-  { icon: Star, label: 'Item 1', path: '/systems' },
-  { icon: Star, label: 'Item 2', path: '/solicitacoes' },
-  { icon: Star, label: 'Item 3', path: '/empresa' },
-  { icon: Star, label: 'Item 4', path: '/favorites' },
+
+  { icon: Users, label: 'Leads', path: '/leads' },
+
 ];
 
+
+
 interface SidebarProps {
+
   userRole?: string;
+
 }
+
+
 
 export default function Sidebar({ userRole }: SidebarProps) {
+
   void userRole;
+
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user } = useAuthStore();
-  const { isSoftadmin } = useAdminAccess();
-  const hasUnviewedComunicados = useUnviewedComunicados();
-  const isInAdmin = location.pathname.startsWith('/admin');
+
   const layoutMode = useSidebarLayoutStore((s) => s.mode);
+
   const [isHovered, setIsHovered] = useState(false);
+
   const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [favoriteSystems, setFavoriteSystems] = useState<
-    { id: string; name: string; url: string; status?: string }[]
-  >([]);
-
-  const refreshFavoriteSystems = useCallback(() => {
-    if (!user?.id) {
-      setFavoriteSystems([]);
-      return;
-    }
-    Promise.all([
-      databaseService.getUserSystemAccess(user.id),
-      databaseService.getSystemsForMember(user.id),
-    ]).then(([accessRes, systemsRes]) => {
-      const accessData = accessRes.data || [];
-      const systemsData = (systemsRes.data || []) as {
-        id: string;
-        name: string;
-        url: string;
-        status?: string;
-      }[];
-      const hasAccess = (a: any) =>
-        a.access !== false && a.can_access !== false;
-      const favoriteIds = accessData
-        .filter((a: any) => !!(a.is_favorite ?? a.favorite) && hasAccess(a))
-        .map((a: any) => a.system_id);
-      const list = systemsData.filter(
-        (s) =>
-          favoriteIds.includes(s.id) && isAppEligibleForFavoriteShortcut(s.status),
-      );
-      setFavoriteSystems(list);
-    });
-  }, [user?.id, user?.accessType]);
-
-  useEffect(() => {
-    refreshFavoriteSystems();
-  }, [refreshFavoriteSystems]);
-
-  useEffect(() => {
-    const onFavoritesChanged = () => refreshFavoriteSystems();
-    window.addEventListener(FAVORITES_CHANGED_EVENT, onFavoritesChanged);
-    return () => window.removeEventListener(FAVORITES_CHANGED_EVENT, onFavoritesChanged);
-  }, [refreshFavoriteSystems]);
 
   const isExpanded =
+
     layoutMode === 'expanded' ? true : layoutMode === 'collapsed' ? false : isHovered;
+
   const setSidebarWidth = useSetSidebarWidth();
 
+
+
   useEffect(() => {
+
     setSidebarWidth(isExpanded ? 280 : 80);
+
   }, [isExpanded, setSidebarWidth]);
 
-  const filteredMenu = menuItems;
+
 
   return (
-    <>
-      <motion.aside
-        initial={false}
-        animate={{ width: isExpanded ? 280 : 80 }}
-        transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-        onMouseEnter={() => {
-          if (layoutMode !== 'hover') return;
-          if (hoverCloseTimer.current) {
-            clearTimeout(hoverCloseTimer.current);
-            hoverCloseTimer.current = null;
-          }
-          setIsHovered(true);
-        }}
-        onMouseLeave={() => {
-          if (layoutMode !== 'hover') return;
-          hoverCloseTimer.current = setTimeout(() => {
-            setIsHovered(false);
-          }, 1000);
-        }}
-        className="hidden md:flex fixed left-0 top-0 bottom-0 bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
-        data-tour="sidebar"
-        role="navigation"
-        aria-label="Navegação principal"
-      >
-        {/* Logo — dropdown Painel User / Painel Admin (somente access_type softadmin/appsadmin) */}
-        {isSoftadmin ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <div
-                className={cn(
-                  'h-16 flex items-center justify-center px-6 border-b border-border/70 shrink-0 cursor-pointer hover:bg-accent/30 transition-colors outline-none',
-                  'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
-                )}
-                aria-label="Trocar painel"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
-                    <img
-                      src="/assets/brand-mock.svg"
-                      alt="GeNovo"
-                      className="w-full h-full object-contain"
-                      style={{
-                        filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
-                      }}
-                    />
-                  </div>
-                  <span
-                    className={cn(
-                      'text-xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent whitespace-nowrap overflow-hidden transition-all duration-200',
-                      isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'
-                    )}
-                  >
-                    GeNovo
-                  </span>
-                </div>
-              </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" align="center" className="min-w-[180px]" sideOffset={4}>
-              <DropdownMenuItem onClick={() => navigate('/dashboard')} className="gap-2 cursor-pointer">
-                {!isInAdmin && <Check className="h-4 w-4 shrink-0" />}
-                {isInAdmin && <span className="w-4 shrink-0" />}
-                <UserKey className="h-4 w-4 shrink-0" />
-                Painel User
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/admin/home')} className="gap-2 cursor-pointer">
-                {isInAdmin && <Check className="h-4 w-4 shrink-0" />}
-                {!isInAdmin && <span className="w-4 shrink-0" />}
-                <UserStar className="h-4 w-4 shrink-0" />
-                Painel Admin
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <div className="h-16 flex items-center justify-center px-6 border-b border-border/70 shrink-0 cursor-default">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="relative w-10 h-10 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center p-1.5">
-                <img
-                  src="/assets/brand-mock.svg"
-                  alt="GeNovo"
-                  className="w-full h-full object-contain"
-                  style={{
-                    filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)',
-                  }}
-                />
-              </div>
-              <span
-                className={cn(
-                  'text-xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent whitespace-nowrap overflow-hidden transition-all duration-200',
-                  isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'
-                )}
-              >
-                GeNovo
-              </span>
-            </div>
-          </div>
+
+    <motion.aside
+
+      initial={false}
+
+      animate={{ width: isExpanded ? 280 : 80 }}
+
+      transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+
+      onMouseEnter={() => {
+
+        if (layoutMode !== 'hover') return;
+
+        if (hoverCloseTimer.current) {
+
+          clearTimeout(hoverCloseTimer.current);
+
+          hoverCloseTimer.current = null;
+
+        }
+
+        setIsHovered(true);
+
+      }}
+
+      onMouseLeave={() => {
+
+        if (layoutMode !== 'hover') return;
+
+        hoverCloseTimer.current = setTimeout(() => {
+
+          setIsHovered(false);
+
+        }, 1000);
+
+      }}
+
+      className="hidden md:flex fixed left-0 top-16 bottom-0 bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
+
+      data-tour="sidebar"
+
+      role="navigation"
+
+      aria-label="Navegação principal"
+
+    >
+
+      <nav
+        className={cn(
+          'min-h-0 flex-1 space-y-2 overflow-x-hidden px-0 pt-6 pb-2',
+          isExpanded ? 'overflow-y-auto' : 'overflow-hidden',
         )}
+      >
 
-      {/* Navigation - altura fixa no modo recolhido para não quebrar com fonte grande */}
-      <nav className={cn(
-        'flex-1 overflow-y-auto pb-32',
-        isExpanded ? 'px-4 py-6 space-y-2' : 'px-2 py-4 flex flex-col items-stretch gap-2'
-      )}>
-        {filteredMenu.map((item) => {
-          const Icon = item.icon;
-          const isActive = location.pathname === item.path;
-          const isFavorites = item.path === '/favorites';
-          const isComunicados = item.path === '/comunicados';
+        {menuItems.map((item) => (
 
-          return (
-            <div key={item.path} className="space-y-0.5">
-              <Link
-                to={item.path}
-                className="block"
-                title={item.label}
-                aria-label={item.label}
-                data-tour={
-                  item.path === "/dashboard"
-                    ? "menu-dashboard"
-                    : item.path === "/systems"
-                    ? "menu-apps"
-                    : item.path === "/solicitacoes"
-                    ? "menu-solicitacoes"
-                    : item.path === "/comunicados"
-                    ? "menu-comunicados"
-                    : item.path === "/equipes"
-                    ? "menu-equipes"
-                    : item.path === "/empresa"
-                    ? "menu-empresa"
-                    : item.path === "/favorites"
-                    ? "menu-favoritos"
-                    : undefined
-                }
-              >
-                <motion.div
-                  whileHover={isActive ? undefined : { scale: 1.02 }}
-                  whileTap={isActive ? undefined : { scale: 0.98 }}
-                  transition={{ duration: 0.15 }}
-                  className={cn(
-                    'flex items-center rounded-lg cursor-pointer relative overflow-hidden',
-                    'transition-[background-color,color] duration-150 ease-out',
-                    isExpanded ? 'gap-3 px-4 py-3' : 'min-h-[48px] justify-center px-2',
-                    isActive
-                      ? 'bg-primary/90 text-primary-foreground hover:bg-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                  )}
-                >
-                  <span className="relative flex shrink-0 w-5 h-5 items-center justify-center">
-                    <Icon className="w-5 h-5" />
-                    {isComunicados && hasUnviewedComunicados ? (
-                      <span
-                        className={cn(
-                          'absolute right-0 top-0 h-2 w-2 rounded-full bg-destructive ring-2 pointer-events-none',
-                          isActive ? 'ring-primary-foreground' : 'ring-background'
-                        )}
-                        aria-hidden
-                      />
-                    ) : null}
-                  </span>
-                  <span
-                    className={cn(
-                      'font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-200',
-                      isExpanded ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0'
-                    )}
-                  >
-                    {item.label}
-                  </span>
-                </motion.div>
-              </Link>
-              {isFavorites && favoriteSystems.length > 0 && (
-                <div
-                  className={cn(
-                    'pl-4 pr-2 py-1 space-y-0.5 border-l-2 border-primary/20 ml-4 overflow-hidden transition-all duration-200',
-                    isExpanded ? 'opacity-100 max-h-[500px]' : 'opacity-0 max-h-0 py-0'
-                  )}
-                >
-                    {favoriteSystems.map((sys) => (
-                      <a
-                        key={sys.id}
-                        href={sys.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-3 py-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors group"
-                        title={`Abrir ${sys.name}`}
-                      >
-                        <span className="truncate flex-1 min-w-0">{sys.name}</span>
-                        <ExternalLink className="w-3 h-3 shrink-0 opacity-0 group-hover:opacity-70" />
-                      </a>
-                    ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+          <SidebarNavItem
+
+            key={item.path}
+
+            to={item.path}
+
+            icon={item.icon}
+
+            label={item.label}
+
+            isActive={location.pathname === item.path}
+
+            isExpanded={isExpanded}
+
+            tourId={
+
+              item.path === '/dashboard'
+
+                ? 'menu-dashboard'
+
+                : item.path === '/leads'
+
+                  ? 'menu-leads'
+
+                  : undefined
+
+            }
+
+          />
+
+        ))}
+
       </nav>
 
-      {/* Footer — controle de modo do sidebar (sempre visível) */}
-      <div className="border-t border-border/70 shrink-0">
+
+
+      <div className="relative z-10 shrink-0 border-t border-border/70 bg-card/60 dark:bg-card/50">
+
         <SidebarFooterControl isExpanded={isExpanded} />
+
       </div>
+
     </motion.aside>
 
-  </>
   );
+
 }
+

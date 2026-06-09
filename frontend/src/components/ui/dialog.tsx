@@ -1,9 +1,12 @@
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
+import { motion } from "framer-motion"
 
 import { cn } from "@/lib/utils"
 import { useRootZoom } from "@/hooks/useRootZoom"
+import { useAppMotion } from "@/hooks/useAppMotion"
+import { modalScaleFromFillRatio } from "@/lib/motionPresets"
 
 const Dialog = DialogPrimitive.Root
 
@@ -18,42 +21,131 @@ const DialogOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, style, ...props }, ref) => {
   const rootZoom = useRootZoom()
-  return (
-    <DialogPrimitive.Overlay
-      ref={ref}
-      className={cn(
-        "fixed inset-0 z-50 bg-background/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        className
-      )}
-      style={{ zoom: rootZoom, ...style } as React.CSSProperties}
-      {...props}
-    />
-  )
-})
-DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+  const motionCfg = useAppMotion()
 
-const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, style, ...props }, ref) => {
-  const rootZoom = useRootZoom()
-  return (
-    <DialogPortal>
-      <DialogOverlay />
-        <DialogPrimitive.Content
+  if (!motionCfg.enabled) {
+    return (
+      <DialogPrimitive.Overlay
         ref={ref}
         className={cn(
-          "fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-xl",
+          "fixed inset-0 z-50 bg-background/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           className
         )}
         style={{ zoom: rootZoom, ...style } as React.CSSProperties}
         {...props}
+      />
+    )
+  }
+
+  return (
+    <DialogPrimitive.Overlay ref={ref} asChild {...props}>
+      <motion.div
+        className={cn(
+          "fixed inset-0 z-50 bg-background/80 backdrop-blur-sm",
+          className
+        )}
+        style={{ zoom: rootZoom, ...style } as React.CSSProperties}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+      />
+    </DialogPrimitive.Overlay>
+  )
+})
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+
+type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  /** 0–1: escala inicial proporcional ao volume de dados (ex.: perfil preenchido). */
+  entranceFillRatio?: number
+}
+
+const DialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  DialogContentProps
+>(({ className, children, style, entranceFillRatio, ...props }, ref) => {
+  const rootZoom = useRootZoom()
+  const motionCfg = useAppMotion()
+  const initialScale = modalScaleFromFillRatio(entranceFillRatio ?? 0.45)
+
+  const shellClass = cn(
+    "fixed left-1/2 top-1/2 z-50 grid w-full gap-4 border bg-background p-6 shadow-lg rounded-xl outline-none",
+    className
+  )
+
+  const centeredMotion = {
+    initial: {
+      opacity: 0,
+      scale: initialScale,
+      x: '-50%',
+      y: 'calc(-50% + 8px)',
+    },
+    animate: {
+      opacity: 1,
+      scale: 1,
+      x: '-50%',
+      y: '-50%',
+    },
+    exit: {
+      opacity: 0,
+      scale: initialScale,
+      x: '-50%',
+      y: 'calc(-50% + 6px)',
+    },
+  } as const
+
+  if (!motionCfg.enabled) {
+    return (
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogPrimitive.Content
+          ref={ref}
+          className={cn(
+            shellClass,
+            "translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          )}
+          style={{ zoom: rootZoom, ...style } as React.CSSProperties}
+          {...props}
+        >
+          {children}
+          <DialogPrimitive.Close className="absolute right-3 top-3 rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Fechar</span>
+          </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPortal>
+    )
+  }
+
+  return (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        asChild
+        {...props}
       >
-        {children}
-        <DialogPrimitive.Close className="absolute right-3 top-3 rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
-          <X className="h-4 w-4" />
-          <span className="sr-only">Fechar</span>
-        </DialogPrimitive.Close>
+        <motion.div
+          key={`dialog-${initialScale.toFixed(2)}`}
+          className={shellClass}
+          style={
+            {
+              zoom: rootZoom,
+              transformOrigin: 'center center',
+              ...style,
+            } as React.CSSProperties
+          }
+          initial={centeredMotion.initial}
+          animate={centeredMotion.animate}
+          exit={centeredMotion.exit}
+          transition={motionCfg.modalTransition}
+        >
+          {children}
+          <DialogPrimitive.Close className="absolute right-3 top-3 rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Fechar</span>
+          </DialogPrimitive.Close>
+        </motion.div>
       </DialogPrimitive.Content>
     </DialogPortal>
   )

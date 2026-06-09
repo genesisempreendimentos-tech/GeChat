@@ -1,0 +1,60 @@
+import type { Lead } from '@/types/lead';
+
+export type LeadGender = 'male' | 'female';
+
+const FEMALE_NAMES = new Set([
+  'ana',
+  'mariana',
+  'fernanda',
+  'luciana',
+  'juliana',
+  'patricia',
+  'camila',
+  'beatriz',
+  'gabriela',
+  'raquel',
+  'carla',
+  'paula',
+  'renata',
+  'amanda',
+  'bruna',
+]);
+
+const MALE_NAMES = new Set([
+  'carlos',
+  'roberto',
+  'joão',
+  'joao',
+  'pedro',
+  'lucas',
+  'marcos',
+  'rafael',
+  'bruno',
+  'gustavo',
+  'felipe',
+  'ricardo',
+  'eduardo',
+]);
+
+export const LEAD_MALE_PERSONA = '/assets/men.webp';
+export const LEAD_FEMALE_PERSONA = '/assets/female.webp';
+export const LEAD_MALE_ICON = '/assets/logo-gen-sem-fundo-svg.svg';
+
+const BRAND_ICON_FILTER =
+  'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)';
+
+export function getLeadGender(lead: Pick<Lead, 'name' | 'gender'>): LeadGender {
+  if (lead.gender === 'male' || lead.gender === 'female') return lead.gender;
+  const first = lead.name.trim().split(/\s+/)[0]?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') ?? '';
+  if (FEMALE_NAMES.has(first)) return 'female';
+  if (MALE_NAMES.has(first)) return 'male';
+  return 'male';
+}
+
+export function getLeadPersonaSrc(gender: LeadGender): string {
+  return gender === 'female' ? LEAD_FEMALE_PERSONA : LEAD_MALE_PERSONA;
+}
+
+export function getLeadMaleIconFilter(): string {
+  return BRAND_ICON_FILTER;
+}

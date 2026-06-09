@@ -220,7 +220,7 @@ export default function SignupPage() {
                 >
                   <img 
                     src="/assets/brand-mock.svg" 
-                    alt="GeNovo" 
+                    alt="GêLeads" 
                     className="w-full h-full object-contain"
                     style={{
                       filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)'
@@ -248,17 +248,12 @@ export default function SignupPage() {
                 }}
               >
                 <CardTitle className="text-4xl font-bold bg-gradient-to-r from-primary via-teal-400 to-primary bg-clip-text text-transparent" style={{ backgroundSize: '200% auto' }}>
-                  GeNovo
+                  GêLeads
                 </CardTitle>
               </motion.div>
               <CardDescription className="text-base">
-                Cadastro visual (mock — sem backend)
+                Crie sua conta para começar a acompanhar leads
               </CardDescription>
-              <div className="pt-2">
-                <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                  Demo UI
-                </span>
-              </div>
             </motion.div>
           </CardHeader>
         
@@ -277,7 +272,7 @@ export default function SignupPage() {
               <div>
                 <h3 className="text-xl font-semibold text-green-600">Conta criada com sucesso!</h3>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Verificamos o seu email no fluxo demo (sem validação real).
+                  Enviamos um link de confirmação para o seu e-mail.
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Redirecionando para login...

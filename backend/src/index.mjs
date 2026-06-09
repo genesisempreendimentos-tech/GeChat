@@ -11,6 +11,7 @@ import express from 'express';
 import pg from 'pg';
 import { getBearerJwt, resolveUserFromJwt } from './authSupabase.mjs';
 import { createAuthRouter } from './routes/auth.mjs';
+import { createLeadsRouter } from './routes/leads.mjs';
 import {
   resolveNeonWorkspaceFilter,
   fetchCompanyGeTeamsWorkspaceName,
@@ -66,6 +67,7 @@ if (supabaseUrl) {
 }
 
 app.use('/api/auth', createAuthRouter());
+app.use('/api/leads', createLeadsRouter());
 
 // Mapeamento: campo do CorporativoFormData -> colunas da tabela collaborators (Neon GeTeams)
 // Colunas exatas: departamento <- department_cadeira_principal | setor <- setor_cadeira_principal

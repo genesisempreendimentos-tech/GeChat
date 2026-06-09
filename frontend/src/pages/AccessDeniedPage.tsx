@@ -61,7 +61,7 @@ export default function AccessDeniedPage() {
             <div className="flex justify-center mb-6">
               <img
                 src="/assets/brand-mock.svg"
-                alt="GeNovo"
+                alt="GêLeads"
                 className="w-16 h-16 object-contain"
                 style={{
                   filter:

@@ -54,7 +54,7 @@ export default function ChatPage() {
       setLoadingMessages(false);
       if (!error) setMessages(data || []);
     });
-    const channel = chatService.subscribeToMessages(selectedConversation.id, (payload) => {
+    const channel = chatService.subscribeToMessages(selectedConversation.id, (payload: any) => {
       const newMsg = payload.new as ChatMessage;
       setMessages((prev) => (prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]));
     });

@@ -441,7 +441,7 @@ export default function AdminEquipesPage() {
     });
   }, [collaboratorsWithAvatar, searchQuery]);
 
-  const resolveGeNovoUserIdsByEmail = useCallback(
+  const resolveGeAdsUserIdsByEmail = useCallback(
     async (emails: string[]) => {
       const normalized = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
       if (!normalized.length) return new Map<string, string>();
@@ -481,7 +481,7 @@ export default function AdminEquipesPage() {
       return;
     }
 
-    const emailToUserId = await resolveGeNovoUserIdsByEmail(collabs.map((c) => c.email));
+    const emailToUserId = await resolveGeAdsUserIdsByEmail(collabs.map((c) => c.email));
 
     // Para cada sistema, verifica se algum colaborador do dept tem acesso
     const systemAccessResults = await Promise.all(
@@ -506,7 +506,7 @@ export default function AdminEquipesPage() {
 
     setDeptModalSystems(systemAccessResults);
     setDeptModalLoading(false);
-  }, [collaboratorsWithAvatar, teams, resolveGeNovoUserIdsByEmail]);
+  }, [collaboratorsWithAvatar, teams, resolveGeAdsUserIdsByEmail]);
 
   const handleSaveDeptAccess = useCallback(async () => {
     if (!deptModalRow) return;
@@ -515,7 +515,7 @@ export default function AdminEquipesPage() {
     const team = teams.find((t) => t.id === deptModalRow.id);
     const deptId = team?.neonDepartmentId ?? '';
     const collabPreviews = collaboratorsByDeptId.get(deptId) ?? [];
-    const emailToUserId = await resolveGeNovoUserIdsByEmail(collabPreviews.map((c) => c.email));
+    const emailToUserId = await resolveGeAdsUserIdsByEmail(collabPreviews.map((c) => c.email));
     const targetUserIds = [...new Set(collabPreviews
       .map((c) => emailToUserId.get(c.email.toLowerCase()) ?? '')
       .filter(Boolean))];
@@ -534,7 +534,7 @@ export default function AdminEquipesPage() {
     );
     setDeptModalSaving(false);
     toast.success('Acessos do departamento atualizados.');
-  }, [deptModalRow, deptModalSystems, collaboratorsByDeptId, teams, resolveGeNovoUserIdsByEmail]);
+  }, [deptModalRow, deptModalSystems, collaboratorsByDeptId, teams, resolveGeAdsUserIdsByEmail]);
 
   const handleSectorClick = useCallback(
     async (sector: SectorTopicRow) => {
@@ -558,7 +558,7 @@ export default function AdminEquipesPage() {
         return;
       }
 
-      const emailToUserId = await resolveGeNovoUserIdsByEmail(collabs.map((c) => c.email));
+      const emailToUserId = await resolveGeAdsUserIdsByEmail(collabs.map((c) => c.email));
 
       const systemAccessResults = await Promise.all(
         allSystems.map(async (sys: any) => {
@@ -582,7 +582,7 @@ export default function AdminEquipesPage() {
       setSectorModalSystems(systemAccessResults);
       setSectorModalLoading(false);
     },
-    [collaboratorsWithAvatar, resolveGeNovoUserIdsByEmail],
+    [collaboratorsWithAvatar, resolveGeAdsUserIdsByEmail],
   );
 
   const handleSaveSectorAccess = useCallback(async () => {
@@ -590,7 +590,7 @@ export default function AdminEquipesPage() {
     setSectorModalSaving(true);
 
     const previews = sectorModalRow.collaborators ?? [];
-    const emailToUserId = await resolveGeNovoUserIdsByEmail(previews.map((c) => c.email));
+    const emailToUserId = await resolveGeAdsUserIdsByEmail(previews.map((c) => c.email));
     const targetUserIds = [...new Set(previews
       .map((c) => emailToUserId.get(c.email.toLowerCase()) ?? '')
       .filter(Boolean))];
@@ -607,7 +607,7 @@ export default function AdminEquipesPage() {
     setSectorModalSystems((prev) => prev.map((s) => ({ ...s, original: s.canAccess })));
     setSectorModalSaving(false);
     toast.success('Acessos do setor atualizados.');
-  }, [sectorModalRow, sectorModalSystems, resolveGeNovoUserIdsByEmail]);
+  }, [sectorModalRow, sectorModalSystems, resolveGeAdsUserIdsByEmail]);
 
   const handleCollaboratorClick = useCallback(async (collab: CollaboratorWithAvatar) => {
     setLoadingCollaboratorId(collab.id);
@@ -661,7 +661,7 @@ export default function AdminEquipesPage() {
       <MainViewHeader
         icon={<UsersRound className="h-6 w-6" />}
         title="Equipes"
-        description="Cadastre equipes e defina quem pode vê-las no GeNovo."
+        description="Cadastre equipes e defina quem pode vê-las no GêLeads."
         button={
           <Button
             type="button"

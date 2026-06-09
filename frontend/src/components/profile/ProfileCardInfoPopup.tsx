@@ -2,6 +2,8 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Cake, Linkedin, Instagram, MessageCircle, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { modalScaleFromFillRatio, profileDataFillRatio } from '@/lib/motionPresets';
+import { useAppMotion } from '@/hooks/useAppMotion';
 
 interface ProfileCardInfoPopupProps {
   open: boolean;
@@ -28,7 +30,26 @@ const ProfileCardInfoPopup: React.FC<ProfileCardInfoPopupProps> = ({
   onOpenChange,
   userData
 }) => {
+  const motionCfg = useAppMotion();
+
   if (!userData) return null;
+
+  const profileFillRatio = profileDataFillRatio([
+    userData.apelido,
+    userData.name,
+    userData.username,
+    userData.bio,
+    userData.avatar,
+    userData.birthDate,
+    userData.created_at,
+    userData.whatsapp,
+    userData.instagram,
+    userData.linkedin,
+    userData.department,
+    userData.icon,
+    userData.admissionDate,
+  ]);
+  const initialScale = modalScaleFromFillRatio(profileFillRatio);
 
   const parseLocalDate = (dateString: string): Date => {
     const match = String(dateString).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -68,22 +89,31 @@ const ProfileCardInfoPopup: React.FC<ProfileCardInfoPopupProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             onClick={() => onOpenChange(false)}
             className="fixed inset-0 bg-black/60 backdrop-blur-md z-[9998]"
             style={{ isolation: 'isolate' }}
           />
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none" style={{ isolation: 'isolate' }}>
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 30 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 30 }}
-              transition={{ 
-                type: "spring", 
-                stiffness: 300, 
-                damping: 25 
-              }}
+              initial={
+                motionCfg.enabled
+                  ? { opacity: 0, scale: initialScale }
+                  : false
+              }
+              animate={
+                motionCfg.enabled
+                  ? { opacity: 1, scale: 1 }
+                  : undefined
+              }
+              exit={
+                motionCfg.enabled
+                  ? { opacity: 0, scale: initialScale }
+                  : undefined
+              }
+              transition={motionCfg.modalTransition}
               className="w-full max-w-md pointer-events-auto"
+              style={{ transformOrigin: 'center center' }}
             >
             <div className="relative rounded-2xl shadow-2xl overflow-hidden border border-slate-600/40 bg-[#1C2229]">
               <div className="relative max-h-[90vh] overflow-y-auto">

@@ -29,7 +29,7 @@ import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
-import { databaseService, storageService, GENOVO_APP_ID } from '@/services/supabase';
+import { databaseService, storageService, GEADS_APP_ID } from '@/services/supabase';
 import { getAllCollaboratorsSectors } from '@/services/corporateProfile';
 import { LoadingGif, LoadingGifScreen } from '@/components/LoadingGif';
 import { SystemCategory, Category } from '@/types';
@@ -94,7 +94,7 @@ interface AdminSystem {
   github_url?: string;
 }
 
-function normalizeGeNovoName(value: string): string {
+function normalizeGeAdsName(value: string): string {
   return (value ?? '')
     .toLowerCase()
     .normalize('NFD')
@@ -102,10 +102,11 @@ function normalizeGeNovoName(value: string): string {
     .replace(/\s+/g, '');
 }
 
-function isGeNovoApp(app: Pick<AdminSystem, 'id' | 'name'> | null): boolean {
+function isGeAdsApp(app: Pick<AdminSystem, 'id' | 'name'> | null): boolean {
   if (!app) return false;
-  if (app.id === GENOVO_APP_ID) return true;
-  return normalizeGeNovoName(app.name) === 'GeNovo';
+  if (app.id === GEADS_APP_ID) return true;
+  const normalized = normalizeGeAdsName(app.name);
+  return normalized === 'geleads' || normalized === 'geads';
 }
 
 function renderIcon(iconPath: string, className: string = '') {
@@ -194,7 +195,7 @@ export default function AdminSystemsPage() {
   const [sectors, setSectors] = useState<string[]>([]);
   const [loadingAccess, setLoadingAccess] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
-  const [geNovoAccessConfirmOpen, setGeNovoAccessConfirmOpen] = useState(false);
+  const [GeAdsAccessConfirmOpen, setGeAdsAccessConfirmOpen] = useState(false);
   const [accessSearch, setAccessSearch] = useState('');
   const [accessFilter, setAccessFilter] = useState<'all' | 'granted' | 'denied'>('all');
   const [accessSectorFilter, setAccessSectorFilter] = useState<string>('all');
@@ -413,15 +414,15 @@ export default function AdminSystemsPage() {
   };
 
   const handleSaveAccess = async () => {
-    if (isGeNovoApp(accessModalSystem)) {
-      setGeNovoAccessConfirmOpen(true);
+    if (isGeAdsApp(accessModalSystem)) {
+      setGeAdsAccessConfirmOpen(true);
       return;
     }
     await persistAccessChanges();
   };
 
-  const handleConfirmGeNovoAccess = async () => {
-    setGeNovoAccessConfirmOpen(false);
+  const handleConfirmGeAdsAccess = async () => {
+    setGeAdsAccessConfirmOpen(false);
     await persistAccessChanges();
   };
 
@@ -529,7 +530,7 @@ export default function AdminSystemsPage() {
       <MainViewHeader
         icon={<Boxes className="h-6 w-6" />}
         title="Item 1"
-        description="Gerencie os aplicativos disponíveis no GeNovo."
+        description="Gerencie os aplicativos disponíveis no GêLeads."
         button={
           <Button
             onClick={() => setIsCreateOpen(true)}
@@ -1779,7 +1780,7 @@ export default function AdminSystemsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={geNovoAccessConfirmOpen} onOpenChange={setGeNovoAccessConfirmOpen}>
+      <Dialog open={GeAdsAccessConfirmOpen} onOpenChange={setGeAdsAccessConfirmOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Confirmar alteração de acesso ao hub</DialogTitle>
@@ -1788,10 +1789,10 @@ export default function AdminSystemsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setGeNovoAccessConfirmOpen(false)}>
+            <Button variant="outline" onClick={() => setGeAdsAccessConfirmOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => void handleConfirmGeNovoAccess()}>
+            <Button onClick={() => void handleConfirmGeAdsAccess()}>
               Confirmar
             </Button>
           </div>

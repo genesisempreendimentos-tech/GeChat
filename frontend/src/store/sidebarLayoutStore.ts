@@ -3,31 +3,49 @@ import type { SidebarMode } from '@/lib/sidebarMode';
 import { parseSidebarMode } from '@/lib/sidebarMode';
 import { databaseService } from '@/services/supabase';
 
+const STORAGE_KEY = 'geleads_sidebar_mode';
+
+function readStoredMode(): SidebarMode {
+  try {
+    return parseSidebarMode(localStorage.getItem(STORAGE_KEY));
+  } catch {
+    return 'hover';
+  }
+}
+
+function writeStoredMode(mode: SidebarMode) {
+  try {
+    localStorage.setItem(STORAGE_KEY, mode);
+  } catch {
+    /* ignore */
+  }
+}
+
 type SidebarLayoutState = {
   mode: SidebarMode;
   /** Aplica valor do perfil (login / sessão), sem gravar no Supabase. */
   applyFromProfile: (raw: string | null | undefined) => void;
-  /** Atualiza UI e persiste em `profiles.sidebar` quando `userId` é informado. */
+  /** Atualiza UI e persiste localmente; Supabase é opcional (auth-only). */
   setMode: (mode: SidebarMode, userId?: string | null) => Promise<{ error: unknown } | null>;
 };
 
 export const useSidebarLayoutStore = create<SidebarLayoutState>((set, get) => ({
-  mode: 'hover',
+  mode: readStoredMode(),
 
   applyFromProfile: (raw) => {
-    set({ mode: parseSidebarMode(raw) });
+    const mode = raw ? parseSidebarMode(raw) : readStoredMode();
+    set({ mode });
+    writeStoredMode(mode);
   },
 
   setMode: async (mode, userId) => {
-    const prev = get().mode;
     set({ mode });
-    if (!userId) return null;
+    writeStoredMode(mode);
+    if (!userId) return { error: null };
     const { error } = await databaseService.updateProfileSidebar(userId, mode);
     if (error) {
-      console.warn('[sidebar] Falha ao salvar no perfil:', error);
-      set({ mode: prev });
-      return { error };
+      console.warn('[sidebar] Falha ao salvar no perfil (mantendo preferência local):', error);
     }
-    return { error: null };
+    return { error: error ?? null };
   },
 }));

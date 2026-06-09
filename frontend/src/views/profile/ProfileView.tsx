@@ -203,7 +203,7 @@ export function ProfileView() {
       <Dialog open={tourWelcomeOpen} onOpenChange={(open) => { if (!open) handleCloseTourWelcome(); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Bem-vindo ao GeNovo!</DialogTitle>
+            <DialogTitle>Bem-vindo ao GêLeads!</DialogTitle>
             <DialogDescription className="pt-2 space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
                 Esta é uma interface demo para explorar layout, navegação e componentes — sem dados corporativos reais.

@@ -1,23 +1,31 @@
-# GeNovo — mock de UI
+# G?Leads ? Acompanhamento de Leads
 
-Repositório **somente para design / protótipo**: não há empresa, domínio nem banco reais ligados ao código.
+Plataforma para cadastro, acompanhamento e gest?o de leads com autentica??o via Supabase.
 
 ## Executar
 
 ```bash
-npm install
-npm run dev
+cd frontend && npm install && npm run dev
+cd backend && npm install && npm run dev
 ```
 
-## Login (falso)
+## Configura??o
 
-E-mails permitidos estão em `src/mocks/uiShellData.ts` (ex.: `usuario.demo@example.com`, `admin.demo@example.com`). Qualquer senha serve no fluxo visual.
+Copie `.env.example` para `backend/.env` e configure:
 
-## Assets
+- `SUPABASE_URL` e `SUPABASE_ANON_KEY` ? autentica??o
+- `SUPABASE_SERVICE_ROLE_KEY` ? opera??es administrativas (opcional)
+- `NEON_GETEAMS_DATABASE_URL` ? opcional, perfil corporativo
 
-- Marca genérica: `public/assets/brand-mock.svg`
-- Banners categoria “demo”: `public/assets/banners/demo/`
+No frontend, configure em `.env` (ou vari?veis Vite):
 
-## Nota
+- `VITE_API_URL=http://localhost:3001`
+- `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`
+- `VITE_GELEADS_AUDIT_SLUG=geleads`
 
-`src/services/supabase.ts` e nomes de tipos legados mantêm compatibilidade com a UI, mas os retornos são **mock em memória**.
+## Funcionalidades
+
+- Dashboard com m?tricas de leads
+- CRUD de leads com pipeline (novo ? ganho/perdido)
+- Autentica??o (login, cadastro, reset de senha)
+- Perfil e configura??es do usu?rio

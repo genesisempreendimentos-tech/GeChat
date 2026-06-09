@@ -251,7 +251,7 @@ export default function LoginPage() {
                 >
                   <img
                     src="/assets/brand-mock.svg"
-                    alt="GeNovo"
+                    alt="GêLeads"
                     className="w-full h-full object-contain"
                     style={{
                       filter:
@@ -283,11 +283,11 @@ export default function LoginPage() {
                   className="text-4xl font-bold bg-gradient-to-r from-primary via-teal-400 to-primary bg-clip-text text-transparent"
                   style={{ backgroundSize: "200% auto" }}
                 >
-                  GeNovo
+                  GêLeads
                 </CardTitle>
               </motion.div>
               <CardDescription className="text-base">
-                Hub do Item 1 — layout demo (sem backend)
+                Acompanhe e gerencie seus leads em um só lugar
               </CardDescription>
               <div className="pt-2"></div>
             </motion.div>
@@ -476,7 +476,7 @@ export default function LoginPage() {
                       Entrando...
                     </span>
                   ) : (
-                    "Entrar no GeNovo"
+                    "Entrar no GêLeads"
                   )}
                 </Button>
               </motion.div>

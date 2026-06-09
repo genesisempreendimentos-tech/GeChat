@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { MotionFadeHeader } from '@/components/motion/AppMotion';
 
 export interface MainViewHeaderProps {
   /** Conteúdo exibido dentro do quadrado (ex.: `<Bell className="w-6 h-6" />`). */
@@ -22,7 +23,7 @@ export function MainViewHeader({
   className,
 }: MainViewHeaderProps) {
   return (
-    <div
+    <MotionFadeHeader
       className={cn(
         'flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between',
         className,
@@ -42,7 +43,7 @@ export function MainViewHeader({
           {button}
         </div>
       ) : null}
-    </div>
+    </MotionFadeHeader>
   );
 }
 

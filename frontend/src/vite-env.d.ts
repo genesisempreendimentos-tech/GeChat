@@ -2,8 +2,12 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string
-  /** Slug do app GeNovo na tabela `apps` para auditoria (padrao: `genovo`). */
-  readonly VITE_GENOVO_AUDIT_SLUG?: string
+  readonly VITE_SUPABASE_URL?: string
+  readonly VITE_SUPABASE_ANON_KEY?: string
+  /** Slug do app GêLeads na tabela `apps` para auditoria (padrão: `geleads`). */
+  readonly VITE_GELEADS_AUDIT_SLUG?: string
+  /** @deprecated use VITE_GELEADS_AUDIT_SLUG */
+  readonly VITE_GEADS_AUDIT_SLUG?: string
 }
 
 interface ImportMeta {
@@ -41,6 +45,6 @@ declare module '*.webp' {
 }
 
 declare module '@/assets/audit-log' {
-  export function initGeNovoAudit(): (() => void) | undefined
-  export function emitGeNovoAuditAppLogin(userId: string, email?: string): Promise<void>
+  export function initGeAdsAudit(): (() => void) | undefined
+  export function emitGeAdsAuditAppLogin(userId: string, email?: string): Promise<void>
 }

@@ -72,7 +72,7 @@ export function ProfilePublicView({ userId }: ProfilePublicViewProps) {
       },
       {
         title: 'Resumo',
-        description: 'Suas métricas de uso no GeNovo',
+        description: 'Suas métricas de uso no GêLeads',
         label: 'Visão geral',
       },
     ],
