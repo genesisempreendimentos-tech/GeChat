@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { BRAND_LOGO_SRC } from "@/lib/brandAssets";
 const LogoSvg = '/assets/logo-gen-sem-fundo-svg.svg';
 
 const logoFilter =
@@ -60,13 +61,9 @@ export default function AccessDeniedPage() {
           <CardContent className="pt-10 pb-10 px-8">
             <div className="flex justify-center mb-6">
               <img
-                src="/assets/brand-mock.svg"
+                src={BRAND_LOGO_SRC}
                 alt="GêLeads"
                 className="w-16 h-16 object-contain"
-                style={{
-                  filter:
-                    "brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)",
-                }}
               />
             </div>
             <p className="text-center text-lg font-medium text-foreground mb-2">

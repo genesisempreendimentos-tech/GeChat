@@ -142,11 +142,17 @@ function apiError(message: string) {
   return { message };
 }
 
+const API_FETCH_TIMEOUT_MS = 8000;
+
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<{ data: T | null; error: any }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_FETCH_TIMEOUT_MS);
+
   try {
     const response = await fetch(path, {
       ...options,
       credentials: 'include',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(options.headers ?? {}),
@@ -159,6 +165,8 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<{ d
     return { data: payload as T, error: null };
   } catch (error) {
     return { data: null, error };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

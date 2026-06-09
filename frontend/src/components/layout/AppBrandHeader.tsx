@@ -8,19 +8,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-const brandLogoFilter =
-  'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)';
+import { BRAND_LOGO_SRC } from '@/lib/brandAssets';
 
 export function BrandMark() {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 p-1.5">
+      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg">
         <img
-          src="/assets/brand-mock.svg"
+          src={BRAND_LOGO_SRC}
           alt=""
           className="h-full w-full object-contain"
-          style={{ filter: brandLogoFilter }}
         />
       </div>
       <span className="whitespace-nowrap bg-gradient-to-r from-foreground to-primary bg-clip-text text-xl font-bold text-transparent">

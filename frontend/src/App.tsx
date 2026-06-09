@@ -101,7 +101,7 @@ function AppRoutes() {
 
   return (
     <>
-      <AnimatedBackground />
+      {isAuthenticated && <AnimatedBackground />}
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginRoute />} />

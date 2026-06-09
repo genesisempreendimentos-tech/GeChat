@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/store/authStore';
+import { BRAND_LOGO_SRC } from '@/lib/brandAssets';
 const LogoSvg = '/assets/logo-gen-sem-fundo-svg.svg';
 
 export default function SignupPage() {
@@ -218,13 +219,10 @@ export default function SignupPage() {
                     ease: "easeInOut"
                   }}
                 >
-                  <img 
-                    src="/assets/brand-mock.svg" 
-                    alt="GêLeads" 
+                  <img
+                    src={BRAND_LOGO_SRC}
+                    alt="GêLeads"
                     className="w-full h-full object-contain"
-                    style={{
-                      filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)'
-                    }}
                   />
                 </motion.div>
               </div>

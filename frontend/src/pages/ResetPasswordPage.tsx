@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { BRAND_LOGO_SRC } from '@/lib/brandAssets';
 const LogoSvg = '/assets/logo-gen-sem-fundo-svg.svg';
 
 export default function ResetPasswordPage() {
@@ -113,7 +114,7 @@ export default function ResetPasswordPage() {
                   animate={{ rotate: [0, 5, 0, -5, 0], scale: [1, 1.05, 1] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  <img src="/assets/brand-mock.svg" alt="GêLeads" className="w-full h-full object-contain" style={{ filter: 'brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)' }} />
+                  <img src={BRAND_LOGO_SRC} alt="GêLeads" className="w-full h-full object-contain" />
                 </motion.div>
               </div>
             </motion.div>

@@ -22,8 +22,8 @@ import { profileExistsInSupabase } from './profileExists.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-/** Sempre lê .env na raiz do projeto (evita cwd errado ao rodar o Node). */
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+/** Sempre lê .env do backend (evita cwd errado e sobrescreve VITE_* do shell). */
+dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true });
 
 const app = express();
 const distPath = path.join(__dirname, '..', 'dist');
@@ -47,8 +47,8 @@ const DEFAULT_PORT = Number(process.env.SERVER_PORT) || 3001;
 const MAX_PORT_RETRIES = Number(process.env.SERVER_PORT_RETRY_COUNT) || 30;
 const ACTIVE_PORT_FILE = path.join(__dirname, '..', '.server-port');
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 /** Opcional: só no servidor; permite validar profiles em corporate-profile-by-email para qualquer e-mail (RLS). */
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const neonUrl = process.env.NEON_GETEAMS_DATABASE_URL;
@@ -58,9 +58,13 @@ app.locals.supabaseServiceRoleKey = supabaseServiceRoleKey;
 
 if (supabaseUrl) {
   try {
-    console.log('[server] Supabase (validação JWT):', new URL(supabaseUrl).hostname);
+    const hostname = new URL(supabaseUrl).hostname;
+    console.log('[server] Supabase (validação JWT):', hostname);
+    if (hostname.includes('seu-projeto')) {
+      console.warn('[server] SUPABASE_URL ainda é placeholder. Atualize backend/.env com a URL do seu projeto Supabase.');
+    }
   } catch {
-    /* ignore */
+    console.warn('[server] SUPABASE_URL inválida em backend/.env.');
   }
 } else {
   console.warn('[server] Defina SUPABASE_URL e SUPABASE_ANON_KEY no .env do backend.');

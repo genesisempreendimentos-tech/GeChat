@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { LoadingGif } from '@/components/LoadingGif';
 
 const LOADER_MIN_MS = 1000;
 const LOADER_MAX_MS = 2500;
@@ -49,11 +50,7 @@ export function AppLoader({ children }: { children: React.ReactNode }) {
           aria-live="polite"
           aria-label="Carregando o site"
         >
-          <img
-            src="/Gen-Moviment.gif"
-            alt=""
-            className="h-24 w-24 object-contain sm:h-32 sm:w-32"
-          />
+          <LoadingGif size="xl" className="h-24 w-24 sm:h-32 sm:w-32" />
         </div>
       )}
     </>

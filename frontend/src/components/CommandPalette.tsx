@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/command';
 import { LayoutDashboard, Users, UserCircle, Settings, Shield } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { BRAND_LOGO_SRC } from '@/lib/brandAssets';
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
@@ -38,7 +39,7 @@ export function CommandPalette() {
     <CommandDialog open={open} onOpenChange={setOpen}>
       <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-4 py-3 pr-14 min-h-[52px]">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-          <img src="/assets/brand-mock.svg" alt="" className="h-4 w-4" />
+          <img src={BRAND_LOGO_SRC} alt="" className="h-4 w-4 object-contain" />
         </div>
         <span className="font-semibold text-foreground text-sm">GêLeads</span>
       </div>

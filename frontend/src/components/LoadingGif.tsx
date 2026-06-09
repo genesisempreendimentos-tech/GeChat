@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const GIF_SRC = '/Gen-Moviment.gif';
@@ -17,11 +18,28 @@ interface LoadingGifProps {
 }
 
 export function LoadingGif({ size = 'md', className }: LoadingGifProps) {
+  const [gifFailed, setGifFailed] = useState(false);
+
+  if (gifFailed) {
+    return (
+      <span
+        role="presentation"
+        aria-hidden
+        className={cn(
+          'inline-block animate-spin rounded-full border-2 border-primary border-t-transparent',
+          sizeClasses[size],
+          className,
+        )}
+      />
+    );
+  }
+
   return (
     <img
       src={GIF_SRC}
       alt=""
       role="presentation"
+      onError={() => setGifFailed(true)}
       className={cn('object-contain', sizeClasses[size], className)}
     />
   );
