@@ -242,7 +242,7 @@ export function ProfileView() {
           <ProfileCard
             enableTilt
             showUserInfo
-            iconUrl="/assets/logo-gen-sem-fundo-svg.svg"
+            iconUrl="/assets/GêLeads.png"
             userData={userDataForCard()}
             currentUser={{ ...currentUser, apelido: formData.apelido, name: formData.name, username: formData.username }}
           />

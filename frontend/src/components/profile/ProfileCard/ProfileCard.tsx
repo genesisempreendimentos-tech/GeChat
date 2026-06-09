@@ -43,7 +43,7 @@ const ProfileCardComponent = ({
   enableMobileTilt = false,
   mobileTiltSensitivity = 5,
   showUserInfo = true,
-  iconUrl = '/assets/brand-mock.svg', // Fallback mock
+  iconUrl = '/assets/GêLeads.png',
   innerGradient,
   behindGlowEnabled = true,
   behindGlowColor,

@@ -1,6 +1,22 @@
+import fs from 'fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+
+function getBackendPort(): number {
+  const portFile = path.resolve(__dirname, '../backend/.server-port')
+  try {
+    const port = Number(fs.readFileSync(portFile, 'utf8').trim())
+    if (Number.isFinite(port) && port > 0) return port
+  } catch {
+    /* backend ainda não gravou a porta */
+  }
+
+  const fromEnv = process.env.VITE_API_URL?.match(/:(\d+)/)?.[1]
+  if (fromEnv) return Number(fromEnv)
+
+  return 3001
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -32,8 +48,9 @@ export default defineConfig({
     strictPort: false,
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:3001',
+        target: `http://localhost:${getBackendPort()}`,
         changeOrigin: true,
+        router: () => `http://localhost:${getBackendPort()}`,
         configure: (proxy) => {
           proxy.on('proxyReq', (proxyReq, req) => {
             const h = req.headers;

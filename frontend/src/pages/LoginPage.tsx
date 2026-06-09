@@ -29,6 +29,7 @@ import { useAuthStore } from "@/store/authStore";
 import { authService } from "@/services/supabase";
 import { isAllowedReturnToUrl } from "@/services/authStorage";
 import { getSafeInternalReturnPath } from "@/lib/postLoginRedirect";
+import { BRAND_LOGO_SRC } from "@/lib/brandAssets";
 const LogoSvg = '/assets/logo-gen-sem-fundo-svg.svg';
 
 export default function LoginPage() {
@@ -250,13 +251,9 @@ export default function LoginPage() {
                   }}
                 >
                   <img
-                    src="/assets/brand-mock.svg"
+                    src={BRAND_LOGO_SRC}
                     alt="GêLeads"
                     className="w-full h-full object-contain"
-                    style={{
-                      filter:
-                        "brightness(0) saturate(100%) invert(55%) sepia(89%) saturate(2148%) hue-rotate(138deg) brightness(91%) contrast(96%)",
-                    }}
                   />
                 </motion.div>
               </div>

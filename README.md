@@ -4,9 +4,18 @@ Plataforma para cadastro, acompanhamento e gest?o de leads com autentica??o via 
 
 ## Executar
 
+Na raiz do projeto:
+
 ```bash
-cd frontend && npm install && npm run dev
-cd backend && npm install && npm run dev
+npm install
+npm run dev
+```
+
+Isso sobe o backend e o frontend ao mesmo tempo. Para rodar apenas um deles:
+
+```bash
+npm run dev:backend
+npm run dev:frontend
 ```
 
 ## Configura??o
