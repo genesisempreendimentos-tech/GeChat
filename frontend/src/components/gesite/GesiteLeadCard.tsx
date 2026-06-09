@@ -54,25 +54,42 @@ export function GesiteLeadCard({ row, tab, onClick, className }: Props) {
           : undefined
       }
       className={cn(
-        'flex h-full flex-col overflow-hidden border-l-4 transition-shadow hover:shadow-md',
+        'group relative flex h-full flex-col overflow-hidden border-l-4',
+        'transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+        'hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/30',
+        'hover:ring-2 hover:ring-offset-2 hover:ring-offset-background',
         accent.border,
-        onClick && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        accent.ring,
+        onClick &&
+          'cursor-pointer active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         className,
       )}
     >
-      <CardHeader className="pb-3">
+      <div
+        className={cn(
+          'pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100',
+          accent.bg,
+        )}
+        aria-hidden
+      />
+      <CardHeader className="relative z-[1] pb-3">
         <div className="flex items-start gap-3">
-          <GesiteLeadPersonaAvatar nome={row.nome} />
+          <GesiteLeadPersonaAvatar
+            nome={row.nome}
+            className="ring-1 ring-border/40 transition-all duration-300 group-hover:scale-105 group-hover:ring-border/70"
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate font-semibold leading-tight">{row.nome}</p>
+              <p className="truncate font-semibold leading-tight transition-colors duration-300 group-hover:text-foreground">
+                {row.nome}
+              </p>
               <GesiteLeadQualificacaoEmojiTooltip qualificacao={row.qualificacao} />
             </div>
             <p className="mt-0.5 truncate text-sm text-muted-foreground">{fieldOrDash(row.email)}</p>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-1.5 pb-4 pt-0 text-xs text-muted-foreground">
+      <CardContent className="relative z-[1] space-y-1.5 pb-4 pt-0 text-xs text-muted-foreground transition-colors duration-300 group-hover:text-muted-foreground/90">
         {tab === 'fonte' ? (
           <>
             <p>

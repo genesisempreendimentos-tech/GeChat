@@ -144,16 +144,25 @@ function computeTaxaConversaoPct(rows: GesiteLeadMetricsRow[]): number {
   return Math.round((converted / rows.length) * 1000) / 10;
 }
 
+/** Pontuação 0–100 de um lead conforme a classificação de qualificação. */
+export const GESITE_QUALIFICACAO_PONTUACAO: Record<GesiteLeadQualificacao, number> = {
+  Indefinida: 22,
+  'N/A': 18,
+  Baixa: 48,
+  Média: 72,
+  Alta: 91,
+};
+
+export function getGesiteLeadPontuacao(qualificacao: GesiteLeadQualificacao): number {
+  return GESITE_QUALIFICACAO_PONTUACAO[qualificacao];
+}
+
 function computePontuacaoScore(rows: GesiteLeadMetricsRow[]): number {
   if (!rows.length) return 0;
-  const weights: Record<GesiteLeadQualificacao, number> = {
-    Indefinida: 22,
-    'N/A': 18,
-    Baixa: 48,
-    Média: 72,
-    Alta: 91,
-  };
-  const sum = rows.reduce((acc, row) => acc + (weights[row.qualificacao] ?? 30), 0);
+  const sum = rows.reduce(
+    (acc, row) => acc + (GESITE_QUALIFICACAO_PONTUACAO[row.qualificacao] ?? 30),
+    0,
+  );
   return Math.round(sum / rows.length);
 }
 

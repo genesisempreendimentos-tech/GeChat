@@ -2,10 +2,27 @@ import type { Lead, LeadActivity, LeadStats, LeadStatus } from '@/types/lead';
 
 const STATUSES: LeadStatus[] = ['novo', 'contato', 'qualificado', 'negociacao', 'ganho', 'perdido'];
 
-function daysAgo(n: number): string {
+const SOURCES = ['linkedin', 'google_ads', 'indicacao', 'evento', 'direto', 'facebook_ads', 'webinar'] as const;
+
+const FIRST_NAMES = [
+  'Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabio', 'Gabriela', 'Henrique', 'Isabela', 'Juliano',
+  'Karina', 'Lucas', 'Marina', 'Nicolas', 'Olivia', 'Paulo', 'Renata', 'Samuel', 'Tatiana', 'Vitor',
+];
+
+const LAST_NAMES = [
+  'Almeida', 'Barbosa', 'Cardoso', 'Dias', 'Esteves', 'Ferreira', 'Gomes', 'Henrique', 'Ibrahim', 'Junqueira',
+  'Klein', 'Lima', 'Mendes', 'Nascimento', 'Oliveira', 'Pereira', 'Queiroz', 'Ribeiro', 'Silva', 'Teixeira',
+];
+
+const COMPANIES = [
+  'TechCorp Brasil', 'InovaTech', 'Startup XYZ', 'Grupo Sul', 'Agência Flux', 'RetailMax', 'ConsultPro',
+  'Logística Express', 'Nova Era Digital', 'Prime Vendas', 'Atlas Comercial', 'Horizon Labs',
+];
+
+function daysAgo(n: number, hour = 10, minute = 0): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  d.setHours(10, 0, 0, 0);
+  d.setHours(hour, minute, 0, 0);
   return d.toISOString();
 }
 
@@ -13,6 +30,48 @@ function todayMorning(): string {
   const d = new Date();
   d.setHours(9, 30, 0, 0);
   return d.toISOString();
+}
+
+function pick<T>(items: readonly T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+/** Gera leads sintéticos distribuídos nos últimos 90 dias para gráficos do dashboard. */
+function generateDashboardLeadsExtension(): Lead[] {
+  const out: Lead[] = [];
+  let seq = 0;
+
+  for (let dayOffset = 0; dayOffset < 90; dayOffset++) {
+    const dailyCount = 1 + (dayOffset % 4);
+    for (let i = 0; i < dailyCount; i++) {
+      seq += 1;
+      const first = pick(FIRST_NAMES);
+      const last = pick(LAST_NAMES);
+      const status = pick(STATUSES);
+      const source = pick(SOURCES);
+      const createdAt = daysAgo(dayOffset, 8 + (i * 3) % 10, (seq * 7) % 60);
+      const gender = seq % 2 === 0 ? 'female' : 'male';
+
+      out.push({
+        id: `lead-gen-${String(seq).padStart(4, '0')}`,
+        name: `${first} ${last}`,
+        gender,
+        email: `${first.toLowerCase()}.${last.toLowerCase()}${seq}@exemplo.com`,
+        phone: `(11) 9${String(8000 + seq).slice(-4)}-${String(1000 + seq).slice(-4)}`,
+        company: pick(COMPANIES),
+        source,
+        campaign: source === 'indicacao' || source === 'direto' ? null : `Campanha ${2024 + (seq % 2)}`,
+        status,
+        notes: null,
+        assignedTo: null,
+        createdBy: 'mock-user',
+        createdAt,
+        updatedAt: createdAt,
+      });
+    }
+  }
+
+  return out;
 }
 
 export const MOCK_LEADS: Lead[] = [
@@ -145,6 +204,9 @@ export const MOCK_LEADS: Lead[] = [
     updatedAt: daysAgo(1),
   },
 ];
+
+/** Leads demo + série sintética de 90 dias para gráficos e planilha do dashboard. */
+export const DASHBOARD_LEADS: Lead[] = [...MOCK_LEADS, ...generateDashboardLeadsExtension()];
 
 export const MOCK_ACTIVITIES: LeadActivity[] = [
   {

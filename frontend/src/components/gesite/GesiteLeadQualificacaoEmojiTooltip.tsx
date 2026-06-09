@@ -1,7 +1,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { NotoEmoji } from '@/components/leads/NotoEmoji';
 import { cn } from '@/lib/utils';
-import { GESITE_QUALIFICACAO_EMOJI } from '@/lib/gesiteLeadQualificacaoEmoji';
+import { GESITE_QUALIFICACAO_ACCENT, GESITE_QUALIFICACAO_EMOJI } from '@/lib/gesiteLeadQualificacaoEmoji';
+import { getGesiteLeadPontuacao } from '@/lib/gesiteLeadsMetrics';
 import type { GesiteLeadQualificacao } from '@/rules/qualifyGesiteLead';
 
 type Props = {
@@ -11,6 +11,8 @@ type Props = {
 
 export function GesiteLeadQualificacaoEmojiTooltip({ qualificacao, className }: Props) {
   const emoji = GESITE_QUALIFICACAO_EMOJI[qualificacao];
+  const accent = GESITE_QUALIFICACAO_ACCENT[qualificacao];
+  const pontuacao = getGesiteLeadPontuacao(qualificacao);
 
   return (
     <Tooltip delayDuration={150}>
@@ -18,15 +20,18 @@ export function GesiteLeadQualificacaoEmojiTooltip({ qualificacao, className }: 
         <button
           type="button"
           className={cn(
-            'inline-flex items-center justify-center rounded-xl border border-primary/25 bg-primary/5 px-2 py-1',
-            'transition-all duration-200 hover:border-primary/55 hover:bg-primary/10',
+            'inline-flex min-w-[2.75rem] items-center justify-center rounded-xl border px-2 py-1',
+            accent.border,
+            accent.bg,
+            'transition-all duration-200 hover:brightness-110',
             'hover:shadow-[0_0_12px_rgba(20,184,166,0.12)]',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            accent.ring,
             className,
           )}
-          aria-label={emoji.label}
+          aria-label={`${emoji.label} · pontuação ${pontuacao}`}
         >
-          <NotoEmoji code={emoji.code} alt={emoji.alt} size={28} />
+          <span className="text-sm font-bold tabular-nums leading-none text-foreground">{pontuacao}</span>
         </button>
       </TooltipTrigger>
       <TooltipContent
@@ -37,7 +42,9 @@ export function GesiteLeadQualificacaoEmojiTooltip({ qualificacao, className }: 
           'shadow-[0_8px_24px_rgba(0,0,0,0.5),0_0_16px_rgba(20,184,166,0.08)]',
         )}
       >
-        <p>{emoji.label}</p>
+        <p>
+          {emoji.label} · pontuação {pontuacao}
+        </p>
       </TooltipContent>
     </Tooltip>
   );

@@ -1,13 +1,23 @@
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, UserPlus, TrendingUp, ArrowRight } from 'lucide-react';
+import { Users, UserPlus, TrendingUp, ArrowRight, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DonutChart, LeadsVolumeChart } from '@/components/Charts';
+import { DashboardLeadsPanel } from '@/components/dashboard/DashboardLeadsPanel';
 import { LoadingGifScreen } from '@/components/LoadingGif';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { MainViewHeader } from '@/components/layout/header';
+import {
+  aggregateLeadsByDay,
+  dashboardTimeRangeDays,
+  filterLeadsInRange,
+  leadsBySourceDonut,
+  leadsByStatusDonut,
+  type DashboardTimeRange,
+} from '@/lib/dashboardLeadsMetrics';
 import { leadsService } from '@/services/leadsService';
 import type { Lead, LeadStats } from '@/types/lead';
 import { LEAD_STATUS_COLORS, LEAD_STATUS_LABELS } from '@/types/lead';
@@ -24,9 +34,11 @@ const item = {
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<LeadStats | null>(null);
+  const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [timeRange, setTimeRange] = useState<DashboardTimeRange>('90');
 
   useEffect(() => {
     async function load() {
@@ -35,14 +47,29 @@ export default function DashboardPage() {
       if (statsRes.error || leadsRes.error) {
         setError(statsRes.error ?? leadsRes.error ?? 'Erro ao carregar dados.');
       } else {
+        const leads = leadsRes.data ?? [];
         setStats(statsRes.data);
-        setRecentLeads((leadsRes.data ?? []).slice(0, 5));
+        setAllLeads(leads);
+        setRecentLeads(leads.slice(0, 5));
         setError('');
       }
       setLoading(false);
     }
     void load();
   }, []);
+
+  const rangedLeads = useMemo(
+    () => filterLeadsInRange(allLeads, dashboardTimeRangeDays(timeRange)),
+    [allLeads, timeRange],
+  );
+
+  const volumeData = useMemo(
+    () => aggregateLeadsByDay(rangedLeads, dashboardTimeRangeDays(timeRange)),
+    [rangedLeads, timeRange],
+  );
+
+  const statusDonut = useMemo(() => leadsByStatusDonut(rangedLeads), [rangedLeads]);
+  const sourceDonut = useMemo(() => leadsBySourceDonut(rangedLeads), [rangedLeads]);
 
   if (loading) return <LoadingGifScreen />;
 
@@ -102,10 +129,58 @@ export default function DashboardPage() {
         </motion.div>
 
         <motion.div variants={item} className="grid gap-6 lg:grid-cols-2">
+          {statusDonut.length > 0 ? (
+            <DonutChart
+              data={statusDonut}
+              title="Pipeline por status"
+              description="Distribuição dos leads no funil comercial"
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Pipeline por status</CardTitle>
+                <CardDescription>Sem dados no período selecionado</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+          {sourceDonut.length > 0 ? (
+            <DonutChart
+              data={sourceDonut}
+              title="Leads por origem"
+              description="De onde vieram os leads capturados"
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Leads por origem</CardTitle>
+                <CardDescription>Sem dados no período selecionado</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </motion.div>
+
+        <motion.div variants={item}>
+          <LeadsVolumeChart
+            data={volumeData}
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            title="Volume de leads"
+            description="Novos leads por dia — padrão nos últimos 3 meses"
+          />
+        </motion.div>
+
+        <motion.div variants={item}>
+          <DashboardLeadsPanel key={timeRange} leads={rangedLeads} />
+        </motion.div>
+
+        <motion.div variants={item} className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Pipeline</CardTitle>
-              <CardDescription>Distribuição por estágio</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Resumo do pipeline
+              </CardTitle>
+              <CardDescription>Contagem por estágio no período</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {stats &&
@@ -114,7 +189,7 @@ export default function DashboardPage() {
                     <Badge className={LEAD_STATUS_COLORS[status as keyof typeof LEAD_STATUS_COLORS]}>
                       {LEAD_STATUS_LABELS[status as keyof typeof LEAD_STATUS_LABELS]}
                     </Badge>
-                    <span className="font-medium">{count}</span>
+                    <span className="font-medium tabular-nums">{count}</span>
                   </div>
                 ))}
             </CardContent>
