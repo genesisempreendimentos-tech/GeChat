@@ -4,6 +4,7 @@ export type LeadGender = 'male' | 'female';
 
 export interface Lead {
   id: string;
+  codigo: string | null;
   name: string;
   gender?: LeadGender | null;
   email: string | null;

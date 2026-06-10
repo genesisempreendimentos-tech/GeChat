@@ -284,6 +284,11 @@ function mapCvcrmFields(row) {
   };
 }
 
+function mapLeadCodigo(row) {
+  const codigo = String(row.codigo ?? '').trim();
+  return codigo || null;
+}
+
 export function mapStandardLeadRow(row, sourceTable, defaults = {}) {
   const email = String(row.email ?? '').trim();
   const phone = String(row.phone ?? '').trim();
@@ -295,6 +300,7 @@ export function mapStandardLeadRow(row, sourceTable, defaults = {}) {
 
   return {
     id: row.id,
+    codigo: mapLeadCodigo(row),
     source_table: sourceTable,
     name: String(row.name ?? '').trim() || 'Lead',
     email: email || null,
@@ -330,6 +336,7 @@ export function mapOasisIiRow(row, sourceTable, defaults = {}) {
 
   return {
     id: row.id,
+    codigo: mapLeadCodigo(row),
     source_table: sourceTable,
     name: String(row.name ?? '').trim() || 'Lead',
     email: email || null,
@@ -365,6 +372,7 @@ export function mapSolarBosqueRow(row, sourceTable, defaults = {}) {
 
   return {
     id: row.id,
+    codigo: mapLeadCodigo(row),
     source_table: sourceTable,
     name: String(row.nome ?? '').trim() || 'Lead',
     email: email || null,
@@ -393,6 +401,7 @@ export function mapSolarBosqueRow(row, sourceTable, defaults = {}) {
 const ENSURE_LEADS_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS leads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  codigo TEXT,
   source_table TEXT,
   name TEXT NOT NULL,
   email TEXT,
@@ -424,7 +433,7 @@ CREATE TABLE IF NOT EXISTS leads (
 `;
 
 const UPSERT_LEAD_COLUMNS = [
-  'id', 'source_table', 'name', 'email', 'phone', 'page', 'origem', 'canal', 'parametro',
+  'id', 'codigo', 'source_table', 'name', 'email', 'phone', 'page', 'origem', 'canal', 'parametro',
   'empreendimento', 'responsavel', 'relacionamento', 'investimento', 'cidade_residencia',
   'birth_date', 'profile_type', 'profile_notes', 'dispositivo', 'pagamento_preferencia',
   'status', 'cvcrm_lead_id', 'cvcrm_sync_status', 'cvcrm_is_sold',
@@ -433,6 +442,7 @@ const UPSERT_LEAD_COLUMNS = [
 
 const UPSERT_LEAD_CONFLICT_SQL = `
 ON CONFLICT (id) DO UPDATE SET
+  codigo = COALESCE(NULLIF(TRIM(EXCLUDED.codigo), ''), leads.codigo),
   source_table = EXCLUDED.source_table,
   name = EXCLUDED.name,
   email = EXCLUDED.email,
@@ -461,7 +471,7 @@ ON CONFLICT (id) DO UPDATE SET
   updated_at = EXCLUDED.updated_at;
 `;
 
-// 500 linhas × 28 colunas = 14.000 parâmetros por query (limite do Postgres: 65.535).
+// 500 linhas × 29 colunas = 14.500 parâmetros por query (limite do Postgres: 65.535).
 const UPSERT_BATCH_SIZE = 500;
 
 function buildBatchUpsertSql(rowCount) {
@@ -478,6 +488,7 @@ function buildBatchUpsertSql(rowCount) {
 function leadToUpsertParams(mapped) {
   return [
     mapped.id,
+    mapped.codigo,
     mapped.source_table,
     mapped.name,
     mapped.email,
@@ -582,6 +593,7 @@ export async function syncLeadsFromSources({ force = false } = {}) {
 
     try {
       await client.query(ENSURE_LEADS_TABLE_SQL);
+    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS codigo TEXT`);
     await client.query(
       `ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_sync_status TEXT DEFAULT 'pending'`,
     );

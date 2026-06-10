@@ -17,6 +17,7 @@ export type LeadPerfilTipo = 'Morador' | 'Investidor' | 'Corretor';
 
 export type LeadRow = {
   id: string;
+  codigo: string | null;
   dataHora: string;
   nome: string;
   contato: string;

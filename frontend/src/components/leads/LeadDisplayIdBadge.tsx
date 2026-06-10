@@ -3,12 +3,13 @@ import { getLeadDisplayId } from '@/lib/leadDisplayId';
 
 type Props = {
   id: string;
+  codigo?: string | null;
   className?: string;
 };
 
-/** Badge discreto com ID amigável do lead (A0001). */
-export function LeadDisplayIdBadge({ id, className }: Props) {
-  const code = getLeadDisplayId({ id });
+/** Badge discreto com ID amigável do lead (A0000). */
+export function LeadDisplayIdBadge({ id, codigo, className }: Props) {
+  const code = getLeadDisplayId({ id, codigo });
 
   return (
     <span

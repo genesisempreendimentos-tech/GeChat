@@ -11,6 +11,7 @@ import type { LeadQualificacao } from '@/rules/qualifyLead';
 
 export type LeadCardRow = {
   id: string;
+  codigo?: string | null;
   dataHora: string;
   nome: string;
   pagina: string;
@@ -94,7 +95,7 @@ export function LeadCard({ row, tab, onClick, className }: Props) {
           />
           <div className="min-w-0 flex-1">
             <div className="mb-1.5">
-              <LeadDisplayIdBadge id={row.id} />
+              <LeadDisplayIdBadge id={row.id} codigo={row.codigo} />
             </div>
             <div className="flex items-center justify-between gap-2">
               <p className="truncate font-semibold leading-tight transition-colors duration-300 group-hover:text-foreground">

@@ -17,7 +17,7 @@ import { useLeadsData } from '@/hooks/useLeadsData';
 import { LeadsLoadingProgress } from '@/components/LeadsLoadingProgress';
 import { cn } from '@/lib/utils';
 import { formatLeadDateTime, formatLeadDateCreated } from '@/lib/formatDateTime';
-import { getLeadDisplayId, parseLeadSequentialNumber } from '@/lib/leadDisplayId';
+import { compareLeadCodigo, getLeadDisplayId } from '@/lib/leadDisplayId';
 import { formatLeadParametroDisplay } from '@/lib/leadParametro';
 import { profileDataFillRatio } from '@/lib/motionPresets';
 import { toast } from 'sonner';
@@ -401,7 +401,7 @@ function leadTdClassName(col: LeadSortKey): string {
 function leadCellContent(row: LeadRow, col: LeadSortKey): ReactNode {
   switch (col) {
     case 'codigo':
-      return <LeadDisplayIdBadge id={row.id} />;
+      return <LeadDisplayIdBadge id={row.id} codigo={row.codigo} />;
     case 'dataHora':
       return formatLeadDateCreated(row.dataHora);
     case 'nome':
@@ -711,7 +711,7 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
   const sortedLeadsRows = useMemo(() => {
     const sorted = [...filteredLeadsRows].sort((a, b) => {
       if (leadsSortKey === 'codigo') {
-        return parseLeadSequentialNumber(a.id) - parseLeadSequentialNumber(b.id);
+        return compareLeadCodigo(a, b);
       }
       if (leadsSortKey === 'dataHora') {
         return new Date(a.dataHora).getTime() - new Date(b.dataHora).getTime();
@@ -1024,7 +1024,11 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
               <DialogTitle className="text-xl font-semibold tracking-tight">Resumo do Lead</DialogTitle>
               {leadResumoSelecionado ? (
                 <DialogDescription className="text-sm text-muted-foreground">
-                  <LeadDisplayIdBadge id={leadResumoSelecionado.id} className="mr-2 align-middle" />
+                  <LeadDisplayIdBadge
+                    id={leadResumoSelecionado.id}
+                    codigo={leadResumoSelecionado.codigo}
+                    className="mr-2 align-middle"
+                  />
                   <span className="font-medium text-foreground">{leadResumoSelecionado.nome}</span>
                   <span className="text-muted-foreground">
                     {' '}
