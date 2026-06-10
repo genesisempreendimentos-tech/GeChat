@@ -38,8 +38,11 @@ export type LeadRow = {
   responsavel: string;
   parametro: string;
   status?: LeadStatus;
-  cvcrmLeadId?: string | null;
-  cvcrmSyncStatus?: string;
-  cvcrm_is_sold?: boolean;
+  cvcrm_lead_id: string | null;
+  cvcrm_sync_status: string | null;
+  cvcrm_is_sold: boolean;
+  cvcrm_status: string | null;
+  cvcrm_situation: string | null;
+  cvcrm_stage: string | null;
   _table?: string;
 };

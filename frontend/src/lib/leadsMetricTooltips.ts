@@ -10,5 +10,6 @@ export const LEADS_METRIC_TOOLTIPS = {
   visitasAgendadas: 'Leads com visita ao empreendimento marcada no período.',
   analiseCredito:
     'Leads com perfil completo e preferência por financiamento ou parcelamento.',
-  vendas: 'Leads marcados como venda no CVCRM (cvcrm_is_sold) no período.',
+  vendas: 'Vendas confirmadas no CVCRM. Atualizado via webhook.',
+  sincronizados: 'Leads enviados ao CVCRM com cvcrm_sync_status = synced no Neon.',
 } as const;

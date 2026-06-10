@@ -17,16 +17,19 @@ export interface Lead {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-  cvcrmLeadId?: string | null;
-  cvcrmSyncStatus?: string;
-  cvcrm_is_sold?: boolean;
-  dataHora: string; // Mapeia para 'createdAt' no Lead ou uma coluna de timestamp
-  nome: string; // Mapeia para 'name' no Lead
-  contato: string; // Pode ser derivado de 'email' ou 'phone'
+  cvcrm_lead_id: string | null;
+  cvcrm_sync_status: string | null;
+  cvcrm_is_sold: boolean;
+  cvcrm_status: string | null;
+  cvcrm_situation: string | null;
+  cvcrm_stage: string | null;
+  dataHora: string;
+  nome: string;
+  contato: string;
   pagina: string;
-  origem: string; // Mapeia para 'source' no Lead
-  canal: string; // Mapeia para 'campaign' ou outro campo
-  qualificacao: 'Indefinida' | 'N/A' | 'Baixa' | 'Média' | 'Alta'; // Pode ser derivado de 'status'
+  origem: string;
+  canal: string;
+  qualificacao: 'Indefinida' | 'N/A' | 'Baixa' | 'Média' | 'Alta';
   relacionamento: 'Solteiro(a)' | 'Namorando' | 'Noivo(a)' | 'União estável / Casado(a)' | '';
   investimento: 'Entre R$1000 e R$1700' | 'Entre R$1701 e R$2500' | 'Entre R$2501 e R$3500' | 'Acima de R$3500' | '';
   cidadeResidencia: string;

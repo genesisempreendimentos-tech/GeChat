@@ -296,6 +296,22 @@ function mapCvcrmIsSold(row) {
   return Boolean(row.cvcrm_is_sold);
 }
 
+function mapCvcrmNullableString(row, key) {
+  const value = String(row[key] ?? '').trim();
+  return value || null;
+}
+
+function mapCvcrmFields(row) {
+  return {
+    cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
+    cvcrm_sync_status: mapCvcrmSyncStatus(row),
+    cvcrm_is_sold: mapCvcrmIsSold(row),
+    cvcrm_status: mapCvcrmNullableString(row, 'cvcrm_status'),
+    cvcrm_situation: mapCvcrmNullableString(row, 'cvcrm_situation'),
+    cvcrm_stage: mapCvcrmNullableString(row, 'cvcrm_stage'),
+  };
+}
+
 function formatUnixBirthDatePtBr(value) {
   if (value == null || value === '') return '';
   const num = Number(value);
@@ -339,9 +355,7 @@ export function mapStandardLeadRow(row, sourceTable, defaults = {}) {
     pagamento_preferencia: null,
     responsavel: null,
     status: mapLeadStatus(row),
-    cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
-    cvcrm_sync_status: mapCvcrmSyncStatus(row),
-    cvcrm_is_sold: mapCvcrmIsSold(row),
+    ...mapCvcrmFields(row),
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
   };
@@ -376,9 +390,7 @@ export function mapOldLeadRow(row, sourceTable, defaults = {}) {
     pagamento_preferencia: null,
     responsavel: null,
     status: mapLeadStatus(row),
-    cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
-    cvcrm_sync_status: mapCvcrmSyncStatus(row),
-    cvcrm_is_sold: mapCvcrmIsSold(row),
+    ...mapCvcrmFields(row),
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
   };
@@ -413,9 +425,7 @@ export function mapOasisIiRow(row, sourceTable, defaults = {}) {
     pagamento_preferencia: null,
     responsavel: null,
     status: mapLeadStatus(row),
-    cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
-    cvcrm_sync_status: mapCvcrmSyncStatus(row),
-    cvcrm_is_sold: mapCvcrmIsSold(row),
+    ...mapCvcrmFields(row),
     created_at: row.created_at,
     updated_at: row.created_at,
   };
@@ -450,9 +460,7 @@ export function mapSolarBosqueRow(row, sourceTable, defaults = {}) {
     pagamento_preferencia: null,
     responsavel: null,
     status: mapLeadStatus(row),
-    cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
-    cvcrm_sync_status: mapCvcrmSyncStatus(row),
-    cvcrm_is_sold: mapCvcrmIsSold(row),
+    ...mapCvcrmFields(row),
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
   };
@@ -483,6 +491,9 @@ CREATE TABLE IF NOT EXISTS leads (
   cvcrm_lead_id TEXT,
   cvcrm_sync_status TEXT DEFAULT 'pending',
   cvcrm_is_sold BOOLEAN DEFAULT false,
+  cvcrm_status TEXT,
+  cvcrm_situation TEXT,
+  cvcrm_stage TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -492,7 +503,8 @@ const UPSERT_LEAD_COLUMNS = [
   'id', 'source_table', 'name', 'email', 'phone', 'page', 'origem', 'canal', 'parametro',
   'empreendimento', 'responsavel', 'relacionamento', 'investimento', 'cidade_residencia',
   'birth_date', 'profile_type', 'profile_notes', 'dispositivo', 'pagamento_preferencia',
-  'status', 'cvcrm_lead_id', 'cvcrm_sync_status', 'cvcrm_is_sold', 'created_at', 'updated_at',
+  'status', 'cvcrm_lead_id', 'cvcrm_sync_status', 'cvcrm_is_sold',
+  'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage', 'created_at', 'updated_at',
 ];
 
 const UPSERT_LEAD_CONFLICT_SQL = `
@@ -519,10 +531,13 @@ ON CONFLICT (id) DO UPDATE SET
   cvcrm_lead_id = EXCLUDED.cvcrm_lead_id,
   cvcrm_sync_status = EXCLUDED.cvcrm_sync_status,
   cvcrm_is_sold = EXCLUDED.cvcrm_is_sold,
+  cvcrm_status = EXCLUDED.cvcrm_status,
+  cvcrm_situation = EXCLUDED.cvcrm_situation,
+  cvcrm_stage = EXCLUDED.cvcrm_stage,
   updated_at = EXCLUDED.updated_at;
 `;
 
-// 500 linhas × 25 colunas = 12.500 parâmetros por query (limite do Postgres: 65.535).
+// 500 linhas × 28 colunas = 14.000 parâmetros por query (limite do Postgres: 65.535).
 const UPSERT_BATCH_SIZE = 500;
 
 function buildBatchUpsertSql(rowCount) {
@@ -561,6 +576,9 @@ function leadToUpsertParams(mapped) {
     mapped.cvcrm_lead_id,
     mapped.cvcrm_sync_status,
     mapped.cvcrm_is_sold,
+    mapped.cvcrm_status,
+    mapped.cvcrm_situation,
+    mapped.cvcrm_stage,
     mapped.created_at,
     mapped.updated_at,
   ];
@@ -646,6 +664,9 @@ export async function syncLeadsFromSources({ force = false } = {}) {
     await client.query(
       `ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_is_sold BOOLEAN DEFAULT false`,
     );
+    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_status TEXT`);
+    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_situation TEXT`);
+    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_stage TEXT`);
 
       for (const source of LEAD_SOURCE_TABLES) {
         const result = await processLeadSourceSync(client, source);

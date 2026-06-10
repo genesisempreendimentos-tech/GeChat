@@ -418,8 +418,21 @@ function leadCellContent(row: LeadRow, col: LeadSortKey): ReactNode {
       return <LeadParametroCell value={row.parametro} />;
     case 'empreendimento':
       return leadCampoVazio(row.empreendimento);
-    case 'cvcrm':
-      return row.cvcrmSyncStatus === 'synced' ? 'Sim' : 'Não';
+    case 'cvcrm': {
+      const synced = row.cvcrm_sync_status === 'synced';
+      const leadId = row.cvcrm_lead_id;
+      return (
+        <span
+          className="inline-flex flex-col leading-tight"
+          title={synced && leadId ? `cvcrm_lead_id: ${leadId}` : undefined}
+        >
+          <span>{synced ? 'Sim' : 'Não'}</span>
+          {synced && leadId ? (
+            <span className="text-[10px] text-muted-foreground tabular-nums">#{leadId}</span>
+          ) : null}
+        </span>
+      );
+    }
     case 'responsavel':
       return leadCampoVazio(row.responsavel);
     case 'qualificacao':
@@ -722,8 +735,8 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
         return ap - bp;
       }
       if (leadsSortKey === 'cvcrm') {
-        const av = a.cvcrmSyncStatus === 'synced' ? 1 : 0;
-        const bv = b.cvcrmSyncStatus === 'synced' ? 1 : 0;
+        const av = a.cvcrm_sync_status === 'synced' ? 1 : 0;
+        const bv = b.cvcrm_sync_status === 'synced' ? 1 : 0;
         return av - bv;
       }
       const av = a[leadsSortKey];

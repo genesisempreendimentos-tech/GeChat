@@ -18,7 +18,12 @@ export type LeadMetricsRow = {
   dataNascimento?: string;
   perfilLead?: string;
   pagamentoPreferencia?: string;
+  cvcrm_lead_id?: string | null;
+  cvcrm_sync_status?: string | null;
   cvcrm_is_sold?: boolean;
+  cvcrm_status?: string | null;
+  cvcrm_situation?: string | null;
+  cvcrm_stage?: string | null;
 };
 
 export type LeadsInfoboxStats = {
@@ -28,6 +33,7 @@ export type LeadsInfoboxStats = {
   taxaConversaoPct: number;
   pontuacao: number;
   vendas: number;
+  sincronizados: number;
   visitasAgendadas: number;
   atendimentoCorretor: number;
   analiseCredito: number;
@@ -60,6 +66,10 @@ function isVisitaAgendada(row: LeadMetricsRow) {
 
 function isVendaLead(row: LeadMetricsRow) {
   return row.cvcrm_is_sold === true;
+}
+
+function isSincronizadoLead(row: LeadMetricsRow) {
+  return row.cvcrm_sync_status === 'synced';
 }
 
 function isTaxaConversaoLead(row: LeadMetricsRow) {
@@ -175,6 +185,7 @@ export function computeLeadsInfoboxStats(rows: LeadMetricsRow[]): LeadsInfoboxSt
     taxaConversaoPct: computeTaxaConversaoPct(rows),
     pontuacao: computePontuacaoScore(rows),
     vendas: rows.filter(isVendaLead).length,
+    sincronizados: rows.filter(isSincronizadoLead).length,
     visitasAgendadas: rows.filter(isVisitaAgendada).length,
     atendimentoCorretor: rows.filter(isAtendimentoCorretor).length,
     analiseCredito: rows.filter(isAnaliseCreditoLead).length,

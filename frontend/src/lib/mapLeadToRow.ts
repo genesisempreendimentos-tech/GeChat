@@ -27,10 +27,12 @@ export function mapLeadToRow(lead: Lead): LeadRow {
     responsavel: lead.responsavel ?? '',
     parametro: lead.parametro ?? '',
     status: lead.status,
-    cvcrmLeadId: (lead as Lead & { cvcrmLeadId?: string | null }).cvcrmLeadId ?? null,
-    cvcrmSyncStatus:
-      (lead as Lead & { cvcrmSyncStatus?: string }).cvcrmSyncStatus ?? 'pending',
+    cvcrm_lead_id: lead.cvcrm_lead_id ?? null,
+    cvcrm_sync_status: lead.cvcrm_sync_status ?? 'pending',
     cvcrm_is_sold: lead.cvcrm_is_sold === true,
+    cvcrm_status: lead.cvcrm_status ?? null,
+    cvcrm_situation: lead.cvcrm_situation ?? null,
+    cvcrm_stage: lead.cvcrm_stage ?? null,
     _table: lead._table ?? '',
   };
 

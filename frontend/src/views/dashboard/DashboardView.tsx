@@ -10,6 +10,7 @@ import {
   HandCoins,
   MessageCircleCheck,
   MonitorSmartphone,
+  RefreshCw,
   Users,
 } from 'lucide-react';
 import { DonutChart, LeadsVolumeChart } from '@/components/Charts';
@@ -156,7 +157,7 @@ export function DashboardView() {
         </Card>
       </MotionReveal>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(12rem,1fr)] xl:items-stretch">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3 2xl:grid-cols-6 xl:items-stretch">
         <InfoBox
           motionIndex={1}
           title="Leads"
@@ -183,6 +184,14 @@ export function DashboardView() {
         />
         <InfoBox
           motionIndex={4}
+          title="Sincronizados"
+          value={infoboxStats.sincronizados}
+          icon={<RefreshCw />}
+          cor="muted"
+          infoTooltip={LEADS_METRIC_TOOLTIPS.sincronizados}
+        />
+        <InfoBox
+          motionIndex={5}
           title="WhatsApp"
           value={infoboxStats.whatsapp}
           icon={<MessageCircleCheck />}
@@ -190,7 +199,7 @@ export function DashboardView() {
           infoTooltip={LEADS_METRIC_TOOLTIPS.whatsapp}
         />
         <MotionReveal
-          index={5}
+          index={6}
           className="flex min-h-[8.5rem] flex-col gap-2 rounded-2xl border border-border/70 bg-card/80 px-4 py-4 shadow-sm backdrop-blur-sm sm:col-span-2 xl:col-span-1 xl:min-h-0"
         >
           <p className="text-sm font-medium text-muted-foreground">Pontuação</p>
