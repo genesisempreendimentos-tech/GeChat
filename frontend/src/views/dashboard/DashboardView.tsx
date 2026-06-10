@@ -6,7 +6,6 @@ import {
   ArrowRight,
   BarChart3,
   Bell,
-  BookOpen,
   FileBarChart,
   HandCoins,
   MessageCircleCheck,
@@ -20,7 +19,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MotionReveal } from '@/components/motion/AppMotion';
+import { LoadingGif } from '@/components/LoadingGif';
 import { useAuthStore } from '@/store/authStore';
+import { useLeadsData } from '@/hooks/useLeadsData';
 import {
   aggregateByDay,
   byOrigemDonut,
@@ -29,8 +30,6 @@ import {
 } from '@/lib/dadosAggregations';
 import { computeLeadsInfoboxStats } from '@/lib/leadsMetrics';
 import { LEADS_METRIC_TOOLTIPS } from '@/lib/leadsMetricTooltips';
-import { LEADS_TABLE_MOCK } from '@/lib/leadsMockData';
-import { DASHBOARD_LEADS, MOCK_ACTIVITIES } from '@/mock/leadsData';
 import { LEAD_SOURCE_LABELS } from '@/lib/dashboardLeadsMetrics';
 import { LEAD_STATUS_LABELS } from '@/types/lead';
 import type { LeadStatus } from '@/types/lead';
@@ -47,7 +46,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 const SHORTCUTS = [
   { path: '/leads', label: 'Leads', description: 'Gestão operacional', icon: Users },
-  { path: '/dados', label: 'Dados', description: 'Analytics completos', icon: BarChart3 },
+  { path: '/dados', label: 'Análise', description: 'Analytics completos', icon: BarChart3 },
   { path: '/relatorios', label: 'Relatórios', description: 'Exportações e resumos', icon: FileBarChart },
   { path: '/notifications', label: 'Notificações', description: 'Alertas e avisos', icon: Bell },
 ] as const;
@@ -67,23 +66,24 @@ function userInitials(name: string): string {
     .join('');
 }
 
-function countLeadsToday(rows: typeof LEADS_TABLE_MOCK): number {
+function countLeadsToday(rows: { dataHora: string }[]): number {
   const today = startOfDay(new Date()).getTime();
   return rows.filter((row) => startOfDay(new Date(row.dataHora)).getTime() === today).length;
 }
 
 export function DashboardView() {
   const user = useAuthStore((s) => s.user);
+  const { rows, loading, error } = useLeadsData();
   const [timeRange, setTimeRange] = useState<VolumeRange>('30');
   const days = timeRange === '7' ? 7 : timeRange === '30' ? 30 : 90;
 
   const rangedRows = useMemo(
-    () => filterRowsInDays(LEADS_TABLE_MOCK, days),
-    [days],
+    () => filterRowsInDays(rows, days),
+    [rows, days],
   );
 
   const infoboxStats = useMemo(() => computeLeadsInfoboxStats(rangedRows), [rangedRows]);
-  const newToday = useMemo(() => countLeadsToday(LEADS_TABLE_MOCK), []);
+  const newToday = useMemo(() => countLeadsToday(rows), [rows]);
   const volumeData = useMemo(
     () => aggregateByDay(rangedRows, 'leads', days),
     [rangedRows, days],
@@ -92,31 +92,37 @@ export function DashboardView() {
   const origemDonut = useMemo(() => byOrigemDonut(rangedRows), [rangedRows]);
 
   const attentionLeads = useMemo(() => {
-    const pendingProfile = LEADS_TABLE_MOCK.filter((row) => row.qualificacao === 'Indefinida')
+    const pendingProfile = rows
+      .filter((row) => row.qualificacao === 'Indefinida')
       .sort((a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime())
       .slice(0, 4);
 
-    const pipelineHot = DASHBOARD_LEADS.filter(
-      (lead) => lead.status === 'novo' || lead.status === 'contato',
-    )
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    const pipelineHot = rows
+      .filter((row) => row.status === 'novo' || row.status === 'contato')
+      .sort((a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime())
       .slice(0, 3);
 
     return { pendingProfile, pipelineHot };
-  }, []);
-
-  const recentActivity = useMemo(() => {
-    return MOCK_ACTIVITIES.map((activity) => {
-      const lead = DASHBOARD_LEADS.find((l) => l.id === activity.leadId);
-      return {
-        ...activity,
-        leadName: lead?.name ?? 'Lead',
-      };
-    });
-  }, []);
+  }, [rows]);
 
   const displayName = user?.name?.split(/\s+/)[0] ?? 'usuário';
   const roleLabel = ROLE_LABELS[user?.role ?? 'user'] ?? 'Usuário';
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[20rem] items-center justify-center">
+        <LoadingGif size="md" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-sm text-destructive">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -198,28 +204,38 @@ export function DashboardView() {
         </MotionReveal>
       </div>
 
-      <LeadsVolumeChart
-        data={volumeData}
-        timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
-        title="Leads capturados"
-        description={`Volume diário no seu workspace · ${days} dias`}
-      />
+      {rows.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            Nenhum lead cadastrado no Neon ainda. Os dados aparecerão aqui assim que forem sincronizados.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <LeadsVolumeChart
+            data={volumeData}
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            title="Leads capturados"
+            description={`Volume diário no seu workspace · ${days} dias`}
+          />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <DonutChart
-          data={qualificacaoDonut}
-          title="Qualificação"
-          description="Distribuição por nível de qualificação no período"
-          size="lg"
-        />
-        <DonutChart
-          data={origemDonut}
-          title="Origem"
-          description="Canais que mais geraram leads"
-          size="lg"
-        />
-      </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <DonutChart
+              data={qualificacaoDonut}
+              title="Qualificação"
+              description="Distribuição por nível de qualificação no período"
+              size="lg"
+            />
+            <DonutChart
+              data={origemDonut}
+              title="Origem"
+              description="Canais que mais geraram leads"
+              size="lg"
+            />
+          </div>
+        </>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <MotionReveal index={6} className="lg:col-span-1">
@@ -249,20 +265,20 @@ export function DashboardView() {
                       </span>
                     </div>
                   ))}
-                  {attentionLeads.pipelineHot.map((lead) => (
+                  {attentionLeads.pipelineHot.map((row) => (
                     <div
-                      key={lead.id}
+                      key={row.id}
                       className="flex items-start justify-between gap-3 rounded-xl border border-blue-500/20 bg-blue-500/5 px-3 py-2.5"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{lead.name}</p>
+                        <p className="truncate text-sm font-medium">{row.nome}</p>
                         <p className="text-xs text-muted-foreground">
-                          {LEAD_STATUS_LABELS[lead.status as LeadStatus]} ·{' '}
-                          {LEAD_SOURCE_LABELS[lead.source] ?? lead.source}
+                          {LEAD_STATUS_LABELS[row.status as LeadStatus] ?? row.status ?? 'Novo'} ·{' '}
+                          {LEAD_SOURCE_LABELS[row.origem] ?? row.origem}
                         </p>
                       </div>
                       <span className="shrink-0 text-[11px] text-muted-foreground">
-                        {formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true, locale: ptBR })}
+                        {formatDistanceToNow(new Date(row.dataHora), { addSuffix: true, locale: ptBR })}
                       </span>
                     </div>
                   ))}
@@ -315,24 +331,9 @@ export function DashboardView() {
               <CardDescription>Últimas movimentações no pipeline</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {recentActivity.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhuma atividade registrada.</p>
-              ) : (
-                recentActivity.map((item) => (
-                  <div key={item.id} className="flex gap-3 rounded-xl border border-border/50 px-3 py-2.5">
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                      <BookOpen className="h-3.5 w-3.5" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">{item.leadName}</p>
-                      <p className="text-xs text-muted-foreground">{item.description}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground/80">
-                        {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale: ptBR })}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
+              <p className="text-sm text-muted-foreground">
+                Histórico de atividades será exibido quando houver registros no Neon.
+              </p>
             </CardContent>
           </Card>
         </MotionReveal>

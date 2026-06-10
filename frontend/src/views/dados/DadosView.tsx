@@ -44,8 +44,9 @@ import {
 import { computeLeadsInfoboxStats } from '@/lib/leadsMetrics';
 import type { LeadMetricaFiltro } from '@/lib/leadsControlLine';
 import { useFilteredLeadRows } from '@/hooks/useFilteredLeadRows';
+import { useLeadsData } from '@/hooks/useLeadsData';
 import { LEADS_METRIC_TOOLTIPS } from '@/lib/leadsMetricTooltips';
-import { LEADS_TABLE_MOCK } from '@/views/leads/LeadsView';
+import { LoadingGif } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
 
 function PontuacaoGaugeCard({ className, value = 72 }: { className?: string; value?: number }) {
@@ -93,11 +94,12 @@ export type DadosViewProps = {
 
 export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
   void onMetricaSelect;
+  const { rows: allRows, loading, error } = useLeadsData();
 
-  const filteredRows = useFilteredLeadRows(LEADS_TABLE_MOCK, filtros);
+  const filteredRows = useFilteredLeadRows(allRows, filtros);
   const leadsBalanceCtx = useMemo(
-    () => computeDadosBalanceCtx(filtros, LEADS_TABLE_MOCK),
-    [filtros],
+    () => computeDadosBalanceCtx(filtros, allRows),
+    [filtros, allRows],
   );
   const infoboxStats = useMemo(() => computeLeadsInfoboxStats(filteredRows), [filteredRows]);
 
@@ -109,7 +111,7 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
     [filteredRows, days],
   );
 
-  const origemCatalog = useMemo(() => collectOrigemCatalog(LEADS_TABLE_MOCK), []);
+  const origemCatalog = useMemo(() => collectOrigemCatalog(allRows), [allRows]);
 
   const qualificacaoBars = useMemo(() => aggregateByQualificacaoBars(filteredRows), [filteredRows]);
   const origemBars = useMemo(
@@ -170,6 +172,22 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
     mountCountRef.current += 1;
     prevTimeRangeRef.current = timeRange;
   }, [timeRange, filterRevision]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[20rem] items-center justify-center">
+        <LoadingGif size="md" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-sm text-destructive">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8">

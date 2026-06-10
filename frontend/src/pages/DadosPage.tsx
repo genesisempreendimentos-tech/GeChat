@@ -10,7 +10,7 @@ import {
 import { FiltrosPanelMotion } from '@/components/dados/FiltrosPanelMotion';
 import { useLeadsFilters } from '@/hooks/useLeadsFilters';
 import { DadosView } from '@/views/dados/DadosView';
-import { LEADS_TABLE_MOCK } from '@/views/leads/LeadsView';
+import { useLeadsData } from '@/hooks/useLeadsData';
 
 export default function DadosPage() {
   const {
@@ -24,9 +24,11 @@ export default function DadosPage() {
     handleMetricaSelect,
   } = useLeadsFilters();
 
+  const { rows } = useLeadsData();
+
   const filterOptions = useMemo(
-    () => collectDadosFilterOptions(LEADS_TABLE_MOCK),
-    [],
+    () => collectDadosFilterOptions(rows),
+    [rows],
   );
 
   return (

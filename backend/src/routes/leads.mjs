@@ -1,6 +1,13 @@
 import express from 'express';
+import pg from 'pg';
 import { getBearerJwt, resolveUserFromJwt } from '../middleware/authSupabase.mjs';
+import { syncLeadsFromSources } from '../services/leadSourceSync.mjs';
 import { listLeads, getLeadStats, getLeadById, LEAD_STATUSES } from '../services/leadsService.mjs';
+import { sendLeadToCvcrm } from '../services/cvcrmService.mjs';
+
+function getNeonLeadsUrl() {
+  return process.env.NEON_LEADS_DATABASE_URL || process.env.NEON_GELEADS_DATABASE_URL || null;
+}
 
 const ACCESS_COOKIE = 'geleads_sb_access';
 const REFRESH_COOKIE = 'geleads_sb_refresh';
@@ -53,10 +60,80 @@ async function requireAuth(req, res, next) {
 
 export function createLeadsRouter() {
   const router = express.Router();
+
+  router.post('/cvcrm/sync-pending', async (_req, res) => {
+    const neonUrl = getNeonLeadsUrl();
+    if (!neonUrl) {
+      return res.status(500).json({ error: 'NEON_LEADS_DATABASE_URL não configurada.' });
+    }
+
+    const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+    try {
+      await client.connect();
+
+      const { rows } = await client.query(
+        `SELECT *
+         FROM leads_solar_bosque
+         WHERE cvcrm_sync_status = 'pending'
+           AND cvcrm_lead_id IS NULL
+         ORDER BY created_at ASC`,
+      );
+
+      let synced = 0;
+      let errors = 0;
+
+      for (const lead of rows) {
+        const result = await sendLeadToCvcrm({ ...lead, source_table: 'leads_solar_bosque' });
+
+        if (result.ok) {
+          await client.query(
+            `UPDATE leads_solar_bosque
+             SET cvcrm_lead_id = $1,
+                 cvcrm_sync_status = 'synced',
+                 cvcrm_last_synced_at = now(),
+                 cvcrm_payload = $2::jsonb,
+                 cvcrm_sync_error = NULL,
+                 updated_at = now()
+             WHERE id = $3`,
+            [result.cvcrm_lead_id ?? null, JSON.stringify(result.payload ?? {}), lead.id],
+          );
+          synced += 1;
+        } else {
+          await client.query(
+            `UPDATE leads_solar_bosque
+             SET cvcrm_sync_status = 'error',
+                 cvcrm_sync_error = $1,
+                 updated_at = now()
+             WHERE id = $2`,
+            [result.error ?? 'Erro desconhecido ao enviar para o CVCRM', lead.id],
+          );
+          errors += 1;
+        }
+      }
+
+      res.json({ total: rows.length, synced, errors });
+    } catch (err) {
+      console.error('[leads/cvcrm/sync-pending]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao sincronizar leads pendentes com o CVCRM.' });
+    } finally {
+      await client.end().catch(() => {});
+    }
+  });
+
   router.use(requireAuth);
 
   router.get('/statuses', (_req, res) => {
     res.json({ statuses: LEAD_STATUSES });
+  });
+
+  router.post('/sync', async (_req, res) => {
+    try {
+      const result = await syncLeadsFromSources({ force: true });
+      res.json(result);
+    } catch (err) {
+      console.error('[leads/sync]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao sincronizar leads.' });
+    }
   });
 
   router.get('/stats', async (req, res) => {

@@ -17,6 +17,26 @@ export interface Lead {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  cvcrmLeadId?: string | null;
+  dataHora: string; // Mapeia para 'createdAt' no Lead ou uma coluna de timestamp
+  nome: string; // Mapeia para 'name' no Lead
+  contato: string; // Pode ser derivado de 'email' ou 'phone'
+  pagina: string;
+  origem: string; // Mapeia para 'source' no Lead
+  canal: string; // Mapeia para 'campaign' ou outro campo
+  qualificacao: 'Indefinida' | 'N/A' | 'Baixa' | 'Média' | 'Alta'; // Pode ser derivado de 'status'
+  relacionamento: 'Solteiro(a)' | 'Namorando' | 'Noivo(a)' | 'União estável / Casado(a)' | '';
+  investimento: 'Entre R$1000 e R$1700' | 'Entre R$1701 e R$2500' | 'Entre R$2501 e R$3500' | 'Acima de R$3500' | '';
+  cidadeResidencia: string;
+  dataNascimento: string;
+  perfilLead: 'Morador' | 'Investidor' | 'Corretor' | '';
+  perfilOutrasRespostas: string;
+  dispositivo: string;
+  pagamentoPreferencia: string;
+  empreendimento: string;
+  responsavel: string;
+  parametro: string;
+  _table: string;
 }
 
 export interface LeadActivity {

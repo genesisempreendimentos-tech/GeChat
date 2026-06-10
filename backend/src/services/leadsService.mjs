@@ -1,62 +1,134 @@
+import pg from 'pg';
+import { syncLeadsFromSources } from './leadSourceSync.mjs';
+
 const LEAD_STATUSES = ['novo', 'contato', 'qualificado', 'negociacao', 'ganho', 'perdido'];
 
-const MOCK_LEADS = [
-  {
-    id: 'lead-001',
-    name: 'Ana Paula Mendes',
-    gender: 'female',
-    email: 'ana.mendes@techcorp.com.br',
-    phone: '(11) 98765-4321',
-    company: 'TechCorp Brasil',
-    source: 'linkedin',
-    campaign: 'Q2 Enterprise',
-    status: 'qualificado',
-    notes: 'Interessada em plano anual.',
-    assignedTo: null,
-    createdBy: 'mock-user',
-    createdAt: new Date(Date.now() - 12 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: 'lead-002',
-    name: 'Carlos Eduardo Silva',
-    gender: 'male',
-    email: 'carlos.silva@inovatech.com',
-    phone: '(21) 99876-5432',
-    company: 'InovaTech',
-    source: 'google_ads',
-    campaign: 'Campanha Performance',
-    status: 'negociacao',
-    notes: null,
-    assignedTo: null,
-    createdBy: 'mock-user',
-    createdAt: new Date(Date.now() - 8 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-  },
-];
-
-export async function listLeads(_supabaseUrl, _supabaseAnonKey, _accessToken, filters = {}) {
-  let data = [...MOCK_LEADS].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+function getNeonLeadsUrl() {
+  return (
+    process.env.NEON_LEADS_DATABASE_URL ||
+    process.env.NEON_GETEAMS_DATABASE_URL ||
+    process.env.DATABASE_URL ||
+    null
   );
-  if (filters.status) data = data.filter((l) => l.status === filters.status);
-  return data;
 }
 
-export async function getLeadStats() {
-  const leads = await listLeads();
-  const byStatus = LEAD_STATUSES.reduce((acc, s) => {
-    acc[s] = leads.filter((l) => l.status === s).length;
+function toIso(value) {
+  if (!value) return new Date().toISOString();
+  if (value instanceof Date) return value.toISOString();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
+}
+
+function mapNeonRowToLead(row) {
+  const email = String(row.email ?? '').trim();
+  const phone = String(row.phone ?? '').trim();
+  const createdAt = toIso(row.created_at);
+  const updatedAt = toIso(row.updated_at ?? row.created_at);
+  const name = String(row.name ?? '').trim() || 'Lead';
+
+  return {
+    id: String(row.id),
+    name,
+    gender: null,
+    email: email || null,
+    phone: phone || null,
+    company: null,
+    source: String(row.origem ?? '').trim() || 'direto',
+    campaign: String(row.canal ?? '').trim() || null,
+    status: LEAD_STATUSES.includes(row.status) ? row.status : 'novo',
+    notes: String(row.profile_notes ?? '').trim() || null,
+    assignedTo: String(row.responsavel ?? '').trim() || null,
+    createdBy: 'sistema',
+    createdAt,
+    updatedAt,
+    dataHora: createdAt,
+    nome: name,
+    contato: email || phone || '',
+    pagina: String(row.page ?? '').trim(),
+    origem: String(row.origem ?? '').trim(),
+    canal: String(row.canal ?? '').trim(),
+    qualificacao: 'Indefinida',
+    relacionamento: String(row.relacionamento ?? '').trim(),
+    investimento: String(row.investimento ?? '').trim(),
+    cidadeResidencia: String(row.cidade_residencia ?? '').trim(),
+    dataNascimento: String(row.birth_date ?? '').trim(),
+    perfilLead: String(row.profile_type ?? '').trim(),
+    perfilOutrasRespostas: String(row.profile_notes ?? '').trim(),
+    dispositivo: String(row.dispositivo ?? '').trim(),
+    pagamentoPreferencia: String(row.pagamento_preferencia ?? '').trim(),
+    empreendimento: String(row.empreendimento ?? '').trim(),
+    responsavel: String(row.responsavel ?? '').trim(),
+    parametro: String(row.parametro ?? '').trim(),
+    cvcrmLeadId: String(row.cvcrm_lead_id ?? '').trim() || null,
+    _table: String(row.source_table ?? '').trim(),
+  };
+}
+
+async function withNeonClient(fn) {
+  const neonUrl = getNeonLeadsUrl();
+  if (!neonUrl) {
+    console.warn('[leads] NEON_LEADS_DATABASE_URL não configurada.');
+    return null;
+  }
+
+  const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    await client.end();
+  }
+}
+
+export async function listLeads(_supabaseUrl, _supabaseAnonKey, _accessToken, filters = {}) {
+  try {
+    await syncLeadsFromSources();
+
+    const result = await withNeonClient(async (client) => {
+      const params = [];
+      let sql = 'SELECT * FROM leads';
+      if (filters.status) {
+        params.push(filters.status);
+        sql += ` WHERE status = $${params.length}`;
+      }
+      sql += ' ORDER BY created_at DESC';
+      const { rows } = await client.query(sql, params);
+      return rows;
+    });
+
+    if (!result) return [];
+    return result.map(mapNeonRowToLead);
+  } catch (err) {
+    console.error('[leads/list]', err);
+    return [];
+  }
+}
+
+export async function getLeadStats(supabaseUrl, supabaseAnonKey, accessToken) {
+  const leads = await listLeads(supabaseUrl, supabaseAnonKey, accessToken);
+  const byStatus = LEAD_STATUSES.reduce((acc, status) => {
+    acc[status] = leads.filter((lead) => lead.status === status).length;
     return acc;
   }, {});
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const newToday = leads.filter((l) => new Date(l.createdAt) >= today).length;
+  const newToday = leads.filter((lead) => new Date(lead.createdAt) >= today).length;
   return { total: leads.length, byStatus, newToday };
 }
 
 export async function getLeadById(_supabaseUrl, _supabaseAnonKey, _accessToken, leadId) {
-  return MOCK_LEADS.find((l) => l.id === leadId) ?? null;
+  try {
+    const result = await withNeonClient(async (client) => {
+      const { rows } = await client.query('SELECT * FROM leads WHERE id = $1 LIMIT 1', [leadId]);
+      return rows[0] ?? null;
+    });
+
+    if (!result) return null;
+    return mapNeonRowToLead(result);
+  } catch (err) {
+    console.error('[leads/get]', err);
+    return null;
+  }
 }
 
 export { LEAD_STATUSES };

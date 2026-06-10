@@ -1,26 +1,45 @@
-import { DASHBOARD_LEADS, MOCK_LEADS, computeLeadStats } from '@/mock/leadsData';
 import type { Lead, LeadStats, LeadStatus } from '@/types/lead';
 
-function delay<T>(value: T, ms = 120): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<{ data: T | null; error: any }> {
+  try {
+    const response = await fetch(path, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers ?? {}),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { data: null, error: payload?.error ?? 'Erro na API.' };
+    }
+    return { data: payload as T, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
 }
 
 export const leadsService = {
   async list(status?: LeadStatus) {
-    let data = [...DASHBOARD_LEADS].sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
-    if (status) data = data.filter((l) => l.status === status);
-    return delay({ data, error: null as string | null });
+    const { data, error } = await apiFetch<{ leads: Lead[] }>(`/api/leads?status=${status || ''}`);
+    return { data: data?.leads ?? [], error };
   },
 
   async getStats() {
-    const stats: LeadStats = computeLeadStats(DASHBOARD_LEADS);
-    return delay({ data: stats, error: null as string | null });
+    const { data, error } = await apiFetch<LeadStats>(`/api/leads/stats`);
+    return { data, error };
   },
 
   async getById(id: string) {
-    const lead = DASHBOARD_LEADS.find((l) => l.id === id) ?? MOCK_LEADS.find((l) => l.id === id) ?? null;
-    return delay({ data: lead, error: lead ? null : 'Lead não encontrado.' });
+    const { data, error } = await apiFetch<{ lead: Lead }>(`/api/leads/${id}`);
+    return { data: data?.lead ?? null, error };
+  },
+
+  async sync() {
+    return apiFetch<{ synced: number; sources: { source: string; table: string; count: number }[] }>(
+      '/api/leads/sync',
+      { method: 'POST' },
+    );
   },
 };

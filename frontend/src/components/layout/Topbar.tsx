@@ -149,7 +149,7 @@ function TopbarActions() {
           <DialogHeader>
             <DialogTitle>Sair do GêLeads</DialogTitle>
             <DialogDescription>
-              Deseja realmente sair? No mock você precisará entrar de novo para acessar.
+              Deseja realmente sair? Você precisará entrar de novo para acessar.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

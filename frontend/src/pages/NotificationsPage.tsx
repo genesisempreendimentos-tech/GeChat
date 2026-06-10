@@ -155,7 +155,7 @@ export default function NotificationsPage() {
         <MainViewHeader
           icon={<Bell className="h-6 w-6" />}
           title="Notificações"
-          description="Acompanhe notificações (mock)"
+          description="Acompanhe notificações do sistema"
         />
 
         <div className="space-y-4">

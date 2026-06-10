@@ -16,7 +16,7 @@ import type { LeadsBalanceComparison } from '@/components/charts/Balance';
 export type DadosFilters = LeadsPageControlFilters & {
   dataInicial: string;
   dataFinal: string;
-  /** Vazio = todos; mapeado via `pagina` no mock. */
+  /** Vazio = todos; mapeado via `pagina` nos leads. */
   empreendimento: string;
   origem: string;
   dispositivo: string;

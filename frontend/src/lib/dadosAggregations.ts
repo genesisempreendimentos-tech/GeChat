@@ -94,13 +94,7 @@ const CHANNEL_KEYS = ['Google', 'Instagram', 'Facebook', 'LinkedIn', 'Direto'] a
 
 const DAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-const CAMPAIGN_MOCK_COST: Record<string, { cpl: number; cpc: number }> = {
-  Google: { cpl: 28.5, cpc: 2.4 },
-  Instagram: { cpl: 19.2, cpc: 1.1 },
-  Facebook: { cpl: 22.8, cpc: 1.6 },
-  LinkedIn: { cpl: 41.0, cpc: 3.2 },
-  Direto: { cpl: 0, cpc: 0 },
-};
+const DEFAULT_CAMPAIGN_COST = { cpl: 0, cpc: 0 };
 
 export function dadosTimeRangeDays(range: DadosTimeRange): number {
   return range === '7' ? 7 : range === '30' ? 30 : 90;
@@ -382,10 +376,7 @@ export function aggregateCampaignPerformance(rows: LeadMetricsRow[]): CampaignRo
       const leads = group.length;
       const conversoes = group.filter(isConversaoLead).length;
       const taxaConversaoPct = leads > 0 ? Math.round((conversoes / leads) * 1000) / 10 : 0;
-      const costs = CAMPAIGN_MOCK_COST[origem] ?? {
-        cpl: Math.round(15 + (origem.length % 7) * 4.2),
-        cpc: Math.round((0.9 + (origem.length % 5) * 0.35) * 10) / 10,
-      };
+      const costs = DEFAULT_CAMPAIGN_COST;
       return {
         origem,
         leads,

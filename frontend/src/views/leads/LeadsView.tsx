@@ -7,13 +7,14 @@ import {
   parseIdadeAnosFromDataNascimentoPtBr,
   type LeadQualificacao,
 } from '@/rules/qualifyLead';
-import {
-  LEADS_TABLE_MOCK,
-  type LeadInvestimento,
-  type LeadMockRow,
-  type LeadPerfilTipo,
-  type LeadRelacionamento,
-} from '@/lib/leadsMockData';
+import type {
+  LeadInvestimento,
+  LeadPerfilTipo,
+  LeadRelacionamento,
+  LeadRow,
+} from '@/lib/leadRow';
+import { useLeadsData } from '@/hooks/useLeadsData';
+import { LoadingGif } from '@/components/LoadingGif';
 import { cn } from '@/lib/utils';
 import { formatLeadDateTime, formatLeadDateCreated } from '@/lib/formatDateTime';
 import { getLeadDisplayId, parseLeadSequentialNumber } from '@/lib/leadDisplayId';
@@ -41,7 +42,8 @@ import {
   ArrowUp,
   Copy,
   User,
-  Briefcase,
+  MonitorCog,
+  RefreshCw,
 } from 'lucide-react';
 import {
   LayoutGroup,
@@ -59,7 +61,7 @@ const LEADS_PAGE_SIZE = LEADS_SUBTAB_TABLE_PAGE_SIZE;
 const ACESSOS_PAGINA_PAGE_SIZE = LEADS_SUBTAB_TABLE_PAGE_SIZE;
 
 /** Lead com questionário de perfil considerado completo — regra partilhada com `qualifyLead.ts`. */
-function leadPerfilCompleto(row: LeadMockRow): boolean {
+function leadPerfilCompleto(row: LeadRow): boolean {
   return leadRespondeuFormularioPerfil(row);
 }
 
@@ -97,8 +99,6 @@ type LeadSortKey =
   | 'perfilLead'
   | 'perfilOutrasRespostas';
 
-export { LEADS_INFOBOX_MOCK, LEADS_TABLE_MOCK, LEADS_PAGINAS_TABLE_MOCK } from '@/lib/leadsMockData';
-
 function leadContatoIsForm(contato: string): boolean {
   return contato.includes('@');
 }
@@ -106,7 +106,7 @@ function leadContatoIsForm(contato: string): boolean {
 const LEADS_TAB_BUTTON_ITEMS = [
   { value: 'detalhes' as const, label: 'Detalhes', Icon: FileText },
   { value: 'perfil' as const, label: 'Perfil', Icon: User },
-  { value: 'cvCrm' as const, label: 'CV-CRM', Icon: Briefcase },
+  { value: 'cvCrm' as const, label: 'CV-CRM', Icon: MonitorCog },
 ];
 
 const LEAD_MODAL_TAB_ORDER: Record<LeadsTableTab, number> = {
@@ -316,7 +316,7 @@ function leadMdBullet(label: string, raw: string): string {
 }
 
 /** Resumo completo do lead em Markdown (abas Detalhes + Perfil + CV-CRM). */
-function leadResumoMarkdown(row: LeadMockRow): string {
+function leadResumoMarkdown(row: LeadRow): string {
   const capturado = formatLeadDateTime(row.dataHora);
   const codigo = getLeadDisplayId(row);
   const blocos: string[] = [
@@ -395,7 +395,7 @@ function leadTdClassName(col: LeadSortKey): string {
   return base;
 }
 
-function leadCellContent(row: LeadMockRow, col: LeadSortKey): ReactNode {
+function leadCellContent(row: LeadRow, col: LeadSortKey): ReactNode {
   switch (col) {
     case 'codigo':
       return <LeadDisplayIdBadge id={row.id} />;
@@ -487,7 +487,7 @@ function LeadModalCampo({
   );
 }
 
-function LeadModalDetalhesPanel({ row }: { row: LeadMockRow }) {
+function LeadModalDetalhesPanel({ row }: { row: LeadRow }) {
   return (
     <div className="grid grid-cols-2 gap-3">
       {LEADS_COL_DETALHES.map((col) => (
@@ -499,7 +499,7 @@ function LeadModalDetalhesPanel({ row }: { row: LeadMockRow }) {
   );
 }
 
-function LeadModalPerfilPanel({ row }: { row: LeadMockRow }) {
+function LeadModalPerfilPanel({ row }: { row: LeadRow }) {
   return (
     <div className="grid grid-cols-2 gap-3">
       {LEADS_COL_PERFIL.map((col) => (
@@ -511,7 +511,7 @@ function LeadModalPerfilPanel({ row }: { row: LeadMockRow }) {
   );
 }
 
-function LeadModalCvCrmPanel({ row }: { row: LeadMockRow }) {
+function LeadModalCvCrmPanel({ row }: { row: LeadRow }) {
   return (
     <div className="grid grid-cols-2 gap-3">
       {LEADS_COL_CVCRM.map((col) => (
@@ -573,7 +573,7 @@ function LeadModalTabPanels({
   direction,
 }: {
   tab: LeadsTableTab;
-  row: LeadMockRow;
+  row: LeadRow;
   direction: number;
 }) {
   const panel =
@@ -592,7 +592,7 @@ function LeadModalTabPanels({
   );
 }
 
-export function buildLeadsExportRows(rows: LeadMockRow[]) {
+export function buildLeadsExportRows(rows: LeadRow[]) {
   return rows.map((row) => ({
     id: getLeadDisplayId(row),
     data_hora: formatLeadDateTime(row.dataHora),
@@ -627,14 +627,20 @@ export type LeadsOperacionalViewProps = Record<string, never>;
 
 export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalViewProps>(
   function LeadsOperacionalView(_props, ref) {
-  const allLeadsRows = LEADS_TABLE_MOCK;
+  const {
+    rows: allLeadsRows,
+    loading: leadsLoading,
+    syncing: leadsSyncing,
+    error: leadsError,
+    refreshFromDatabase,
+  } = useLeadsData();
 
   const [leadsSortKey, setLeadsSortKey] = useState<LeadSortKey>('codigo');
   const [leadsSortDirection, setLeadsSortDirection] = useState<'asc' | 'desc'>('desc');
   const [leadsSearchQuery, setLeadsSearchQuery] = useState('');
   const [leadsPage, setLeadsPage] = useState(0);
   /** Lead cuja linha foi clicada — abre modal de resumo. */
-  const [leadResumoSelecionado, setLeadResumoSelecionado] = useState<LeadMockRow | null>(null);
+  const [leadResumoSelecionado, setLeadResumoSelecionado] = useState<LeadRow | null>(null);
   /** Tela ativa dentro do modal de resumo (Perfil: questionário além da captura). */
   const [leadModalTela, setLeadModalTela] = useState<LeadsTableTab>('detalhes');
   /** Direção da troca de aba no modal (-1 = Perfil→Origem, 1 = Origem→Perfil). */
@@ -806,6 +812,22 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
     [sortedLeadsRows],
   );
 
+  if (leadsLoading) {
+    return (
+      <div className="flex min-h-[16rem] items-center justify-center">
+        <LoadingGif size="md" />
+      </div>
+    );
+  }
+
+  if (leadsError) {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-sm text-destructive">
+        {leadsError}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col">
       <MotionReveal index={0} className="space-y-5">
@@ -857,6 +879,17 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
                 {'>'}
               </Button>
             </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+              disabled={leadsLoading || leadsSyncing}
+              onClick={() => void refreshFromDatabase()}
+              aria-label="Recarregar leads do banco"
+            >
+              <RefreshCw className={cn('h-4 w-4', leadsSyncing && 'animate-spin')} />
+            </Button>
           </div>
         </div>
         <AnimatePresence mode="wait">
