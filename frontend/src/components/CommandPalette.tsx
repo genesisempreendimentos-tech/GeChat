@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   CommandDialog,
   CommandEmpty,
@@ -8,16 +8,12 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { LayoutDashboard, BarChart3, Users, UserCircle, Settings, Shield } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
-import { BRAND_LOGO_SRC } from '@/lib/brandAssets';
+import { LayoutDashboard, BarChart3, FileBarChart, Users, UserCircle, Settings, ExternalLink } from 'lucide-react';
+import { BRAND_LOGO_SRC, GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useAuthStore();
-  const isAdminPath = location.pathname.startsWith('/admin');
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -43,40 +39,40 @@ export function CommandPalette() {
         </div>
         <span className="font-semibold text-foreground text-sm">GêLeads</span>
       </div>
-      <CommandInput placeholder="Buscar p�ginas..." />
+      <CommandInput placeholder="Buscar páginas..." />
       <CommandList>
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
-        <CommandGroup heading="Navega��o">
-          <CommandItem onSelect={() => runCommand(() => navigate(isAdminPath ? '/admin/home' : '/dashboard'))}>
+        <CommandGroup heading="Navegação">
+          <CommandItem onSelect={() => runCommand(() => navigate('/dashboard'))}>
             <LayoutDashboard className="mr-2 h-4 w-4" />
             <span>Dashboard</span>
           </CommandItem>
-          {!isAdminPath && (
-            <>
-              <CommandItem onSelect={() => runCommand(() => navigate('/dados'))}>
-                <BarChart3 className="mr-2 h-4 w-4" />
-                <span>Dados</span>
-              </CommandItem>
-              <CommandItem onSelect={() => runCommand(() => navigate('/leads'))}>
-                <Users className="mr-2 h-4 w-4" />
-                <span>Leads</span>
-              </CommandItem>
-            </>
-          )}
-          <CommandItem onSelect={() => runCommand(() => navigate('/profile'))}>
-            <UserCircle className="mr-2 h-4 w-4" />
-            <span>Perfil</span>
+          <CommandItem onSelect={() => runCommand(() => navigate('/dados'))}>
+            <BarChart3 className="mr-2 h-4 w-4" />
+            <span>Dados</span>
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => navigate('/relatorios'))}>
+            <FileBarChart className="mr-2 h-4 w-4" />
+            <span>Relatórios</span>
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => navigate('/leads'))}>
+            <Users className="mr-2 h-4 w-4" />
+            <span>Leads</span>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => runCommand(() => { window.location.href = GEAPPS_PROFILE_URL; })}
+            className="justify-between gap-2"
+          >
+            <span className="flex items-center">
+              <UserCircle className="mr-2 h-4 w-4 shrink-0" />
+              Perfil
+            </span>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/settings'))}>
             <Settings className="mr-2 h-4 w-4" />
-            <span>Configura��es</span>
+            <span>Configurações</span>
           </CommandItem>
-          {user?.accessType === 'admin' && (
-            <CommandItem onSelect={() => runCommand(() => navigate('/admin/home'))}>
-              <Shield className="mr-2 h-4 w-4" />
-              <span>Painel Admin</span>
-            </CommandItem>
-          )}
         </CommandGroup>
       </CommandList>
     </CommandDialog>

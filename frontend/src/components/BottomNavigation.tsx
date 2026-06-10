@@ -1,4 +1,4 @@
-import { LayoutDashboard, BarChart3, Users, Settings } from 'lucide-react';
+import { LayoutDashboard, BarChart3, FileBarChart, Users, Settings } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ export function BottomNavigation() {
   const navItems: NavItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: BarChart3, label: 'Dados', path: '/dados' },
+    { icon: FileBarChart, label: 'Relatórios', path: '/relatorios' },
     { icon: Users, label: 'Leads', path: '/leads' },
     { icon: Settings, label: 'Config', path: '/settings' },
   ];

@@ -10,7 +10,8 @@ import {
   Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { AdminBigBox } from '@/admin/components/AdminBigBox';
+import { cn } from '@/lib/utils';
+import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
 import type { CompanyProfileApp } from '@/services/supabase';
 
 export function formatCompanyCreationDate(createdAt: string): string {
@@ -53,7 +54,7 @@ function buildInfoItems(
 
 export function EmpresaCompanyCard({
   profile,
-  /** Só no painel admin; no app do utilizador fica oculto. */
+  /** Oculta campos de workspace GêTeams quando não aplicável. */
   showGeTeamsWorkspace = true,
 }: {
   profile: CompanyProfileApp;
@@ -62,7 +63,7 @@ export function EmpresaCompanyCard({
   const infoItems = buildInfoItems(profile, showGeTeamsWorkspace);
 
   return (
-    <AdminBigBox>
+    <div className={cn(TRANSLUCENT_BIG_BOX, 'p-4 md:p-6')}>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-muted/40">
@@ -95,6 +96,6 @@ export function EmpresaCompanyCard({
           ))}
         </div>
       </div>
-    </AdminBigBox>
+    </div>
   );
 }

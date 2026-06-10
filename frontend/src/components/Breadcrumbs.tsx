@@ -15,19 +15,10 @@ interface BreadcrumbsProps {
 const routeNames: Record<string, string> = {
   dashboard: "Dashboard",
   dados: "Dados",
+  relatorios: "Relatórios",
   leads: "Leads",
-  systems: "Item 1",
-  favorites: "Item 4",
-  solicitacoes: "Item 2",
-  comunicados: "Comunicados",
-  equipes: "Equipes",
-  empresa: "Item 3",
-  members: "Usuários",
-  categories: "Categorias",
-  profile: "Perfil",
   settings: "Configurações",
-  admin: "Admin",
-  home: "Dashboard",
+  notifications: "Notificações",
 }
 
 export function Breadcrumbs({ items, className }: BreadcrumbsProps) {

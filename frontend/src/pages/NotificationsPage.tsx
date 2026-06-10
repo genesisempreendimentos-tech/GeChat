@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { AdminControlLine } from '@/admin/components/AdminControlLine';
+import { ControlLine } from '@/components/layout/ControlLine';
 import { TabButtons, type TabButtonItem } from '@/components/ui/tab-buttons';
 import { cn } from '@/lib/utils';
 import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
@@ -159,7 +159,7 @@ export default function NotificationsPage() {
         />
 
         <div className="space-y-4">
-          <AdminControlLine
+          <ControlLine
             showViewToggle={false}
             leftContent={
               <TabButtons<NotificationTab>

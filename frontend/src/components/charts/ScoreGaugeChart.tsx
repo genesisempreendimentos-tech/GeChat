@@ -8,6 +8,8 @@ import { useAppMotion } from '@/hooks/useAppMotion';
 type ScoreGaugeChartProps = {
   value?: number;
   className?: string;
+  /** Animação do emoji e do número — desligar quando o valor muda com frequência. */
+  animated?: boolean;
 };
 
 /** Semicírculo aberto para baixo (∪): esquerda → direita. */
@@ -15,8 +17,9 @@ function downwardSemiArcPath(cx: number, cy: number, r: number) {
   return `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
 }
 
-export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) {
+export function ScoreGaugeChart({ value = 0, className, animated = true }: ScoreGaugeChartProps) {
   const motionCfg = useAppMotion();
+  const useMotion = animated && motionCfg.enabled;
   const clamped = clampScore(value);
   const scoreEmoji = getScoreEmoji(clamped);
   const cx = 60;
@@ -61,24 +64,38 @@ export function ScoreGaugeChart({ value = 0, className }: ScoreGaugeChartProps) 
           ) : null}
         </svg>
 
-        <motion.div
-          key={scoreEmoji.notoCode}
-          className="pointer-events-none absolute inset-x-0 top-[38%] flex -translate-y-1/2 justify-center"
-          title={scoreEmoji.label}
-          initial={motionCfg.enabled ? { opacity: 0, scale: 0.6 } : false}
-          animate={motionCfg.enabled ? { opacity: 1, scale: 1 } : undefined}
-          transition={motionCfg.springSoft}
-        >
-          <NotoEmoji
-            code={scoreEmoji.notoCode}
-            alt={scoreEmoji.emoji}
-            size={36}
-            className="drop-shadow-sm"
-          />
-        </motion.div>
+        {useMotion ? (
+          <motion.div
+            key={scoreEmoji.notoCode}
+            className="pointer-events-none absolute inset-x-0 top-[38%] flex -translate-y-1/2 justify-center"
+            title={scoreEmoji.label}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={motionCfg.springSoft}
+          >
+            <NotoEmoji
+              code={scoreEmoji.notoCode}
+              alt={scoreEmoji.emoji}
+              size={36}
+              className="drop-shadow-sm"
+            />
+          </motion.div>
+        ) : (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-[38%] flex -translate-y-1/2 justify-center"
+            title={scoreEmoji.label}
+          >
+            <NotoEmoji
+              code={scoreEmoji.notoCode}
+              alt={scoreEmoji.emoji}
+              size={36}
+              className="drop-shadow-sm"
+            />
+          </div>
+        )}
 
         <p className="pointer-events-none absolute inset-x-0 top-[78%] -translate-y-1/2 text-center text-3xl font-bold tabular-nums leading-none text-foreground lg:text-[2.125rem]">
-          <MotionFlipNumber value={clamped} />
+          {useMotion ? <MotionFlipNumber value={clamped} /> : clamped}
         </p>
       </div>
     </div>

@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { MainViewHeader } from '@/components/layout/header';
 import {
-  GesiteDadosFiltersPanel,
-  collectGesiteDadosFilterOptions,
-} from '@/components/gesite/GesiteDadosFiltersPanel';
-import { GesiteFiltrosPanelMotion } from '@/components/gesite/GesiteFiltrosPanelMotion';
-import { useGesiteLeadsFilters } from '@/hooks/useGesiteLeadsFilters';
-import { GesiteDadosView } from '@/views/gesite/GesiteDadosView';
-import { GESITE_LEADS_TABLE_MOCK } from '@/views/gesite/GeSiteLeads';
+  DadosFiltersPanel,
+  collectDadosFilterOptions,
+} from '@/components/dados/DadosFiltersPanel';
+import { FiltrosPanelMotion } from '@/components/dados/FiltrosPanelMotion';
+import { useLeadsFilters } from '@/hooks/useLeadsFilters';
+import { DadosView } from '@/views/dados/DadosView';
+import { LEADS_TABLE_MOCK } from '@/views/leads/LeadsView';
 
 export default function DadosPage() {
   const {
@@ -22,10 +22,10 @@ export default function DadosPage() {
     handleApplyFiltros,
     handleClearFiltros,
     handleMetricaSelect,
-  } = useGesiteLeadsFilters();
+  } = useLeadsFilters();
 
   const filterOptions = useMemo(
-    () => collectGesiteDadosFilterOptions(GESITE_LEADS_TABLE_MOCK),
+    () => collectDadosFilterOptions(LEADS_TABLE_MOCK),
     [],
   );
 
@@ -34,7 +34,7 @@ export default function DadosPage() {
       <MainViewHeader
         icon={<BarChart3 className="h-6 w-6" />}
         title="Dados"
-        description="Analytics do GêSite — métricas, distribuição e evolução temporal dos leads"
+        description="Métricas, distribuição e evolução dos leads no período"
         button={
           <Button
             type="button"
@@ -48,8 +48,8 @@ export default function DadosPage() {
         }
       />
       <div className="mt-8">
-        <GesiteFiltrosPanelMotion open={filtrosPanelAberto}>
-          <GesiteDadosFiltersPanel
+        <FiltrosPanelMotion open={filtrosPanelAberto}>
+          <DadosFiltersPanel
             value={filtros}
             onChange={setFiltros}
             onApply={handleApplyFiltros}
@@ -57,8 +57,8 @@ export default function DadosPage() {
             onMetricaSelect={handleMetricaSelect}
             filterOptions={filterOptions}
           />
-        </GesiteFiltrosPanelMotion>
-        <GesiteDadosView filtros={appliedFiltros} onMetricaSelect={handleMetricaSelect} />
+        </FiltrosPanelMotion>
+        <DadosView filtros={appliedFiltros} onMetricaSelect={handleMetricaSelect} />
       </div>
     </MainViewFluidShell>
   );

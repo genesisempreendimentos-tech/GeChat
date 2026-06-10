@@ -6,7 +6,7 @@ export type ScoreEmojiBand = {
   label: string;
 };
 
-/** Faixas de pontuação GêSite → emoji animado (Noto). */
+/** Faixas de pontuação leads → emoji animado (Noto). */
 export const SCORE_EMOJI_BANDS: ScoreEmojiBand[] = [
   { min: 0, max: 25, emoji: '😢', notoCode: '1f622', label: 'Crítico' },
   { min: 26, max: 50, emoji: '😮', notoCode: '1f62e', label: 'Atenção' },

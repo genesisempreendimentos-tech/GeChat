@@ -1,7 +1,7 @@
 import { Users } from 'lucide-react';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { MainViewHeader } from '@/components/layout/header';
-import { GesiteLeadsOperacionalView } from '@/views/gesite/GesiteLeadsOperacionalView';
+import { LeadsOperacionalView } from '@/views/leads/LeadsOperacionalView';
 
 export default function LeadsPage() {
   return (
@@ -12,7 +12,7 @@ export default function LeadsPage() {
         description="Gestão operacional — busca, planilha, cards e resumo individual por lead"
       />
       <div className="mt-8">
-        <GesiteLeadsOperacionalView />
+        <LeadsOperacionalView />
       </div>
     </MainViewFluidShell>
   );

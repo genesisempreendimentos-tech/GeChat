@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { GesiteBalanceComparison } from '@/components/charts/Balance';
+import type { LeadsBalanceComparison } from '@/components/charts/Balance';
 import { MotionFlipNumber, MotionReveal } from '@/components/motion/AppMotion';
 
 type InfoBoxCor = 'emerald' | 'blue' | 'amber' | 'violet' | 'muted';
@@ -30,7 +30,7 @@ const COR_CLASS: Record<InfoBoxCor, { shell: string; icon: string }> = {
   },
 };
 
-/** Estilo unificado dos tooltips dos cards de métricas (GêSite). */
+/** Estilo unificado dos tooltips dos cards de métricas de leads. */
 export const INFOBOX_TOOLTIP_CONTENT_CLASS = cn(
   'max-w-[min(13.333rem,calc((100vw-2rem)*2/3))]',
   'border-border/60 bg-popover px-3 py-2 text-xs font-extralight leading-relaxed text-popover-foreground shadow-md',
@@ -44,10 +44,12 @@ type InfoBoxProps = {
   infoTooltip?: string;
   infoTooltipAlign?: 'start' | 'center' | 'end';
   balanceDelta?: number;
-  balanceComparison?: GesiteBalanceComparison | null;
+  balanceComparison?: LeadsBalanceComparison | null;
   balanceFormat?: 'percent-points';
   className?: string;
   motionIndex?: number;
+  /** Odômetro nos valores — desligar em dashboards com muitas atualizações simultâneas. */
+  animateValue?: boolean;
 };
 
 function formatBalanceDelta(delta: number, format?: 'percent-points') {
@@ -68,6 +70,7 @@ export function InfoBox({
   balanceFormat,
   className,
   motionIndex = 0,
+  animateValue = true,
 }: InfoBoxProps) {
   const palette = COR_CLASS[cor];
   const showDelta = balanceComparison != null && balanceDelta != null && balanceDelta !== 0;
@@ -119,7 +122,11 @@ export function InfoBox({
       <div className="mt-auto flex items-center justify-between gap-2">
         <p className="inline-flex min-h-[1em] items-center text-2xl font-bold leading-none tracking-tight text-foreground">
           {typeof value === 'number' || typeof value === 'string' ? (
-            <MotionFlipNumber value={value} />
+            animateValue ? (
+              <MotionFlipNumber value={value} />
+            ) : (
+              <span className="tabular-nums">{value}</span>
+            )
           ) : (
             value
           )}
@@ -134,7 +141,11 @@ export function InfoBox({
             )}
           >
             {deltaUp ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-            <MotionFlipNumber value={formatBalanceDelta(balanceDelta, balanceFormat)} />
+            {animateValue ? (
+              <MotionFlipNumber value={formatBalanceDelta(balanceDelta, balanceFormat)} />
+            ) : (
+              <span className="tabular-nums">{formatBalanceDelta(balanceDelta, balanceFormat)}</span>
+            )}
           </span>
         ) : null}
       </div>

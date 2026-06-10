@@ -12,8 +12,8 @@ import { initGeAdsAudit } from '@/assets/audit-log';
 import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
+import { GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
 import { useSettingsStore } from '@/store/settingsStore';
-import { useAdminShortcut } from '@/hooks/useAdminShortcut';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useNaoGritaPopup, NaoGritaPopup } from '@/hooks/useNaoGritaPopup';
 import { Toaster } from '@/components/ui/toaster';
@@ -26,8 +26,6 @@ import { LoadingGif } from '@/components/LoadingGif';
 import AuthLayout from '@/layouts/AuthLayout';
 import MainLayout from '@/layouts/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import AdminRoute from '@/components/AdminRoute';
-import AdminLayout from '@/admin/AdminLayout';
 
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
@@ -36,12 +34,20 @@ import AccessDeniedPage from '@/pages/AccessDeniedPage';
 import DashboardPage from '@/pages/DashboardPage';
 import DadosPage from '@/pages/DadosPage';
 import LeadsPage from '@/pages/LeadsPage';
-import ProfilePage from '@/pages/ProfilePage';
+import RelatoriosPage from '@/pages/RelatoriosPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 
-import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
-import AdminMembersPage from '@/admin/pages/AdminMembersPage';
+function GeAppsProfileRedirect() {
+  useEffect(() => {
+    window.location.replace(GEAPPS_PROFILE_URL);
+  }, []);
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <LoadingGif size="lg" />
+    </div>
+  );
+}
 
 function LoginRoute() {
   const { isAuthenticated, loading } = useAuthStore();
@@ -87,7 +93,6 @@ function AppRoutes() {
     root.classList.toggle('reduce-motion', !animations);
   }, [compactMode, animations]);
 
-  useAdminShortcut();
   useKeyboardShortcuts();
 
   useEffect(() => {
@@ -123,9 +128,10 @@ function AppRoutes() {
         >
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/dados" element={<DadosPage />} />
+          <Route path="/relatorios" element={<RelatoriosPage />} />
           <Route path="/leads" element={<LeadsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile" element={<GeAppsProfileRedirect />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/systems" element={<Navigate to="/leads" replace />} />
           <Route path="/favorites" element={<Navigate to="/leads" replace />} />
@@ -134,28 +140,7 @@ function AppRoutes() {
           <Route path="/empresa" element={<Navigate to="/leads" replace />} />
           <Route path="/comunicados" element={<Navigate to="/leads" replace />} />
           <Route path="/chat" element={<Navigate to="/leads" replace />} />
-        </Route>
-
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <AdminLayout />
-            </AdminRoute>
-          }
-        >
-          <Route index element={<Navigate to="/admin/home" replace />} />
-          <Route path="home" element={<AdminDashboardPage />} />
-          <Route path="members" element={<AdminMembersPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="systems" element={<Navigate to="/admin/members" replace />} />
-          <Route path="solicitacoes" element={<Navigate to="/admin/members" replace />} />
-          <Route path="equipes" element={<Navigate to="/admin/members" replace />} />
-          <Route path="comunicados" element={<Navigate to="/admin/members" replace />} />
-          <Route path="empresa" element={<Navigate to="/admin/members" replace />} />
-          <Route path="categories" element={<Navigate to="/admin/members" replace />} />
-          <Route path="reviews" element={<Navigate to="/admin/members" replace />} />
-          <Route path="administrators" element={<Navigate to="/admin/members" replace />} />
+          <Route path="/admin/*" element={<Navigate to="/dashboard" replace />} />
         </Route>
 
         <Route

@@ -74,7 +74,16 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
               </li>
               <li>
                 <strong className="text-foreground font-semibold">Perfil:</strong>{' '}
-                gerencie seus dados pessoais e acesse seus dados corporativos.
+                gerencie seus dados pessoais no{' '}
+                <a
+                  href="https://geapps.genesisapps.com.br/profile"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                >
+                  GêApps
+                </a>
+                .
               </li>
               <li>
                 <strong className="text-foreground font-semibold">Configurações:</strong>{' '}

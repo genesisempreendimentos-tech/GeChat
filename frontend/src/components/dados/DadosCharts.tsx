@@ -21,34 +21,36 @@ import {
   useChartPrimaryRaw,
 } from '@/lib/chartTheme';
 import type {
-  GesiteBarRankItem,
-  GesiteCampaignRow,
-  GesiteDeviceStackSegment,
-  GesiteFunnelStep,
-  GesiteHeatmapCell,
-  GesiteVolumePoint,
-} from '@/lib/gesiteDadosCharts';
-import { GESITE_DADOS_TIME_RANGE_LABELS, type GesiteDadosTimeRange } from '@/lib/gesiteDadosCharts';
+  BarRankItem,
+  CampaignRow,
+  DeviceStackSegment,
+  FunnelStep,
+  HeatmapCell,
+  VolumePoint,
+} from '@/lib/dadosAggregations';
+import { DADOS_TIME_RANGE_LABELS, type DadosTimeRange } from '@/lib/dadosAggregations';
 import { useThemeStore } from '@/store/themeStore';
 
-/** Remonta ao mudar o período; animação de entrada lenta (sem fade CSS). */
-function barPeriodAnimation(timeRange: GesiteDadosTimeRange) {
+/** Animação de entrada — só quando `active`; filtros remontam o chart sem animar (evita travamento). */
+function barPeriodAnimation(timeRange: DadosTimeRange, revision?: string, active = true) {
+  if (!active) return { isAnimationActive: false as const };
   return {
     isAnimationActive: true,
     animationDuration: 750,
     animationBegin: 0,
     animationEasing: 'ease-in-out' as const,
-    animationId: `bar-${timeRange}`,
+    animationId: `bar-${timeRange}-${revision ?? 'default'}`,
   };
 }
 
-function linePeriodAnimation(timeRange: GesiteDadosTimeRange) {
+function linePeriodAnimation(timeRange: DadosTimeRange, revision?: string, active = true) {
+  if (!active) return { isAnimationActive: false as const };
   return {
     isAnimationActive: true,
     animationDuration: 900,
     animationBegin: 0,
     animationEasing: 'ease-in-out' as const,
-    animationId: `line-${timeRange}`,
+    animationId: `line-${timeRange}-${revision ?? 'default'}`,
   };
 }
 
@@ -73,11 +75,20 @@ type ChartCardProps = {
   headerExtra?: React.ReactNode;
   className?: string;
   compact?: boolean;
+  fillHeight?: boolean;
 };
 
-function ChartCard({ title, description, children, headerExtra, className, compact }: ChartCardProps) {
+function ChartCard({
+  title,
+  description,
+  children,
+  headerExtra,
+  className,
+  compact,
+  fillHeight,
+}: ChartCardProps) {
   return (
-    <Card className={cn('transition-shadow hover:shadow-md', className)}>
+    <Card className={cn('transition-shadow hover:shadow-md', fillHeight && 'flex h-full flex-col', className)}>
       <CardHeader
         className={cn(
           'flex flex-row items-start justify-between gap-3 flex-wrap',
@@ -92,7 +103,11 @@ function ChartCard({ title, description, children, headerExtra, className, compa
         </div>
         {headerExtra}
       </CardHeader>
-      <CardContent className={cn(compact ? 'px-4 pb-4 pt-0' : undefined)}>{children}</CardContent>
+      <CardContent
+        className={cn(compact ? 'px-4 pb-4 pt-0' : undefined, fillHeight && 'flex min-h-0 flex-1 flex-col')}
+      >
+        {children}
+      </CardContent>
     </Card>
   );
 }
@@ -110,11 +125,15 @@ export function HorizontalBarRankChart({
   title,
   description,
   valueLabel = 'Leads',
+  fillHeight = false,
+  className,
 }: {
-  data: GesiteBarRankItem[];
+  data: BarRankItem[];
   title: string;
   description?: string;
   valueLabel?: string;
+  fillHeight?: boolean;
+  className?: string;
 }) {
   if (!data.length) return <EmptyChartCard title={title} description={description} />;
 
@@ -122,14 +141,26 @@ export function HorizontalBarRankChart({
   const maxValue = sorted[0]?.value ?? 1;
 
   return (
-    <ChartCard title={title} description={description} compact>
-      <ul className="space-y-2.5">
+    <ChartCard title={title} description={description} compact fillHeight={fillHeight} className={className}>
+      <ul className={cn(fillHeight ? 'flex flex-1 flex-col justify-between' : 'space-y-2.5')}>
         {sorted.map((item) => {
-          const widthPct = maxValue > 0 ? Math.max(4, (item.value / maxValue) * 100) : 0;
+          const widthPct =
+            item.value === 0
+              ? 0
+              : maxValue > 0
+                ? Math.max(4, (item.value / maxValue) * 100)
+                : 0;
           return (
             <li key={item.name}>
               <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
-                <span className="truncate font-medium text-foreground">{item.name}</span>
+                <span
+                  className={cn(
+                    'truncate font-medium',
+                    item.value === 0 ? 'text-muted-foreground' : 'text-foreground',
+                  )}
+                >
+                  {item.name}
+                </span>
                 <span className="shrink-0 tabular-nums text-muted-foreground">
                   {item.value.toLocaleString('pt-BR')}{' '}
                   <span className="text-[10px]">({item.pct}%)</span>
@@ -143,7 +174,7 @@ export function HorizontalBarRankChart({
                     aria-label={`${item.name}: ${item.value} ${valueLabel}`}
                   >
                     <div
-                      className="h-full rounded-full transition-[width] duration-500"
+                      className="h-full rounded-full transition-[width] duration-500 ease-out"
                       style={{ width: `${widthPct}%`, backgroundColor: item.color }}
                     />
                   </div>
@@ -172,7 +203,7 @@ export function StackedPercentBarChart({
   title,
   description,
 }: {
-  segments: GesiteDeviceStackSegment[];
+  segments: DeviceStackSegment[];
   title: string;
   description?: string;
 }) {
@@ -226,7 +257,7 @@ export function ConversionFunnelChart({
   title,
   description,
 }: {
-  steps: GesiteFunnelStep[];
+  steps: FunnelStep[];
   title: string;
   description?: string;
 }) {
@@ -328,15 +359,21 @@ export function EnhancedVolumeChart({
   valueLabel = 'Leads',
   previousData,
   showTrendLine = false,
+  revision,
+  animateEntrance = true,
 }: {
-  data: GesiteVolumePoint[];
-  timeRange: GesiteDadosTimeRange;
-  onTimeRangeChange: (range: GesiteDadosTimeRange) => void;
+  data: VolumePoint[];
+  timeRange: DadosTimeRange;
+  onTimeRangeChange: (range: DadosTimeRange) => void;
   title: string;
   description?: string;
   valueLabel?: string;
-  previousData?: GesiteVolumePoint[];
+  previousData?: VolumePoint[];
   showTrendLine?: boolean;
+  /** Remonta o gráfico ao mudar filtros/dados (evita morphing lento do Recharts). */
+  revision?: string;
+  /** Anima barras/linhas na entrada — desligar ao mudar só filtros. */
+  animateEntrance?: boolean;
 }) {
   const isDark = useDarkChartTheme();
   const primaryRaw = useChartPrimaryRaw();
@@ -356,7 +393,7 @@ export function EnhancedVolumeChart({
 
   const rangeToggle = (
     <div className="flex flex-wrap gap-1">
-      {(['7', '30', '90'] as GesiteDadosTimeRange[]).map((range) => (
+      {(['7', '30', '90'] as DadosTimeRange[]).map((range) => (
         <button
           key={range}
           type="button"
@@ -368,7 +405,7 @@ export function EnhancedVolumeChart({
               : 'bg-muted text-muted-foreground hover:bg-muted/80',
           )}
         >
-          {GESITE_DADOS_TIME_RANGE_LABELS[range]}
+          {DADOS_TIME_RANGE_LABELS[range]}
         </button>
       ))}
     </div>
@@ -399,7 +436,7 @@ export function EnhancedVolumeChart({
       </div>
       <ResponsiveContainer width="100%" height={280} className="[&_.recharts-surface]:outline-none">
         <ComposedChart
-          key={`volume-${timeRange}-${chartData.length}`}
+          key={`volume-${revision ?? 'default'}-${timeRange}-${chartData.length}`}
           data={chartData}
           margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
         >
@@ -426,7 +463,7 @@ export function EnhancedVolumeChart({
               }}
             />
             <Bar
-              {...barPeriodAnimation(timeRange)}
+              {...barPeriodAnimation(timeRange, revision, animateEntrance)}
               dataKey="leads"
               fill={primaryColor}
               radius={[4, 4, 0, 0]}
@@ -439,7 +476,7 @@ export function EnhancedVolumeChart({
             />
             {previousData?.length ? (
               <Line
-                {...linePeriodAnimation(timeRange)}
+                {...linePeriodAnimation(timeRange, revision, animateEntrance)}
                 type="monotone"
                 dataKey="previous"
                 stroke={isDark ? '#94a3b8' : '#64748b'}
@@ -451,7 +488,7 @@ export function EnhancedVolumeChart({
             ) : null}
             {showTrendLine ? (
               <Line
-                {...linePeriodAnimation(timeRange)}
+                {...linePeriodAnimation(timeRange, revision, animateEntrance)}
                 type="monotone"
                 dataKey="trend"
                 stroke="#f59e0b"
@@ -474,14 +511,18 @@ export function ChannelTrendLineChart({
   onTimeRangeChange,
   title,
   description,
+  revision,
+  animateEntrance = true,
 }: {
   data: Record<string, number | string>[];
   channels: string[];
   channelColors: Record<string, string>;
-  timeRange: GesiteDadosTimeRange;
-  onTimeRangeChange: (range: GesiteDadosTimeRange) => void;
+  timeRange: DadosTimeRange;
+  onTimeRangeChange: (range: DadosTimeRange) => void;
   title: string;
   description?: string;
+  revision?: string;
+  animateEntrance?: boolean;
 }) {
   const isDark = useDarkChartTheme();
   const primaryRaw = useChartPrimaryRaw();
@@ -490,7 +531,7 @@ export function ChannelTrendLineChart({
 
   const rangeToggle = (
     <div className="flex flex-wrap gap-1">
-      {(['7', '30', '90'] as GesiteDadosTimeRange[]).map((range) => (
+      {(['7', '30', '90'] as DadosTimeRange[]).map((range) => (
         <button
           key={range}
           type="button"
@@ -502,7 +543,7 @@ export function ChannelTrendLineChart({
               : 'bg-muted text-muted-foreground hover:bg-muted/80',
           )}
         >
-          {GESITE_DADOS_TIME_RANGE_LABELS[range]}
+          {DADOS_TIME_RANGE_LABELS[range]}
         </button>
       ))}
     </div>
@@ -512,28 +553,28 @@ export function ChannelTrendLineChart({
     <ChartCard title={title} description={description} headerExtra={rangeToggle}>
       <ResponsiveContainer width="100%" height={300} className="[&_.recharts-surface]:outline-none">
         <ComposedChart
-          key={`channel-${timeRange}-${data.length}`}
+          key={`channel-${revision ?? 'default'}-${timeRange}-${data.length}`}
           data={data}
           margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
         >
-            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} />
-            <XAxis
-              dataKey="date"
-              stroke={isDark ? '#9ca3af' : '#6b7280'}
-              fontSize={11}
-              interval={timeRange === '90' ? 6 : timeRange === '30' ? 2 : 0}
-            />
-            <YAxis stroke={isDark ? '#9ca3af' : '#6b7280'} fontSize={11} allowDecimals={false} />
-            <Tooltip
-              cursor={lineChartTooltipCursor(isDark, primaryRaw)}
-              contentStyle={tooltipPanelStyle(isDark)}
-              labelStyle={{ color: isDark ? '#f3f4f6' : '#111827' }}
-            />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} />
+          <XAxis
+            dataKey="date"
+            stroke={isDark ? '#9ca3af' : '#6b7280'}
+            fontSize={11}
+            interval={timeRange === '90' ? 6 : timeRange === '30' ? 2 : 0}
+          />
+          <YAxis stroke={isDark ? '#9ca3af' : '#6b7280'} fontSize={11} allowDecimals={false} />
+          <Tooltip
+            cursor={lineChartTooltipCursor(isDark, primaryRaw)}
+            contentStyle={tooltipPanelStyle(isDark)}
+            labelStyle={{ color: isDark ? '#f3f4f6' : '#111827' }}
+          />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
           {channels.map((ch) => (
             <Line
               key={ch}
-              {...linePeriodAnimation(timeRange)}
+              {...linePeriodAnimation(timeRange, revision, animateEntrance)}
               type="monotone"
               dataKey={ch}
               stroke={channelColors[ch] ?? '#94a3b8'}
@@ -554,7 +595,7 @@ export function CampaignPerformanceTable({
   title,
   description,
 }: {
-  rows: GesiteCampaignRow[];
+  rows: CampaignRow[];
   title: string;
   description?: string;
 }) {
@@ -674,7 +715,7 @@ export function LeadHeatmapChart({
   title,
   description,
 }: {
-  cells: GesiteHeatmapCell[];
+  cells: HeatmapCell[];
   title: string;
   description?: string;
 }) {

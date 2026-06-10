@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import { GEAPPS_PROFILE_URL } from "@/lib/brandAssets"
 
 interface KeyboardShortcut {
   key: string
@@ -23,34 +24,22 @@ export function useKeyboardShortcuts() {
       description: "Ir para Dashboard",
     },
     {
-      key: "s",
+      key: "d",
       altKey: true,
-      action: () => navigate("/systems"),
-      description: "Ir para Item 1",
+      action: () => navigate("/dados"),
+      description: "Ir para Dados",
     },
     {
-      key: "f",
+      key: "l",
       altKey: true,
-      action: () => navigate("/favorites"),
-      description: "Ir para Item 4",
-    },
-    {
-      key: "c",
-      altKey: true,
-      action: () => navigate("/chat"),
-      description: "Ir para Chat",
-    },
-    {
-      key: "u",
-      altKey: true,
-      action: () => navigate("/admin/members"),
-      description: "Ir para Membros (painel admin)",
+      action: () => navigate("/leads"),
+      description: "Ir para Leads",
     },
     {
       key: "p",
       altKey: true,
-      action: () => navigate("/profile"),
-      description: "Ir para Perfil",
+      action: () => { window.location.href = GEAPPS_PROFILE_URL },
+      description: "Abrir Perfil no GêApps",
     },
     {
       key: ",",
@@ -101,11 +90,9 @@ export function useKeyboardShortcuts() {
     const shortcuts = `Atalhos de Teclado:
 • Ctrl+K - Busca global
 • Alt+H - Dashboard
-• Alt+S - Item 1
-• Alt+F - Item 4
-• Alt+C - Chat
-• Alt+U - Usuários
-• Alt+P - Perfil
+• Alt+D - Dados
+• Alt+L - Leads
+• Alt+P - Perfil (GêApps)
 • Alt+, - Configurações
 • Shift+? - Mostrar atalhos`
 

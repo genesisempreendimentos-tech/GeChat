@@ -1,8 +1,8 @@
-import type { GesiteBalancoMode } from '@/lib/gesiteControlLine';
-import type { DateRange } from '@/lib/gesiteBalanco';
+import type { LeadsBalancoMode } from '@/lib/leadsControlLine';
+import type { DateRange } from '@/lib/leadsBalanco';
 
-export type GesiteBalanceComparison = {
-  mode: GesiteBalancoMode;
+export type LeadsBalanceComparison = {
+  mode: LeadsBalancoMode;
   current: DateRange;
   previous: DateRange;
 };

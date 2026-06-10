@@ -158,7 +158,7 @@ const Zoom = () => {
       {isOpen && (
         <div
           ref={dropdownRef}
-          className={`fixed rounded-xl border shadow-lg z-50 ${tc.dropdown}`}
+          className={`fixed rounded-xl border shadow-lg z-[110] ${tc.dropdown}`}
           style={{
             width: 256,
             height: 160,

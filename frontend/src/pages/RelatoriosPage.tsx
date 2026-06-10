@@ -1,26 +1,26 @@
-import { LayoutDashboard } from 'lucide-react';
+import { FileBarChart } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { MainViewHeader } from '@/components/layout/header';
 import { MotionReveal } from '@/components/motion/AppMotion';
 
-export default function DashboardPage() {
+export default function RelatoriosPage() {
   return (
     <MainViewFluidShell>
       <MainViewHeader
-        icon={<LayoutDashboard className="h-6 w-6" />}
-        title="Dashboard"
-        description="Visão geral do seu workspace — em breve, widgets personalizados e resumos do sistema"
+        icon={<FileBarChart className="h-6 w-6" />}
+        title="Relatórios"
+        description="Exportações, resumos periódicos e documentos consolidados dos seus leads"
       />
       <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <MotionReveal index={0}>
           <Card className="border-dashed">
             <CardHeader>
               <CardTitle className="text-base">Em breve</CardTitle>
-              <CardDescription>Resumo do seu perfil e atividade recente</CardDescription>
+              <CardDescription>Relatórios exportáveis</CardDescription>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Esta área será expandida com widgets configuráveis.
+              Geração de PDF e planilhas com métricas e listagens filtradas.
             </CardContent>
           </Card>
         </MotionReveal>
@@ -28,10 +28,10 @@ export default function DashboardPage() {
           <Card className="border-dashed">
             <CardHeader>
               <CardTitle className="text-base">Em breve</CardTitle>
-              <CardDescription>Atalhos e notificações</CardDescription>
+              <CardDescription>Resumos periódicos</CardDescription>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Acesso rápido às áreas mais usadas do GêLeads.
+              Visões semanais e mensais para acompanhar evolução e metas.
             </CardContent>
           </Card>
         </MotionReveal>
@@ -39,10 +39,10 @@ export default function DashboardPage() {
           <Card className="border-dashed">
             <CardHeader>
               <CardTitle className="text-base">Em breve</CardTitle>
-              <CardDescription>Integrações e status das fontes de leads</CardDescription>
+              <CardDescription>Modelos personalizados</CardDescription>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Métricas gerais ficam em Dados; gestão de leads em Leads.
+              Combine blocos de Dados e Leads em relatórios sob medida para sua equipe.
             </CardContent>
           </Card>
         </MotionReveal>

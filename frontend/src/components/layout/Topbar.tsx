@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, LogOut, UserCircle, Settings, LifeBuoy, Lightbulb } from 'lucide-react';
+import { Bell, LogOut, UserCircle, Settings, LifeBuoy, Lightbulb, ExternalLink } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +26,7 @@ import HelpModal from '@/views/navbar/HelpModal';
 import { Quotes } from '@/components/ui/quotes';
 import { AppBrandControl } from '@/components/layout/AppBrandHeader';
 import { SIDEBAR_BRAND_WIDTH } from '@/lib/sidebarLayout';
+import { GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
 
 function TopbarActions() {
   const { user, logout } = useAuthStore();
@@ -38,7 +39,7 @@ function TopbarActions() {
   const notificationUnreadCount = notificationItems.filter((n) => !n.read).length;
 
   const handleProfileClick = () => {
-    window.location.href = 'https://geapps.genesisapps.com.br/profile';
+    window.location.href = GEAPPS_PROFILE_URL;
   };
 
   const handleLogout = () => {
@@ -110,9 +111,12 @@ function TopbarActions() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={handleProfileClick}>
-              <UserCircle className="mr-2 h-4 w-4" />
-              Perfil
+            <DropdownMenuItem onClick={handleProfileClick} className="justify-between gap-2">
+              <span className="flex items-center">
+                <UserCircle className="mr-2 h-4 w-4 shrink-0" />
+                Perfil
+              </span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('/settings')}>
               <Settings className="mr-2 h-4 w-4" />
