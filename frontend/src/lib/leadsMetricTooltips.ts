@@ -6,8 +6,8 @@ export const LEADS_METRIC_TOOLTIPS = {
   taxaConversao: 'Percentual de leads com perfil completo em relação ao total de leads.',
   pontuacao:
     'Média da pontuação dos leads no período, calculada a partir da qualificação de cada lead.',
-  atendimentoCorretor: 'Leads em conversa ativa com a equipe de corretores.',
-  visitasAgendadas: 'Leads com visita ao empreendimento marcada no período.',
+  atendimentoCorretor: 'Em atendimento no CVCRM. Dado real virá via webhook (em breve).',
+  visitasAgendadas: 'Visitas agendadas no CVCRM. Dado real virá via webhook (em breve).',
   analiseCredito:
     'Leads com perfil completo e preferência por financiamento ou parcelamento.',
   vendas: 'Vendas confirmadas no CVCRM. Atualizado via webhook.',

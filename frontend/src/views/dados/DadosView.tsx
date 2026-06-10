@@ -296,7 +296,7 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
               className="w-full"
               steps={funnelSteps}
               revision={filterRevision}
-              title="Funil de conversão"
+              title="Funil de Marketing"
               description="Fluxo do visitante até a conversão — percentual entre etapas"
             />
           </div>
@@ -306,8 +306,8 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
               className="w-full"
               steps={operationalFunnelSteps}
               revision={filterRevision}
-              title="Funil operacional"
-              description="Em atendimento até venda — mesmas métricas dos KPIs acima"
+              title="Funil Comercial"
+              description="Em atendimento, visitas e vendas — aguardando dados do CVCRM via webhook"
             />
           </div>
 

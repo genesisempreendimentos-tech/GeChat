@@ -59,12 +59,14 @@ function contatoIsWhatsapp(contato: string) {
   return !contatoIsForm(contato);
 }
 
-function isAtendimentoCorretor(row: LeadMetricsRow) {
-  return leadRespondeuFormularioPerfil(row) && row.qualificacao === 'Média';
+/** Pendente: virá do CVCRM (cvcrm_stage / cvcrm_situation) via webhook. */
+function isAtendimentoCorretor(_row: LeadMetricsRow) {
+  return false;
 }
 
-function isVisitaAgendada(row: LeadMetricsRow) {
-  return leadRespondeuFormularioPerfil(row) && row.qualificacao === 'Alta';
+/** Pendente: virá do CVCRM (cvcrm_stage / cvcrm_situation) via webhook. */
+function isVisitaAgendada(_row: LeadMetricsRow) {
+  return false;
 }
 
 function isVendaLead(row: LeadMetricsRow) {
