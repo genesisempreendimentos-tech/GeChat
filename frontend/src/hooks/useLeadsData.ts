@@ -1,63 +1,48 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { LeadRow } from '@/lib/leadRow';
-import { mapLeadToRow } from '@/lib/mapLeadToRow';
-import { leadsService } from '@/services/leadsService';
+import { useLeadsStore } from '@/store/leadsStore';
 
 type UseLeadsDataResult = {
   rows: LeadRow[];
   loading: boolean;
+  /** Progresso real do download dos leads (0–100). */
+  progress: number;
   syncing: boolean;
   error: string | null;
   refetch: () => void;
   refreshFromDatabase: () => Promise<void>;
 };
 
+/**
+ * Leads compartilhados entre páginas via leadsStore: a primeira página que
+ * montar dispara a carga; as demais reutilizam o cache (navegar não recarrega).
+ */
 export function useLeadsData(): UseLeadsDataResult {
-  const [rows, setRows] = useState<LeadRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-
-  const refetch = useCallback(() => {
-    setReloadKey((key) => key + 1);
-  }, []);
-
-  const refreshFromDatabase = useCallback(async () => {
-    setSyncing(true);
-    const { error: syncError } = await leadsService.sync();
-    setSyncing(false);
-
-    if (syncError) {
-      setError(typeof syncError === 'string' ? syncError : 'Erro ao sincronizar leads.');
-      return;
-    }
-
-    refetch();
-  }, [refetch]);
+  const rows = useLeadsStore((s) => s.rows);
+  const loaded = useLeadsStore((s) => s.loaded);
+  const loading = useLeadsStore((s) => s.loading);
+  const progress = useLeadsStore((s) => s.progress);
+  const syncing = useLeadsStore((s) => s.syncing);
+  const error = useLeadsStore((s) => s.error);
+  const fetchLeads = useLeadsStore((s) => s.fetchLeads);
+  const refreshFromDatabase = useLeadsStore((s) => s.refreshFromDatabase);
 
   useEffect(() => {
-    let cancelled = false;
+    void fetchLeads();
+  }, [fetchLeads]);
 
-    (async () => {
-      setLoading(true);
-      const { data, error: fetchError } = await leadsService.list();
-      if (cancelled) return;
+  const refetch = useCallback(() => {
+    void fetchLeads({ force: true });
+  }, [fetchLeads]);
 
-      if (fetchError) {
-        setError(typeof fetchError === 'string' ? fetchError : 'Erro ao carregar leads.');
-        setRows([]);
-      } else {
-        setRows((data ?? []).map(mapLeadToRow));
-        setError(null);
-      }
-      setLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadKey]);
-
-  return { rows, loading, syncing, error, refetch, refreshFromDatabase };
+  return {
+    rows,
+    // Antes da primeira carga concluir, trate como carregando (sem flash de tela vazia).
+    loading: loading || (!loaded && !error),
+    progress,
+    syncing,
+    error,
+    refetch,
+    refreshFromDatabase,
+  };
 }

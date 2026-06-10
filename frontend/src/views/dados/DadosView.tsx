@@ -46,7 +46,7 @@ import type { LeadMetricaFiltro } from '@/lib/leadsControlLine';
 import { useFilteredLeadRows } from '@/hooks/useFilteredLeadRows';
 import { useLeadsData } from '@/hooks/useLeadsData';
 import { LEADS_METRIC_TOOLTIPS } from '@/lib/leadsMetricTooltips';
-import { LoadingGif } from '@/components/LoadingGif';
+import { LeadsLoadingProgress } from '@/components/LeadsLoadingProgress';
 import { cn } from '@/lib/utils';
 
 function PontuacaoGaugeCard({ className, value = 72 }: { className?: string; value?: number }) {
@@ -94,7 +94,7 @@ export type DadosViewProps = {
 
 export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
   void onMetricaSelect;
-  const { rows: allRows, loading, error } = useLeadsData();
+  const { rows: allRows, loading, progress, error } = useLeadsData();
 
   const filteredRows = useFilteredLeadRows(allRows, filtros);
   const leadsBalanceCtx = useMemo(
@@ -174,11 +174,7 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
   }, [timeRange, filterRevision]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-[20rem] items-center justify-center">
-        <LoadingGif size="md" />
-      </div>
-    );
+    return <LeadsLoadingProgress progress={progress} />;
   }
 
   if (error) {

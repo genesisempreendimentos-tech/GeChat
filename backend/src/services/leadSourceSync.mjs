@@ -458,18 +458,14 @@ CREATE TABLE IF NOT EXISTS leads (
 );
 `;
 
-const UPSERT_LEAD_SQL = `
-INSERT INTO leads (
-  id, source_table, name, email, phone, page, origem, canal, parametro,
-  empreendimento, responsavel, relacionamento, investimento, cidade_residencia,
-  birth_date, profile_type, profile_notes, dispositivo, pagamento_preferencia,
-  status, cvcrm_lead_id, created_at, updated_at
-) VALUES (
-  $1, $2, $3, $4, $5, $6, $7, $8, $9,
-  $10, $11, $12, $13, $14,
-  $15, $16, $17, $18, $19,
-  $20, $21, $22, $23
-)
+const UPSERT_LEAD_COLUMNS = [
+  'id', 'source_table', 'name', 'email', 'phone', 'page', 'origem', 'canal', 'parametro',
+  'empreendimento', 'responsavel', 'relacionamento', 'investimento', 'cidade_residencia',
+  'birth_date', 'profile_type', 'profile_notes', 'dispositivo', 'pagamento_preferencia',
+  'status', 'cvcrm_lead_id', 'created_at', 'updated_at',
+];
+
+const UPSERT_LEAD_CONFLICT_SQL = `
 ON CONFLICT (id) DO UPDATE SET
   source_table = EXCLUDED.source_table,
   name = EXCLUDED.name,
@@ -493,6 +489,48 @@ ON CONFLICT (id) DO UPDATE SET
   cvcrm_lead_id = EXCLUDED.cvcrm_lead_id,
   updated_at = EXCLUDED.updated_at;
 `;
+
+// 500 linhas × 23 colunas = 11.500 parâmetros por query (limite do Postgres: 65.535).
+const UPSERT_BATCH_SIZE = 500;
+
+function buildBatchUpsertSql(rowCount) {
+  const colCount = UPSERT_LEAD_COLUMNS.length;
+  const tuples = [];
+  for (let i = 0; i < rowCount; i += 1) {
+    const base = i * colCount;
+    const placeholders = UPSERT_LEAD_COLUMNS.map((_, j) => `$${base + j + 1}`);
+    tuples.push(`(${placeholders.join(', ')})`);
+  }
+  return `INSERT INTO leads (${UPSERT_LEAD_COLUMNS.join(', ')}) VALUES ${tuples.join(', ')} ${UPSERT_LEAD_CONFLICT_SQL}`;
+}
+
+function leadToUpsertParams(mapped) {
+  return [
+    mapped.id,
+    mapped.source_table,
+    mapped.name,
+    mapped.email,
+    mapped.phone,
+    mapped.page,
+    mapped.origem,
+    mapped.canal,
+    mapped.parametro,
+    mapped.empreendimento,
+    mapped.responsavel,
+    mapped.relacionamento,
+    mapped.investimento,
+    mapped.cidade_residencia,
+    mapped.birth_date,
+    mapped.profile_type,
+    mapped.profile_notes,
+    mapped.dispositivo,
+    mapped.pagamento_preferencia,
+    mapped.status,
+    mapped.cvcrm_lead_id,
+    mapped.created_at,
+    mapped.updated_at,
+  ];
+}
 
 async function resolveSourceTable(client, candidates) {
   for (const table of candidates) {
@@ -538,38 +576,14 @@ export async function syncLeadsFromSources({ force = false } = {}) {
       }
 
       const { rows } = await client.query(`SELECT * FROM ${tableName} ORDER BY created_at ASC`);
-      let count = 0;
+      const mappedRows = rows.map((row) => source.mapRow(row, source.sourceTable, source));
 
-      for (const row of rows) {
-        const mapped = source.mapRow(row, source.sourceTable, source);
-        await client.query(UPSERT_LEAD_SQL, [
-          mapped.id,
-          mapped.source_table,
-          mapped.name,
-          mapped.email,
-          mapped.phone,
-          mapped.page,
-          mapped.origem,
-          mapped.canal,
-          mapped.parametro,
-          mapped.empreendimento,
-          mapped.responsavel,
-          mapped.relacionamento,
-          mapped.investimento,
-          mapped.cidade_residencia,
-          mapped.birth_date,
-          mapped.profile_type,
-          mapped.profile_notes,
-          mapped.dispositivo,
-          mapped.pagamento_preferencia,
-          mapped.status,
-          mapped.cvcrm_lead_id,
-          mapped.created_at,
-          mapped.updated_at,
-        ]);
-        count += 1;
+      for (let i = 0; i < mappedRows.length; i += UPSERT_BATCH_SIZE) {
+        const chunk = mappedRows.slice(i, i + UPSERT_BATCH_SIZE);
+        await client.query(buildBatchUpsertSql(chunk.length), chunk.flatMap(leadToUpsertParams));
       }
 
+      const count = mappedRows.length;
       totalSynced += count;
       sources.push({ source: source.key, table: tableName, count });
       console.log(`[leads/sync] ${tableName}: ${count} lead(s) sincronizado(s) → leads`);

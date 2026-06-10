@@ -14,7 +14,7 @@ import type {
   LeadRow,
 } from '@/lib/leadRow';
 import { useLeadsData } from '@/hooks/useLeadsData';
-import { LoadingGif } from '@/components/LoadingGif';
+import { LeadsLoadingProgress } from '@/components/LeadsLoadingProgress';
 import { cn } from '@/lib/utils';
 import { formatLeadDateTime, formatLeadDateCreated } from '@/lib/formatDateTime';
 import { getLeadDisplayId, parseLeadSequentialNumber } from '@/lib/leadDisplayId';
@@ -630,6 +630,7 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
   const {
     rows: allLeadsRows,
     loading: leadsLoading,
+    progress: leadsProgress,
     syncing: leadsSyncing,
     error: leadsError,
     refreshFromDatabase,
@@ -813,11 +814,7 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
   );
 
   if (leadsLoading) {
-    return (
-      <div className="flex min-h-[16rem] items-center justify-center">
-        <LoadingGif size="md" />
-      </div>
-    );
+    return <LeadsLoadingProgress progress={leadsProgress} minHeightClassName="min-h-[16rem]" />;
   }
 
   if (leadsError) {
