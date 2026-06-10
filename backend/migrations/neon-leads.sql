@@ -5,6 +5,7 @@
 
 CREATE TABLE IF NOT EXISTS leads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  codigo TEXT,
   source_table TEXT,
   name TEXT NOT NULL,
   email TEXT,

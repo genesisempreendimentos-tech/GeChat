@@ -8,6 +8,7 @@ export function mapLeadToRow(lead: Lead): LeadRow {
   const phone = (lead.phone ?? '').trim();
   const base = {
     id: lead.id,
+    codigo: lead.codigo ?? null,
     dataHora: lead.dataHora || lead.createdAt,
     nome: lead.nome || lead.name,
     contato: lead.contato || email || phone || '',

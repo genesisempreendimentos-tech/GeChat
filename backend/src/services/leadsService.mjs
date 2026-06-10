@@ -21,6 +21,11 @@ function toIso(value) {
   return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
 }
 
+function mapLeadCodigo(row) {
+  const codigo = String(row.codigo ?? '').trim();
+  return codigo || null;
+}
+
 function mapNeonRowToLead(row) {
   const email = String(row.email ?? '').trim();
   const phone = String(row.phone ?? '').trim();
@@ -30,6 +35,7 @@ function mapNeonRowToLead(row) {
 
   return {
     id: String(row.id),
+    codigo: mapLeadCodigo(row),
     name,
     gender: null,
     email: email || null,
@@ -104,13 +110,16 @@ function runSyncOnce() {
 export async function listLeads(_supabaseUrl, _supabaseAnonKey, _accessToken, filters = {}) {
   const fetchRows = () =>
     withNeonClient(async (client) => {
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS codigo TEXT`);
       const params = [];
       let sql = 'SELECT * FROM leads';
       if (filters.status) {
         params.push(filters.status);
         sql += ` WHERE status = $${params.length}`;
       }
-      sql += ' ORDER BY created_at DESC';
+      sql += ` ORDER BY
+        CASE WHEN codigo ~ '^A[0-9]+$' THEN substring(codigo FROM 2)::bigint END DESC NULLS LAST,
+        created_at DESC`;
       const { rows } = await client.query(sql, params);
       return rows;
     });
