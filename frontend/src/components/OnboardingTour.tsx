@@ -172,7 +172,7 @@ export function OnboardingTour() {
         ) : (
           <div className="absolute inset-0 bg-black/50" />
         )}
-        <Card className="absolute bottom-6 left-1/2 z-[101] w-[min(92vw,400px)] -translate-x-1/2 shadow-xl">
+        <Card className="absolute left-1/2 top-1/2 z-[101] w-[min(92vw,400px)] -translate-x-1/2 -translate-y-1/2 shadow-xl">
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2 text-primary">
