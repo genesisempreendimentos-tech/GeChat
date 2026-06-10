@@ -1,5 +1,6 @@
 import { endOfDay, startOfDay } from 'date-fns';
 import { filterRowsByBalancoRange, getLeadsBalancoRanges } from '@/lib/leadsBalanco';
+import { resolveEmpreendimentoPagina } from '@/lib/leadEmpreendimento';
 import {
   defaultLeadsPageControlFilters,
   type LeadsBalancoMode,
@@ -73,7 +74,8 @@ export function collectDadosFilterOptions(rows: LeadMetricsRow[]): DadosFilterOp
   const dispositivos = new Set<string>();
 
   for (const row of rows) {
-    if (row.pagina) empreendimentos.add(row.pagina);
+    const pagina = resolveEmpreendimentoPagina(row);
+    if (pagina) empreendimentos.add(pagina);
     if (row.origem) origens.add(row.origem);
     const device = row.dispositivo?.trim();
     if (device) dispositivos.add(device);
@@ -102,7 +104,7 @@ export function filterDadosRows<T extends LeadMetricsRow>(
       if (startMs !== null && t < startMs) return false;
       if (endMs !== null && t > endMs) return false;
     }
-    if (filtros.empreendimento && row.pagina !== filtros.empreendimento) return false;
+    if (filtros.empreendimento && resolveEmpreendimentoPagina(row) !== filtros.empreendimento) return false;
     if (filtros.origem && row.origem !== filtros.origem) return false;
     if (filtros.dispositivo && (row.dispositivo ?? '') !== filtros.dispositivo) return false;
     return true;

@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatPaginaSlugLabel } from '@/lib/leadEmpreendimento';
 import { cn } from '@/lib/utils';
 import {
   DADOS_BALANCO_OPTIONS,
@@ -28,14 +29,6 @@ type DadosFiltersPanelProps = {
   filterOptions: DadosFilterOptions;
   className?: string;
 };
-
-function formatPaginaLabel(path: string): string {
-  const slug = path.replace(/^\//, '') || 'home';
-  return slug
-    .split(/[-_]/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
 
 export function DadosFiltersPanel({
   value,
@@ -89,7 +82,7 @@ export function DadosFiltersPanel({
               <SelectItem value="__all__">Todos</SelectItem>
               {filterOptions.empreendimentos.map((pagina) => (
                 <SelectItem key={pagina} value={pagina}>
-                  {formatPaginaLabel(pagina)}
+                  {formatPaginaSlugLabel(pagina)}
                 </SelectItem>
               ))}
             </SelectContent>

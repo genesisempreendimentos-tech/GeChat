@@ -31,7 +31,7 @@ SELECT
   s.nome,
   NULLIF(TRIM(s.email), ''),
   NULLIF(TRIM(s.whatsapp), ''),
-  COALESCE(NULLIF(TRIM(s.interesse), ''), '/solar-do-bosque'),
+  '/solar-do-bosque',
   CASE
     WHEN NULLIF(TRIM(s.canal), '') IS NULL THEN 'Direto'
     WHEN LOWER(TRIM(s.canal)) = 'site' THEN 'Direto'

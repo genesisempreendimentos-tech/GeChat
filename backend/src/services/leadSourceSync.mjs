@@ -104,39 +104,11 @@ export const LEAD_SOURCE_TABLES = [
     defaultEmpreendimento: 'Flow',
     mapRow: mapStandardLeadRow,
   },
-  {
-    key: 'aniversario_208',
-    tables: ['leads_aniversario_208_anos'],
-    sourceTable: 'leads_aniversario_208_anos',
-    defaultPage: '/aniversario-208',
-    defaultEmpreendimento: 'Solar das Flores',
-    mapRow: mapStandardLeadRow,
-  },
-  {
-    key: 'gesite',
-    tables: ['leads_gesite'],
-    sourceTable: 'leads_gesite',
-    defaultPage: '/gesite',
-    defaultEmpreendimento: 'GêSite',
-    mapRow: mapStandardLeadRow,
-  },
-  {
-    key: 'blackgenesis',
-    tables: ['leads_blackgenesis'],
-    sourceTable: 'leads_blackgenesis',
-    defaultPage: '/black-genesis',
-    defaultEmpreendimento: 'Black Gênesis',
-    mapRow: mapStandardLeadRow,
-  },
-  {
-    key: 'old',
-    tables: ['leads_old'],
-    sourceTable: 'leads_old',
-    defaultPage: '/legado',
-    defaultEmpreendimento: null,
-    mapRow: mapOldLeadRow,
-  },
 ];
+
+import { IGNORED_NEON_LEAD_SOURCE_TABLES } from '../ignoredLeadSources.mjs';
+
+export { IGNORED_NEON_LEAD_SOURCE_TABLES };
 
 function getNeonLeadsUrl() {
   return (
@@ -312,19 +284,6 @@ function mapCvcrmFields(row) {
   };
 }
 
-function formatUnixBirthDatePtBr(value) {
-  if (value == null || value === '') return '';
-  const num = Number(value);
-  if (!Number.isFinite(num) || num <= 0) return '';
-  const ms = num < 1_000_000_000_000 ? num * 1000 : num;
-  const date = new Date(ms);
-  if (Number.isNaN(date.getTime())) return '';
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const year = date.getUTCFullYear();
-  return `${day}/${month}/${year}`;
-}
-
 export function mapStandardLeadRow(row, sourceTable, defaults = {}) {
   const email = String(row.email ?? '').trim();
   const phone = String(row.phone ?? '').trim();
@@ -340,7 +299,7 @@ export function mapStandardLeadRow(row, sourceTable, defaults = {}) {
     name: String(row.name ?? '').trim() || 'Lead',
     email: email || null,
     phone: phone || null,
-    page: interesse || defaults.defaultPage || '/',
+    page: defaults.defaultPage || '/',
     origem: mapCanalOrigem(row),
     canal: canal || 'Site',
     parametro: interesse || empreendimento,
@@ -351,41 +310,6 @@ export function mapStandardLeadRow(row, sourceTable, defaults = {}) {
     birth_date: formatBirthDatePtBr(row.birth_date) || null,
     profile_type: String(row.profile_type ?? '').trim() || null,
     profile_notes: childrenStatus ? `Filhos: ${childrenStatus}` : interesse || null,
-    dispositivo: null,
-    pagamento_preferencia: null,
-    responsavel: null,
-    status: mapLeadStatus(row),
-    ...mapCvcrmFields(row),
-    created_at: row.created_at,
-    updated_at: row.updated_at ?? row.created_at,
-  };
-}
-
-export function mapOldLeadRow(row, sourceTable, defaults = {}) {
-  const email = String(row.email ?? '').trim();
-  const phone = String(row.phone ?? '').trim();
-  const interesse = String(row.interesse ?? '').trim();
-  const dataEntrada = String(row.data_entrada ?? '').trim();
-
-  return {
-    id: row.id,
-    source_table: sourceTable,
-    name: String(row.name ?? '').trim() || 'Lead',
-    email: email || null,
-    phone: phone || null,
-    page: interesse || defaults.defaultPage || '/legado',
-    origem: mapCanalOrigem(row),
-    canal: String(row.canal ?? '').trim() || 'Site',
-    parametro: interesse || null,
-    empreendimento: interesse || defaults.defaultEmpreendimento || null,
-    relacionamento: String(row.relationship_status ?? '').trim() || null,
-    investimento: String(row.monthly_investment ?? '').trim() || null,
-    cidade_residencia: String(row.current_city ?? '').trim() || null,
-    birth_date: formatUnixBirthDatePtBr(row.nascimento) || null,
-    profile_type: null,
-    profile_notes: [interesse && `Interesse: ${interesse}`, dataEntrada && `Data entrada: ${dataEntrada}`]
-      .filter(Boolean)
-      .join(' | ') || null,
     dispositivo: null,
     pagamento_preferencia: null,
     responsavel: null,
@@ -445,7 +369,7 @@ export function mapSolarBosqueRow(row, sourceTable, defaults = {}) {
     name: String(row.nome ?? '').trim() || 'Lead',
     email: email || null,
     phone: phone || null,
-    page: interesse || defaults.defaultPage || '/solar-do-bosque',
+    page: defaults.defaultPage || '/solar-do-bosque',
     origem: mapCanalOrigem(row),
     canal: canal || 'Site',
     parametro: interesse || empreendimento,

@@ -3,6 +3,8 @@ import { format, getDay, getHours, startOfDay, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { leadRespondeuFormularioPerfil } from '@/rules/qualifyLead';
 import type { LeadMetricsRow } from '@/lib/leadsMetrics';
+import type { LeadsInfoboxStats } from '@/lib/leadsMetrics';
+import { resolveEmpreendimentoLabel, resolveEmpreendimentoPagina } from '@/lib/leadEmpreendimento';
 
 export type DadosTimeRange = '7' | '30' | '90';
 
@@ -270,12 +272,23 @@ export function aggregateByOrigemBars(
 }
 
 export function aggregateByPaginaBars(rows: LeadMetricsRow[]): BarRankItem[] {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, { value: number; label: string }>();
   for (const row of rows) {
-    const label = formatPaginaLabel(row.pagina);
-    counts.set(label, (counts.get(label) ?? 0) + 1);
+    const key = resolveEmpreendimentoPagina(row);
+    const label = resolveEmpreendimentoLabel(row);
+    const entry = counts.get(key) ?? { value: 0, label };
+    entry.value += 1;
+    counts.set(key, entry);
   }
-  return countsToRankItems(counts, (_, i) => ORIGEM_PALETTE[i % ORIGEM_PALETTE.length] ?? '#94a3b8');
+  const total = Array.from(counts.values()).reduce((sum, item) => sum + item.value, 0);
+  return Array.from(counts.entries())
+    .map(([key, item], index) => ({
+      name: item.label,
+      value: item.value,
+      color: origemColor(item.label, index),
+      pct: total > 0 ? Math.round((item.value / total) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.value - a.value);
 }
 
 export function aggregateDeviceStack100(rows: LeadMetricsRow[]): DeviceStackSegment[] {
@@ -326,6 +339,29 @@ export function buildConversionFunnel(rows: LeadMetricsRow[]): FunnelStep[] {
       value: step.value,
       pctOfPrevious: prev && prev > 0 ? Math.round((step.value / prev) * 1000) / 10 : null,
       pctOfFirst: visitantes > 0 ? Math.round((step.value / visitantes) * 1000) / 10 : 0,
+      color: step.color,
+    };
+  });
+}
+
+/** Funil comercial — mesmas métricas dos infoboxes (atendimento → venda). */
+export function buildOperationalFunnelFromStats(stats: LeadsInfoboxStats): FunnelStep[] {
+  const steps = [
+    { label: 'Em atendimento', value: stats.atendimentoCorretor, color: '#3b82f6' },
+    { label: 'Visitas', value: stats.visitasAgendadas, color: '#8b5cf6' },
+    { label: 'Análise de Crédito', value: stats.analiseCredito, color: '#64748b' },
+    { label: 'Vendas', value: stats.vendas, color: '#10b981' },
+  ];
+
+  const topValue = Math.max(...steps.map((step) => step.value), 1);
+
+  return steps.map((step, index) => {
+    const prev = index > 0 ? steps[index - 1]!.value : null;
+    return {
+      label: step.label,
+      value: step.value,
+      pctOfPrevious: prev && prev > 0 ? Math.round((step.value / prev) * 1000) / 10 : null,
+      pctOfFirst: topValue > 0 ? Math.round((step.value / topValue) * 1000) / 10 : 0,
       color: step.color,
     };
   });

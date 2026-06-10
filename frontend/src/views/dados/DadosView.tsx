@@ -28,7 +28,6 @@ import {
   aggregateByDay,
   filterRowsInDays,
   filterRowsInPreviousDays,
-  aggregateByOrigemBars,
   collectOrigemCatalog,
   aggregateByPaginaBars,
   aggregateByQualificacaoBars,
@@ -36,6 +35,7 @@ import {
   channelLineColor,
   aggregateChannelSeriesOverTime,
   buildConversionFunnel,
+  buildOperationalFunnelFromStats,
   aggregateDeviceStack100,
   dadosTimeRangeDays,
   buildLeadHeatmap,
@@ -114,13 +114,13 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
   const origemCatalog = useMemo(() => collectOrigemCatalog(allRows), [allRows]);
 
   const qualificacaoBars = useMemo(() => aggregateByQualificacaoBars(filteredRows), [filteredRows]);
-  const origemBars = useMemo(
-    () => aggregateByOrigemBars(filteredRows, origemCatalog),
-    [filteredRows, origemCatalog],
+  const funnelSteps = useMemo(() => buildConversionFunnel(filteredRows), [filteredRows]);
+  const operationalFunnelSteps = useMemo(
+    () => buildOperationalFunnelFromStats(infoboxStats),
+    [infoboxStats],
   );
   const paginaBars = useMemo(() => aggregateByPaginaBars(filteredRows), [filteredRows]);
   const deviceStack = useMemo(() => aggregateDeviceStack100(filteredRows), [filteredRows]);
-  const funnelSteps = useMemo(() => buildConversionFunnel(filteredRows), [filteredRows]);
   const campaignRows = useMemo(() => aggregateCampaignPerformance(filteredRows), [filteredRows]);
   const heatmapCells = useMemo(() => buildLeadHeatmap(filteredRows), [filteredRows]);
 
@@ -290,21 +290,24 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
       {/* Gráficos — layout bento (12 colunas, cards agrupados por tamanho) */}
       <MotionReveal index={8}>
         <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-7">
+          <div className="w-full lg:col-span-6">
             <ConversionFunnelChart
+              fillHeight
+              className="w-full"
               steps={funnelSteps}
               revision={filterRevision}
               title="Funil de conversão"
               description="Fluxo do visitante até a conversão — percentual entre etapas"
             />
           </div>
-          <div className="lg:col-span-5 lg:flex">
-            <HorizontalBarRankChart
+          <div className="w-full lg:col-span-6">
+            <ConversionFunnelChart
               fillHeight
               className="w-full"
-              data={origemBars}
-              title="Origem dos leads"
-              description="Canais ordenados por volume capturado"
+              steps={operationalFunnelSteps}
+              revision={filterRevision}
+              title="Funil operacional"
+              description="Em atendimento até venda — mesmas métricas dos KPIs acima"
             />
           </div>
 

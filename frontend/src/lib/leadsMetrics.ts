@@ -1,4 +1,5 @@
 import { filterRowsByBalancoRange, getLeadsBalancoRanges } from '@/lib/leadsBalanco';
+import { resolveEmpreendimentoLabel, resolveEmpreendimentoPagina } from '@/lib/leadEmpreendimento';
 import type { LeadsBalancoMode, LeadMetricaFiltro } from '@/lib/leadsControlLine';
 import {
   leadRespondeuFormularioPerfil,
@@ -10,6 +11,8 @@ export type LeadMetricsRow = {
   contato: string;
   origem: string;
   pagina: string;
+  empreendimento?: string;
+  _table?: string;
   qualificacao: LeadQualificacao;
   dispositivo?: string;
   relacionamento?: string;
@@ -192,24 +195,17 @@ export function computeLeadsInfoboxStats(rows: LeadMetricsRow[]): LeadsInfoboxSt
   };
 }
 
-function formatPaginaNome(path: string): string {
-  const slug = path.replace(/^\//, '') || 'home';
-  return slug
-    .split(/[-_]/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
 export function computePaginasFromLeads(rows: LeadMetricsRow[]): LeadsPaginaDerivedRow[] {
   const byPage = new Map<string, LeadMetricsRow[]>();
   for (const row of rows) {
-    const bucket = byPage.get(row.pagina) ?? [];
+    const key = resolveEmpreendimentoPagina(row);
+    const bucket = byPage.get(key) ?? [];
     bucket.push(row);
-    byPage.set(row.pagina, bucket);
+    byPage.set(key, bucket);
   }
 
   return Array.from(byPage.entries())
-    .map(([pagina, pageRows]) => {
+    .map(([paginaKey, pageRows]) => {
       const perfilComplete = pageRows.filter((row) => leadRespondeuFormularioPerfil(row)).length;
       const qualified = pageRows.filter(
         (row) => row.qualificacao === 'Alta' || row.qualificacao === 'Média',
@@ -220,8 +216,8 @@ export function computePaginasFromLeads(rows: LeadMetricsRow[]): LeadsPaginaDeri
       );
 
       return {
-        id: `pg-${pagina}`,
-        nome: formatPaginaNome(pagina),
+        id: `pg-${paginaKey}`,
+        nome: resolveEmpreendimentoLabel(pageRows[0] ?? { pagina: paginaKey }),
         leads: pageRows.length,
         ultimoLeadIso: new Date(ultimoLeadMs).toISOString(),
         perfilPct: pageRows.length ? Math.round((perfilComplete / pageRows.length) * 1000) / 10 : 0,

@@ -71,6 +71,10 @@ if (supabaseUrl) {
   console.warn('[server] Defina SUPABASE_URL e SUPABASE_ANON_KEY no .env do backend.');
 }
 
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, service: 'geleads' });
+});
+
 app.use('/api/auth', createAuthRouter());
 app.use('/api/webhooks', createCvcrmWebhookRouter());
 app.use('/api/leads', createLeadsRouter());
@@ -893,6 +897,10 @@ app.get('/api/workspaces-active', async (req, res) => {
 });
 
 app.use(express.static(distPath));
+
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Rota de API não encontrada.' });
+});
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));

@@ -1,4 +1,5 @@
 import type { LeadRow } from '@/lib/leadRow';
+import { resolveEmpreendimentoPagina } from '@/lib/leadEmpreendimento';
 import { computeLeadQualificacao } from '@/rules/qualifyLead';
 import type { Lead } from '@/types/lead';
 
@@ -38,6 +39,7 @@ export function mapLeadToRow(lead: Lead): LeadRow {
 
   return {
     ...base,
+    pagina: resolveEmpreendimentoPagina(base),
     qualificacao: computeLeadQualificacao(base),
   };
 }

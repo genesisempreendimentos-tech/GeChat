@@ -12,6 +12,13 @@ BRANCH="${GELEADS_BRANCH:-main}"
 echo "==> git pull ${REMOTE} ${BRANCH}"
 git pull "${REMOTE}" "${BRANCH}"
 
+DEPLOY_USER="$(whoami)"
+if [[ "${DEPLOY_USER}" != "root" && -w "${ROOT}" ]]; then
+  :
+elif [[ -n "${SUDO_USER:-}" ]]; then
+  sudo chown -R "${SUDO_USER}:${SUDO_USER}" "${ROOT}"
+fi
+
 echo "==> npm install"
 npm install
 

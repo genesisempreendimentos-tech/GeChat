@@ -91,14 +91,14 @@ function ChartCard({
   fillHeight,
 }: ChartCardProps) {
   return (
-    <Card className={cn('transition-shadow hover:shadow-md', fillHeight && 'flex h-full flex-col', className)}>
+    <Card className={cn('transition-shadow hover:shadow-md', fillHeight && 'flex h-full flex-col overflow-hidden', className)}>
       <CardHeader
         className={cn(
           'flex flex-row items-start justify-between gap-3 flex-wrap',
           compact ? 'p-4 pb-2' : undefined,
         )}
       >
-        <div>
+        <div className={cn(compact && 'min-h-[4.25rem]')}>
           <CardTitle className={cn(compact && 'text-base')}>{title}</CardTitle>
           {description ? (
             <CardDescription className={cn(compact && 'text-xs')}>{description}</CardDescription>
@@ -107,7 +107,11 @@ function ChartCard({
         {headerExtra}
       </CardHeader>
       <CardContent
-        className={cn(compact ? 'px-4 pb-4 pt-0' : undefined, fillHeight && 'flex min-h-0 flex-1 flex-col')}
+        className={cn(
+          compact ? 'flex flex-col px-4 pb-4 pt-0' : undefined,
+          fillHeight && 'min-h-0 flex-1',
+          compact && fillHeight && 'justify-between',
+        )}
       >
         {children}
       </CardContent>
@@ -115,9 +119,19 @@ function ChartCard({
   );
 }
 
-function EmptyChartCard({ title, description }: { title: string; description?: string }) {
+function EmptyChartCard({
+  title,
+  description,
+  className,
+  fillHeight,
+}: {
+  title: string;
+  description?: string;
+  className?: string;
+  fillHeight?: boolean;
+}) {
   return (
-    <ChartCard title={title} description={description}>
+    <ChartCard title={title} description={description} className={className} fillHeight={fillHeight}>
       <p className="py-12 text-center text-sm text-muted-foreground">Sem dados no período selecionado</p>
     </ChartCard>
   );
@@ -255,24 +269,42 @@ export function StackedPercentBarChart({
   );
 }
 
+const FUNNEL_STEP_HEIGHT_PX = 40;
+const FUNNEL_SLOT_COUNT = 5;
+const FUNNEL_BODY_HEIGHT_PX = FUNNEL_STEP_HEIGHT_PX * FUNNEL_SLOT_COUNT;
+/** Altura fixa do card — os dois funis ficam idênticos. */
+export const FUNNEL_CHART_CARD_CLASS = 'h-[23rem]';
+
 export function ConversionFunnelChart({
   steps,
   title,
   description,
   revision,
+  className,
+  fillHeight,
 }: {
   steps: FunnelStep[];
   title: string;
   description?: string;
   /** Muda quando filtros/dados mudam — sincroniza animação de largura e números. */
   revision?: string;
+  className?: string;
+  fillHeight?: boolean;
 }) {
   const motionCfg = useAppMotion();
 
-  if (!steps.length) return <EmptyChartCard title={title} description={description} />;
+  if (!steps.length) {
+    return (
+      <EmptyChartCard
+        title={title}
+        description={description}
+        className={cn(FUNNEL_CHART_CARD_CLASS, className)}
+        fillHeight={fillHeight}
+      />
+    );
+  }
 
-  const maxValue = steps[0]?.value ?? 1;
-  const blockHeight = 40;
+  const maxValue = Math.max(...steps.map((step) => step.value), 1);
   const minWidthPct = 62;
   const maxWidthPct = 88;
 
@@ -292,52 +324,69 @@ export function ConversionFunnelChart({
   });
 
   const widthTransition = motionCfg.enabled ? motionCfg.springSoft : { duration: 0 };
+  const funnelSlots = Array.from({ length: FUNNEL_SLOT_COUNT }, (_, index) => steps[index] ?? null);
 
   return (
-    <ChartCard title={title} description={description} compact>
-      <div className="mx-auto flex max-w-md items-stretch gap-2 sm:gap-3">
+    <ChartCard
+      title={title}
+      description={description}
+      compact
+      fillHeight
+      className={cn(FUNNEL_CHART_CARD_CLASS, className)}
+    >
+      <div className="mx-auto flex w-full max-w-md shrink-0 items-stretch gap-2 sm:gap-3">
         <div
-          className="flex min-w-0 flex-1 flex-col items-center gap-0"
+          className="flex min-w-0 flex-1 flex-col"
+          style={{ height: FUNNEL_BODY_HEIGHT_PX }}
           role="img"
           aria-label={`Funil: ${steps.map((s) => `${s.label} ${s.value}`).join(', ')}`}
         >
-          {steps.map((step, index) => (
-            <div key={step.label} className="flex w-full justify-center">
-              <motion.div
-                layout
-                initial={false}
-                animate={{ width: `${blockWidths[index]}%` }}
-                transition={{ width: widthTransition, layout: widthTransition }}
-                className="flex items-center justify-between gap-2 px-2.5 sm:px-3"
-                style={{
-                  height: blockHeight,
-                  backgroundColor: step.color,
-                }}
-              >
-                <span className="truncate text-[11px] font-semibold text-white sm:text-xs">
-                  {step.label}
-                </span>
-                <div className="flex shrink-0 items-baseline gap-1 text-white">
-                  <span className="text-[11px] font-bold tabular-nums sm:text-xs">
-                    <MotionFlipNumber value={step.value.toLocaleString('pt-BR')} />
+          {funnelSlots.map((step, index) => (
+            <div
+              key={step?.label ?? `slot-${index}`}
+              className="flex w-full shrink-0 items-center justify-center"
+              style={{ height: FUNNEL_STEP_HEIGHT_PX }}
+            >
+              {step ? (
+                <motion.div
+                  initial={false}
+                  animate={{ width: `${blockWidths[index] ?? maxWidthPct}%` }}
+                  transition={{ width: widthTransition }}
+                  className="flex items-center justify-between gap-2 px-2.5 sm:px-3"
+                  style={{
+                    height: FUNNEL_STEP_HEIGHT_PX,
+                    backgroundColor: step.color,
+                  }}
+                >
+                  <span className="truncate text-[11px] font-semibold text-white sm:text-xs">
+                    {step.label}
                   </span>
-                  <span className="text-[10px] font-medium opacity-90">
-                    <MotionFlipNumber value={`${step.pctOfFirst}%`} />
-                  </span>
-                </div>
-              </motion.div>
+                  <div className="flex shrink-0 items-baseline gap-1 text-white">
+                    <span className="text-[11px] font-bold tabular-nums sm:text-xs">
+                      <MotionFlipNumber value={step.value.toLocaleString('pt-BR')} />
+                    </span>
+                    <span className="text-[10px] font-medium opacity-90">
+                      <MotionFlipNumber value={`${step.pctOfFirst}%`} />
+                    </span>
+                  </div>
+                </motion.div>
+              ) : null}
             </div>
           ))}
         </div>
 
-        <div className="hidden w-12 shrink-0 flex-col gap-0 sm:flex" aria-hidden>
-          {steps.map((step, index) => (
+        <div
+          className="hidden shrink-0 flex-col sm:flex"
+          style={{ width: 48, height: FUNNEL_BODY_HEIGHT_PX }}
+          aria-hidden
+        >
+          {funnelSlots.map((step, index) => (
             <div
-              key={`drop-${step.label}-${revision ?? 'default'}`}
-              className="flex items-center justify-center text-[10px] font-medium text-muted-foreground"
-              style={{ height: blockHeight }}
+              key={`drop-${step?.label ?? `slot-${index}`}-${revision ?? 'default'}`}
+              className="flex shrink-0 items-center justify-center text-[10px] font-medium text-muted-foreground"
+              style={{ height: FUNNEL_STEP_HEIGHT_PX }}
             >
-              {index > 0 && step.pctOfPrevious !== null ? (
+              {step && index > 0 && step.pctOfPrevious !== null ? (
                 <motion.span
                   key={`${step.label}-drop-${step.pctOfPrevious}`}
                   initial={motionCfg.enabled ? { opacity: 0, y: -4 } : false}
@@ -353,7 +402,7 @@ export function ConversionFunnelChart({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/60 pt-2.5 text-[10px] text-muted-foreground">
+      <div className="mt-3 flex h-14 shrink-0 flex-wrap content-start items-start gap-x-3 gap-y-1 overflow-hidden border-t border-border/60 pt-2.5 text-[10px] text-muted-foreground">
         {steps.map((step) => (
           <span key={step.label} className="flex items-center gap-1.5">
             <span

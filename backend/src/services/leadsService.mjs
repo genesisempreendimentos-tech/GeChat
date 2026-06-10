@@ -1,4 +1,6 @@
 import pg from 'pg';
+import { resolveEmpreendimentoPage } from '../leadEmpreendimento.mjs';
+import { isIgnoredLeadSource } from '../ignoredLeadSources.mjs';
 import { syncLeadsFromSources } from './leadSourceSync.mjs';
 
 const LEAD_STATUSES = ['novo', 'contato', 'qualificado', 'negociacao', 'ganho', 'perdido'];
@@ -44,7 +46,7 @@ function mapNeonRowToLead(row) {
     dataHora: createdAt,
     nome: name,
     contato: email || phone || '',
-    pagina: String(row.page ?? '').trim(),
+    pagina: resolveEmpreendimentoPage(row),
     origem: String(row.origem ?? '').trim(),
     canal: String(row.canal ?? '').trim(),
     qualificacao: 'Indefinida',
@@ -132,7 +134,9 @@ export async function listLeads(_supabaseUrl, _supabaseAnonKey, _accessToken, fi
     }
 
     if (!result) return [];
-    return result.map(mapNeonRowToLead);
+    return result
+      .map(mapNeonRowToLead)
+      .filter((lead) => !isIgnoredLeadSource(lead._table, lead.pagina));
   } catch (err) {
     console.error('[leads/list]', err);
     return [];

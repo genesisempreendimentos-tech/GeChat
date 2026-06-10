@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { LeadRow } from '@/lib/leadRow';
+import { isIgnoredLeadRow } from '@/lib/ignoredLeadSources';
 import { mapLeadToRow } from '@/lib/mapLeadToRow';
 import type { Lead } from '@/types/lead';
 import { leadsService } from '@/services/leadsService';
@@ -93,7 +94,9 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
 
         const payload = JSON.parse(text) as { leads?: Lead[] };
         set({
-          rows: (payload.leads ?? []).map(mapLeadToRow),
+          rows: (payload.leads ?? [])
+            .map(mapLeadToRow)
+            .filter((row) => !isIgnoredLeadRow(row)),
           loaded: true,
           progress: 100,
           error: null,

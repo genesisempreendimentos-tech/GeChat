@@ -47,6 +47,12 @@ fi
 
 cd "${GELEADS_DIR}"
 
+DEPLOY_USER="${SUDO_USER:-root}"
+if [[ "${DEPLOY_USER}" != "root" ]]; then
+  echo "==> Permissões para ${DEPLOY_USER}"
+  chown -R "${DEPLOY_USER}:${DEPLOY_USER}" "${GELEADS_DIR}"
+fi
+
 if [[ ! -f backend/.env ]]; then
   echo "==> Criando backend/.env a partir do exemplo"
   cp .env.example backend/.env
@@ -68,10 +74,16 @@ npm install
 echo "==> Build de produção"
 bash deploy/build-prod.sh
 
-echo "==> PM2"
-pm2 start deploy/ecosystem.config.cjs
-pm2 save
-pm2 startup systemd -u "${SUDO_USER:-root}" --hp "/home/${SUDO_USER:-root}" 2>/dev/null || pm2 startup
+echo "==> PM2 (utilizador ${DEPLOY_USER})"
+if [[ "${DEPLOY_USER}" != "root" ]]; then
+  sudo -u "${DEPLOY_USER}" pm2 start deploy/ecosystem.config.cjs
+  sudo -u "${DEPLOY_USER}" pm2 save
+  sudo -u "${DEPLOY_USER}" pm2 startup systemd -u "${DEPLOY_USER}" --hp "/home/${DEPLOY_USER}" 2>/dev/null || true
+else
+  pm2 start deploy/ecosystem.config.cjs
+  pm2 save
+  pm2 startup systemd -u root --hp /root 2>/dev/null || pm2 startup
+fi
 
 echo ""
 echo "==> Nginx"
@@ -83,4 +95,8 @@ echo ""
 echo "SSL (após DNS apontar para o VPS):"
 echo "  sudo certbot --nginx -d seu-dominio.com.br"
 echo ""
-echo "Instalação base concluída. App em http://127.0.0.1:3001 (via PM2)."
+SERVER_PORT="$(grep -E '^SERVER_PORT=' backend/.env 2>/dev/null | cut -d= -f2- | tr -d '\r' || echo 3001)"
+echo "Instalação base concluída. API em http://127.0.0.1:${SERVER_PORT} (via PM2)."
+echo "Teste: curl -s http://127.0.0.1:${SERVER_PORT}/api/health"
+echo ""
+echo "Auditoria: execute frontend/src/services/migration-geleads-app.sql no Supabase (slug geleads)."

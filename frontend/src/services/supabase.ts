@@ -507,9 +507,12 @@ export const databaseService = {
     const client = await getSupabaseClient();
     if (!client) return emptyData;
     const needle = slug.toLowerCase().replace(/\s+/g, '');
-    const { data, error } = await client.from('apps').select('*').eq('slug', needle).maybeSingle();
-    if (error) return { data: null, error };
-    return { data: data ?? null, error: null };
+    const exact = await client.from('apps').select('*').eq('slug', needle).maybeSingle();
+    if (exact.error) return { data: null, error: exact.error };
+    if (exact.data?.id) return { data: exact.data, error: null };
+    const fuzzy = await client.from('apps').select('*').ilike('slug', needle).maybeSingle();
+    if (fuzzy.error) return { data: null, error: fuzzy.error };
+    return { data: fuzzy.data ?? null, error: null };
   },
   async userHasAccessToApp(..._args: any[]) { return { data: false, error: null }; },
   async userHasAccessToAppBySlug(..._args: any[]) { return { data: false, error: null }; },
