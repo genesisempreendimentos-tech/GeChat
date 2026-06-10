@@ -33,7 +33,7 @@ export default function DadosPage() {
     <MainViewFluidShell>
       <MainViewHeader
         icon={<BarChart3 className="h-6 w-6" />}
-        title="Dados"
+        title="Análise"
         description="Métricas, distribuição e evolução dos leads no período"
         button={
           <Button

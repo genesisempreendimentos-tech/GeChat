@@ -48,7 +48,7 @@ export function ScoreGaugeChart({ value = 0, className, animated = true }: Score
             stroke="currentColor"
             strokeWidth="7"
             strokeLinecap="round"
-            className="text-muted/30"
+            className="text-gray-200 dark:text-muted/30"
           />
           {clamped > 0 ? (
             <path
@@ -57,7 +57,7 @@ export function ScoreGaugeChart({ value = 0, className, animated = true }: Score
               fill="none"
               stroke="currentColor"
               strokeWidth="7"
-              strokeLinecap="butt"
+              strokeLinecap="round"
               strokeDasharray={`${clamped} ${arcUnits - clamped}`}
               className="text-primary"
             />

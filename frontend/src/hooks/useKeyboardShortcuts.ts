@@ -27,7 +27,7 @@ export function useKeyboardShortcuts() {
       key: "d",
       altKey: true,
       action: () => navigate("/dados"),
-      description: "Ir para Dados",
+      description: "Ir para Análise",
     },
     {
       key: "l",
@@ -90,7 +90,7 @@ export function useKeyboardShortcuts() {
     const shortcuts = `Atalhos de Teclado:
 • Ctrl+K - Busca global
 • Alt+H - Dashboard
-• Alt+D - Dados
+• Alt+D - Análise
 • Alt+L - Leads
 • Alt+P - Perfil (GêApps)
 • Alt+, - Configurações

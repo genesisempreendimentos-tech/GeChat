@@ -42,7 +42,7 @@ export default function DashboardPage() {
               <CardDescription>Integrações e status das fontes de leads</CardDescription>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Métricas gerais ficam em Dados; gestão de leads em Leads.
+              Métricas gerais ficam em Análise; gestão de leads em Leads.
             </CardContent>
           </Card>
         </MotionReveal>

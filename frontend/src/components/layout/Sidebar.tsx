@@ -21,11 +21,11 @@ const menuItems = [
 
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
 
-  { icon: BarChart3, label: 'Dados', path: '/dados' },
-
-  { icon: FileBarChart, label: 'Relatórios', path: '/relatorios' },
+  { icon: BarChart3, label: 'Análise', path: '/dados' },
 
   { icon: Users, label: 'Leads', path: '/leads' },
+
+  { icon: FileBarChart, label: 'Relatórios', path: '/relatorios' },
 
 ];
 

@@ -49,15 +49,15 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/dados'))}>
             <BarChart3 className="mr-2 h-4 w-4" />
-            <span>Dados</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/relatorios'))}>
-            <FileBarChart className="mr-2 h-4 w-4" />
-            <span>Relatórios</span>
+            <span>Análise</span>
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/leads'))}>
             <Users className="mr-2 h-4 w-4" />
             <span>Leads</span>
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => navigate('/relatorios'))}>
+            <FileBarChart className="mr-2 h-4 w-4" />
+            <span>Relatórios</span>
           </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => { window.location.href = GEAPPS_PROFILE_URL; })}

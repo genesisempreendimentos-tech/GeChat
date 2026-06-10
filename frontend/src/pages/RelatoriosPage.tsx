@@ -42,7 +42,7 @@ export default function RelatoriosPage() {
               <CardDescription>Modelos personalizados</CardDescription>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Combine blocos de Dados e Leads em relatórios sob medida para sua equipe.
+              Combine blocos de Análise e Leads em relatórios sob medida para sua equipe.
             </CardContent>
           </Card>
         </MotionReveal>

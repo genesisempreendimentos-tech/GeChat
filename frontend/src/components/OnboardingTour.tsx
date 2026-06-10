@@ -17,7 +17,7 @@ interface OnboardingStep {
 const onboardingSteps: OnboardingStep[] = [
   {
     title: 'Menu principal',
-    description: 'Navegue entre Dashboard, Dados, Relatórios e Leads pelo menu lateral.',
+    description: 'Navegue entre Dashboard, Análise, Leads e Relatórios pelo menu lateral.',
     route: '/dashboard',
     targetSelector: '[data-tour="sidebar"]',
     placement: 'right',
@@ -30,17 +30,10 @@ const onboardingSteps: OnboardingStep[] = [
     placement: 'right',
   },
   {
-    title: 'Dados',
+    title: 'Análise',
     description: 'M?tricas, gr?ficos e filtros anal?ticos do G?Site.',
     route: '/dados',
     targetSelector: '[data-tour="menu-dados"]',
-    placement: 'right',
-  },
-  {
-    title: 'Relatórios',
-    description: 'Exportações, resumos periódicos e documentos consolidados.',
-    route: '/relatorios',
-    targetSelector: '[data-tour="menu-relatorios"]',
     placement: 'right',
   },
   {
@@ -48,6 +41,13 @@ const onboardingSteps: OnboardingStep[] = [
     description: 'Gest?o operacional ? busca, planilha, cards e resumo por lead.',
     route: '/leads',
     targetSelector: '[data-tour="menu-leads"]',
+    placement: 'right',
+  },
+  {
+    title: 'Relatórios',
+    description: 'Exportações, resumos periódicos e documentos consolidados.',
+    route: '/relatorios',
+    targetSelector: '[data-tour="menu-relatorios"]',
     placement: 'right',
   },
 ];
