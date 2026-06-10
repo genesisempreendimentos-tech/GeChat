@@ -10,21 +10,34 @@ import {
   MonitorSmartphone,
   Users,
 } from 'lucide-react';
-import { DonutChart, LeadsVolumeChart } from '@/components/Charts';
 import { InfoBox } from '@/components/ui/infoboxes';
 import { ScoreGaugeChart } from '@/components/charts/ScoreGaugeChart';
 import { MotionReveal } from '@/components/motion/AppMotion';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  CampaignPerformanceTable,
+  ChannelTrendLineChart,
+  ConversionFunnelChart,
+  EnhancedVolumeChart,
+  HorizontalBarRankChart,
+  LeadHeatmapChart,
+  StackedPercentBarChart,
+} from '@/components/dados/DadosCharts';
 import { computeGesiteDadosBalanceCtx, type GesiteDadosFilters } from '@/lib/gesiteDadosFilters';
 import {
   aggregateGesiteByDay,
   filterGesiteRowsInDays,
-  gesiteByDispositivoDonut,
-  gesiteByOrigemDonut,
-  gesiteByPaginaDonut,
-  gesiteByQualificacaoDonut,
+  filterGesiteRowsInPreviousDays,
+  gesiteByOrigemBars,
+  gesiteByPaginaBars,
+  gesiteByQualificacaoBars,
+  gesiteCampaignPerformance,
+  gesiteChannelLineColor,
+  gesiteChannelSeriesOverTime,
+  gesiteConversionFunnel,
+  gesiteDeviceStack100,
   gesiteDadosTimeRangeDays,
+  gesiteLeadHeatmap,
   type GesiteDadosTimeRange,
 } from '@/lib/gesiteDadosCharts';
 import { computeGesiteLeadsInfoboxStats } from '@/lib/gesiteLeadsMetrics';
@@ -92,21 +105,45 @@ export function GesiteDadosView({ filtros, onMetricaSelect }: GesiteDadosViewPro
   const [timeRange, setTimeRange] = useState<GesiteDadosTimeRange>('90');
   const days = gesiteDadosTimeRangeDays(timeRange);
   const rangedRows = useMemo(() => filterGesiteRowsInDays(filteredRows, days), [filteredRows, days]);
+  const previousRangedRows = useMemo(
+    () => filterGesiteRowsInPreviousDays(filteredRows, days),
+    [filteredRows, days],
+  );
 
-  const qualificacaoDonut = useMemo(() => gesiteByQualificacaoDonut(filteredRows), [filteredRows]);
-  const origemDonut = useMemo(() => gesiteByOrigemDonut(filteredRows), [filteredRows]);
-  const dispositivoDonut = useMemo(() => gesiteByDispositivoDonut(filteredRows), [filteredRows]);
-  const paginaDonut = useMemo(() => gesiteByPaginaDonut(filteredRows), [filteredRows]);
+  const qualificacaoBars = useMemo(() => gesiteByQualificacaoBars(filteredRows), [filteredRows]);
+  const origemBars = useMemo(() => gesiteByOrigemBars(filteredRows), [filteredRows]);
+  const paginaBars = useMemo(() => gesiteByPaginaBars(filteredRows), [filteredRows]);
+  const deviceStack = useMemo(() => gesiteDeviceStack100(filteredRows), [filteredRows]);
+  const funnelSteps = useMemo(() => gesiteConversionFunnel(filteredRows), [filteredRows]);
+  const campaignRows = useMemo(() => gesiteCampaignPerformance(filteredRows), [filteredRows]);
+  const heatmapCells = useMemo(() => gesiteLeadHeatmap(filteredRows), [filteredRows]);
 
   const leadsByDay = useMemo(() => aggregateGesiteByDay(rangedRows, 'leads', days), [rangedRows, days]);
-  const formsByDay = useMemo(() => aggregateGesiteByDay(rangedRows, 'forms', days), [rangedRows, days]);
   const conversoesByDay = useMemo(
     () => aggregateGesiteByDay(rangedRows, 'conversoes', days),
     [rangedRows, days],
   );
+  const conversoesPrevious = useMemo(
+    () => aggregateGesiteByDay(previousRangedRows, 'conversoes', days),
+    [previousRangedRows, days],
+  );
+
+  const channelSeries = useMemo(
+    () => gesiteChannelSeriesOverTime(rangedRows, days),
+    [rangedRows, days],
+  );
+
+  const channelColors = useMemo(() => {
+    const map: Record<string, string> = {};
+    channelSeries.channels.forEach((ch, i) => {
+      map[ch] = gesiteChannelLineColor(ch, i);
+    });
+    return map;
+  }, [channelSeries.channels]);
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Linha 1 — KPIs existentes (preservados) */}
       <div className="grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(13.5rem,1.2fr)] lg:grid-rows-2 lg:items-stretch lg:gap-x-6 lg:gap-y-6">
         <InfoBox
           motionIndex={0}
@@ -206,83 +243,89 @@ export function GesiteDadosView({ filtros, onMetricaSelect }: GesiteDadosViewPro
         />
       </div>
 
-      <MotionReveal index={8} className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-        {qualificacaoDonut.length > 0 ? (
-          <DonutChart
-            data={qualificacaoDonut}
-            title="Qualificação"
-            description="Distribuição por nível de qualificação"
-          />
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Qualificação</CardTitle>
-              <CardDescription>Sem dados no período selecionado</CardDescription>
-            </CardHeader>
-          </Card>
-        )}
-        {origemDonut.length > 0 ? (
-          <DonutChart
-            data={origemDonut}
-            title="Origem"
-            description="De onde vieram os leads capturados"
-          />
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Origem</CardTitle>
-              <CardDescription>Sem dados no período selecionado</CardDescription>
-            </CardHeader>
-          </Card>
-        )}
-        {dispositivoDonut.length > 0 ? (
-          <DonutChart
-            data={dispositivoDonut}
-            title="Dispositivo"
-            description="Desktop, mobile e tablet"
-          />
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Dispositivo</CardTitle>
-              <CardDescription>Sem dados no período selecionado</CardDescription>
-            </CardHeader>
-          </Card>
-        )}
-      </MotionReveal>
+      {/* Gráficos — layout bento (12 colunas, cards agrupados por tamanho) */}
+      <MotionReveal index={8}>
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-7">
+            <ConversionFunnelChart
+              steps={funnelSteps}
+              title="Funil de conversão"
+              description="Fluxo do visitante até a conversão — percentual entre etapas"
+            />
+          </div>
+          <div className="lg:col-span-5">
+            <HorizontalBarRankChart
+              data={origemBars}
+              title="Origem dos leads"
+              description="Canais ordenados por volume capturado"
+            />
+          </div>
 
-      {paginaDonut.length > 0 ? (
-        <MotionReveal index={9}>
-          <DonutChart
-            data={paginaDonut}
-            title="Leads por página"
-            description="Proxy de empreendimento via página de captura"
-          />
-        </MotionReveal>
-      ) : null}
+          <div className="lg:col-span-6">
+            <EnhancedVolumeChart
+              data={leadsByDay}
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+              title="Leads por dia"
+              description="Volume diário de novos leads"
+              valueLabel="Leads"
+            />
+          </div>
+          <div className="lg:col-span-6">
+            <EnhancedVolumeChart
+              data={conversoesByDay}
+              previousData={conversoesPrevious}
+              showTrendLine
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+              title="Conversões por dia"
+              description="Linha tracejada = período anterior"
+              valueLabel="Conversões"
+            />
+          </div>
 
-      <MotionReveal index={10} className="space-y-6">
-        <LeadsVolumeChart
-          data={leadsByDay}
-          timeRange={timeRange}
-          onTimeRangeChange={setTimeRange}
-          title="Leads por dia"
-          description="Volume diário de novos leads"
-        />
-        <LeadsVolumeChart
-          data={formsByDay}
-          timeRange={timeRange}
-          onTimeRangeChange={setTimeRange}
-          title="Forms por dia"
-          description="Contatos com e-mail (formulário)"
-        />
-        <LeadsVolumeChart
-          data={conversoesByDay}
-          timeRange={timeRange}
-          onTimeRangeChange={setTimeRange}
-          title="Conversões por dia"
-          description="Leads com perfil completo no questionário"
-        />
+          {/* Coluna compacta: qualificação + dispositivos + heatmap */}
+          <div className="flex flex-col gap-6 lg:col-span-4">
+            <HorizontalBarRankChart
+              data={qualificacaoBars}
+              title="Qualificação dos leads"
+              description="Distribuição por nível"
+            />
+            <StackedPercentBarChart
+              segments={deviceStack}
+              title="Dispositivos"
+              description="Desktop, Mobile e Tablet"
+            />
+            <LeadHeatmapChart
+              cells={heatmapCells}
+              title="Heatmap de horários"
+              description="Dia da semana × horário"
+            />
+          </div>
+
+          {/* Coluna ampla: páginas + campanhas + evolução por canal */}
+          <div className="flex flex-col gap-6 lg:col-span-8">
+            <HorizontalBarRankChart
+              data={paginaBars}
+              title="Leads por página"
+              description="Ranking das páginas que mais convertem"
+            />
+            <CampaignPerformanceTable
+              rows={campaignRows}
+              title="Performance das campanhas"
+              description="Métricas por origem — ordenado por conversões"
+            />
+            <ChannelTrendLineChart
+              data={channelSeries.data}
+              channels={channelSeries.channels}
+              channelColors={channelColors}
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+              title="Leads por canal ao longo do tempo"
+              description="Crescimento ou queda de cada origem no período"
+            />
+          </div>
+        </div>
       </MotionReveal>
     </div>
   );
