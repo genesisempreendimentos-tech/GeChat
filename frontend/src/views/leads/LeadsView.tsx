@@ -601,8 +601,8 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
   const [leadsTableTab, setLeadsTableTab] = useState<LeadsTableTab>('fonte');
   /** Direção da troca de visualização na tabela principal. */
   const [leadsTableViewDirection, setLeadsTableViewDirection] = useState(0);
-  /** Sempre abre em cards; o usuário pode alternar para planilha na sessão. */
-  const [leadsViewMode, setLeadsViewMode] = useState<ViewMode>('cards');
+  /** Abre em tabela; o usuário pode alternar para cards na sessão. */
+  const [leadsViewMode, setLeadsViewMode] = useState<ViewMode>('table');
 
   const leadsTableColumns = useMemo(
     () => (leadsTableTab === 'fonte' ? LEADS_COL_FONTE : LEADS_COL_PERFIL),
