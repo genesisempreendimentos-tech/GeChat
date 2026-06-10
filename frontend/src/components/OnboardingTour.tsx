@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, Sparkles } from 'lucide-react';
@@ -31,14 +31,14 @@ const onboardingSteps: OnboardingStep[] = [
   },
   {
     title: 'Análise',
-    description: 'M?tricas, gr?ficos e filtros anal?ticos do G?Site.',
+    description: 'Métricas, gráficos e filtros analíticos do GêLeads.',
     route: '/dados',
     targetSelector: '[data-tour="menu-dados"]',
     placement: 'right',
   },
   {
     title: 'Leads',
-    description: 'Gest?o operacional ? busca, planilha, cards e resumo por lead.',
+    description: 'Gestão operacional — busca, planilha, cards e resumo por lead.',
     route: '/leads',
     targetSelector: '[data-tour="menu-leads"]',
     placement: 'right',
@@ -52,32 +52,100 @@ const onboardingSteps: OnboardingStep[] = [
   },
 ];
 
+// Quanto esperar pelo shell (sidebar) antes de desistir de abrir o tour.
+const SHELL_WAIT_TIMEOUT_MS = 15000;
+const SHELL_POLL_INTERVAL_MS = 250;
+const SHELL_INITIAL_DELAY_MS = 800;
+
+type Box = { top: number; left: number; width: number; height: number };
+
+function sameBox(a: Box | null, b: Box | null) {
+  if (!a || !b) return a === b;
+  return (
+    Math.abs(a.top - b.top) < 0.5 &&
+    Math.abs(a.left - b.left) < 0.5 &&
+    Math.abs(a.width - b.width) < 0.5 &&
+    Math.abs(a.height - b.height) < 0.5
+  );
+}
+
 export function OnboardingTour() {
   const location = useLocation();
   const navigate = useNavigate();
   const { hasSeenOnboarding, setHasSeenOnboarding } = useOnboardingStore();
   const [stepIndex, setStepIndex] = useState(0);
   const [visible, setVisible] = useState(false);
+  const [rect, setRect] = useState<Box | null>(null);
 
   const step = onboardingSteps[stepIndex];
 
+  // Abre o tour só depois que o shell do app (sidebar) existe no DOM —
+  // no primeiro carregamento a tela ainda está montando quando o timer dispara.
   useEffect(() => {
-    if (!hasSeenOnboarding && !location.pathname.startsWith('/login')) {
-      const t = setTimeout(() => setVisible(true), 800);
-      return () => clearTimeout(t);
+    if (visible || hasSeenOnboarding || location.pathname.startsWith('/login')) return;
+    let cancelled = false;
+    const startedAt = Date.now();
+    let timer: ReturnType<typeof setTimeout>;
+
+    const tryShow = () => {
+      if (cancelled) return;
+      if (document.querySelector('[data-tour="sidebar"]')) {
+        setVisible(true);
+        return;
+      }
+      if (Date.now() - startedAt < SHELL_WAIT_TIMEOUT_MS) {
+        timer = setTimeout(tryShow, SHELL_POLL_INTERVAL_MS);
+      }
+    };
+
+    timer = setTimeout(tryShow, SHELL_INITIAL_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [visible, hasSeenOnboarding, location.pathname]);
+
+  // Cada passo leva para a rota correspondente (sem renavegar se já está nela).
+  useEffect(() => {
+    if (!visible || !step?.route) return;
+    if (location.pathname !== step.route) navigate(step.route);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, stepIndex]);
+
+  // Segue o alvo em tempo real: a sidebar anima de largura, a rota troca e o
+  // elemento pode demorar a montar — medir uma única vez deixava o anel
+  // ausente ou no lugar errado.
+  useEffect(() => {
+    if (!visible || !step?.targetSelector) {
+      setRect(null);
+      return;
     }
-  }, [hasSeenOnboarding, location.pathname]);
+    let cancelled = false;
+    let raf = 0;
 
-  useEffect(() => {
-    if (step?.route && visible) navigate(step.route);
-  }, [stepIndex, visible, step?.route, navigate]);
+    const measure = () => {
+      if (cancelled) return;
+      const el = document.querySelector(step.targetSelector!);
+      const next = el ? el.getBoundingClientRect() : null;
+      const box: Box | null = next
+        ? { top: next.top, left: next.left, width: next.width, height: next.height }
+        : null;
+      setRect((prev) => (sameBox(prev, box) ? prev : box));
+      raf = requestAnimationFrame(measure);
+    };
 
-  const rect = useMemo(() => {
-    if (!step?.targetSelector || typeof document === 'undefined') return null;
-    const el = document.querySelector(step.targetSelector);
-    if (!el) return null;
-    return el.getBoundingClientRect();
-  }, [step, location.pathname, visible]);
+    raf = requestAnimationFrame(measure);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [visible, stepIndex, step?.targetSelector]);
+
+  const finish = () => {
+    setVisible(false);
+    setHasSeenOnboarding(true);
+    setStepIndex(0);
+  };
 
   if (!visible || hasSeenOnboarding) return null;
 
@@ -89,17 +157,20 @@ export function OnboardingTour() {
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[100]"
       >
-        <div className="absolute inset-0 bg-black/50" />
-        {rect && (
+        {rect ? (
+          // Spotlight: escurece tudo menos o alvo (a sombra gigante faz o recorte).
           <div
-            className="absolute rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-background pointer-events-none"
+            className="absolute rounded-lg ring-2 ring-primary pointer-events-none"
             style={{
               top: rect.top - 4,
               left: rect.left - 4,
               width: rect.width + 8,
               height: rect.height + 8,
+              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
             }}
           />
+        ) : (
+          <div className="absolute inset-0 bg-black/50" />
         )}
         <Card className="absolute bottom-6 left-1/2 z-[101] w-[min(92vw,400px)] -translate-x-1/2 shadow-xl">
           <CardContent className="p-5">
@@ -110,7 +181,7 @@ export function OnboardingTour() {
                   {stepIndex + 1} de {onboardingSteps.length}
                 </span>
               </div>
-              <button type="button" onClick={() => { setVisible(false); setHasSeenOnboarding(true); }} className="text-muted-foreground hover:text-foreground">
+              <button type="button" onClick={finish} className="text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -119,12 +190,12 @@ export function OnboardingTour() {
             <div className="mt-4 flex justify-end gap-2">
               {stepIndex < onboardingSteps.length - 1 ? (
                 <Button onClick={() => setStepIndex((i) => i + 1)}>
-                  Pr?ximo
+                  Próximo
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               ) : (
-                <Button onClick={() => { setVisible(false); setHasSeenOnboarding(true); }}>
-                  Come?ar
+                <Button onClick={finish}>
+                  Começar
                 </Button>
               )}
             </div>
