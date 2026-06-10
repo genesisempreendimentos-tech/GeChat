@@ -27,12 +27,11 @@ function openSupportForm() {
 
 /** Modal de ajuda / intranet — formulário de suporte em nova guia. */
 export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
-  const { setCurrentStep, setIsOnboardingActive } = useOnboardingStore();
+  const { resetOnboarding } = useOnboardingStore();
 
   const handleReplayTour = () => {
-    // Reinicia no passo 1 e abre o tour novamente.
-    setCurrentStep(0);
-    setIsOnboardingActive(true);
+    // hasSeenOnboarding=false faz o OnboardingTour reabrir no passo 1.
+    resetOnboarding();
     onOpenChange(false);
   };
 

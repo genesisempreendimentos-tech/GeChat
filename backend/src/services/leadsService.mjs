@@ -82,11 +82,23 @@ async function withNeonClient(fn) {
   }
 }
 
-export async function listLeads(_supabaseUrl, _supabaseAnonKey, _accessToken, filters = {}) {
-  try {
-    await syncLeadsFromSources();
+let syncInFlight = null;
 
-    const result = await withNeonClient(async (client) => {
+/** Dispara a sincronização sem duplicar execuções concorrentes. */
+function runSyncOnce() {
+  if (!syncInFlight) {
+    syncInFlight = syncLeadsFromSources()
+      .catch((err) => console.error('[leads/sync-bg]', err))
+      .finally(() => {
+        syncInFlight = null;
+      });
+  }
+  return syncInFlight;
+}
+
+export async function listLeads(_supabaseUrl, _supabaseAnonKey, _accessToken, filters = {}) {
+  const fetchRows = () =>
+    withNeonClient(async (client) => {
       const params = [];
       let sql = 'SELECT * FROM leads';
       if (filters.status) {
@@ -97,6 +109,24 @@ export async function listLeads(_supabaseUrl, _supabaseAnonKey, _accessToken, fi
       const { rows } = await client.query(sql, params);
       return rows;
     });
+
+  try {
+    let result = null;
+    try {
+      result = await fetchRows();
+    } catch (err) {
+      // 42P01 = tabela leads ainda não existe; o sync abaixo cria.
+      if (err?.code !== '42P01') throw err;
+    }
+
+    if (!result || result.length === 0) {
+      // Primeira carga: espera a sincronização popular a tabela unificada.
+      await runSyncOnce();
+      result = await fetchRows();
+    } else {
+      // Já há dados: responde imediatamente e sincroniza em segundo plano.
+      void runSyncOnce();
+    }
 
     if (!result) return [];
     return result.map(mapNeonRowToLead);

@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MotionReveal } from '@/components/motion/AppMotion';
-import { LoadingGif } from '@/components/LoadingGif';
+import { LeadsLoadingProgress } from '@/components/LeadsLoadingProgress';
 import { useAuthStore } from '@/store/authStore';
 import { useLeadsData } from '@/hooks/useLeadsData';
 import {
@@ -73,7 +73,7 @@ function countLeadsToday(rows: { dataHora: string }[]): number {
 
 export function DashboardView() {
   const user = useAuthStore((s) => s.user);
-  const { rows, loading, error } = useLeadsData();
+  const { rows, loading, progress, error } = useLeadsData();
   const [timeRange, setTimeRange] = useState<VolumeRange>('30');
   const days = timeRange === '7' ? 7 : timeRange === '30' ? 30 : 90;
 
@@ -109,11 +109,7 @@ export function DashboardView() {
   const roleLabel = ROLE_LABELS[user?.role ?? 'user'] ?? 'Usuário';
 
   if (loading) {
-    return (
-      <div className="flex min-h-[20rem] items-center justify-center">
-        <LoadingGif size="md" />
-      </div>
-    );
+    return <LeadsLoadingProgress progress={progress} />;
   }
 
   if (error) {
