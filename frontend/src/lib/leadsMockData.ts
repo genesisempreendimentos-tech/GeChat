@@ -1,4 +1,5 @@
 import { computeLeadQualificacao } from '@/rules/qualifyLead';
+import { parseLeadSequentialNumber } from '@/lib/leadDisplayId';
 import { computeLeadsInfoboxStats, computePaginasFromLeads } from '@/lib/leadsMetrics';
 
 export type LeadRelacionamento =
@@ -34,6 +35,9 @@ export type LeadMockRow = {
   perfilOutrasRespostas: string;
   dispositivo: string;
   pagamentoPreferencia: string;
+  empreendimento: string;
+  responsavel: string;
+  parametro: string;
 };
 
 const FIRST_NAMES = [
@@ -67,6 +71,28 @@ const PAGINAS = [
   '/home', '/flores', '/sac', '/trabalhe-conosco', '/fornecedores',
   '/lancamentos', '/empreendimentos', '/quem-somos', '/contato',
 ] as const;
+
+const EMPREENDIMENTOS = [
+  'Residencial Aurora',
+  'Vista Mar Premium',
+  'Parque das Flores',
+  'Horizonte Business',
+  'Jardim Europa',
+  'Skyline Tower',
+  'Vila Verde',
+  'Condomínio Atlântico',
+] as const;
+
+const RESPONSAVEIS = [
+  'Marina Costa',
+  'Pedro Alves',
+  'Juliana Ribeiro',
+  'Rafael Mendes',
+  'Camila Duarte',
+  'Lucas Ferreira',
+] as const;
+
+import { LEAD_PARAMETRO_LABELS } from '@/lib/leadParametro';
 
 const ORIGEM_CANAL: { origem: string; canal: string; weight: number }[] = [
   { origem: 'Google', canal: 'Pesquisa', weight: 0.32 },
@@ -156,11 +182,21 @@ function buildBirthDate(rng: () => number): string {
   return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
 }
 
-function withQualificacao(row: Omit<LeadMockRow, 'qualificacao'>): LeadMockRow {
-  return { ...row, qualificacao: computeLeadQualificacao(row) };
+function withQualificacao(
+  row: Omit<LeadMockRow, 'qualificacao' | 'empreendimento' | 'responsavel' | 'parametro'> &
+    Partial<Pick<LeadMockRow, 'empreendimento' | 'responsavel' | 'parametro'>>,
+): LeadMockRow {
+  const seq = parseLeadSequentialNumber(row.id) || 1;
+  return {
+    ...row,
+    empreendimento: row.empreendimento ?? EMPREENDIMENTOS[seq % EMPREENDIMENTOS.length]!,
+    responsavel: row.responsavel ?? RESPONSAVEIS[seq % RESPONSAVEIS.length]!,
+    parametro: row.parametro ?? LEAD_PARAMETRO_LABELS[seq % LEAD_PARAMETRO_LABELS.length]!,
+    qualificacao: computeLeadQualificacao(row as LeadMockRow),
+  };
 }
 
-const LEADS_TABLE_SEED_BASE: Omit<LeadMockRow, 'qualificacao'>[] = [
+const LEADS_TABLE_SEED_BASE: Omit<LeadMockRow, 'qualificacao' | 'empreendimento' | 'responsavel' | 'parametro'>[] = [
   {
     id: 'lead-001',
     dataHora: '2026-04-28T10:12:00-03:00',
@@ -376,7 +412,7 @@ function createLeadsTimeSeriesMock(reference: Date = new Date()): LeadMockRow[] 
         if (rng() < 0.4) perfilLead = perfis[Math.floor(rng() * perfis.length)]!;
       }
 
-      const rowBase: Omit<LeadMockRow, 'qualificacao'> = {
+      const rowBase: Omit<LeadMockRow, 'qualificacao' | 'empreendimento' | 'responsavel' | 'parametro'> = {
         id: `lead-gen-${seq}`,
         dataHora: dt.toISOString(),
         nome,

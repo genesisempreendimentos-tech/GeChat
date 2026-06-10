@@ -1,5 +1,6 @@
 import { Globe } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { formatLeadDateTime } from '@/lib/formatDateTime';
 import { cn } from '@/lib/utils';
 
 export type PaginaCardRow = {
@@ -15,13 +16,6 @@ type Props = {
   row: PaginaCardRow;
   className?: string;
 };
-
-function formatUltimoLead(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}, ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
 
 function formatPct(v: number): string {
   return `${v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
@@ -45,7 +39,7 @@ export function PaginaCard({ row, className }: Props) {
       </CardHeader>
       <CardContent className="space-y-1.5 pb-4 pt-0 text-xs text-muted-foreground">
         <p>
-          <span className="font-medium text-foreground/80">Último lead:</span> {formatUltimoLead(row.ultimoLeadIso)}
+          <span className="font-medium text-foreground/80">Último lead:</span> {formatLeadDateTime(row.ultimoLeadIso)}
         </p>
         <p>
           <span className="font-medium text-foreground/80">Perfil completo:</span> {formatPct(row.perfilPct)}

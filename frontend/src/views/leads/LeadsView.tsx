@@ -1,4 +1,5 @@
 import { useEffect, useImperativeHandle, useMemo, useState, forwardRef, type ReactNode } from 'react';
+import { leadIrisVariantQualificacao } from '@/lib/leadQualificacaoIris';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Iris, type IrisVariant } from '@/components/ui/Iris';
 import {
@@ -14,12 +15,17 @@ import {
   type LeadRelacionamento,
 } from '@/lib/leadsMockData';
 import { cn } from '@/lib/utils';
+import { formatLeadDateTime, formatLeadDateCreated } from '@/lib/formatDateTime';
+import { getLeadDisplayId, parseLeadSequentialNumber } from '@/lib/leadDisplayId';
+import { formatLeadParametroDisplay } from '@/lib/leadParametro';
 import { profileDataFillRatio } from '@/lib/motionPresets';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { TabButtons } from '@/components/ui/tab-buttons';
 import { ViewModeToggle, type ViewMode } from '@/components/ui/ViewModeToggle';
 import { LeadCard } from '@/components/leads/LeadCard';
+import { LeadDisplayIdBadge } from '@/components/leads/LeadDisplayIdBadge';
+import { LeadParametroCell } from '@/components/leads/LeadParametroCell';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -30,11 +36,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Globe,
+  FileText,
   ArrowDown,
   ArrowUp,
   Copy,
   User,
+  Briefcase,
 } from 'lucide-react';
 import {
   LayoutGroup,
@@ -56,7 +63,7 @@ function leadPerfilCompleto(row: LeadMockRow): boolean {
   return leadRespondeuFormularioPerfil(row);
 }
 
-type LeadsTableTab = 'fonte' | 'perfil';
+type LeadsTableTab = 'detalhes' | 'perfil' | 'cvCrm';
 
 type LeadsPaginaRow = {
   id: string;
@@ -72,20 +79,23 @@ type LeadsPaginaRow = {
 type LeadsPaginaSortKey = 'nome' | 'leads' | 'ultimoLead' | 'perfilPct' | 'qualificacaoPct';
 
 type LeadSortKey =
+  | 'codigo'
   | 'dataHora'
   | 'nome'
   | 'email'
   | 'telefone'
   | 'origem'
   | 'canal'
-  /** Na view Fonte: questionário de perfil preenchido (Sim/Não). */
-  | 'perfilQuestionario'
+  | 'parametro'
+  | 'empreendimento'
+  | 'responsavel'
   | 'qualificacao'
   | 'relacionamento'
   | 'investimento'
   | 'cidadeResidencia'
   | 'dataNascimento'
-  | 'perfilLead';
+  | 'perfilLead'
+  | 'perfilOutrasRespostas';
 
 export { LEADS_INFOBOX_MOCK, LEADS_TABLE_MOCK, LEADS_PAGINAS_TABLE_MOCK } from '@/lib/leadsMockData';
 
@@ -94,13 +104,15 @@ function leadContatoIsForm(contato: string): boolean {
 }
 
 const LEADS_TAB_BUTTON_ITEMS = [
-  { value: 'fonte' as const, label: 'Origem', Icon: Globe },
+  { value: 'detalhes' as const, label: 'Detalhes', Icon: FileText },
   { value: 'perfil' as const, label: 'Perfil', Icon: User },
+  { value: 'cvCrm' as const, label: 'CV-CRM', Icon: Briefcase },
 ];
 
 const LEAD_MODAL_TAB_ORDER: Record<LeadsTableTab, number> = {
-  fonte: 0,
+  detalhes: 0,
   perfil: 1,
+  cvCrm: 2,
 };
 
 const leadsTabPanelVariants = {
@@ -125,25 +137,38 @@ const LEADS_PAGINAS_COLS: { key: LeadsPaginaSortKey; label: string }[] = [
   { key: 'ultimoLead', label: 'Último lead' },
 ];
 
-const LEADS_COL_FONTE: { key: LeadSortKey; label: string }[] = [
-  { key: 'dataHora', label: 'Data' },
+const LEADS_COL_DETALHES: { key: LeadSortKey; label: string }[] = [
+  { key: 'codigo', label: 'ID' },
   { key: 'nome', label: 'Nome' },
-  { key: 'email', label: 'Email' },
+  { key: 'qualificacao', label: 'Status' },
+  { key: 'email', label: 'E-mail' },
   { key: 'telefone', label: 'Telefone' },
-  { key: 'origem', label: 'Origem' },
   { key: 'canal', label: 'Canal' },
-  { key: 'perfilQuestionario', label: 'Perfil' },
-  { key: 'qualificacao', label: 'Qualificação' },
+  { key: 'parametro', label: 'Parâmetro' },
+  { key: 'empreendimento', label: 'Empreendimento' },
+  { key: 'dataHora', label: 'Criado em' },
 ];
 
 const LEADS_COL_PERFIL: { key: LeadSortKey; label: string }[] = [
-  { key: 'dataHora', label: 'Data' },
+  { key: 'codigo', label: 'ID' },
   { key: 'nome', label: 'Nome' },
+  { key: 'email', label: 'E-mail' },
   { key: 'relacionamento', label: 'Relacionamento' },
   { key: 'investimento', label: 'Investimento' },
   { key: 'cidadeResidencia', label: 'Cidade' },
   { key: 'dataNascimento', label: 'Idade' },
   { key: 'perfilLead', label: 'Perfil' },
+];
+
+const LEADS_COL_CVCRM: { key: LeadSortKey; label: string }[] = [
+  { key: 'codigo', label: 'ID' },
+  { key: 'nome', label: 'Nome' },
+  { key: 'responsavel', label: 'Responsável' },
+  { key: 'canal', label: 'Canal' },
+  { key: 'origem', label: 'Origem' },
+  { key: 'perfilOutrasRespostas', label: 'Observações' },
+  { key: 'qualificacao', label: 'Status' },
+  { key: 'dataHora', label: 'Criado em' },
 ];
 
 const LEAD_QUALIFICACAO_ORDER: Record<LeadQualificacao, number> = {
@@ -174,30 +199,8 @@ const LEAD_PERFIL_TIPO_ORDER: Record<LeadPerfilTipo, number> = {
   Corretor: 2,
 };
 
-function leadIrisVariantQualificacao(q: LeadQualificacao): IrisVariant {
-  switch (q) {
-    case 'Alta':
-      return 'iris6';
-    case 'Média':
-      return 'iris4';
-    case 'Baixa':
-      return 'iris1';
-    case 'Indefinida':
-      return 'iris11';
-    case 'N/A':
-      return 'iris19';
-    default:
-      return 'iris6';
-  }
-}
-
 function LeadQualificacaoCell({ value }: { value: LeadQualificacao }) {
   return <Iris text={value} variant={leadIrisVariantQualificacao(value)} className="max-w-[12rem]" />;
-}
-
-/** View Fonte: indica se o questionário de perfil foi preenchido (Sim/Não). */
-function LeadPerfilQuestionarioCell({ completo }: { completo: boolean }) {
-  return <Iris text={completo ? 'Sim' : 'Não'} variant={completo ? 'iris6' : 'iris1'} />;
 }
 
 function leadIrisVariantPerfilTipo(p: LeadPerfilTipo): IrisVariant {
@@ -289,14 +292,6 @@ function leadCampoVazio(valor: string): string {
   return t.length > 0 ? t : '—';
 }
 
-/** `dd/mm/aaaa, hh:mm:ss` em horário local. */
-function formatUltimoLeadDmyHms(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}, ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-}
-
 function formatPct0to100(v: number): string {
   return `${v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
@@ -320,74 +315,92 @@ function leadMdBullet(label: string, raw: string): string {
   return `- **${label}:** ${display}`;
 }
 
-/** Resumo completo do lead em Markdown (abas Fonte + Perfil), adequado a Notion/Obsidian/GitHub. */
+/** Resumo completo do lead em Markdown (abas Detalhes + Perfil + CV-CRM). */
 function leadResumoMarkdown(row: LeadMockRow): string {
-  const capturado = new Date(row.dataHora).toLocaleString();
+  const capturado = formatLeadDateTime(row.dataHora);
+  const codigo = getLeadDisplayId(row);
   const blocos: string[] = [
     '# Resumo do Lead',
     '',
-    `> **${row.nome}** · capturado em ${capturado}`,
+    `> **${codigo}** · **${row.nome}** · capturado em ${capturado}`,
     '',
     '---',
     '',
-    '## Fonte',
+    '## Detalhes',
     '',
-    leadMdBullet('Data', new Date(row.dataHora).toLocaleString()),
+    leadMdBullet('ID', codigo),
     leadMdBullet('Nome', row.nome),
-    leadMdBullet('Email', row.email),
+    leadMdBullet('Status', row.qualificacao),
+    leadMdBullet('E-mail', row.email),
     leadMdBullet('Telefone', row.telefone),
-    leadMdBullet('Página', row.pagina),
-    leadMdBullet('Origem', row.origem),
     leadMdBullet('Canal', row.canal),
-    leadMdBullet('Perfil', leadPerfilCompleto(row) ? 'Sim' : 'Não'),
-    leadMdBullet('Qualificação', row.qualificacao),
+    leadMdBullet('Parâmetro', formatLeadParametroDisplay(row.parametro)),
+    leadMdBullet('Empreendimento', row.empreendimento),
     '',
     '---',
     '',
     '## Perfil',
     '',
-    leadMdBullet('Data', new Date(row.dataHora).toLocaleString()),
-    leadMdBullet('Nome', row.nome),
     leadMdBullet('Relacionamento', row.relacionamento),
     leadMdBullet('Investimento', row.investimento),
     leadMdBullet('Cidade', row.cidadeResidencia),
     leadMdBullet('Idade', row.dataNascimento),
     leadMdBullet('Perfil', row.perfilLead),
     '',
+    '---',
+    '',
+    '## CV-CRM',
+    '',
+    leadMdBullet('Observações', row.perfilOutrasRespostas),
+    leadMdBullet('Preferência de pagamento', row.pagamentoPreferencia),
+    leadMdBullet('Dispositivo', row.dispositivo),
+    '',
   ];
   return blocos.join('\n');
 }
 
 function leadColMinWidthClass(key: LeadSortKey): string {
+  if (key === 'codigo') return 'min-w-[5.5rem]';
   if (key === 'nome') return 'min-w-[140px]';
   if (key === 'email' || key === 'telefone') return 'min-w-[160px]';
   if (key === 'qualificacao') return 'min-w-[7.5rem]';
-  if (key === 'perfilQuestionario') return 'min-w-[5.5rem]';
+  if (key === 'empreendimento') return 'min-w-[10rem]';
+  if (key === 'parametro') return 'min-w-[10rem]';
+  if (key === 'responsavel') return 'min-w-[9rem]';
   if (key === 'relacionamento') return 'min-w-[10rem]';
   if (key === 'investimento') return 'min-w-[11rem]';
   if (key === 'cidadeResidencia') return 'min-w-[120px]';
   if (key === 'dataNascimento') return 'min-w-[6.5rem]';
   if (key === 'perfilLead') return 'min-w-[6.5rem]';
+  if (key === 'perfilOutrasRespostas') return 'min-w-[12rem]';
+  if (key === 'dataHora') return 'min-w-[10.5rem]';
   return '';
 }
 
 function leadTdClassName(col: LeadSortKey): string {
   const base = 'px-4 py-3.5 align-top';
-  if (col === 'dataHora') return cn(base, 'whitespace-nowrap text-muted-foreground');
+  if (col === 'codigo') return cn(base);
+  if (col === 'dataHora')
+    return cn(base, 'whitespace-nowrap text-xs tabular-nums text-muted-foreground/80');
   if (col === 'nome') return cn(base, 'font-medium');
   if (col === 'origem' || col === 'canal') return cn(base, 'text-xs');
+  if (col === 'parametro') return cn(base, 'text-xs');
   if (col === 'email' || col === 'telefone') return cn(base, 'text-xs');
-  if (col === 'perfilQuestionario') return cn(base, 'text-xs');
+  if (col === 'empreendimento' || col === 'responsavel') return cn(base, 'text-xs');
   if (col === 'qualificacao') return cn(base);
   if (col === 'relacionamento' || col === 'investimento' || col === 'perfilLead') return cn(base, 'text-xs');
   if (col === 'cidadeResidencia' || col === 'dataNascimento') return cn(base, 'text-xs');
+  if (col === 'perfilOutrasRespostas')
+    return cn(base, 'max-w-[18rem] text-xs text-muted-foreground line-clamp-2');
   return base;
 }
 
 function leadCellContent(row: LeadMockRow, col: LeadSortKey): ReactNode {
   switch (col) {
+    case 'codigo':
+      return <LeadDisplayIdBadge id={row.id} />;
     case 'dataHora':
-      return new Date(row.dataHora).toLocaleString();
+      return formatLeadDateCreated(row.dataHora);
     case 'nome':
       return row.nome;
     case 'email':
@@ -398,8 +411,12 @@ function leadCellContent(row: LeadMockRow, col: LeadSortKey): ReactNode {
       return row.origem;
     case 'canal':
       return row.canal;
-    case 'perfilQuestionario':
-      return <LeadPerfilQuestionarioCell completo={leadPerfilCompleto(row)} />;
+    case 'parametro':
+      return <LeadParametroCell value={row.parametro} />;
+    case 'empreendimento':
+      return leadCampoVazio(row.empreendimento);
+    case 'responsavel':
+      return leadCampoVazio(row.responsavel);
     case 'qualificacao':
       return <LeadQualificacaoCell value={row.qualificacao} />;
     case 'relacionamento':
@@ -412,6 +429,8 @@ function leadCellContent(row: LeadMockRow, col: LeadSortKey): ReactNode {
       return <LeadIdadeIrisCell dataNascimento={row.dataNascimento} />;
     case 'perfilLead':
       return <LeadPerfilTipoCell value={row.perfilLead} />;
+    case 'perfilOutrasRespostas':
+      return leadCampoVazio(row.perfilOutrasRespostas);
   }
 }
 
@@ -438,7 +457,7 @@ function leadsPaginaCellContent(row: LeadsPaginaRow, col: LeadsPaginaSortKey): R
     case 'leads':
       return <MotionFlipNumber value={row.leads.toLocaleString('pt-BR')} />;
     case 'ultimoLead':
-      return formatUltimoLeadDmyHms(row.ultimoLeadIso);
+      return formatLeadDateTime(row.ultimoLeadIso);
     case 'perfilPct':
       return <MotionFlipNumber value={formatPct0to100(row.perfilPct)} />;
     case 'qualificacaoPct':
@@ -468,10 +487,10 @@ function LeadModalCampo({
   );
 }
 
-function LeadModalFontePanel({ row }: { row: LeadMockRow }) {
+function LeadModalDetalhesPanel({ row }: { row: LeadMockRow }) {
   return (
     <div className="grid grid-cols-2 gap-3">
-      {LEADS_COL_FONTE.map((col) => (
+      {LEADS_COL_DETALHES.map((col) => (
         <LeadModalCampo key={col.key} label={col.label}>
           <div className="text-xs sm:text-sm">{leadCellContent(row, col.key)}</div>
         </LeadModalCampo>
@@ -485,6 +504,22 @@ function LeadModalPerfilPanel({ row }: { row: LeadMockRow }) {
     <div className="grid grid-cols-2 gap-3">
       {LEADS_COL_PERFIL.map((col) => (
         <LeadModalCampo key={col.key} label={col.label}>
+          <div className="text-xs sm:text-sm">{leadCellContent(row, col.key)}</div>
+        </LeadModalCampo>
+      ))}
+    </div>
+  );
+}
+
+function LeadModalCvCrmPanel({ row }: { row: LeadMockRow }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {LEADS_COL_CVCRM.map((col) => (
+        <LeadModalCampo
+          key={col.key}
+          label={col.label}
+          className={col.key === 'perfilOutrasRespostas' ? 'col-span-2' : undefined}
+        >
           <div className="text-xs sm:text-sm">{leadCellContent(row, col.key)}</div>
         </LeadModalCampo>
       ))}
@@ -542,10 +577,12 @@ function LeadModalTabPanels({
   direction: number;
 }) {
   const panel =
-    tab === 'fonte' ? (
-      <LeadModalFontePanel row={row} />
-    ) : (
+    tab === 'detalhes' ? (
+      <LeadModalDetalhesPanel row={row} />
+    ) : tab === 'perfil' ? (
       <LeadModalPerfilPanel row={row} />
+    ) : (
+      <LeadModalCvCrmPanel row={row} />
     );
 
   return (
@@ -557,13 +594,17 @@ function LeadModalTabPanels({
 
 export function buildLeadsExportRows(rows: LeadMockRow[]) {
   return rows.map((row) => ({
-    data_hora: new Date(row.dataHora).toLocaleString(),
+    id: getLeadDisplayId(row),
+    data_hora: formatLeadDateTime(row.dataHora),
     nome: row.nome,
+    status: row.qualificacao,
     contato: row.contato,
     pagina: row.pagina,
     origem: row.origem,
     canal: row.canal,
-    qualificacao: row.qualificacao,
+    parametro: formatLeadParametroDisplay(row.parametro),
+    empreendimento: row.empreendimento,
+    responsavel: row.responsavel,
     email: row.email,
     telefone: row.telefone,
     relacionamento: row.relacionamento,
@@ -572,7 +613,7 @@ export function buildLeadsExportRows(rows: LeadMockRow[]) {
     data_nascimento: row.dataNascimento,
     perfil: row.perfilLead,
     perfil_questionario_completo: leadPerfilCompleto(row) ? 'Sim' : 'Não',
-    demais_respostas: row.perfilOutrasRespostas,
+    observacoes: row.perfilOutrasRespostas,
     dispositivo: row.dispositivo,
     pagamento_preferencia: row.pagamentoPreferencia,
   }));
@@ -588,32 +629,34 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
   function LeadsOperacionalView(_props, ref) {
   const allLeadsRows = LEADS_TABLE_MOCK;
 
-  const [leadsSortKey, setLeadsSortKey] = useState<LeadSortKey>('dataHora');
+  const [leadsSortKey, setLeadsSortKey] = useState<LeadSortKey>('codigo');
   const [leadsSortDirection, setLeadsSortDirection] = useState<'asc' | 'desc'>('desc');
   const [leadsSearchQuery, setLeadsSearchQuery] = useState('');
   const [leadsPage, setLeadsPage] = useState(0);
   /** Lead cuja linha foi clicada — abre modal de resumo. */
   const [leadResumoSelecionado, setLeadResumoSelecionado] = useState<LeadMockRow | null>(null);
   /** Tela ativa dentro do modal de resumo (Perfil: questionário além da captura). */
-  const [leadModalTela, setLeadModalTela] = useState<LeadsTableTab>('fonte');
+  const [leadModalTela, setLeadModalTela] = useState<LeadsTableTab>('detalhes');
   /** Direção da troca de aba no modal (-1 = Perfil→Origem, 1 = Origem→Perfil). */
   const [leadModalTabDirection, setLeadModalTabDirection] = useState(0);
-  const [leadsTableTab, setLeadsTableTab] = useState<LeadsTableTab>('fonte');
+  const [leadsTableTab, setLeadsTableTab] = useState<LeadsTableTab>('detalhes');
   /** Direção da troca de visualização na tabela principal. */
   const [leadsTableViewDirection, setLeadsTableViewDirection] = useState(0);
   /** Sempre abre em cards; o usuário pode alternar para planilha na sessão. */
   const [leadsViewMode, setLeadsViewMode] = useState<ViewMode>('cards');
 
-  const leadsTableColumns = useMemo(
-    () => (leadsTableTab === 'fonte' ? LEADS_COL_FONTE : LEADS_COL_PERFIL),
-    [leadsTableTab],
-  );
+  const leadsTableColumns = useMemo(() => {
+    if (leadsTableTab === 'detalhes') return LEADS_COL_DETALHES;
+    if (leadsTableTab === 'perfil') return LEADS_COL_PERFIL;
+    return LEADS_COL_CVCRM;
+  }, [leadsTableTab]);
 
   const filteredLeadsRows = useMemo(() => {
     const q = leadsSearchQuery.trim().toLowerCase();
     if (!q) return allLeadsRows;
     return allLeadsRows.filter((row) =>
       [
+        getLeadDisplayId(row),
         row.nome,
         row.contato,
         row.pagina,
@@ -622,6 +665,9 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
         row.qualificacao,
         row.email,
         row.telefone,
+        row.empreendimento,
+        row.responsavel,
+        row.parametro,
         row.relacionamento,
         row.investimento,
         row.perfilOutrasRespostas,
@@ -639,11 +685,11 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
 
   const sortedLeadsRows = useMemo(() => {
     const sorted = [...filteredLeadsRows].sort((a, b) => {
+      if (leadsSortKey === 'codigo') {
+        return parseLeadSequentialNumber(a.id) - parseLeadSequentialNumber(b.id);
+      }
       if (leadsSortKey === 'dataHora') {
         return new Date(a.dataHora).getTime() - new Date(b.dataHora).getTime();
-      }
-      if (leadsSortKey === 'perfilQuestionario') {
-        return Number(leadPerfilCompleto(a)) - Number(leadPerfilCompleto(b));
       }
       if (leadsSortKey === 'qualificacao') {
         return LEAD_QUALIFICACAO_ORDER[a.qualificacao] - LEAD_QUALIFICACAO_ORDER[b.qualificacao];
@@ -707,7 +753,7 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
       return;
     }
     setLeadsSortKey(key);
-    setLeadsSortDirection(key === 'dataHora' ? 'desc' : 'asc');
+    setLeadsSortDirection(key === 'codigo' || key === 'dataHora' ? 'desc' : 'asc');
   };
 
   const leadsTableViewKey = `leads-${leadsTableTab}`;
@@ -725,12 +771,20 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
   }, [leadsSearchQuery]);
 
   useEffect(() => {
-    setLeadsSortKey('dataHora');
-    setLeadsSortDirection('desc');
+    if (leadsTableTab === 'detalhes') {
+      setLeadsSortKey('codigo');
+      setLeadsSortDirection('desc');
+    } else if (leadsTableTab === 'perfil') {
+      setLeadsSortKey('nome');
+      setLeadsSortDirection('asc');
+    } else {
+      setLeadsSortKey('dataHora');
+      setLeadsSortDirection('desc');
+    }
   }, [leadsTableTab]);
 
   useEffect(() => {
-    setLeadModalTela('fonte');
+    setLeadModalTela('detalhes');
     setLeadModalTabDirection(0);
   }, [leadResumoSelecionado?.id]);
 
@@ -767,7 +821,7 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
             <Input
               value={leadsSearchQuery}
               onChange={(e) => setLeadsSearchQuery(e.target.value)}
-              placeholder="Busca por nome, número, e-mail..."
+              placeholder="Busca por ID, nome, telefone, e-mail..."
               className="h-10 rounded-xl"
             />
           </div>
@@ -847,7 +901,7 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
                               key={row.id}
                               role="button"
                               tabIndex={0}
-                              aria-label={`Abrir resumo do lead ${row.nome}`}
+                              aria-label={`Abrir resumo do lead ${getLeadDisplayId(row)} · ${row.nome}`}
                               className="cursor-pointer border-b border-border/60 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                               onClick={() => setLeadResumoSelecionado(row)}
                               onKeyDown={(e) => {
@@ -917,10 +971,11 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
               <DialogTitle className="text-xl font-semibold tracking-tight">Resumo do Lead</DialogTitle>
               {leadResumoSelecionado ? (
                 <DialogDescription className="text-sm text-muted-foreground">
+                  <LeadDisplayIdBadge id={leadResumoSelecionado.id} className="mr-2 align-middle" />
                   <span className="font-medium text-foreground">{leadResumoSelecionado.nome}</span>
                   <span className="text-muted-foreground">
                     {' '}
-                    · capturado em {new Date(leadResumoSelecionado.dataHora).toLocaleString()}
+                    · criado em {formatLeadDateCreated(leadResumoSelecionado.dataHora)}
                   </span>
                 </DialogDescription>
               ) : (

@@ -2,8 +2,11 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { LeadPersonaAvatar } from '@/components/leads/LeadPersonaAvatar';
 import { LeadQualificacaoEmojiTooltip } from '@/components/leads/LeadQualificacaoEmojiTooltip';
 import { getLeadGender, getLeadGenderAvatarRing } from '@/lib/leadGender';
-import { cn } from '@/lib/utils';
+import { LeadDisplayIdBadge } from '@/components/leads/LeadDisplayIdBadge';
+import { LeadParametroCell } from '@/components/leads/LeadParametroCell';
+import { formatLeadDateCreated } from '@/lib/formatDateTime';
 import { LEAD_QUALIFICACAO_ACCENT } from '@/lib/leadQualificacaoEmoji';
+import { cn } from '@/lib/utils';
 import type { LeadQualificacao } from '@/rules/qualifyLead';
 
 export type LeadCardRow = {
@@ -13,15 +16,19 @@ export type LeadCardRow = {
   pagina: string;
   origem: string;
   canal: string;
+  parametro: string;
   qualificacao: LeadQualificacao;
   email: string;
   telefone: string;
   relacionamento: string;
   investimento: string;
   perfilLead: string;
+  empreendimento: string;
+  responsavel: string;
+  perfilOutrasRespostas: string;
 };
 
-type LeadCardTab = 'fonte' | 'perfil';
+type LeadCardTab = 'detalhes' | 'perfil' | 'cvCrm';
 
 type Props = {
   row: LeadCardRow;
@@ -39,7 +46,7 @@ export function LeadCard({ row, tab, onClick, className }: Props) {
   const accent = LEAD_QUALIFICACAO_ACCENT[row.qualificacao];
   const gender = getLeadGender({ name: row.nome });
   const genderRing = getLeadGenderAvatarRing(gender);
-  const dataLabel = new Date(row.dataHora).toLocaleString('pt-BR');
+  const dataLabel = formatLeadDateCreated(row.dataHora);
 
   return (
     <Card
@@ -86,6 +93,9 @@ export function LeadCard({ row, tab, onClick, className }: Props) {
             )}
           />
           <div className="min-w-0 flex-1">
+            <div className="mb-1.5">
+              <LeadDisplayIdBadge id={row.id} />
+            </div>
             <div className="flex items-center justify-between gap-2">
               <p className="truncate font-semibold leading-tight transition-colors duration-300 group-hover:text-foreground">
                 {row.nome}
@@ -97,25 +107,30 @@ export function LeadCard({ row, tab, onClick, className }: Props) {
         </div>
       </CardHeader>
       <CardContent className="relative z-[1] flex flex-1 flex-col space-y-1.5 pb-4 pt-0 text-xs text-muted-foreground transition-colors duration-300 group-hover:text-muted-foreground/90">
-        {tab === 'fonte' ? (
+        {tab === 'detalhes' ? (
           <>
             <p>
-              <span className="font-medium text-foreground/80">Origem:</span> {fieldOrDash(row.origem)}
-            </p>
-            <p>
-              <span className="font-medium text-foreground/80">Canal:</span> {fieldOrDash(row.canal)}
-            </p>
-            <p>
-              <span className="font-medium text-foreground/80">Página:</span> {fieldOrDash(row.pagina)}
+              <span className="font-medium text-foreground/80">E-mail:</span> {fieldOrDash(row.email)}
             </p>
             <p>
               <span className="font-medium text-foreground/80">Telefone:</span> {fieldOrDash(row.telefone)}
             </p>
             <p>
-              <span className="font-medium text-foreground/80">Data:</span> {dataLabel}
+              <span className="font-medium text-foreground/80">Canal:</span> {fieldOrDash(row.canal)}
+            </p>
+            <p className="flex flex-wrap items-center gap-1.5">
+              <span className="font-medium text-foreground/80">Parâmetro:</span>
+              <LeadParametroCell value={row.parametro} />
+            </p>
+            <p>
+              <span className="font-medium text-foreground/80">Empreendimento:</span>{' '}
+              {fieldOrDash(row.empreendimento)}
+            </p>
+            <p className="text-muted-foreground/75">
+              <span className="font-medium text-foreground/70">Criado em:</span> {dataLabel}
             </p>
           </>
-        ) : (
+        ) : tab === 'perfil' ? (
           <>
             <p>
               <span className="font-medium text-foreground/80">Relacionamento:</span>{' '}
@@ -128,8 +143,25 @@ export function LeadCard({ row, tab, onClick, className }: Props) {
             <p>
               <span className="font-medium text-foreground/80">Perfil:</span> {fieldOrDash(row.perfilLead)}
             </p>
+            <p className="text-muted-foreground/75">
+              <span className="font-medium text-foreground/70">Criado em:</span> {dataLabel}
+            </p>
+          </>
+        ) : (
+          <>
             <p>
-              <span className="font-medium text-foreground/80">Data:</span> {dataLabel}
+              <span className="font-medium text-foreground/80">Responsável:</span>{' '}
+              {fieldOrDash(row.responsavel)}
+            </p>
+            <p>
+              <span className="font-medium text-foreground/80">Canal:</span> {fieldOrDash(row.canal)}
+            </p>
+            <p className="line-clamp-3">
+              <span className="font-medium text-foreground/80">Observações:</span>{' '}
+              {fieldOrDash(row.perfilOutrasRespostas)}
+            </p>
+            <p className="text-muted-foreground/75">
+              <span className="font-medium text-foreground/70">Criado em:</span> {dataLabel}
             </p>
           </>
         )}
