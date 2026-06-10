@@ -50,7 +50,7 @@ export function AppLoader({ children }: { children: React.ReactNode }) {
           aria-live="polite"
           aria-label="Carregando o site"
         >
-          <LoadingGif size="xl" className="h-24 w-24 sm:h-32 sm:w-32" />
+          <LoadingGif size="2xl" className="h-32 w-32 sm:h-40 sm:w-40" />
         </div>
       )}
     </>

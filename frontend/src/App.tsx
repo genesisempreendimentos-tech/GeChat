@@ -44,7 +44,7 @@ function GeAppsProfileRedirect() {
   }, []);
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
-      <LoadingGif size="lg" />
+      <LoadingGif size="xl" className="h-24 w-24 sm:h-28 sm:w-28" />
     </div>
   );
 }
@@ -67,7 +67,7 @@ function LoginRoute() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <LoadingGif size="lg" />
+        <LoadingGif size="xl" className="h-24 w-24 sm:h-28 sm:w-28" />
       </div>
     );
   }
@@ -76,7 +76,7 @@ function LoginRoute() {
   if (validReturnTo) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <LoadingGif size="lg" />
+        <LoadingGif size="xl" className="h-24 w-24 sm:h-28 sm:w-28" />
       </div>
     );
   }

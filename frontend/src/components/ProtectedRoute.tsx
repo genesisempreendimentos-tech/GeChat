@@ -14,7 +14,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <LoadingGif size="lg" />
+        <LoadingGif size="xl" className="h-24 w-24 sm:h-28 sm:w-28" />
       </div>
     );
   }

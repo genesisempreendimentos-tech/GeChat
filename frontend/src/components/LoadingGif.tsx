@@ -3,13 +3,14 @@ import { cn } from '@/lib/utils';
 
 const GIF_SRC = '/Gen-Moviment.gif';
 
-type Size = 'sm' | 'md' | 'lg' | 'xl';
+type Size = 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
 const sizeClasses: Record<Size, string> = {
-  sm: 'h-5 w-5',
-  md: 'h-8 w-8',
-  lg: 'h-12 w-12',
-  xl: 'h-16 w-16',
+  sm: 'h-6 w-6',
+  md: 'h-10 w-10',
+  lg: 'h-16 w-16',
+  xl: 'h-24 w-24',
+  '2xl': 'h-32 w-32',
 };
 
 interface LoadingGifProps {
@@ -50,11 +51,11 @@ export function LoadingGifScreen({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'flex items-center justify-center min-h-[12rem]',
+        'flex min-h-[20rem] items-center justify-center',
         className
       )}
     >
-      <LoadingGif size="xl" />
+      <LoadingGif size="xl" className="h-28 w-28 sm:h-32 sm:w-32" />
     </div>
   );
 }

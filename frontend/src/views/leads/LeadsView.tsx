@@ -837,7 +837,7 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
   );
 
   if (leadsLoading) {
-    return <LeadsLoadingProgress progress={leadsProgress} minHeightClassName="min-h-[16rem]" />;
+    return <LeadsLoadingProgress progress={leadsProgress} minHeightClassName="min-h-[24rem]" />;
   }
 
   if (leadsError) {

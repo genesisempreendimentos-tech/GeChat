@@ -9,16 +9,16 @@ type LeadsLoadingProgressProps = {
 /** Loading dos leads com barra fiel ao download (bytes baixados / total). */
 export function LeadsLoadingProgress({
   progress,
-  minHeightClassName = 'min-h-[20rem]',
+  minHeightClassName = 'min-h-[28rem]',
 }: LeadsLoadingProgressProps) {
   const clamped = Math.max(0, Math.min(100, Math.round(progress)));
 
   return (
-    <div className={`flex ${minHeightClassName} flex-col items-center justify-center gap-4`}>
-      <LoadingGif size="md" />
-      <div className="w-[min(80vw,20rem)]">
+    <div className={`flex ${minHeightClassName} flex-col items-center justify-center gap-6`}>
+      <LoadingGif size="xl" className="h-28 w-28 sm:h-32 sm:w-32" />
+      <div className="w-[min(92vw,28rem)]">
         <div
-          className="h-2 w-full overflow-hidden rounded-full bg-muted"
+          className="h-3.5 w-full overflow-hidden rounded-full bg-muted"
           role="progressbar"
           aria-valuenow={clamped}
           aria-valuemin={0}
@@ -30,7 +30,7 @@ export function LeadsLoadingProgress({
             style={{ width: `${clamped}%` }}
           />
         </div>
-        <p className="mt-2 text-center text-xs text-muted-foreground">
+        <p className="mt-3 text-center text-sm font-medium text-muted-foreground">
           Carregando leads… {clamped}%
         </p>
       </div>
