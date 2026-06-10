@@ -21,6 +21,8 @@ const Zoom = () => {
 
   // Estado armazena o valor FRONT (o que o usuário vê)
   const [zoomLevelFront, setZoomLevelFront] = useState(100);
+  // Último valor vindo do banco/local — evita PATCH no mount e saves redundantes
+  const persistedZoomRef = useRef<number | null>(null);
   const [popupPosition, setPopupPosition] = useState({ top: 0, right: 0 });
   const buttonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -45,6 +47,7 @@ const Zoom = () => {
           // silencia — fallback já está no localStorage
         }
       }
+      persistedZoomRef.current = front;
       setZoomLevelFront(front);
     };
     load();
@@ -70,13 +73,16 @@ const Zoom = () => {
   // ── Salvar no Supabase (debounce 500ms) ────────────────────────
   useEffect(() => {
     const save = async () => {
+      // Só grava quando o usuário mudou o zoom de verdade (não no mount/carga)
       if (!user?.id || isLoading) return;
+      if (persistedZoomRef.current === null || persistedZoomRef.current === zoomLevelFront) return;
       try {
         setIsLoading(true);
         await supabase
           .from('profiles')
           .update({ zoom: zoomLevelFront })
           .eq('user_id', user.id);
+        persistedZoomRef.current = zoomLevelFront;
       } catch (e) {
         // silencia — localStorage já persiste o valor localmente
       } finally {

@@ -118,7 +118,17 @@ type UserProfile = User & {
 
 let currentUser: UserProfile | null = null;
 let supabaseClient: SupabaseClient | null = null;
+let supabaseClientPromise: Promise<SupabaseClient | null> | null = null;
+let supabaseClientCreatedAt = 0;
+// Token do /api/auth/access-token expira; renovar o cliente antes disso.
+const SUPABASE_CLIENT_TTL_MS = 10 * 60 * 1000;
 const listeners = new Set<(event: string) => void>();
+
+function resetSupabaseClient() {
+  supabaseClient = null;
+  supabaseClientPromise = null;
+  supabaseClientCreatedAt = 0;
+}
 
 function notifyAuth(event: string) {
   listeners.forEach((cb) => cb(event));
@@ -171,21 +181,38 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<{ d
 }
 
 function setCurrentUserFromApi(user: UserProfile | null | undefined) {
+  const prevId = currentUser?.id ?? null;
   currentUser = user ? { ...user, createdAt: user.createdAt ? new Date(user.createdAt) : new Date() } : null;
-  supabaseClient = null;
+  const nextId = currentUser?.id ?? null;
+  // Só descarta o cliente quando o usuário muda de fato (login/logout/troca),
+  // não a cada getUser()/getSession() — recriar dispara novo fetch de token.
+  if (prevId !== nextId) resetSupabaseClient();
 }
 
 async function getSupabaseClient(): Promise<SupabaseClient | null> {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
-  if (supabaseClient) return supabaseClient;
-  const { data } = await apiFetch<{ accessToken: string }>('/api/auth/access-token');
-  if (!data?.accessToken) return null;
-  supabaseClient = createClient(url, key, {
-    global: { headers: { Authorization: `Bearer ${data.accessToken}` } },
-  });
-  return supabaseClient;
+  if (supabaseClient && Date.now() - supabaseClientCreatedAt < SUPABASE_CLIENT_TTL_MS) {
+    return supabaseClient;
+  }
+  if (!supabaseClientPromise) {
+    supabaseClientPromise = (async () => {
+      const { data } = await apiFetch<{ accessToken: string }>('/api/auth/access-token');
+      if (!data?.accessToken) return null;
+      supabaseClient = createClient(url, key, {
+        // Auth é do backend (cookie); sem sessão própria não há GoTrueClient
+        // disputando a mesma storage key entre instâncias.
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        global: { headers: { Authorization: `Bearer ${data.accessToken}` } },
+      });
+      supabaseClientCreatedAt = Date.now();
+      return supabaseClient;
+    })().finally(() => {
+      supabaseClientPromise = null;
+    });
+  }
+  return supabaseClientPromise;
 }
 
 const serverAuth = {
@@ -359,7 +386,7 @@ export const authService = {
   },
   async signOut() {
     currentUser = null;
-    supabaseClient = null;
+    resetSupabaseClient();
     return supabase.auth.signOut();
   },
   async resetPasswordForEmail(email: string, redirectTo?: string) {
