@@ -67,7 +67,7 @@ export function ScoreGaugeChart({ value = 0, className, animated = true }: Score
         {useMotion ? (
           <motion.div
             key={scoreEmoji.notoCode}
-            className="pointer-events-none absolute inset-x-0 top-[38%] flex -translate-y-1/2 justify-center"
+            className="pointer-events-none absolute inset-x-0 top-[30%] flex -translate-y-1/2 justify-center"
             title={scoreEmoji.label}
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -82,7 +82,7 @@ export function ScoreGaugeChart({ value = 0, className, animated = true }: Score
           </motion.div>
         ) : (
           <div
-            className="pointer-events-none absolute inset-x-0 top-[38%] flex -translate-y-1/2 justify-center"
+            className="pointer-events-none absolute inset-x-0 top-[30%] flex -translate-y-1/2 justify-center"
             title={scoreEmoji.label}
           >
             <NotoEmoji

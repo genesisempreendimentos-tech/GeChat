@@ -279,6 +279,7 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
           <div className="lg:col-span-7">
             <ConversionFunnelChart
               steps={funnelSteps}
+              revision={filterRevision}
               title="Funil de conversão"
               description="Fluxo do visitante até a conversão — percentual entre etapas"
             />

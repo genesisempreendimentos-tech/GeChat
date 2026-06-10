@@ -11,8 +11,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MotionFlipNumber } from '@/components/motion/AppMotion';
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAppMotion } from '@/hooks/useAppMotion';
 import { cn } from '@/lib/utils';
 import {
   barChartTooltipCursor,
@@ -256,11 +259,16 @@ export function ConversionFunnelChart({
   steps,
   title,
   description,
+  revision,
 }: {
   steps: FunnelStep[];
   title: string;
   description?: string;
+  /** Muda quando filtros/dados mudam — sincroniza animação de largura e números. */
+  revision?: string;
 }) {
+  const motionCfg = useAppMotion();
+
   if (!steps.length) return <EmptyChartCard title={title} description={description} />;
 
   const maxValue = steps[0]?.value ?? 1;
@@ -283,6 +291,8 @@ export function ConversionFunnelChart({
     return next;
   });
 
+  const widthTransition = motionCfg.enabled ? motionCfg.springSoft : { duration: 0 };
+
   return (
     <ChartCard title={title} description={description} compact>
       <div className="mx-auto flex max-w-md items-stretch gap-2 sm:gap-3">
@@ -293,10 +303,13 @@ export function ConversionFunnelChart({
         >
           {steps.map((step, index) => (
             <div key={step.label} className="flex w-full justify-center">
-              <div
+              <motion.div
+                layout
+                initial={false}
+                animate={{ width: `${blockWidths[index]}%` }}
+                transition={{ width: widthTransition, layout: widthTransition }}
                 className="flex items-center justify-between gap-2 px-2.5 sm:px-3"
                 style={{
-                  width: `${blockWidths[index]}%`,
                   height: blockHeight,
                   backgroundColor: step.color,
                 }}
@@ -306,13 +319,13 @@ export function ConversionFunnelChart({
                 </span>
                 <div className="flex shrink-0 items-baseline gap-1 text-white">
                   <span className="text-[11px] font-bold tabular-nums sm:text-xs">
-                    {step.value.toLocaleString('pt-BR')}
+                    <MotionFlipNumber value={step.value.toLocaleString('pt-BR')} />
                   </span>
                   <span className="text-[10px] font-medium opacity-90">
-                    {step.pctOfFirst}%
+                    <MotionFlipNumber value={`${step.pctOfFirst}%`} />
                   </span>
                 </div>
-              </div>
+              </motion.div>
             </div>
           ))}
         </div>
@@ -320,14 +333,20 @@ export function ConversionFunnelChart({
         <div className="hidden w-12 shrink-0 flex-col gap-0 sm:flex" aria-hidden>
           {steps.map((step, index) => (
             <div
-              key={`drop-${step.label}`}
+              key={`drop-${step.label}-${revision ?? 'default'}`}
               className="flex items-center justify-center text-[10px] font-medium text-muted-foreground"
               style={{ height: blockHeight }}
             >
               {index > 0 && step.pctOfPrevious !== null ? (
-                <span className="rounded bg-muted/60 px-1 py-0.5 tabular-nums">
-                  ↓ {step.pctOfPrevious}%
-                </span>
+                <motion.span
+                  key={`${step.label}-drop-${step.pctOfPrevious}`}
+                  initial={motionCfg.enabled ? { opacity: 0, y: -4 } : false}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={motionCfg.pageTransition}
+                  className="rounded bg-muted/60 px-1 py-0.5 tabular-nums"
+                >
+                  ↓ <MotionFlipNumber value={`${step.pctOfPrevious}%`} />
+                </motion.span>
               ) : null}
             </div>
           ))}
@@ -342,7 +361,9 @@ export function ConversionFunnelChart({
               style={{ backgroundColor: step.color }}
             />
             <span className="font-medium text-foreground">{step.label}</span>
-            <span className="tabular-nums">{step.pctOfFirst}% do topo</span>
+            <span className="tabular-nums">
+              <MotionFlipNumber value={`${step.pctOfFirst}%`} /> do topo
+            </span>
           </span>
         ))}
       </div>
