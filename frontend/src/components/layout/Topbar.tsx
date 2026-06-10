@@ -35,6 +35,7 @@ function TopbarActions() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(false);
+  const [quoteFetchKey, setQuoteFetchKey] = useState(0);
   const [notificationItems] = useState<NotificationItem[]>([]);
   const notificationUnreadCount = notificationItems.filter((n) => !n.read).length;
 
@@ -51,7 +52,13 @@ function TopbarActions() {
   return (
     <>
       <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/50 bg-muted/40 p-1.5 shadow-sm transition-colors hover:bg-muted/50">
-        <DropdownMenu open={tipsOpen} onOpenChange={setTipsOpen}>
+        <DropdownMenu
+          open={tipsOpen}
+          onOpenChange={(open) => {
+            setTipsOpen(open);
+            if (open) setQuoteFetchKey((key) => key + 1);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -70,7 +77,7 @@ function TopbarActions() {
             className="w-max min-w-0 max-w-[min(100vw-1.5rem,22rem)] border-border/60 bg-popover px-3 py-2 text-sm text-muted-foreground shadow-md"
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
-            <Quotes open={tipsOpen} />
+            <Quotes open={tipsOpen} fetchKey={quoteFetchKey} />
           </DropdownMenuContent>
         </DropdownMenu>
         <Button

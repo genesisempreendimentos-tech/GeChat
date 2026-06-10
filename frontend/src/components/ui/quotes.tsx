@@ -3,12 +3,11 @@ import { supabase } from '@/services/supabase';
 
 type QuoteRow = {
   id?: string;
-  frases?: string | null;
   frase?: string | null;
   autor?: string | null;
 };
 
-/** Índice uniforme em [0, n) — evita viés de `Math.random` e falhas de paginação do PostgREST com `range`. */
+/** Índice uniforme em [0, n) — fallback quando a RPC `random_quote` não existir. */
 function randomIndex(n: number): number {
   if (n <= 1) return 0;
   const max = 0x1_0000_0000;
@@ -21,6 +20,13 @@ function randomIndex(n: number): number {
 }
 
 async function fetchRandomQuoteRow(): Promise<QuoteRow | null> {
+  const { data: rpcData, error: rpcError } = await supabase.rpc('random_quote');
+
+  if (!rpcError && rpcData) {
+    const row = (Array.isArray(rpcData) ? rpcData[0] : rpcData) as QuoteRow | undefined;
+    if (row?.frase || row?.autor) return row;
+  }
+
   const { data: idRows, error: idsError } = await supabase
     .from('quotes')
     .select('id')
@@ -40,12 +46,14 @@ async function fetchRandomQuoteRow(): Promise<QuoteRow | null> {
 type QuotesProps = {
   /** Quando fica `true` (ex.: menu aberto), busca uma linha aleatória de novo. */
   open: boolean;
+  /** Incrementa a cada abertura do menu para forçar nova citação. */
+  fetchKey?: number;
 };
 
 /**
- * Citação vinda da tabela `quotes` (colunas `frases` ou legado `frase`, e `autor`).
+ * Citação vinda da tabela `quotes` (colunas `frase` e `autor`).
  */
-export function Quotes({ open }: QuotesProps) {
+export function Quotes({ open, fetchKey = 0 }: QuotesProps) {
   const [frase, setFrase] = useState<string | null>(null);
   const [autor, setAutor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,7 +75,7 @@ export function Quotes({ open }: QuotesProps) {
           return;
         }
 
-        const texto = (row.frases ?? row.frase ?? '').trim() || null;
+        const texto = (row.frase ?? '').trim() || null;
         const autorVal = (row.autor ?? '').trim() || null;
         setFrase(texto);
         setAutor(autorVal);
@@ -84,7 +92,7 @@ export function Quotes({ open }: QuotesProps) {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, fetchKey]);
 
   if (loading) {
     return (
