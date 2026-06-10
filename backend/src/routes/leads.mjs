@@ -4,6 +4,7 @@ import { getBearerJwt, resolveUserFromJwt } from '../middleware/authSupabase.mjs
 import { syncLeadsFromSources } from '../services/leadSourceSync.mjs';
 import { listLeads, getLeadStats, getLeadById, LEAD_STATUSES } from '../services/leadsService.mjs';
 import { sendLeadToCvcrm } from '../services/cvcrmService.mjs';
+import { processCvcrmWebhook } from '../services/cvcrmWebhook.mjs';
 
 function getNeonLeadsUrl() {
   return process.env.NEON_LEADS_DATABASE_URL || process.env.NEON_GELEADS_DATABASE_URL || null;
@@ -56,6 +57,19 @@ async function requireAuth(req, res, next) {
     console.error('[leads/auth]', err);
     return res.status(500).json({ error: 'Erro de autenticação.' });
   }
+}
+
+export function createCvcrmWebhookRouter() {
+  const router = express.Router();
+
+  router.post('/cvcrm', (req, res) => {
+    res.status(200).json({ ok: true });
+    void processCvcrmWebhook(req.body).catch((err) => {
+      console.error('[cvcrm/webhook]', err);
+    });
+  });
+
+  return router;
 }
 
 export function createLeadsRouter() {

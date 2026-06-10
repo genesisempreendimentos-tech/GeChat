@@ -60,6 +60,8 @@ function mapNeonRowToLead(row) {
     responsavel: String(row.responsavel ?? '').trim(),
     parametro: String(row.parametro ?? '').trim(),
     cvcrmLeadId: String(row.cvcrm_lead_id ?? '').trim() || null,
+    cvcrmSyncStatus: String(row.cvcrm_sync_status ?? '').trim() || 'pending',
+    cvcrm_is_sold: Boolean(row.cvcrm_is_sold),
     _table: String(row.source_table ?? '').trim(),
   };
 }

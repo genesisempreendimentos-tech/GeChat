@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS leads (
   pagamento_preferencia TEXT,
   status TEXT NOT NULL DEFAULT 'novo',
   cvcrm_lead_id TEXT,
+  cvcrm_sync_status TEXT DEFAULT 'pending',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

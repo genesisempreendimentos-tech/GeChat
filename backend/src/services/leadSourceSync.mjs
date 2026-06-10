@@ -150,58 +150,70 @@ function getNeonLeadsUrl() {
 
 const CVCRM_POLL_INTERVAL_MS = 10_000;
 let cvcrmPollInFlight = false;
+/** Track per-table polling in-flight status */
+const tablePollInFlight = {};
+
 
 async function processCvcrmPendingSource(client, source) {
-  const { rows } = await client.query(
-    `SELECT *
-     FROM ${source.table}
-     WHERE cvcrm_sync_status = 'pending'
-       AND cvcrm_lead_id IS NULL
-     ORDER BY created_at ASC`,
-  );
-
-  if (rows.length === 0) return { total: 0, synced: 0, errors: 0 };
-
-  console.log(`[cvcrm/poll] ${source.table}: ${rows.length} lead(s) pendente(s) — processando...`);
-
-  let synced = 0;
-  let errors = 0;
-
-  for (const lead of rows) {
-    const result = await source.send({ ...lead, source_table: source.sourceTable });
-    const label = source.displayName(lead);
-
-    if (result.ok) {
-      const touchUpdatedAt = source.touchUpdatedAt !== false ? ', updated_at = now()' : '';
-      await client.query(
-        `UPDATE ${source.table}
-         SET cvcrm_lead_id = $1,
-             cvcrm_sync_status = 'synced',
-             cvcrm_last_synced_at = now(),
-             cvcrm_payload = $2::jsonb,
-             cvcrm_sync_error = NULL${touchUpdatedAt}
-         WHERE id = $3`,
-        [result.cvcrm_lead_id ?? null, JSON.stringify(result.payload ?? {}), lead.id],
-      );
-      synced += 1;
-      console.log(
-        `[cvcrm/poll] synced: ${label} (${source.table}, id=${lead.id}, cvcrm_lead_id=${result.cvcrm_lead_id ?? 'null'})`,
-      );
-    } else {
-      const touchUpdatedAt = source.touchUpdatedAt !== false ? ', updated_at = now()' : '';
-      await client.query(
-        `UPDATE ${source.table}
-         SET cvcrm_sync_status = 'error',
-             cvcrm_sync_error = $1${touchUpdatedAt}
-         WHERE id = $2`,
-        [result.error ?? 'Erro desconhecido ao enviar para o CVCRM', lead.id],
-      );
-      errors += 1;
-      console.log(`[cvcrm/poll] error: ${label} (${source.table}, id=${lead.id}) — ${result.error}`);
-    }
+  // Skip if this table is already being processed by a previous poll
+  if (tablePollInFlight[source.table]) {
+    console.log(`[cvcrm/poll] Skipping ${source.table} as previous poll still in flight`);
+    return { total: 0, synced: 0, errors: 0 };
   }
+  tablePollInFlight[source.table] = true;
+  try {
+    const { rows } = await client.query(
+      `SELECT *
+       FROM ${source.table}
+       WHERE cvcrm_sync_status = 'pending'
+         AND cvcrm_lead_id IS NULL
+       ORDER BY created_at ASC
+       LIMIT 50`,
+    );
 
-  return { total: rows.length, synced, errors };
+    if (rows.length === 0) return { total: 0, synced: 0, errors: 0 };
+
+    console.log(`[cvcrm/poll] ${source.table}: ${rows.length} lead(s) pendente(s) — processando...`);
+
+    let synced = 0;
+    let errors = 0;
+
+    for (const lead of rows) {
+      const result = await source.send({ ...lead, source_table: source.sourceTable });
+      const label = source.displayName(lead);
+
+      if (result.ok) {
+        const touchUpdatedAt = source.touchUpdatedAt !== false ? ', updated_at = now()' : '';
+        await client.query(
+          `UPDATE ${source.table}
+           SET cvcrm_lead_id = $1,
+               cvcrm_sync_status = 'synced',
+               cvcrm_last_synced_at = now(),
+               cvcrm_payload = $2::jsonb,
+               cvcrm_sync_error = NULL${touchUpdatedAt}
+           WHERE id = $3`,
+          [result.cvcrm_lead_id ?? null, JSON.stringify(result.payload ?? {}), lead.id],
+        );
+        synced += 1;
+        console.log(`[cvcrm/poll] synced: ${label} (${source.table}, id=${lead.id}, cvcrm_lead_id=${result.cvcrm_lead_id ?? 'null'})`);
+      } else {
+        const touchUpdatedAt = source.touchUpdatedAt !== false ? ', updated_at = now()' : '';
+        await client.query(
+          `UPDATE ${source.table}
+           SET cvcrm_sync_status = 'error',
+               cvcrm_sync_error = $1${touchUpdatedAt}
+           WHERE id = $2`,
+          [result.error ?? 'Erro desconhecido ao enviar para o CVCRM', lead.id],
+        );
+        errors += 1;
+        console.log(`[cvcrm/poll] error: ${label} (${source.table}, id=${lead.id}) — ${result.error}`);
+      }
+    }
+    return { total: rows.length, synced, errors };
+  } finally {
+    tablePollInFlight[source.table] = false;
+  }
+  // Duplicate polling logic removed
 }
 
 async function pollCvcrmPendingLeads() {
@@ -276,6 +288,14 @@ function mapCanalOrigem(row) {
   return canal;
 }
 
+function mapCvcrmSyncStatus(row) {
+  return String(row.cvcrm_sync_status ?? '').trim() || 'pending';
+}
+
+function mapCvcrmIsSold(row) {
+  return Boolean(row.cvcrm_is_sold);
+}
+
 function formatUnixBirthDatePtBr(value) {
   if (value == null || value === '') return '';
   const num = Number(value);
@@ -320,6 +340,8 @@ export function mapStandardLeadRow(row, sourceTable, defaults = {}) {
     responsavel: null,
     status: mapLeadStatus(row),
     cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
+    cvcrm_sync_status: mapCvcrmSyncStatus(row),
+    cvcrm_is_sold: mapCvcrmIsSold(row),
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
   };
@@ -355,6 +377,8 @@ export function mapOldLeadRow(row, sourceTable, defaults = {}) {
     responsavel: null,
     status: mapLeadStatus(row),
     cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
+    cvcrm_sync_status: mapCvcrmSyncStatus(row),
+    cvcrm_is_sold: mapCvcrmIsSold(row),
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
   };
@@ -390,6 +414,8 @@ export function mapOasisIiRow(row, sourceTable, defaults = {}) {
     responsavel: null,
     status: mapLeadStatus(row),
     cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
+    cvcrm_sync_status: mapCvcrmSyncStatus(row),
+    cvcrm_is_sold: mapCvcrmIsSold(row),
     created_at: row.created_at,
     updated_at: row.created_at,
   };
@@ -425,6 +451,8 @@ export function mapSolarBosqueRow(row, sourceTable, defaults = {}) {
     responsavel: null,
     status: mapLeadStatus(row),
     cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
+    cvcrm_sync_status: mapCvcrmSyncStatus(row),
+    cvcrm_is_sold: mapCvcrmIsSold(row),
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
   };
@@ -453,6 +481,8 @@ CREATE TABLE IF NOT EXISTS leads (
   pagamento_preferencia TEXT,
   status TEXT NOT NULL DEFAULT 'novo',
   cvcrm_lead_id TEXT,
+  cvcrm_sync_status TEXT DEFAULT 'pending',
+  cvcrm_is_sold BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -463,12 +493,12 @@ INSERT INTO leads (
   id, source_table, name, email, phone, page, origem, canal, parametro,
   empreendimento, responsavel, relacionamento, investimento, cidade_residencia,
   birth_date, profile_type, profile_notes, dispositivo, pagamento_preferencia,
-  status, cvcrm_lead_id, created_at, updated_at
+  status, cvcrm_lead_id, cvcrm_sync_status, cvcrm_is_sold, created_at, updated_at
 ) VALUES (
   $1, $2, $3, $4, $5, $6, $7, $8, $9,
   $10, $11, $12, $13, $14,
   $15, $16, $17, $18, $19,
-  $20, $21, $22, $23
+  $20, $21, $22, $23, $24, $25
 )
 ON CONFLICT (id) DO UPDATE SET
   source_table = EXCLUDED.source_table,
@@ -491,6 +521,8 @@ ON CONFLICT (id) DO UPDATE SET
   pagamento_preferencia = EXCLUDED.pagamento_preferencia,
   status = EXCLUDED.status,
   cvcrm_lead_id = EXCLUDED.cvcrm_lead_id,
+  cvcrm_sync_status = EXCLUDED.cvcrm_sync_status,
+  cvcrm_is_sold = EXCLUDED.cvcrm_is_sold,
   updated_at = EXCLUDED.updated_at;
 `;
 
@@ -507,77 +539,111 @@ async function resolveSourceTable(client, candidates) {
 }
 
 let lastSyncAt = 0;
-const SYNC_INTERVAL_MS = 30_000;
+const SYNC_INTERVAL_MS = 300_000;
+let syncInFlight = false;
+/** Evita sync concorrente da mesma tabela fonte → leads */
+const tableSyncInFlight = {};
 
-export async function syncLeadsFromSources({ force = false } = {}) {
-  const neonUrl = getNeonLeadsUrl();
-  if (!neonUrl) {
-    console.warn('[leads/sync] URL do Neon não configurada.');
-    return { synced: 0, sources: [] };
+async function processLeadSourceSync(client, source) {
+  const tableName = await resolveSourceTable(client, source.tables);
+  if (!tableName) {
+    console.warn(`[leads/sync] Tabela não encontrada: ${source.tables.join(' | ')}`);
+    return { source: source.key, table: null, count: 0, skipped: false };
   }
 
-  const now = Date.now();
-  if (!force && now - lastSyncAt < SYNC_INTERVAL_MS) {
-    return { synced: 0, sources: [], skipped: true };
+  if (tableSyncInFlight[tableName]) {
+    console.log(`[leads/sync] Skipping ${tableName} as previous sync still in flight`);
+    return { source: source.key, table: tableName, count: 0, skipped: true };
   }
 
-  const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
-  await client.connect();
-
-  let totalSynced = 0;
-  const sources = [];
-
+  tableSyncInFlight[tableName] = true;
   try {
-    await client.query(ENSURE_LEADS_TABLE_SQL);
+    const { rows } = await client.query(`SELECT * FROM ${tableName} ORDER BY created_at ASC`);
+    let count = 0;
 
-    for (const source of LEAD_SOURCE_TABLES) {
-      const tableName = await resolveSourceTable(client, source.tables);
-      if (!tableName) {
-        console.warn(`[leads/sync] Tabela não encontrada: ${source.tables.join(' | ')}`);
-        continue;
-      }
-
-      const { rows } = await client.query(`SELECT * FROM ${tableName} ORDER BY created_at ASC`);
-      let count = 0;
-
-      for (const row of rows) {
-        const mapped = source.mapRow(row, source.sourceTable, source);
-        await client.query(UPSERT_LEAD_SQL, [
-          mapped.id,
-          mapped.source_table,
-          mapped.name,
-          mapped.email,
-          mapped.phone,
-          mapped.page,
-          mapped.origem,
-          mapped.canal,
-          mapped.parametro,
-          mapped.empreendimento,
-          mapped.responsavel,
-          mapped.relacionamento,
-          mapped.investimento,
-          mapped.cidade_residencia,
-          mapped.birth_date,
-          mapped.profile_type,
-          mapped.profile_notes,
-          mapped.dispositivo,
-          mapped.pagamento_preferencia,
-          mapped.status,
-          mapped.cvcrm_lead_id,
-          mapped.created_at,
-          mapped.updated_at,
-        ]);
-        count += 1;
-      }
-
-      totalSynced += count;
-      sources.push({ source: source.key, table: tableName, count });
-      console.log(`[leads/sync] ${tableName}: ${count} lead(s) sincronizado(s) → leads`);
+    for (const row of rows) {
+      const mapped = source.mapRow(row, source.sourceTable, source);
+      await client.query(UPSERT_LEAD_SQL, [
+        mapped.id,
+        mapped.source_table,
+        mapped.name,
+        mapped.email,
+        mapped.phone,
+        mapped.page,
+        mapped.origem,
+        mapped.canal,
+        mapped.parametro,
+        mapped.empreendimento,
+        mapped.responsavel,
+        mapped.relacionamento,
+        mapped.investimento,
+        mapped.cidade_residencia,
+        mapped.birth_date,
+        mapped.profile_type,
+        mapped.profile_notes,
+        mapped.dispositivo,
+        mapped.pagamento_preferencia,
+        mapped.status,
+        mapped.cvcrm_lead_id,
+        mapped.cvcrm_sync_status,
+        mapped.cvcrm_is_sold,
+        mapped.created_at,
+        mapped.updated_at,
+      ]);
+      count += 1;
     }
 
-    lastSyncAt = now;
-    return { synced: totalSynced, sources };
+    console.log(`[leads/sync] ${tableName}: ${count} lead(s) sincronizado(s) → leads`);
+    return { source: source.key, table: tableName, count, skipped: false };
   } finally {
-    await client.end();
+    tableSyncInFlight[tableName] = false;
+  }
+}
+
+export async function syncLeadsFromSources({ force = false } = {}) {
+  if (syncInFlight) return { synced: 0, sources: [], skipped: true };
+  syncInFlight = true;
+  try {
+    const neonUrl = getNeonLeadsUrl();
+    if (!neonUrl) {
+      console.warn('[leads/sync] URL do Neon não configurada.');
+      return { synced: 0, sources: [] };
+    }
+
+    const now = Date.now();
+    if (!force && now - lastSyncAt < SYNC_INTERVAL_MS) {
+      return { synced: 0, sources: [], skipped: true };
+    }
+
+    const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+    await client.connect();
+
+    let totalSynced = 0;
+    const sources = [];
+
+    try {
+      await client.query(ENSURE_LEADS_TABLE_SQL);
+    await client.query(
+      `ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_sync_status TEXT DEFAULT 'pending'`,
+    );
+    await client.query(
+      `ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_is_sold BOOLEAN DEFAULT false`,
+    );
+
+      for (const source of LEAD_SOURCE_TABLES) {
+        const result = await processLeadSourceSync(client, source);
+        if (result.table && !result.skipped) {
+          totalSynced += result.count;
+          sources.push({ source: result.source, table: result.table, count: result.count });
+        }
+      }
+
+      lastSyncAt = now;
+      return { synced: totalSynced, sources };
+    } finally {
+      await client.end();
+    }
+  } finally {
+    syncInFlight = false;
   }
 }

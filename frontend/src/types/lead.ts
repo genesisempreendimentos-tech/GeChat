@@ -18,6 +18,8 @@ export interface Lead {
   createdAt: string;
   updatedAt: string;
   cvcrmLeadId?: string | null;
+  cvcrmSyncStatus?: string;
+  cvcrm_is_sold?: boolean;
   dataHora: string; // Mapeia para 'createdAt' no Lead ou uma coluna de timestamp
   nome: string; // Mapeia para 'name' no Lead
   contato: string; // Pode ser derivado de 'email' ou 'phone'

@@ -18,6 +18,7 @@ export type LeadMetricsRow = {
   dataNascimento?: string;
   perfilLead?: string;
   pagamentoPreferencia?: string;
+  cvcrm_is_sold?: boolean;
 };
 
 export type LeadsInfoboxStats = {
@@ -58,11 +59,7 @@ function isVisitaAgendada(row: LeadMetricsRow) {
 }
 
 function isVendaLead(row: LeadMetricsRow) {
-  return (
-    leadRespondeuFormularioPerfil(row) &&
-    row.qualificacao === 'Alta' &&
-    row.investimento?.trim() === 'Acima de R$3500'
-  );
+  return row.cvcrm_is_sold === true;
 }
 
 function isTaxaConversaoLead(row: LeadMetricsRow) {

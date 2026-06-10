@@ -65,7 +65,7 @@ export function LeadCard({ row, tab, onClick, className }: Props) {
       }
       className={cn(
         'group relative flex h-full flex-col overflow-hidden border-l-4',
-        'transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+        'transition-all duration-300 ease-\\[cubic-bezier(0.22,1,0.36,1)\\]',
         'hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/30',
         'hover:ring-2 hover:ring-offset-2 hover:ring-offset-background',
         accent.border,

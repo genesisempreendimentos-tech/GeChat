@@ -90,6 +90,7 @@ type LeadSortKey =
   | 'canal'
   | 'parametro'
   | 'empreendimento'
+  | 'cvcrm'
   | 'responsavel'
   | 'qualificacao'
   | 'relacionamento'
@@ -146,6 +147,7 @@ const LEADS_COL_DETALHES: { key: LeadSortKey; label: string }[] = [
   { key: 'canal', label: 'Canal' },
   { key: 'parametro', label: 'Parâmetro' },
   { key: 'empreendimento', label: 'Empreendimento' },
+  { key: 'cvcrm', label: 'CVCRM' },
   { key: 'dataHora', label: 'Criado em' },
 ];
 
@@ -365,6 +367,7 @@ function leadColMinWidthClass(key: LeadSortKey): string {
   if (key === 'email' || key === 'telefone') return 'min-w-[160px]';
   if (key === 'qualificacao') return 'min-w-[7.5rem]';
   if (key === 'empreendimento') return 'min-w-[10rem]';
+  if (key === 'cvcrm') return 'min-w-[5rem]';
   if (key === 'parametro') return 'min-w-[10rem]';
   if (key === 'responsavel') return 'min-w-[9rem]';
   if (key === 'relacionamento') return 'min-w-[10rem]';
@@ -386,7 +389,7 @@ function leadTdClassName(col: LeadSortKey): string {
   if (col === 'origem' || col === 'canal') return cn(base, 'text-xs');
   if (col === 'parametro') return cn(base, 'text-xs');
   if (col === 'email' || col === 'telefone') return cn(base, 'text-xs');
-  if (col === 'empreendimento' || col === 'responsavel') return cn(base, 'text-xs');
+  if (col === 'empreendimento' || col === 'responsavel' || col === 'cvcrm') return cn(base, 'text-xs');
   if (col === 'qualificacao') return cn(base);
   if (col === 'relacionamento' || col === 'investimento' || col === 'perfilLead') return cn(base, 'text-xs');
   if (col === 'cidadeResidencia' || col === 'dataNascimento') return cn(base, 'text-xs');
@@ -415,6 +418,8 @@ function leadCellContent(row: LeadRow, col: LeadSortKey): ReactNode {
       return <LeadParametroCell value={row.parametro} />;
     case 'empreendimento':
       return leadCampoVazio(row.empreendimento);
+    case 'cvcrm':
+      return row.cvcrmSyncStatus === 'synced' ? 'Sim' : 'Não';
     case 'responsavel':
       return leadCampoVazio(row.responsavel);
     case 'qualificacao':
@@ -714,6 +719,11 @@ export const LeadsOperacionalView = forwardRef<LeadsExportRef, LeadsOperacionalV
         const ap = a.perfilLead ? LEAD_PERFIL_TIPO_ORDER[a.perfilLead] : -1;
         const bp = b.perfilLead ? LEAD_PERFIL_TIPO_ORDER[b.perfilLead] : -1;
         return ap - bp;
+      }
+      if (leadsSortKey === 'cvcrm') {
+        const av = a.cvcrmSyncStatus === 'synced' ? 1 : 0;
+        const bv = b.cvcrmSyncStatus === 'synced' ? 1 : 0;
+        return av - bv;
       }
       const av = a[leadsSortKey];
       const bv = b[leadsSortKey];

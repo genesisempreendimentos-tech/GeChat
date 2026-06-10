@@ -11,7 +11,7 @@ import express from 'express';
 import pg from 'pg';
 import { getBearerJwt, resolveUserFromJwt } from './authSupabase.mjs';
 import { createAuthRouter } from './routes/auth.mjs';
-import { createLeadsRouter } from './routes/leads.mjs';
+import { createLeadsRouter, createCvcrmWebhookRouter } from './routes/leads.mjs';
 import { syncLeadsFromSources } from './services/leadSourceSync.mjs';
 import {
   resolveNeonWorkspaceFilter,
@@ -72,6 +72,7 @@ if (supabaseUrl) {
 }
 
 app.use('/api/auth', createAuthRouter());
+app.use('/api/webhooks', createCvcrmWebhookRouter());
 app.use('/api/leads', createLeadsRouter());
 
 syncLeadsFromSources({ force: true })
@@ -897,6 +898,14 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
+function clearActivePortFile() {
+  try {
+    if (fs.existsSync(ACTIVE_PORT_FILE)) fs.unlinkSync(ACTIVE_PORT_FILE);
+  } catch (err) {
+    console.warn('[server] Não foi possível limpar .server-port:', err?.message ?? err);
+  }
+}
+
 function persistActivePort(port) {
   try {
     fs.writeFileSync(ACTIVE_PORT_FILE, String(port), 'utf8');
@@ -922,4 +931,5 @@ function startServerWithFallback(port, retriesLeft) {
   });
 }
 
+clearActivePortFile();
 startServerWithFallback(DEFAULT_PORT, MAX_PORT_RETRIES);

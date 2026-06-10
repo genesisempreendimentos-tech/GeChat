@@ -10,5 +10,5 @@ export const LEADS_METRIC_TOOLTIPS = {
   visitasAgendadas: 'Leads com visita ao empreendimento marcada no período.',
   analiseCredito:
     'Leads com perfil completo e preferência por financiamento ou parcelamento.',
-  vendas: 'Leads qualificados como venda fechada no período.',
+  vendas: 'Leads marcados como venda no CVCRM (cvcrm_is_sold) no período.',
 } as const;

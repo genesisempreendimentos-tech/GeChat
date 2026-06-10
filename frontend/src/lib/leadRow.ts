@@ -39,5 +39,7 @@ export type LeadRow = {
   parametro: string;
   status?: LeadStatus;
   cvcrmLeadId?: string | null;
+  cvcrmSyncStatus?: string;
+  cvcrm_is_sold?: boolean;
   _table?: string;
 };
