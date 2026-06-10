@@ -283,14 +283,31 @@ type DonutTooltipProps = {
   total: number
 }
 
+const DONUT_CHART_SIZES = {
+  default: {
+    height: 300,
+    innerRadius: 48,
+    outerRadius: 68,
+    margin: { top: 28, right: 36, bottom: 12, left: 36 },
+  },
+  lg: {
+    height: 360,
+    innerRadius: 58,
+    outerRadius: 92,
+    margin: { top: 32, right: 44, bottom: 16, left: 44 },
+  },
+} as const;
+
 export function DonutChart({
   data,
   title,
   description,
+  size = 'default',
 }: {
   data: DonutSlice[]
   title: string
   description?: string
+  size?: keyof typeof DONUT_CHART_SIZES
 }) {
   const isDark = useDarkChartTheme()
   const primaryColor = "hsl(var(--primary))"
@@ -298,6 +315,7 @@ export function DonutChart({
   const palette = ["#14b8a6", "#6366f1", "#f59e0b", "#ec4899", "#64748b", "#22c55e", "#0ea5e9"]
   const colors = data.map((d, i) => d.color ?? palette[i % palette.length] ?? (i === 0 ? primaryColor : mutedColor))
   const total = data.reduce((acc, slice) => acc + slice.value, 0)
+  const chartSize = DONUT_CHART_SIZES[size]
 
   return (
     <Card className="transition-shadow hover:shadow-md">
@@ -306,19 +324,22 @@ export function DonutChart({
         {description && <CardDescription>{description}</CardDescription>}
       </CardHeader>
       <CardContent className="overflow-visible">
-        <div className="min-h-[300px] w-full overflow-visible">
+        <div
+          className="w-full overflow-visible"
+          style={{ minHeight: chartSize.height }}
+        >
           <ResponsiveContainer
             width="100%"
-            height={300}
+            height={chartSize.height}
             className="overflow-visible [&_.recharts-surface]:outline-none [&_.recharts-surface]:overflow-visible"
           >
-            <PieChart margin={{ top: 28, right: 36, bottom: 12, left: 36 }}>
+            <PieChart margin={chartSize.margin}>
               <Pie
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={48}
-                outerRadius={68}
+                innerRadius={chartSize.innerRadius}
+                outerRadius={chartSize.outerRadius}
                 paddingAngle={2}
                 dataKey="value"
                 nameKey="name"

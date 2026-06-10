@@ -24,7 +24,7 @@ const onboardingSteps: OnboardingStep[] = [
   },
   {
     title: 'Dashboard',
-    description: 'Vis?o geral do workspace ? widgets personalizados em breve.',
+    description: 'Visão geral do workspace — KPIs, gráficos e atalhos rápidos.',
     route: '/dashboard',
     targetSelector: '[data-tour="menu-dashboard"]',
     placement: 'right',
