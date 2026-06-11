@@ -64,7 +64,11 @@ export function createCvcrmWebhookRouter() {
 
   router.post('/cvcrm', (req, res) => {
     res.status(200).json({ ok: true });
-    void processCvcrmWebhook(req.body).catch((err) => {
+    void processCvcrmWebhook({
+      headers: req.headers,
+      body: req.body,
+      query: req.query,
+    }).catch((err) => {
       console.error('[cvcrm/webhook]', err);
     });
   });
