@@ -7,7 +7,6 @@ import { computeDadosBalanceCtx, type DadosFilters } from '@/lib/dadosFilters';
 import {
   aggregateByDay,
   aggregateByPaginaBars,
-  aggregateByQualificacaoBars,
   aggregateChannelSeriesOverTime,
   aggregateDeviceStack100,
   buildConversionFunnel,
@@ -25,13 +24,11 @@ import {
   aggregateEmpreendimentoTable,
   aggregateIdadeEmAberto,
   aggregateOrigemLeadsTable,
-  aggregateQualidadeByGrupo,
   aggregateSafraMaturacao,
   computeTempoMedioAvanco,
   hasMaturacaoDateData,
 } from '@/lib/dadosMaturacao';
 import { computeLeadsInfoboxStats } from '@/lib/leadsMetrics';
-import { resolveEmpreendimentoLabel } from '@/lib/leadEmpreendimento';
 import type { LeadMetricaFiltro } from '@/lib/leadsControlLine';
 import { useFilteredLeadRows } from '@/hooks/useFilteredLeadRows';
 import { useLeadsData } from '@/hooks/useLeadsData';
@@ -64,7 +61,6 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
     [filteredRows, days],
   );
 
-  const qualificacaoBars = useMemo(() => aggregateByQualificacaoBars(filteredRows), [filteredRows]);
   const funnelSteps = useMemo(() => buildConversionFunnel(filteredRows), [filteredRows]);
   const operationalFunnelSteps = useMemo(
     () => buildOperationalFunnelFromStats(infoboxStats),
@@ -110,25 +106,10 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
   const creditoSituacao = useMemo(() => aggregateCreditoSituacao(filteredRows), [filteredRows]);
   const hasMaturacaoDates = useMemo(() => hasMaturacaoDateData(filteredRows), [filteredRows]);
 
-  const qualidadePorOrigem = useMemo(
-    () => aggregateQualidadeByGrupo(filteredRows, (r) => r.origem || '—'),
-    [filteredRows],
-  );
-  const qualidadePorEmpreendimento = useMemo(
-    () => aggregateQualidadeByGrupo(filteredRows, (r) => resolveEmpreendimentoLabel(r)),
-    [filteredRows],
-  );
-
   const empreendimentoMetrics = useMemo(
     () => aggregateEmpreendimentoMetrics(filteredRows),
     [filteredRows],
   );
-
-  const qualidadeAlertPct = useMemo(() => {
-    if (!filteredRows.length) return null;
-    const indefinidos = filteredRows.filter((r) => r.qualificacao === 'Indefinida').length;
-    return Math.round((indefinidos / filteredRows.length) * 1000) / 10;
-  }, [filteredRows]);
 
   const filterRevision = useMemo(
     () =>
@@ -224,10 +205,6 @@ export function DadosView({ filtros, onMetricaSelect }: DadosViewProps) {
           channelColors={channelColors}
           origemRows={origemRows}
           empreendimentoRows={empreendimentoRows}
-          qualificacaoBars={qualificacaoBars}
-          qualidadeAlertPct={qualidadeAlertPct}
-          qualidadePorOrigem={qualidadePorOrigem}
-          qualidadePorEmpreendimento={qualidadePorEmpreendimento}
           deviceStack={deviceStack}
           heatmapCells={heatmapCells}
           safraRows={safraRows}

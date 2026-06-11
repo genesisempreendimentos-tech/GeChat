@@ -1,9 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useAppMotion } from '@/hooks/useAppMotion';
 
 /** Largura da coluna do ícone — igual à sidebar recolhida; ícone nunca se desloca. */
 export const SIDEBAR_ICON_COLUMN_WIDTH = 80;
@@ -158,6 +159,166 @@ export function SidebarNavItem({
         </motion.span>
       </div>
     </Link>
+  );
+}
+
+type SidebarNavSubItemProps = {
+  to: string;
+  label: string;
+  isActive: boolean;
+  isExpanded: boolean;
+};
+
+export function SidebarNavSubItem({
+  to,
+  label,
+  isActive,
+  isExpanded,
+}: SidebarNavSubItemProps) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <Link
+      to={to}
+      className="group relative block h-10"
+      title={label}
+      aria-label={label}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {isExpanded ? (
+        <motion.div
+          initial={false}
+          aria-hidden
+          className={cn(
+            'pointer-events-none absolute inset-y-0 left-[4.75rem] right-3 rounded-lg',
+            highlightBg(isActive),
+          )}
+          animate={{
+            opacity: isActive || hovered ? (isActive ? 1 : 0.82) : 0,
+            scale: isActive || hovered ? 1 : 0.96,
+          }}
+          transition={{
+            opacity: { duration: 0.28, ease: HIGHLIGHT_EASE },
+            scale: { duration: 0.28, ease: HIGHLIGHT_EASE },
+          }}
+        />
+      ) : null}
+
+      <div
+        className="relative z-[1] flex h-10 items-center"
+        style={{ paddingLeft: SIDEBAR_ICON_COLUMN_WIDTH + 8 }}
+      >
+        <span
+          className={cn(
+            'mr-2 h-1.5 w-1.5 shrink-0 rounded-full transition-colors',
+            isActive ? 'bg-primary-foreground' : 'bg-muted-foreground/50 group-hover:bg-foreground',
+          )}
+          aria-hidden
+        />
+        <motion.span
+          className={cn(
+            'min-w-0 text-[13px] font-medium whitespace-nowrap overflow-hidden',
+            isActive
+              ? 'text-primary-foreground'
+              : 'text-muted-foreground group-hover:text-foreground',
+          )}
+          initial={false}
+          animate={{
+            opacity: isExpanded ? 1 : 0,
+            maxWidth: isExpanded ? 160 : 0,
+          }}
+          transition={{ duration: 0.28, ease: HIGHLIGHT_EASE }}
+          aria-hidden={!isExpanded}
+        >
+          {label}
+        </motion.span>
+      </div>
+    </Link>
+  );
+}
+
+type SidebarNavGroupChild = {
+  label: string;
+  path: string;
+};
+
+type SidebarNavGroupProps = {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+  isActive: boolean;
+  isExpanded: boolean;
+  children: SidebarNavGroupChild[];
+  currentPath: string;
+  tourId?: string;
+  sectionOpen?: boolean;
+};
+
+export function SidebarNavGroup({
+  to,
+  icon,
+  label,
+  isActive,
+  isExpanded,
+  children,
+  currentPath,
+  tourId,
+  sectionOpen = false,
+}: SidebarNavGroupProps) {
+  const motionCfg = useAppMotion();
+  const showChildren = isExpanded && sectionOpen;
+  const subNavDuration = motionCfg.enabled ? 0.32 : 0;
+
+  return (
+    <div className="space-y-0.5">
+      <SidebarNavItem
+        to={to}
+        icon={icon}
+        label={label}
+        isActive={isActive}
+        isExpanded={isExpanded}
+        tourId={tourId}
+      />
+      <AnimatePresence initial={false}>
+        {showChildren ? (
+          <motion.div
+            key="sidebar-subnav"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{
+              duration: subNavDuration,
+              ease: HIGHLIGHT_EASE,
+            }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-0.5 pt-0.5">
+              {children.map((child, index) => (
+                <motion.div
+                  key={child.path}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  transition={{
+                    duration: motionCfg.enabled ? 0.26 : 0,
+                    delay: motionCfg.revealDelay(index),
+                    ease: HIGHLIGHT_EASE,
+                  }}
+                >
+                  <SidebarNavSubItem
+                    to={child.path}
+                    label={child.label}
+                    isActive={currentPath === child.path}
+                    isExpanded={isExpanded}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }
 

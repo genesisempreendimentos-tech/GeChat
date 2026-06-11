@@ -1,14 +1,11 @@
-import {
-  empreendimentoIconNeedsDarkBackdrop,
-  getEmpreendimentoIconUrl,
-} from '@/lib/empreendimentoIcons';
+import { getEmpreendimentoIconUrl } from '@/lib/empreendimentoIcons';
 import { cn } from '@/lib/utils';
 
 type EmpreendimentoBrandIconProps = {
   pagina?: string;
   name?: string;
   className?: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
 };
 
 export function EmpreendimentoBrandIcon({
@@ -21,14 +18,13 @@ export function EmpreendimentoBrandIcon({
   const src = getEmpreendimentoIconUrl(lookup);
   if (!src) return null;
 
-  const darkBackdrop = empreendimentoIconNeedsDarkBackdrop(lookup);
-  const dim = size === 'sm' ? 'h-9 w-9' : 'h-12 w-12';
+  const dim =
+    size === 'sm' ? 'h-9 w-9' : size === 'lg' ? 'h-16 w-16' : 'h-12 w-12';
 
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 p-2 shadow-sm',
-        darkBackdrop ? 'bg-slate-900' : 'bg-card',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-card p-2 shadow-sm',
         dim,
         className,
       )}

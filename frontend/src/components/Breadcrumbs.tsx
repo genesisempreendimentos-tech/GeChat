@@ -15,6 +15,7 @@ interface BreadcrumbsProps {
 const routeNames: Record<string, string> = {
   dashboard: "Dashboard",
   dados: "Análise",
+  qualidade: "Qualidade",
   maturacao: "Maturação",
   empreendimentos: "Empreendimentos",
   relatorios: "Relatórios",

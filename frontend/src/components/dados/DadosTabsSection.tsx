@@ -33,7 +33,6 @@ import type {
   EmpreendimentoDesempenhoRow,
   IdadeFaixaItem,
   OrigemLeadsRow,
-  QualidadeBreakdownRow,
   SafraMaturacaoRow,
   TempoMedioItem,
 } from '@/lib/dadosMaturacao';
@@ -51,10 +50,6 @@ type DadosTabsSectionProps = {
   channelColors: Record<string, string>;
   origemRows: OrigemLeadsRow[];
   empreendimentoRows: EmpreendimentoDesempenhoRow[];
-  qualificacaoBars: BarRankItem[];
-  qualidadeAlertPct: number | null;
-  qualidadePorOrigem: QualidadeBreakdownRow[];
-  qualidadePorEmpreendimento: QualidadeBreakdownRow[];
   deviceStack: DeviceStackSegment[];
   heatmapCells: HeatmapCell[];
   safraRows: SafraMaturacaoRow[];
@@ -64,48 +59,6 @@ type DadosTabsSectionProps = {
   hasMaturacaoDates: boolean;
   paginaBars: BarRankItem[];
 };
-
-function QualidadeAlert({ pct }: { pct: number }) {
-  return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-      {pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% dos leads estão sem qualificação.
-      Isso reduz a precisão da análise de qualidade.
-    </div>
-  );
-}
-
-function QualidadeBreakdownTable({ rows, title }: { rows: QualidadeBreakdownRow[]; title: string }) {
-  if (!rows.length) return null;
-  return (
-    <div className="rounded-xl border border-border/70 bg-card/60 p-4">
-      <p className="mb-3 text-sm font-medium text-foreground">{title}</p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[24rem] text-sm">
-          <thead>
-            <tr className="border-b border-border/60 text-left text-xs text-muted-foreground">
-              <th className="pb-2 pr-3 font-medium">Grupo</th>
-              <th className="pb-2 pr-3 text-right font-medium">Alta</th>
-              <th className="pb-2 pr-3 text-right font-medium">Média</th>
-              <th className="pb-2 pr-3 text-right font-medium">Baixa</th>
-              <th className="pb-2 text-right font-medium">Indefinida</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.slice(0, 8).map((row) => (
-              <tr key={row.grupo} className="border-b border-border/40 last:border-0">
-                <td className="py-2 pr-3 font-medium">{row.grupo}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{row.alta}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{row.media}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{row.baixa}</td>
-                <td className="py-2 text-right tabular-nums">{row.indefinida}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
 
 export function DadosTabsSection({
   defaultTab = 'entrada',
@@ -121,10 +74,6 @@ export function DadosTabsSection({
   channelColors,
   origemRows,
   empreendimentoRows,
-  qualificacaoBars,
-  qualidadeAlertPct,
-  qualidadePorOrigem,
-  qualidadePorEmpreendimento,
   deviceStack,
   heatmapCells,
   safraRows,
@@ -151,9 +100,6 @@ export function DadosTabsSection({
         </TabsTrigger>
         <TabsTrigger value="empreendimentos" className="rounded-lg">
           Empreendimentos
-        </TabsTrigger>
-        <TabsTrigger value="qualidade" className="rounded-lg">
-          Qualidade
         </TabsTrigger>
       </TabsList>
 
@@ -226,22 +172,6 @@ export function DadosTabsSection({
             </Link>
           </Button>
         </div>
-      </TabsContent>
-
-      <TabsContent value="qualidade" className="mt-0 flex flex-col gap-6">
-        {qualidadeAlertPct !== null && qualidadeAlertPct > 50 ? (
-          <QualidadeAlert pct={qualidadeAlertPct} />
-        ) : null}
-        <HorizontalBarRankChart
-          data={qualificacaoBars}
-          title="Qualidade dos leads"
-          description="Distribuição por nível de qualificação"
-        />
-        <QualidadeBreakdownTable rows={qualidadePorOrigem} title="Qualidade por origem" />
-        <QualidadeBreakdownTable
-          rows={qualidadePorEmpreendimento}
-          title="Qualidade por empreendimento"
-        />
       </TabsContent>
     </Tabs>
   );

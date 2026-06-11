@@ -35,6 +35,7 @@ import DashboardPage from '@/pages/DashboardPage';
 import DadosPage from '@/pages/DadosPage';
 import MaturacaoPage from '@/pages/MaturacaoPage';
 import EmpreendimentosPage from '@/pages/EmpreendimentosPage';
+import QualidadePage from '@/pages/QualidadePage';
 import LeadsPage from '@/pages/LeadsPage';
 import RelatoriosPage from '@/pages/RelatoriosPage';
 import SettingsPage from '@/pages/SettingsPage';
@@ -130,6 +131,7 @@ function AppRoutes() {
         >
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/dados" element={<DadosPage />} />
+          <Route path="/dados/qualidade" element={<QualidadePage />} />
           <Route path="/maturacao" element={<MaturacaoPage />} />
           <Route path="/empreendimentos" element={<EmpreendimentosPage />} />
           <Route path="/relatorios" element={<RelatoriosPage />} />

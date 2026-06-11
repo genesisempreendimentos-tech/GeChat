@@ -613,3 +613,73 @@ export function hasLeadsSemEmpreendimento(rows: LeadRow[]): boolean {
 export function countPerfilCompleto(rows: LeadRow[]): number {
   return rows.filter((row) => leadRespondeuFormularioPerfil(row)).length;
 }
+
+export const ORIGEM_LABELS: Record<OrigemBucket, string> = {
+  direto: 'Direto',
+  meta: 'Meta',
+  google: 'Google',
+  organico: 'Orgânico',
+  whatsapp: 'WhatsApp',
+  formulario: 'Formulário',
+  outros: 'Outros',
+  semOrigem: 'Sem origem',
+};
+
+export type OrigemBreakdownItem = {
+  bucket: OrigemBucket;
+  label: string;
+  count: number;
+  pct: number;
+};
+
+export function getOrigemBreakdown(origem: OrigemCounts): OrigemBreakdownItem[] {
+  const total = Object.values(origem).reduce((sum, value) => sum + value, 0);
+  return (Object.keys(origem) as OrigemBucket[])
+    .map((bucket) => ({
+      bucket,
+      label: ORIGEM_LABELS[bucket],
+      count: origem[bucket],
+      pct: calcPercentage(origem[bucket], total),
+    }))
+    .filter((item) => item.count > 0)
+    .sort((a, b) => b.count - a.count);
+}
+
+export function buildSingleEmpreendimentoInsights(item: EmpreendimentoMetrics): string[] {
+  const insights: string[] = [];
+  const formatPctLocal = (value: number) =>
+    `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+
+  if (item.percentualDoTotal >= 40) {
+    insights.push(
+      `Concentra ${formatPctLocal(item.percentualDoTotal)} dos leads do período filtrado.`,
+    );
+  }
+
+  if (item.taxaIndefinida >= 50 && item.leads >= 10) {
+    insights.push('Muitos leads sem qualificação — leitura de qualidade limitada.');
+  }
+
+  if (item.leads >= 50 && item.taxaAtendimento < 15) {
+    insights.push('Alto volume, mas baixo avanço para atendimento comercial.');
+  }
+
+  if (item.atendimento >= 10 && item.visitas === 0) {
+    insights.push('Há atendimento registrado, mas nenhuma visita no período.');
+  }
+
+  if (item.percentual61Mais >= 40 && item.emAberto >= 20) {
+    insights.push('Base envelhecida: muitos leads em aberto há mais de 61 dias.');
+  }
+
+  const totalOrigem = Object.values(item.origem).reduce((sum, value) => sum + value, 0);
+  if (totalOrigem > 0 && calcPercentage(item.origem.direto, totalOrigem) >= 70) {
+    insights.push('Mais de 70% dos leads aparecem como Direto — verifique UTMs.');
+  }
+
+  if (item.principalGargalo !== 'Sem gargalo crítico') {
+    insights.push(`Principal gargalo: ${item.principalGargalo}.`);
+  }
+
+  return insights.slice(0, 5);
+}

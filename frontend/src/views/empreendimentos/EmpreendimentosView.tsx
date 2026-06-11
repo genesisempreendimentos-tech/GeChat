@@ -1,28 +1,17 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { EmpreendimentoComparativoChart } from '@/components/empreendimentos/EmpreendimentoComparativoChart';
 import { EmpreendimentoDestaqueCards } from '@/components/empreendimentos/EmpreendimentoDestaqueCards';
-import { EmpreendimentoDetalhadaTable } from '@/components/empreendimentos/EmpreendimentoDetalhadaTable';
-import { EmpreendimentoInsightsCard } from '@/components/empreendimentos/EmpreendimentoInsightsCard';
-import { EmpreendimentoMaturacaoDetalhadaTable } from '@/components/empreendimentos/EmpreendimentoMaturacaoDetalhadaTable';
-import { EmpreendimentoRankingTable } from '@/components/empreendimentos/EmpreendimentoRankingTable';
+import { EmpreendimentoDetailPanel } from '@/components/empreendimentos/EmpreendimentoDetailPanel';
+import { EmpreendimentoPickerGrid } from '@/components/empreendimentos/EmpreendimentoPickerGrid';
 import { EmpreendimentoResumoCards } from '@/components/empreendimentos/EmpreendimentoResumoCards';
-import { GargalosPorEmpreendimentoTable } from '@/components/empreendimentos/GargalosPorEmpreendimentoTable';
-import { OrigemPorEmpreendimentoTable } from '@/components/empreendimentos/OrigemPorEmpreendimentoTable';
-import { QualidadePorEmpreendimentoTable } from '@/components/empreendimentos/QualidadePorEmpreendimentoTable';
 import { LeadsLoadingProgress } from '@/components/LeadsLoadingProgress';
 import { MotionReveal } from '@/components/motion/AppMotion';
 import {
-  buildEmpreendimentoInsights,
-  calcPercentage,
   computeEmpreendimentoDestaques,
   computeEmpreendimentoResumoCards,
   hasLeadsSemEmpreendimento,
-  toGargaloRows,
-  toOrigemRows,
-  toQualidadeRows,
 } from '@/lib/empreendimentosMetrics';
 import { filterMetricsForEmpreendimentoSelection, type EmpreendimentosFilters } from '@/lib/empreendimentosFilters';
 import { useLeadsData } from '@/hooks/useLeadsData';
@@ -33,6 +22,7 @@ export type EmpreendimentosViewProps = {
 
 export function EmpreendimentosView({ filtros }: EmpreendimentosViewProps) {
   const { rows: allRows, loading, progress, error } = useLeadsData();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { filteredRows, metrics } = useMemo(
     () => filterMetricsForEmpreendimentoSelection(allRows, filtros),
@@ -41,24 +31,26 @@ export function EmpreendimentosView({ filtros }: EmpreendimentosViewProps) {
 
   const resumoCards = useMemo(() => computeEmpreendimentoResumoCards(metrics), [metrics]);
   const destaques = useMemo(() => computeEmpreendimentoDestaques(metrics), [metrics]);
-  const qualidadeRows = useMemo(() => toQualidadeRows(metrics), [metrics]);
-  const gargaloRows = useMemo(() => toGargaloRows(metrics), [metrics]);
-  const origemRows = useMemo(() => toOrigemRows(metrics), [metrics]);
-  const insights = useMemo(() => buildEmpreendimentoInsights(metrics), [metrics]);
+
+  const selectedMetric = useMemo(
+    () => metrics.find((m) => m.empreendimentoId === selectedId) ?? null,
+    [metrics, selectedId],
+  );
+
+  useEffect(() => {
+    setSelectedId(null);
+  }, [filtros]);
+
+  useEffect(() => {
+    if (selectedId && !selectedMetric) {
+      setSelectedId(null);
+    }
+  }, [selectedId, selectedMetric]);
 
   const showSemEmpreendimento = useMemo(
     () => hasLeadsSemEmpreendimento(filteredRows),
     [filteredRows],
   );
-
-  const showDiretoAlert = useMemo(() => {
-    if (!metrics.length) return false;
-    const diretoAlto = metrics.filter((m) => {
-      const total = Object.values(m.origem).reduce((a, b) => a + b, 0);
-      return total > 0 && calcPercentage(m.origem.direto, total) >= 70;
-    });
-    return diretoAlto.length >= Math.ceil(metrics.length / 2);
-  }, [metrics]);
 
   if (loading) {
     return <LeadsLoadingProgress progress={progress} />;
@@ -80,6 +72,15 @@ export function EmpreendimentosView({ filtros }: EmpreendimentosViewProps) {
     );
   }
 
+  if (selectedMetric) {
+    return (
+      <EmpreendimentoDetailPanel
+        metric={selectedMetric}
+        onBack={() => setSelectedId(null)}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       {showSemEmpreendimento ? (
@@ -94,39 +95,20 @@ export function EmpreendimentosView({ filtros }: EmpreendimentosViewProps) {
       </MotionReveal>
 
       <MotionReveal index={1}>
-        <EmpreendimentoDestaqueCards destaques={destaques} />
+        <EmpreendimentoDestaqueCards
+          destaques={destaques}
+          onSelect={(id) => {
+            if (id) setSelectedId(id);
+          }}
+        />
       </MotionReveal>
 
       <MotionReveal index={2}>
-        <EmpreendimentoInsightsCard insights={insights} />
-      </MotionReveal>
-
-      <MotionReveal index={3}>
-        <EmpreendimentoRankingTable rows={metrics} />
-      </MotionReveal>
-
-      <MotionReveal index={4}>
-        <EmpreendimentoComparativoChart metrics={metrics} />
-      </MotionReveal>
-
-      <MotionReveal index={5}>
-        <QualidadePorEmpreendimentoTable rows={qualidadeRows} />
-      </MotionReveal>
-
-      <MotionReveal index={6}>
-        <GargalosPorEmpreendimentoTable rows={gargaloRows} />
-      </MotionReveal>
-
-      <MotionReveal index={7}>
-        <EmpreendimentoMaturacaoDetalhadaTable rows={metrics.filter((m) => m.emAberto > 0)} />
-      </MotionReveal>
-
-      <MotionReveal index={8}>
-        <OrigemPorEmpreendimentoTable rows={origemRows} showDiretoAlert={showDiretoAlert} />
-      </MotionReveal>
-
-      <MotionReveal index={9}>
-        <EmpreendimentoDetalhadaTable rows={metrics} />
+        <EmpreendimentoPickerGrid
+          metrics={metrics}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
       </MotionReveal>
     </div>
   );

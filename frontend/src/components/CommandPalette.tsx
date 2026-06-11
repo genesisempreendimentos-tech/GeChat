@@ -8,7 +8,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { LayoutDashboard, BarChart3, FileBarChart, Users, UserCircle, Settings, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, BarChart3, FileBarChart, Users, UserCircle, Settings, ExternalLink, Award } from 'lucide-react';
 import { BRAND_LOGO_SRC, GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
 
 export function CommandPalette() {
@@ -50,6 +50,10 @@ export function CommandPalette() {
           <CommandItem onSelect={() => runCommand(() => navigate('/dados'))}>
             <BarChart3 className="mr-2 h-4 w-4" />
             <span>Análise</span>
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => navigate('/dados/qualidade'))}>
+            <Award className="mr-2 h-4 w-4" />
+            <span>Qualidade</span>
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/leads'))}>
             <Users className="mr-2 h-4 w-4" />
