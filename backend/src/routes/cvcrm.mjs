@@ -3,6 +3,7 @@ import { getBearerJwt, resolveUserFromJwt } from '../middleware/authSupabase.mjs
 import {
   getCvcrmPendingCount,
   getCvcrmSyncStatus,
+  syncAllChangedToday,
   syncPendingLeads,
 } from '../services/cvcrmBatchSync.mjs';
 
@@ -86,6 +87,19 @@ export function createCvcrmRouter() {
     } catch (err) {
       console.error('[cvcrm/sync-now]', err);
       res.status(500).json({ error: err.message ?? 'Erro ao sincronizar leads do CVCRM.' });
+    }
+  });
+
+  router.post('/sync-all', async (_req, res) => {
+    try {
+      const result = await syncAllChangedToday();
+      if (result.skipped) {
+        return res.status(200).json({ skipped: true, message: result.message });
+      }
+      res.json(result);
+    } catch (err) {
+      console.error('[cvcrm/sync-all]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao baixar leads do dia no CVCRM.' });
     }
   });
 

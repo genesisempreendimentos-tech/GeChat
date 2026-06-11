@@ -52,6 +52,14 @@ export type CvcrmSyncNowResponse = {
   skipped?: boolean;
 };
 
+export type CvcrmSyncAllResponse = {
+  processed?: number;
+  total_baixados?: number;
+  errors?: number;
+  message?: string;
+  skipped?: boolean;
+};
+
 export const cvcrmService = {
   async getSyncStatus() {
     return apiFetch<CvcrmSyncStatusResponse>('/api/cvcrm/sync-status');
@@ -63,5 +71,9 @@ export const cvcrmService = {
 
   async syncNow() {
     return apiFetch<CvcrmSyncNowResponse>('/api/cvcrm/sync-now', { method: 'POST' });
+  },
+
+  async syncAll() {
+    return apiFetch<CvcrmSyncAllResponse>('/api/cvcrm/sync-all', { method: 'POST' });
   },
 };

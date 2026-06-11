@@ -697,6 +697,84 @@ export async function syncPendingLeads({ skipThrottle = false } = {}) {
   }
 }
 
+export async function syncAllChangedToday() {
+  const neonUrl = getNeonLeadsUrl();
+  if (!neonUrl) {
+    return { processed: 0, total_baixados: 0, errors: 1, message: 'Neon não configurado' };
+  }
+
+  if (batchSyncInFlight) {
+    return {
+      processed: 0,
+      total_baixados: 0,
+      skipped: true,
+      message: 'Sincronização em andamento, aguarde',
+    };
+  }
+
+  batchSyncInFlight = true;
+  lastBatchSyncAt = Date.now();
+
+  const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+  try {
+    await client.connect();
+
+    const allLeads = await fetchAllCvdwLeadsToday();
+    let processed = 0;
+    let errors = 0;
+
+    for (const cvcrmLead of allLeads) {
+      const idlead = String(cvcrmLead?.idlead ?? '');
+      if (!idlead) {
+        errors += 1;
+        continue;
+      }
+
+      try {
+        const routed = await applyCvcrmLeadRouted(client, idlead, cvcrmLead);
+        processed += 1;
+        console.log(
+          `[cvcrm/batch-all] idlead=${idlead} → ${routed.action} em ${routed.table}`,
+        );
+      } catch (err) {
+        errors += 1;
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[cvcrm/batch-all] Erro ao processar idlead=${idlead}:`, message);
+      }
+    }
+
+    const summary = {
+      processed,
+      total_baixados: allLeads.length,
+      errors,
+      sync_type: 'all_changed_today',
+    };
+
+    await logBatchSync(client, summary);
+    await persistCvcrmSyncStatus(client, processed);
+
+    if (processed > 0) {
+      try {
+        const syncResult = await syncLeadsFromSources({ force: true });
+        console.log(
+          `[cvcrm/batch-all] leads_* → leads: ${syncResult.synced} sincronizado(s)`,
+        );
+      } catch (err) {
+        console.error('[cvcrm/batch-all] Falha ao sincronizar leads unificados:', err?.message ?? err);
+      }
+    }
+
+    console.log(
+      `[cvcrm/batch-all] concluído: processed=${processed}, total_baixados=${allLeads.length}, errors=${errors}`,
+    );
+
+    return { processed, total_baixados: allLeads.length, errors };
+  } finally {
+    batchSyncInFlight = false;
+    await client.end().catch(() => {});
+  }
+}
+
 function scheduleDailyBatchSync() {
   setInterval(() => {
     const now = new Date();
