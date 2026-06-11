@@ -27,6 +27,7 @@ import { Quotes } from '@/components/ui/quotes';
 import { AppBrandControl } from '@/components/layout/AppBrandHeader';
 import { SIDEBAR_BRAND_WIDTH } from '@/lib/sidebarLayout';
 import { GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
+import { CvcrmSyncStatusIndicator } from '@/components/cvcrm/CvcrmSyncStatusIndicator';
 
 function TopbarActions() {
   const { user, logout } = useAuthStore();
@@ -185,10 +186,11 @@ export default function Topbar() {
         <AppBrandControl />
       </div>
 
-      <div className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4 md:justify-end md:gap-4 md:px-6">
+      <div className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4 md:gap-4 md:px-6">
         <div className="shrink-0 md:hidden">
           <AppBrandControl />
         </div>
+        <CvcrmSyncStatusIndicator className="hidden min-w-0 flex-1 text-center sm:block" />
         <TopbarActions />
       </div>
     </header>

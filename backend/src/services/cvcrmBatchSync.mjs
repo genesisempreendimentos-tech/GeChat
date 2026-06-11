@@ -474,6 +474,52 @@ async function logBatchSync(client, summary) {
   }
 }
 
+async function persistCvcrmSyncStatus(client, processed) {
+  try {
+    await client.query(
+      `UPDATE cvcrm_sync_status
+       SET last_sync_at = now(),
+           last_processed = $1
+       WHERE id = 1`,
+      [processed],
+    );
+  } catch (err) {
+    if (err?.code !== '42P01') {
+      console.error('[cvcrm/batch] Erro ao gravar cvcrm_sync_status:', err?.message ?? err);
+    }
+  }
+}
+
+export async function getCvcrmSyncStatus() {
+  const neonUrl = getNeonLeadsUrl();
+  if (!neonUrl) {
+    return { last_sync_at: null, last_processed: 0 };
+  }
+
+  const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+  try {
+    await client.connect();
+    const result = await client.query(
+      `SELECT last_sync_at, last_processed FROM cvcrm_sync_status WHERE id = 1`,
+    );
+    if (result.rowCount === 0) {
+      return { last_sync_at: null, last_processed: 0 };
+    }
+    const row = result.rows[0];
+    return {
+      last_sync_at: row.last_sync_at ? new Date(row.last_sync_at).toISOString() : null,
+      last_processed: Number(row.last_processed) || 0,
+    };
+  } catch (err) {
+    if (err?.code === '42P01') {
+      return { last_sync_at: null, last_processed: 0 };
+    }
+    throw err;
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
 export async function getCvcrmPendingCount() {
   const neonUrl = getNeonLeadsUrl();
   if (!neonUrl) return 0;
@@ -627,6 +673,7 @@ export async function syncPendingLeads({ skipThrottle = false } = {}) {
     };
 
     await logBatchSync(client, summary);
+    await persistCvcrmSyncStatus(client, processed);
 
     if (processed > 0) {
       try {

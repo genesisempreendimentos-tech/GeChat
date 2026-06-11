@@ -2,6 +2,7 @@ import express from 'express';
 import { getBearerJwt, resolveUserFromJwt } from '../middleware/authSupabase.mjs';
 import {
   getCvcrmPendingCount,
+  getCvcrmSyncStatus,
   syncPendingLeads,
 } from '../services/cvcrmBatchSync.mjs';
 
@@ -51,6 +52,16 @@ export function createCvcrmRouter() {
   const router = express.Router();
 
   router.use(requireAuth);
+
+  router.get('/sync-status', async (_req, res) => {
+    try {
+      const status = await getCvcrmSyncStatus();
+      res.json(status);
+    } catch (err) {
+      console.error('[cvcrm/sync-status]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao consultar status do sync CVCRM.' });
+    }
+  });
 
   router.get('/pending-count', async (_req, res) => {
     try {

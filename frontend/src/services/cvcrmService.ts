@@ -22,6 +22,27 @@ export type CvcrmPendingCountResponse = {
   pending: number;
 };
 
+export type CvcrmSyncStatusResponse = {
+  last_sync_at: string | null;
+  last_processed: number;
+};
+
+export function formatCvcrmSyncStatusLabel(
+  lastSyncAt: string | null,
+  lastProcessed: number,
+): string {
+  if (!lastSyncAt) return 'Nunca sincronizado';
+  const date = new Date(lastSyncAt);
+  if (Number.isNaN(date.getTime())) return 'Nunca sincronizado';
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const leadLabel =
+    lastProcessed === 1 ? '1 lead atualizado' : `${lastProcessed} leads atualizados`;
+  return `${leadLabel} às ${hh}h${mm}m`;
+}
+
+export const CVCRM_SYNC_STATUS_REFRESH_EVENT = 'cvcrm-sync-status-refresh';
+
 export type CvcrmSyncNowResponse = {
   processed?: number;
   not_found?: number;
@@ -32,6 +53,10 @@ export type CvcrmSyncNowResponse = {
 };
 
 export const cvcrmService = {
+  async getSyncStatus() {
+    return apiFetch<CvcrmSyncStatusResponse>('/api/cvcrm/sync-status');
+  },
+
   async getPendingCount() {
     return apiFetch<CvcrmPendingCountResponse>('/api/cvcrm/pending-count');
   },

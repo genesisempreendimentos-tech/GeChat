@@ -3,7 +3,7 @@ import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { cvcrmService } from '@/services/cvcrmService';
+import { CVCRM_SYNC_STATUS_REFRESH_EVENT, cvcrmService } from '@/services/cvcrmService';
 
 type CvcrmPendingSyncButtonProps = {
   onSynced?: () => void;
@@ -61,6 +61,7 @@ export function CvcrmPendingSyncButton({ onSynced, className }: CvcrmPendingSync
     } finally {
       setSyncing(false);
       await loadCount();
+      window.dispatchEvent(new CustomEvent(CVCRM_SYNC_STATUS_REFRESH_EVENT));
     }
   };
 

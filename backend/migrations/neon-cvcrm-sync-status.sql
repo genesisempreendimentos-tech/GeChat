@@ -1,5 +1,9 @@
--- Espelha cvcrm_sync_status na tabela unificada lida pelo GeLeads
-ALTER TABLE leads
-  ADD COLUMN IF NOT EXISTS cvcrm_sync_status TEXT DEFAULT 'pending';
+-- Último sync em lote CVCRM → Neon (uma linha singleton)
+CREATE TABLE IF NOT EXISTS cvcrm_sync_status (
+  id             INT PRIMARY KEY DEFAULT 1,
+  last_sync_at   TIMESTAMPTZ,
+  last_processed INT DEFAULT 0,
+  CONSTRAINT single_row CHECK (id = 1)
+);
 
-CREATE INDEX IF NOT EXISTS leads_cvcrm_sync_status_idx ON leads (cvcrm_sync_status);
+INSERT INTO cvcrm_sync_status (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
