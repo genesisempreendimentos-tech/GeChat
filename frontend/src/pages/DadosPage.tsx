@@ -11,6 +11,7 @@ import { FiltrosPanelMotion } from '@/components/dados/FiltrosPanelMotion';
 import { useLeadsFilters } from '@/hooks/useLeadsFilters';
 import { DadosView } from '@/views/dados/DadosView';
 import { useLeadsData } from '@/hooks/useLeadsData';
+import { CvcrmPendingSyncButton } from '@/components/cvcrm/CvcrmPendingSyncButton';
 
 export default function DadosPage() {
   const {
@@ -24,7 +25,7 @@ export default function DadosPage() {
     handleMetricaSelect,
   } = useLeadsFilters();
 
-  const { rows } = useLeadsData();
+  const { rows, refreshFromDatabase } = useLeadsData();
 
   const filterOptions = useMemo(
     () => collectDadosFilterOptions(rows),
@@ -38,15 +39,18 @@ export default function DadosPage() {
         title="Análise"
         description="Métricas, distribuição e maturação dos leads no período"
         button={
-          <Button
-            type="button"
-            variant={filtrosPanelAberto ? 'default' : 'outline'}
-            className="rounded-xl gap-2"
-            onClick={() => setFiltrosPanelAberto((open) => !open)}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            Filtros
-          </Button>
+          <>
+            <CvcrmPendingSyncButton onSynced={() => void refreshFromDatabase()} />
+            <Button
+              type="button"
+              variant={filtrosPanelAberto ? 'default' : 'outline'}
+              className="rounded-xl gap-2"
+              onClick={() => setFiltrosPanelAberto((open) => !open)}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filtros
+            </Button>
+          </>
         }
       />
       <div className="mt-8">

@@ -12,6 +12,7 @@ import pg from 'pg';
 import { getBearerJwt, resolveUserFromJwt } from './authSupabase.mjs';
 import { createAuthRouter } from './routes/auth.mjs';
 import { createLeadsRouter, createCvcrmWebhookRouter } from './routes/leads.mjs';
+import { createCvcrmRouter } from './routes/cvcrm.mjs';
 import { syncLeadsFromSources } from './services/leadSourceSync.mjs';
 import {
   resolveNeonWorkspaceFilter,
@@ -77,6 +78,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', createAuthRouter());
 app.use('/api/webhooks', createCvcrmWebhookRouter());
+app.use('/api/cvcrm', createCvcrmRouter());
 app.use('/api/leads', createLeadsRouter());
 
 syncLeadsFromSources({ force: true })
