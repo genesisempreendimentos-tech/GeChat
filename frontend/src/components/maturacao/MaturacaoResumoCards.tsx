@@ -1,85 +1,103 @@
 import {
-  AlertTriangle,
-  Clock,
-  Hourglass,
-  PauseCircle,
-  TrendingUp,
+  ArrowDown,
+  ArrowUp,
+  CalendarCheck,
+  HandCoins,
+  MessageSquare,
   Users,
 } from 'lucide-react';
+import { MotionFlipNumber } from '@/components/motion/AppMotion';
 import { InfoBox } from '@/components/ui/infoboxes';
-import type { MaturacaoResumoCards } from '@/lib/dadosMaturacao';
+import type {
+  MaturacaoResumoCards as MaturacaoResumoCardsData,
+  MaturacaoResumoMetric,
+} from '@/lib/dadosMaturacao';
+import { LEADS_METRIC_TOOLTIPS } from '@/lib/leadsMetricTooltips';
+import { cn } from '@/lib/utils';
 
 type MaturacaoResumoCardsProps = {
-  cards: MaturacaoResumoCards;
+  cards: MaturacaoResumoCardsData;
 };
 
-function formatDias(value: number | null): string {
-  if (value === null) return '—';
-  return value === 1 ? '1 dia' : `${value} dias`;
+function formatPct(value: number): string {
+  return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+}
+
+function MetricTrend({ metric }: { metric: MaturacaoResumoMetric }) {
+  const { pct, trend } = metric;
+  const up = trend === 'up';
+  const down = trend === 'down';
+
+  if (trend === 'none') {
+    return (
+      <span className="shrink-0 rounded-full bg-muted/50 px-2 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+        <MotionFlipNumber value={formatPct(pct)} />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums',
+        up && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+        down && 'bg-red-500/15 text-red-600 dark:text-red-400',
+        trend === 'flat' && 'bg-muted/50 text-muted-foreground',
+      )}
+    >
+      <MotionFlipNumber value={formatPct(pct)} />
+      {up ? <ArrowUp className="h-3 w-3 shrink-0" strokeWidth={2.5} /> : null}
+      {down ? <ArrowDown className="h-3 w-3 shrink-0" strokeWidth={2.5} /> : null}
+      {up ? 'Subiu' : down ? 'Desceu' : 'Manteve'}
+    </span>
+  );
+}
+
+function MetricValue({ metric }: { metric: MaturacaoResumoMetric }) {
+  return (
+    <span className="inline-flex w-full min-w-0 items-center justify-between gap-2 text-base font-normal">
+      <span className="text-2xl font-bold leading-none tracking-tight text-foreground">
+        <MotionFlipNumber value={metric.count.toLocaleString('pt-BR')} />
+      </span>
+      <MetricTrend metric={metric} />
+    </span>
+  );
 }
 
 export function MaturacaoResumoCards({ cards }: MaturacaoResumoCardsProps) {
-  const highlight61 = cards.dias61Plus > 0 && cards.leadsEmAberto > 0
-    && cards.dias61Plus / cards.leadsEmAberto >= 0.3;
-
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <InfoBox
-        title="Leads em aberto"
-        value={cards.leadsEmAberto.toLocaleString('pt-BR')}
+        title="Leads no período"
+        value={<MetricValue metric={cards.leads} />}
         icon={<Users className="h-4 w-4" />}
         cor="blue"
-        infoTooltip="Leads que ainda não concluíram o funil (venda ou perda)."
+        infoTooltip={LEADS_METRIC_TOOLTIPS.leads}
         motionIndex={0}
       />
       <InfoBox
-        title="31+ dias"
-        value={cards.dias31Plus.toLocaleString('pt-BR')}
-        icon={<Hourglass className="h-4 w-4" />}
-        cor="amber"
-        infoTooltip="Leads em aberto com idade igual ou maior que 31 dias."
+        title="Visitas no período"
+        value={<MetricValue metric={cards.visitas} />}
+        icon={<CalendarCheck className="h-4 w-4" />}
+        cor="violet"
+        infoTooltip={LEADS_METRIC_TOOLTIPS.visitasAgendadas}
         motionIndex={1}
       />
       <InfoBox
-        title="61+ dias"
-        value={cards.dias61Plus.toLocaleString('pt-BR')}
-        icon={<AlertTriangle className="h-4 w-4" />}
+        title="Atendimento no período"
+        value={<MetricValue metric={cards.atendimento} />}
+        icon={<MessageSquare className="h-4 w-4" />}
         cor="amber"
-        infoTooltip="Leads críticos ou muito antigos ainda em acompanhamento."
-        className={highlight61 ? 'ring-2 ring-amber-500/40' : undefined}
+        infoTooltip={LEADS_METRIC_TOOLTIPS.atendimentoCorretor}
         motionIndex={2}
       />
       <InfoBox
-        title="Tempo até visita"
-        value={formatDias(cards.tempoMedioVisita)}
-        icon={<TrendingUp className="h-4 w-4" />}
-        cor="violet"
-        infoTooltip={
-          cards.tempoMedioVisita === null
-            ? 'Sem registros suficientes de visitas para calcular a média.'
-            : 'Média de dias entre captação e visita.'
-        }
+        title="Vendas no período"
+        value={<MetricValue metric={cards.vendas} />}
+        icon={<HandCoins className="h-4 w-4" />}
+        cor="emerald"
+        infoTooltip={LEADS_METRIC_TOOLTIPS.vendas}
         motionIndex={3}
-      />
-      <InfoBox
-        title="Tempo até crédito"
-        value={formatDias(cards.tempoMedioCredito)}
-        icon={<Clock className="h-4 w-4" />}
-        cor="violet"
-        infoTooltip={
-          cards.tempoMedioCredito === null
-            ? 'Sem registros suficientes de análise de crédito para calcular a média.'
-            : 'Média de dias entre captação e entrada em análise de crédito.'
-        }
-        motionIndex={4}
-      />
-      <InfoBox
-        title="Leads parados"
-        value={cards.leadsParados.toLocaleString('pt-BR')}
-        icon={<PauseCircle className="h-4 w-4" />}
-        cor="muted"
-        infoTooltip="Leads em aberto sem mudança de etapa há 30 dias ou mais."
-        motionIndex={5}
       />
     </div>
   );

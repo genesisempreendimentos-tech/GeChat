@@ -120,7 +120,14 @@ export function InfoBox({
         ) : null}
       </div>
       <div className="flex items-center justify-between gap-2">
-        <p className="inline-flex min-h-[1em] items-center text-2xl font-bold leading-none tracking-tight text-foreground">
+        <div
+          className={cn(
+            'flex min-h-[1em] min-w-0 items-center',
+            typeof value === 'number' || typeof value === 'string'
+              ? 'text-2xl font-bold leading-none tracking-tight text-foreground'
+              : 'w-full',
+          )}
+        >
           {typeof value === 'number' || typeof value === 'string' ? (
             animateValue ? (
               <MotionFlipNumber value={value} />
@@ -130,7 +137,7 @@ export function InfoBox({
           ) : (
             value
           )}
-        </p>
+        </div>
         {showDelta ? (
           <span
             className={cn(

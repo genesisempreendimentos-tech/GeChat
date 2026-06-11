@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
 import {
+  buildMaturacaoFiltersFromFaixa,
   defaultMaturacaoFilters,
-  periodoRapidoToRange,
+  type MaturacaoFaixaTemporal,
   type MaturacaoFilters,
-  type MaturacaoPeriodoRapido,
 } from '@/lib/maturacaoFilters';
 
 export function useMaturacaoFilters(initial?: MaturacaoFilters) {
@@ -23,18 +23,11 @@ export function useMaturacaoFilters(initial?: MaturacaoFilters) {
     setAppliedFiltros(next);
   }, []);
 
-  const handlePeriodoRapido = useCallback((rapido: MaturacaoPeriodoRapido) => {
+  const handleFaixaTemporal = useCallback((faixa: Exclude<MaturacaoFaixaTemporal, 'custom'>) => {
     setFiltros((prev) => {
-      if (rapido === 'custom') {
-        return { ...prev, periodoRapido: rapido };
-      }
-      const range = periodoRapidoToRange(rapido);
-      return {
-        ...prev,
-        periodoRapido: rapido,
-        dataInicial: range.from,
-        dataFinal: range.to,
-      };
+      const next = buildMaturacaoFiltersFromFaixa(faixa, prev);
+      setAppliedFiltros(next);
+      return next;
     });
   }, []);
 
@@ -46,6 +39,6 @@ export function useMaturacaoFilters(initial?: MaturacaoFilters) {
     appliedFiltros,
     handleApplyFiltros,
     handleClearFiltros,
-    handlePeriodoRapido,
+    handleFaixaTemporal,
   };
 }

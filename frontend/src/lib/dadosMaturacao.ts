@@ -8,7 +8,7 @@ import {
   isVisitaAgendada,
   rowHasStageDates,
 } from '@/lib/leadStage';
-import type { LeadMetricsRow } from '@/lib/leadsMetrics';
+import { computeLeadsInfoboxStats, type LeadMetricsRow } from '@/lib/leadsMetrics';
 import type { LeadRow } from '@/lib/leadRow';
 import { leadRespondeuFormularioPerfil } from '@/rules/qualifyLead';
 import { resolveEmpreendimentoLabel } from '@/lib/leadEmpreendimento';
@@ -49,13 +49,19 @@ export type CreditoSituacao = {
 
 export type MaturationStatus = 'novo' | 'em_maturacao' | 'atencao' | 'critico' | 'concluido';
 
+export type MaturacaoResumoTrend = 'up' | 'down' | 'flat' | 'none';
+
+export type MaturacaoResumoMetric = {
+  count: number;
+  pct: number;
+  trend: MaturacaoResumoTrend;
+};
+
 export type MaturacaoResumoCards = {
-  leadsEmAberto: number;
-  dias31Plus: number;
-  dias61Plus: number;
-  tempoMedioVisita: number | null;
-  tempoMedioCredito: number | null;
-  leadsParados: number;
+  leads: MaturacaoResumoMetric;
+  visitas: MaturacaoResumoMetric;
+  atendimento: MaturacaoResumoMetric;
+  vendas: MaturacaoResumoMetric;
 };
 
 export type GargaloEtapaRow = {
@@ -365,38 +371,67 @@ export function aggregateCreditoSituacao(rows: LeadMetricsRow[]): CreditoSituaca
   };
 }
 
-export function computeMaturacaoResumoCards(rows: LeadMetricsRow[]): MaturacaoResumoCards {
-  const now = new Date();
-  let leadsEmAberto = 0;
-  let dias31Plus = 0;
-  let dias61Plus = 0;
-  let leadsParados = 0;
-  const visitaSamples: number[] = [];
-  const creditoSamples: number[] = [];
+function maturacaoPct(part: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.round((part / total) * 1000) / 10;
+}
 
-  for (const row of rows) {
-    if (!isLeadEmAberto(row)) continue;
-    leadsEmAberto += 1;
-    const idade = getLeadAgeDays(row, now);
-    if (idade >= 31) dias31Plus += 1;
-    if (idade >= 61) dias61Plus += 1;
-    if (isLeadParado(row, now)) leadsParados += 1;
+function volumeGrowthPct(current: number, previous: number): number {
+  if (previous <= 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
 
-    const visita = row.dataVisitaRealizada ?? row.dataVisitaAgendada;
-    const dVisita = avgDaysBetween(row.dataHora, visita);
-    if (dVisita !== null) visitaSamples.push(dVisita);
+function compareTrend(current: number, previous: number | null): MaturacaoResumoTrend {
+  if (previous === null) return 'none';
+  if (current > previous) return 'up';
+  if (current < previous) return 'down';
+  return 'flat';
+}
 
-    const dCredito = avgDaysBetween(row.dataHora, row.dataAnaliseCreditoInicio);
-    if (dCredito !== null) creditoSamples.push(dCredito);
-  }
+function buildResumoMetric(
+  count: number,
+  pct: number,
+  compareValue: number | null,
+): MaturacaoResumoMetric {
+  return {
+    count,
+    pct,
+    trend: compareTrend(pct, compareValue),
+  };
+}
+
+export function computeMaturacaoResumoCards(
+  rows: LeadMetricsRow[],
+  previousRows?: LeadMetricsRow[] | null,
+): MaturacaoResumoCards {
+  const stats = computeLeadsInfoboxStats(rows);
+  const { leads, visitasAgendadas, atendimentoCorretor, vendas } = stats;
+
+  const pctVisitas = maturacaoPct(visitasAgendadas, leads);
+  const pctAtendimento = maturacaoPct(atendimentoCorretor, leads);
+  const pctVendas = maturacaoPct(vendas, leads);
+
+  const previous = previousRows ? computeMaturacaoResumoCards(previousRows) : null;
+
+  const leadsGrowth = previous ? volumeGrowthPct(leads, previous.leads.count) : null;
 
   return {
-    leadsEmAberto,
-    dias31Plus,
-    dias61Plus,
-    tempoMedioVisita: averageDays(visitaSamples),
-    tempoMedioCredito: averageDays(creditoSamples),
-    leadsParados,
+    leads: {
+      count: leads,
+      pct: leadsGrowth !== null ? Math.abs(leadsGrowth) : leads > 0 ? 100 : 0,
+      trend: previous ? compareTrend(leads, previous.leads.count) : 'none',
+    },
+    visitas: buildResumoMetric(
+      visitasAgendadas,
+      pctVisitas,
+      previous?.visitas.pct ?? null,
+    ),
+    atendimento: buildResumoMetric(
+      atendimentoCorretor,
+      pctAtendimento,
+      previous?.atendimento.pct ?? null,
+    ),
+    vendas: buildResumoMetric(vendas, pctVendas, previous?.vendas.pct ?? null),
   };
 }
 

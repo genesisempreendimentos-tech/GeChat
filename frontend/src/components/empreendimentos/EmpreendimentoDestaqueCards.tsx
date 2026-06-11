@@ -1,4 +1,5 @@
 import { AlertTriangle, Award, BarChart3, TrendingUp } from 'lucide-react';
+import { EmpreendimentoBrandIcon } from '@/components/empreendimentos/EmpreendimentoBrandIcon';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { EmpreendimentoDestaque } from '@/lib/empreendimentosMetrics';
 
@@ -23,10 +24,18 @@ export function EmpreendimentoDestaqueCards({ destaques }: { destaques: Empreend
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="truncate font-semibold text-foreground" title={item.empreendimento}>
-                {item.empreendimento}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">{item.detalhe}</p>
+              <div className="flex items-center gap-3">
+                <EmpreendimentoBrandIcon
+                  pagina={item.empreendimentoId}
+                  name={item.empreendimento}
+                />
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-foreground" title={item.empreendimento}>
+                    {item.empreendimento}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.detalhe}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         );

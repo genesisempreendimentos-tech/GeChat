@@ -1,16 +1,16 @@
-import { subDays, subMonths, format } from 'date-fns';
+import { subDays, format } from 'date-fns';
 import { filterDadosRows, type DadosFilterOptions } from '@/lib/dadosFilters';
+import { getLeadAgeDays, getMaturationStatus, type MaturationStatus } from '@/lib/dadosMaturacao';
 import { getLeadEtapaAtual, type LeadEtapaComercial } from '@/lib/leadStage';
 import { resolveEmpreendimentoPagina } from '@/lib/leadEmpreendimento';
 import type { LeadRow } from '@/lib/leadRow';
-import { getMaturationStatus, type MaturationStatus } from '@/lib/dadosMaturacao';
 
-export type MaturacaoPeriodoRapido = '7d' | '30d' | '3m' | '6m' | '12m' | 'custom';
+export type MaturacaoFaixaTemporal = 'ate_90' | '90_180' | '180_360' | '360_plus' | 'custom';
 
 export type MaturacaoFilters = {
   dataInicial: string;
   dataFinal: string;
-  periodoRapido: MaturacaoPeriodoRapido;
+  faixaTemporal: MaturacaoFaixaTemporal;
   empreendimento: string;
   origem: string;
   etapaAtual: string;
@@ -32,50 +32,66 @@ export const MATURACAO_STATUS_OPTIONS: { value: MaturationStatus; label: string 
   { value: 'concluido', label: 'Concluído' },
 ];
 
-export const MATURACAO_PERIODO_RAPIDO_OPTIONS: { value: MaturacaoPeriodoRapido; label: string }[] = [
-  { value: '7d', label: '7 dias' },
-  { value: '30d', label: '30 dias' },
-  { value: '3m', label: '3 meses' },
-  { value: '6m', label: '6 meses' },
-  { value: '12m', label: '12 meses' },
-  { value: 'custom', label: 'Personalizado' },
+export const MATURACAO_FAIXA_TEMPORAL_OPTIONS: {
+  value: Exclude<MaturacaoFaixaTemporal, 'custom'>;
+  label: string;
+  subtitle: string;
+}[] = [
+  { value: 'ate_90', label: '3 meses até hoje', subtitle: '0 a 89 dias' },
+  { value: '90_180', label: '90 a 180 dias', subtitle: '3 a 6 meses' },
+  { value: '180_360', label: '180 a 360 dias', subtitle: '6 a 12 meses' },
+  { value: '360_plus', label: '360+ dias', subtitle: 'Mais de 1 ano' },
 ];
 
 function formatDateInput(d: Date): string {
   return format(d, 'yyyy-MM-dd');
 }
 
-export function periodoRapidoToRange(rapido: MaturacaoPeriodoRapido): { from: string; to: string } {
-  const to = new Date();
-  let from: Date;
-  switch (rapido) {
-    case '7d':
-      from = subDays(to, 7);
-      break;
-    case '30d':
-      from = subDays(to, 30);
-      break;
-    case '3m':
-      from = subMonths(to, 3);
-      break;
-    case '6m':
-      from = subMonths(to, 6);
-      break;
-    case '12m':
-      from = subMonths(to, 12);
-      break;
-    default:
-      return { from: '', to: '' };
+export function faixaTemporalToRange(
+  faixa: Exclude<MaturacaoFaixaTemporal, 'custom'>,
+): { from: string; to: string } {
+  const today = new Date();
+  switch (faixa) {
+    case 'ate_90':
+      return { from: formatDateInput(subDays(today, 89)), to: formatDateInput(today) };
+    case '90_180':
+      return {
+        from: formatDateInput(subDays(today, 179)),
+        to: formatDateInput(subDays(today, 90)),
+      };
+    case '180_360':
+      return {
+        from: formatDateInput(subDays(today, 359)),
+        to: formatDateInput(subDays(today, 180)),
+      };
+    case '360_plus':
+      return { from: '', to: formatDateInput(subDays(today, 360)) };
   }
-  return { from: formatDateInput(from), to: formatDateInput(to) };
 }
 
-export function defaultMaturacaoFilters(): MaturacaoFilters {
-  const { from, to } = periodoRapidoToRange('3m');
+export function matchesFaixaTemporal(
+  row: LeadRow,
+  faixa: Exclude<MaturacaoFaixaTemporal, 'custom'>,
+  now = new Date(),
+): boolean {
+  const age = getLeadAgeDays(row, now);
+  switch (faixa) {
+    case 'ate_90':
+      return age < 90;
+    case '90_180':
+      return age >= 90 && age < 180;
+    case '180_360':
+      return age >= 180 && age < 360;
+    case '360_plus':
+      return age >= 360;
+  }
+}
+
+function emptyMaturacaoFilters(): MaturacaoFilters {
   return {
-    dataInicial: from,
-    dataFinal: to,
-    periodoRapido: '3m',
+    dataInicial: '',
+    dataFinal: '',
+    faixaTemporal: 'custom',
     empreendimento: '',
     origem: '',
     etapaAtual: '',
@@ -83,6 +99,40 @@ export function defaultMaturacaoFilters(): MaturacaoFilters {
     statusMaturacao: '',
     responsavel: '',
   };
+}
+
+export function buildMaturacaoFiltersFromFaixa(
+  faixa: Exclude<MaturacaoFaixaTemporal, 'custom'>,
+  base?: Partial<MaturacaoFilters>,
+): MaturacaoFilters {
+  const range = faixaTemporalToRange(faixa);
+  return {
+    ...emptyMaturacaoFilters(),
+    ...base,
+    faixaTemporal: faixa,
+    dataInicial: range.from,
+    dataFinal: range.to,
+  };
+}
+
+export function defaultMaturacaoFilters(): MaturacaoFilters {
+  return buildMaturacaoFiltersFromFaixa('ate_90');
+}
+
+const FAIXA_TEMPORAL_ORDER: Exclude<MaturacaoFaixaTemporal, 'custom'>[] = [
+  'ate_90',
+  '90_180',
+  '180_360',
+  '360_plus',
+];
+
+export function getPreviousMaturacaoFaixa(
+  faixa: MaturacaoFaixaTemporal,
+): Exclude<MaturacaoFaixaTemporal, 'custom'> | null {
+  if (faixa === 'custom') return null;
+  const index = FAIXA_TEMPORAL_ORDER.indexOf(faixa);
+  if (index <= 0) return null;
+  return FAIXA_TEMPORAL_ORDER[index - 1] ?? null;
 }
 
 const ETAPA_LABELS: Record<LeadEtapaComercial, string> = {
@@ -128,9 +178,11 @@ export function collectMaturacaoFilterOptions(rows: LeadRow[]): MaturacaoFilterO
 }
 
 export function filterMaturacaoRows(rows: LeadRow[], filtros: MaturacaoFilters): LeadRow[] {
+  const useFaixa = filtros.faixaTemporal !== 'custom';
+
   return filterDadosRows(rows, {
-    dataInicial: filtros.dataInicial,
-    dataFinal: filtros.dataFinal,
+    dataInicial: useFaixa ? '' : filtros.dataInicial,
+    dataFinal: useFaixa ? '' : filtros.dataFinal,
     empreendimento: filtros.empreendimento,
     origem: filtros.origem,
     dispositivo: '',
@@ -138,6 +190,13 @@ export function filterMaturacaoRows(rows: LeadRow[], filtros: MaturacaoFilters):
     qualificacao: filtros.qualificacao,
     etapaAtual: filtros.etapaAtual,
   }).filter((row) => {
+    if (
+      useFaixa &&
+      filtros.faixaTemporal !== 'custom' &&
+      !matchesFaixaTemporal(row, filtros.faixaTemporal)
+    ) {
+      return false;
+    }
     if (filtros.statusMaturacao && getMaturationStatus(row) !== filtros.statusMaturacao) {
       return false;
     }

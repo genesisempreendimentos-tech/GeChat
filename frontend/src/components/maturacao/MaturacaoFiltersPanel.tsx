@@ -10,10 +10,8 @@ import {
 import { formatPaginaSlugLabel } from '@/lib/leadEmpreendimento';
 import { cn } from '@/lib/utils';
 import {
-  MATURACAO_PERIODO_RAPIDO_OPTIONS,
   type MaturacaoFilterOptions,
   type MaturacaoFilters,
-  type MaturacaoPeriodoRapido,
 } from '@/lib/maturacaoFilters';
 
 type MaturacaoFiltersPanelProps = {
@@ -21,7 +19,6 @@ type MaturacaoFiltersPanelProps = {
   onChange: (next: MaturacaoFilters) => void;
   onApply: () => void;
   onClear: () => void;
-  onPeriodoRapido: (rapido: MaturacaoPeriodoRapido) => void;
   filterOptions: MaturacaoFilterOptions;
   className?: string;
 };
@@ -31,10 +28,11 @@ export function MaturacaoFiltersPanel({
   onChange,
   onApply,
   onClear,
-  onPeriodoRapido,
   filterOptions,
   className,
 }: MaturacaoFiltersPanelProps) {
+  const faixaPersonalizada = value.faixaTemporal === 'custom';
+
   return (
     <div
       className={cn(
@@ -43,7 +41,7 @@ export function MaturacaoFiltersPanel({
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-sm font-medium text-foreground">Filtros de maturação</span>
+        <span className="text-sm font-medium text-foreground">Filtros adicionais</span>
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="secondary" className="rounded-xl" onClick={onClear}>
             Limpar
@@ -54,39 +52,23 @@ export function MaturacaoFiltersPanel({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <span className="text-sm font-medium leading-none">Período de captação</span>
-        <div className="flex flex-wrap gap-2">
-          {MATURACAO_PERIODO_RAPIDO_OPTIONS.map((opt) => {
-            const active = value.periodoRapido === opt.value;
-            return (
-              <Button
-                key={opt.value}
-                type="button"
-                size="sm"
-                variant={active ? 'default' : 'outline'}
-                className={cn(
-                  'h-8 rounded-lg text-xs font-medium sm:text-sm',
-                  !active && 'border-border/60 bg-background/40',
-                )}
-                aria-pressed={active}
-                onClick={() => onPeriodoRapido(opt.value)}
-              >
-                {opt.label}
-              </Button>
-            );
-          })}
-        </div>
-      </div>
+      {!faixaPersonalizada ? (
+        <p className="text-xs text-muted-foreground">
+          O período de maturação é definido pelos botões acima. Use o intervalo abaixo para
+          personalizar.
+        </p>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <div className="space-y-2 sm:col-span-2">
-          <span className="text-sm font-medium leading-none">Intervalo customizado</span>
+          <span className="text-sm font-medium leading-none">
+            {faixaPersonalizada ? 'Período personalizado' : 'Intervalo customizado'}
+          </span>
           <DateRangeInput
-            id="maturacao-periodo"
+            id="maturacao-periodo-custom"
             value={{ from: value.dataInicial, to: value.dataFinal }}
             onChange={({ from, to }) =>
-              onChange({ ...value, dataInicial: from, dataFinal: to, periodoRapido: 'custom' })
+              onChange({ ...value, dataInicial: from, dataFinal: to, faixaTemporal: 'custom' })
             }
           />
         </div>

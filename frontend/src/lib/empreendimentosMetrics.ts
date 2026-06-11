@@ -80,6 +80,7 @@ export type EmpreendimentoDestaque = {
   tipo: 'volume' | 'qualidade' | 'avanco' | 'gargalo';
   titulo: string;
   empreendimento: string;
+  empreendimentoId: string;
   detalhe: string;
 };
 
@@ -348,24 +349,28 @@ export function computeEmpreendimentoDestaques(
         tipo: 'volume',
         titulo: 'Maior volume',
         empreendimento: '—',
+        empreendimentoId: '',
         detalhe: 'Volume insuficiente para destaques',
       },
       {
         tipo: 'qualidade',
         titulo: 'Melhor qualidade',
         empreendimento: '—',
+        empreendimentoId: '',
         detalhe: 'Volume insuficiente para destaques',
       },
       {
         tipo: 'avanco',
         titulo: 'Melhor avanço comercial',
         empreendimento: '—',
+        empreendimentoId: '',
         detalhe: 'Volume insuficiente para destaques',
       },
       {
         tipo: 'gargalo',
         titulo: 'Maior gargalo',
         empreendimento: '—',
+        empreendimentoId: '',
         detalhe: 'Volume insuficiente para destaques',
       },
     ];
@@ -391,24 +396,28 @@ export function computeEmpreendimentoDestaques(
       tipo: 'volume',
       titulo: 'Maior volume',
       empreendimento: maiorVolume.empreendimentoNome,
+      empreendimentoId: maiorVolume.empreendimentoId,
       detalhe: `${maiorVolume.leads.toLocaleString('pt-BR')} leads`,
     },
     {
       tipo: 'qualidade',
       titulo: 'Melhor qualidade',
       empreendimento: melhorQualidade.empreendimentoNome,
+      empreendimentoId: melhorQualidade.empreendimentoId,
       detalhe: `${formatPct(melhorQualidade.taxaQualificacao)} qualificados`,
     },
     {
       tipo: 'avanco',
       titulo: 'Melhor avanço comercial',
       empreendimento: melhorAvanco.empreendimentoNome,
+      empreendimentoId: melhorAvanco.empreendimentoId,
       detalhe: `${formatPct(melhorAvanco.taxaAtendimento)} em atendimento`,
     },
     {
       tipo: 'gargalo',
       titulo: 'Maior gargalo',
       empreendimento: maiorGargalo.empreendimentoNome,
+      empreendimentoId: maiorGargalo.empreendimentoId,
       detalhe: `${maiorGargalo.leads.toLocaleString('pt-BR')} leads — ${maiorGargalo.principalGargalo}`,
     },
   ];

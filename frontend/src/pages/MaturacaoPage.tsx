@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { MainViewHeader } from '@/components/layout/header';
 import { FiltrosPanelMotion } from '@/components/dados/FiltrosPanelMotion';
+import { MaturacaoFaixaTemporalStrip } from '@/components/maturacao/MaturacaoFaixaTemporalStrip';
 import {
   collectMaturacaoFilterOptions,
   MaturacaoFiltersPanel,
@@ -21,7 +22,7 @@ export default function MaturacaoPage() {
     appliedFiltros,
     handleApplyFiltros,
     handleClearFiltros,
-    handlePeriodoRapido,
+    handleFaixaTemporal,
   } = useMaturacaoFilters();
 
   const { rows } = useLeadsData();
@@ -45,14 +46,17 @@ export default function MaturacaoPage() {
           </Button>
         }
       />
-      <div className="mt-8">
+      <div className="mt-8 flex flex-col gap-6">
+        <MaturacaoFaixaTemporalStrip
+          value={appliedFiltros.faixaTemporal}
+          onChange={handleFaixaTemporal}
+        />
         <FiltrosPanelMotion open={filtrosPanelAberto}>
           <MaturacaoFiltersPanel
             value={filtros}
             onChange={setFiltros}
             onApply={handleApplyFiltros}
             onClear={handleClearFiltros}
-            onPeriodoRapido={handlePeriodoRapido}
             filterOptions={filterOptions}
           />
         </FiltrosPanelMotion>

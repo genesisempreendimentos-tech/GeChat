@@ -26,7 +26,12 @@ import {
   hasMaturacaoDateData,
   isLeadCritico,
 } from '@/lib/dadosMaturacao';
-import { filterMaturacaoRows, type MaturacaoFilters } from '@/lib/maturacaoFilters';
+import {
+  buildMaturacaoFiltersFromFaixa,
+  filterMaturacaoRows,
+  getPreviousMaturacaoFaixa,
+  type MaturacaoFilters,
+} from '@/lib/maturacaoFilters';
 import { useLeadsData } from '@/hooks/useLeadsData';
 
 const CRITICOS_LIMIT = 100;
@@ -43,7 +48,24 @@ export function MaturacaoView({ filtros }: MaturacaoViewProps) {
     [allRows, filtros],
   );
 
-  const resumoCards = useMemo(() => computeMaturacaoResumoCards(filteredRows), [filteredRows]);
+  const previousFaixaRows = useMemo(() => {
+    const previousFaixa = getPreviousMaturacaoFaixa(filtros.faixaTemporal);
+    if (!previousFaixa) return null;
+    const previousFiltros = buildMaturacaoFiltersFromFaixa(previousFaixa, {
+      empreendimento: filtros.empreendimento,
+      origem: filtros.origem,
+      etapaAtual: filtros.etapaAtual,
+      qualificacao: filtros.qualificacao,
+      statusMaturacao: filtros.statusMaturacao,
+      responsavel: filtros.responsavel,
+    });
+    return filterMaturacaoRows(allRows, previousFiltros);
+  }, [allRows, filtros]);
+
+  const resumoCards = useMemo(
+    () => computeMaturacaoResumoCards(filteredRows, previousFaixaRows),
+    [filteredRows, previousFaixaRows],
+  );
   const safraRows = useMemo(() => aggregateSafraMaturacao(filteredRows), [filteredRows]);
   const tempoMedio = useMemo(() => computeTempoMedioAvanco(filteredRows), [filteredRows]);
   const idadeFaixas = useMemo(() => aggregateIdadeEmAberto(filteredRows), [filteredRows]);
@@ -119,10 +141,14 @@ export function MaturacaoPreviewResumo({ rows }: { rows: ReturnType<typeof useLe
       <div>
         <p className="text-sm font-medium text-foreground">Maturação</p>
         <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-          <li>Leads em aberto: {cards.leadsEmAberto.toLocaleString('pt-BR')}</li>
-          <li>31+ dias: {cards.dias31Plus.toLocaleString('pt-BR')}</li>
-          <li>61+ dias: {cards.dias61Plus.toLocaleString('pt-BR')}</li>
-          <li>Leads parados: {cards.leadsParados.toLocaleString('pt-BR')}</li>
+          <li>Leads: {cards.leads.count.toLocaleString('pt-BR')}</li>
+          <li>
+            Visitas: {cards.visitas.count.toLocaleString('pt-BR')} ({cards.visitas.pct}%)
+          </li>
+          <li>
+            Atendimento: {cards.atendimento.count.toLocaleString('pt-BR')} ({cards.atendimento.pct}%)
+          </li>
+          <li>Vendas: {cards.vendas.count.toLocaleString('pt-BR')} ({cards.vendas.pct}%)</li>
         </ul>
       </div>
       <Button asChild variant="outline" className="rounded-xl gap-2 shrink-0">
