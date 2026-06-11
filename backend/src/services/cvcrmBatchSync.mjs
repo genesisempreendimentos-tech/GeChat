@@ -1,23 +1,30 @@
 import pg from 'pg';
 import { syncLeadsFromSources } from './leadSourceSync.mjs';
 
-export const CVCRM_WEBHOOK_TABLES = [
-  'leads_solar_bosque',
-  'leads_oasis_ii',
+/** Tabelas-fonte onde o sync em lote pode gravar (allowlist). */
+export const VALID_SOURCE_TABLES = [
+  'leads_aniversario_208_anos',
+  'leads_blackgenesis',
+  'leads_flow',
+  'leads_gesite',
   'leads_kastell',
   'leads_nature',
   'leads_oasis_i',
+  'leads_oasis_ii',
+  'leads_old',
   'leads_solar_bellavista',
+  'leads_solar_bosque',
   'leads_solar_flores',
   'leads_vita',
-  'leads_flow',
-  'leads_aniversario_208_anos',
-  'leads_gesite',
-  'leads_blackgenesis',
-  'leads_old',
+  'leads_cvcrm',
 ];
 
-const TABLES_WITH_UPDATED_AT = new Set(['leads_solar_bosque']);
+const VALID_SOURCE_TABLES_SET = new Set(VALID_SOURCE_TABLES);
+
+/** @deprecated Use VALID_SOURCE_TABLES */
+export const CVCRM_WEBHOOK_TABLES = VALID_SOURCE_TABLES;
+
+const TABLES_WITH_UPDATED_AT = new Set(['leads_solar_bosque', 'leads_cvcrm']);
 
 const CVCRM_CVDW_LEADS_URL = 'https://genesis.cvcrm.com.br/api/v1/cvdw/leads';
 const CVDW_PAGE_SIZE = 500;
@@ -223,7 +230,27 @@ export async function fetchAllCvdwLeadsToday() {
   return allLeads;
 }
 
+function assertValidSourceTable(tableName) {
+  if (!VALID_SOURCE_TABLES_SET.has(tableName)) {
+    throw new Error(`Tabela-fonte não permitida: ${tableName}`);
+  }
+}
+
+async function resolveLeadSourceTable(client, idlead) {
+  const result = await client.query(
+    `SELECT source_table FROM leads WHERE cvcrm_lead_id = $1 LIMIT 1`,
+    [String(idlead)],
+  );
+  const sourceTable = toSafeString(result.rows[0]?.source_table);
+  if (sourceTable && VALID_SOURCE_TABLES_SET.has(sourceTable)) {
+    return sourceTable;
+  }
+  return null;
+}
+
 async function updateLeadTable(client, tableName, idlead, fields, cvcrmLead) {
+  assertValidSourceTable(tableName);
+
   const stageDateColumns = resolveStageDateColumns(
     fields.cvcrm_stage,
     fields.cvcrm_situation,
@@ -238,6 +265,12 @@ async function updateLeadTable(client, tableName, idlead, fields, cvcrmLead) {
     'cvcrm_payload = $5::jsonb',
     'cvcrm_is_sold = $6',
   ];
+  if (await columnExists(client, tableName, 'cvcrm_sync_status')) {
+    setClauses.push("cvcrm_sync_status = 'synced'");
+  }
+  if (await columnExists(client, tableName, 'cvcrm_last_synced_at')) {
+    setClauses.push('cvcrm_last_synced_at = now()');
+  }
   const params = [
     fields.cvcrm_status,
     fields.cvcrm_situation,
@@ -253,11 +286,15 @@ async function updateLeadTable(client, tableName, idlead, fields, cvcrmLead) {
     params.push(referenceDate);
     paramIndex += 1;
     for (const col of stageDateColumns) {
-      setClauses.push(`${col} = COALESCE(${col}, $${stageDateParam}::timestamptz)`);
+      if (await columnExists(client, tableName, col)) {
+        setClauses.push(`${col} = COALESCE(${col}, $${stageDateParam}::timestamptz)`);
+      }
     }
   } else {
     for (const col of stageDateColumns) {
-      setClauses.push(`${col} = COALESCE(${col}, now())`);
+      if (await columnExists(client, tableName, col)) {
+        setClauses.push(`${col} = COALESCE(${col}, now())`);
+      }
     }
   }
 
@@ -299,30 +336,111 @@ async function updateLeadTable(client, tableName, idlead, fields, cvcrmLead) {
   };
 }
 
-async function applyCvcrmLeadToNeon(client, idlead, cvcrmLead) {
-  const fields = parseCvcrmLeadResponse(cvcrmLead);
-  const updatedTables = [];
-  let leadUuid = null;
-  let empreendimento = null;
+async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
+  assertValidSourceTable('leads_cvcrm');
 
-  for (const tableName of CVCRM_WEBHOOK_TABLES) {
-    try {
-      if (!(await tableExists(client, tableName))) continue;
-      const updateResult = await updateLeadTable(client, tableName, idlead, fields, cvcrmLead);
-      if (updateResult.count > 0) {
-        updatedTables.push(tableName);
-        if (!leadUuid) {
-          leadUuid = updateResult.leadUuid;
-          empreendimento = updateResult.empreendimento;
-        }
-      }
-    } catch (err) {
-      if (err?.code === '42P01' || err?.code === '42703') continue;
-      throw err;
-    }
+  if (!(await tableExists(client, 'leads_cvcrm'))) {
+    throw new Error('Tabela leads_cvcrm não existe. Execute neon-leads-cvcrm.sql.');
   }
 
-  return { updatedTables, leadUuid, empreendimento, fields };
+  const nome = toSafeString(cvcrmLead.nome) || 'Sem nome';
+  const whatsapp = toSafeString(cvcrmLead.telefone) || '';
+  const email = toSafeString(cvcrmLead.email) || null;
+  const empreendimento = toSafeString(cvcrmLead.empreendimento) || null;
+  const canal = toSafeString(cvcrmLead.origem_nome ?? cvcrmLead.origem) || null;
+
+  const result = await client.query(
+    `INSERT INTO leads_cvcrm (
+       nome,
+       whatsapp,
+       email,
+       empreendimento,
+       canal,
+       cvcrm_lead_id,
+       cvcrm_status,
+       cvcrm_situation,
+       cvcrm_stage,
+       cvcrm_is_sold,
+       cvcrm_last_update,
+       cvcrm_payload,
+       cvcrm_sync_status,
+       cvcrm_last_synced_at,
+       updated_at
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+       $11::timestamptz, $12::jsonb, 'synced', now(), now()
+     )
+     ON CONFLICT (cvcrm_lead_id) DO UPDATE SET
+       nome = EXCLUDED.nome,
+       whatsapp = EXCLUDED.whatsapp,
+       email = EXCLUDED.email,
+       empreendimento = EXCLUDED.empreendimento,
+       canal = EXCLUDED.canal,
+       cvcrm_status = EXCLUDED.cvcrm_status,
+       cvcrm_situation = EXCLUDED.cvcrm_situation,
+       cvcrm_stage = EXCLUDED.cvcrm_stage,
+       cvcrm_is_sold = EXCLUDED.cvcrm_is_sold,
+       cvcrm_last_update = EXCLUDED.cvcrm_last_update,
+       cvcrm_payload = EXCLUDED.cvcrm_payload,
+       cvcrm_sync_status = 'synced',
+       cvcrm_last_synced_at = now(),
+       updated_at = now()
+     RETURNING id, empreendimento`,
+    [
+      nome,
+      whatsapp,
+      email,
+      empreendimento,
+      canal,
+      String(idlead),
+      fields.cvcrm_status,
+      fields.cvcrm_situation,
+      fields.cvcrm_stage,
+      fields.cvcrm_is_sold,
+      fields.cvcrm_last_update ?? null,
+      JSON.stringify(cvcrmLead ?? {}),
+    ],
+  );
+
+  const row = result.rows[0];
+  return {
+    count: result.rowCount ?? 0,
+    leadUuid: row?.id ?? null,
+    empreendimento: row?.empreendimento ?? null,
+  };
+}
+
+async function applyCvcrmLeadRouted(client, idlead, cvcrmLead) {
+  const fields = parseCvcrmLeadResponse(cvcrmLead);
+  const sourceTable = await resolveLeadSourceTable(client, idlead);
+
+  if (sourceTable) {
+    if (!(await tableExists(client, sourceTable))) {
+      throw new Error(`Tabela-fonte ${sourceTable} não existe no Neon`);
+    }
+    const updateResult = await updateLeadTable(client, sourceTable, idlead, fields, cvcrmLead);
+    if (updateResult.count === 0) {
+      throw new Error(
+        `Nenhum registro com cvcrm_lead_id=${idlead} em ${sourceTable}`,
+      );
+    }
+    return {
+      action: 'update',
+      table: sourceTable,
+      leadUuid: updateResult.leadUuid,
+      empreendimento: updateResult.empreendimento,
+      fields,
+    };
+  }
+
+  const insertResult = await upsertLeadsCvcrm(client, idlead, cvcrmLead, fields);
+  return {
+    action: 'insert',
+    table: 'leads_cvcrm',
+    leadUuid: insertResult.leadUuid,
+    empreendimento: insertResult.empreendimento,
+    fields,
+  };
 }
 
 async function logBatchSync(client, summary) {
@@ -477,24 +595,15 @@ export async function syncPendingLeads({ skipThrottle = false } = {}) {
       }
 
       try {
-        const { updatedTables } = await applyCvcrmLeadToNeon(client, idlead, cvcrmLead);
-        if (updatedTables.length === 0) {
-          errors += 1;
-          await client.query(
-            `UPDATE cvcrm_pending_updates
-             SET attempts = attempts + 1,
-                 last_error = $2
-             WHERE idlead = $1`,
-            [toLeadIdNumber(idlead), 'Nenhuma tabela leads_* atualizada para este cvcrm_lead_id'],
-          );
-          continue;
-        }
+        const routed = await applyCvcrmLeadRouted(client, idlead, cvcrmLead);
 
         await client.query(`DELETE FROM cvcrm_pending_updates WHERE idlead = $1`, [
           toLeadIdNumber(idlead),
         ]);
         processed += 1;
-        console.log(`[cvcrm/batch] idlead=${idlead} → ${updatedTables.join(', ')}`);
+        console.log(
+          `[cvcrm/batch] idlead=${idlead} → ${routed.action} em ${routed.table}`,
+        );
       } catch (err) {
         errors += 1;
         const message = err instanceof Error ? err.message : String(err);

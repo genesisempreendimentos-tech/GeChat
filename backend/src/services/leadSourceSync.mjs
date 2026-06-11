@@ -104,6 +104,14 @@ export const LEAD_SOURCE_TABLES = [
     defaultEmpreendimento: 'Flow',
     mapRow: mapStandardLeadRow,
   },
+  {
+    key: 'cvcrm',
+    tables: ['leads_cvcrm'],
+    sourceTable: 'leads_cvcrm',
+    defaultPage: '/cvcrm',
+    defaultEmpreendimento: 'CVCRM',
+    mapRow: mapCvcrmRow,
+  },
 ];
 
 import { IGNORED_NEON_LEAD_SOURCE_TABLES } from '../ignoredLeadSources.mjs';
@@ -281,6 +289,7 @@ function mapCvcrmFields(row) {
     cvcrm_status: mapCvcrmNullableString(row, 'cvcrm_status'),
     cvcrm_situation: mapCvcrmNullableString(row, 'cvcrm_situation'),
     cvcrm_stage: mapCvcrmNullableString(row, 'cvcrm_stage'),
+    cvcrm_last_update: row.cvcrm_last_update ?? null,
   };
 }
 
@@ -379,6 +388,42 @@ export function mapOasisIiRow(row, sourceTable, defaults = {}) {
   };
 }
 
+export function mapCvcrmRow(row, sourceTable, defaults = {}) {
+  const email = String(row.email ?? '').trim();
+  const phone = String(row.whatsapp ?? '').trim();
+  const canal = String(row.canal ?? '').trim();
+  const empreendimento =
+    String(row.empreendimento ?? '').trim() || defaults.defaultEmpreendimento || 'CVCRM';
+
+  return {
+    id: row.id,
+    codigo: mapLeadCodigo(row),
+    source_table: sourceTable,
+    name: String(row.nome ?? '').trim() || 'Sem nome',
+    email: email || null,
+    phone: phone || null,
+    page: defaults.defaultPage || '/cvcrm',
+    origem: canal || 'CVCRM',
+    canal: canal || 'CVCRM',
+    parametro: empreendimento,
+    empreendimento,
+    relacionamento: null,
+    investimento: null,
+    cidade_residencia: null,
+    birth_date: null,
+    profile_type: null,
+    profile_notes: null,
+    dispositivo: null,
+    pagamento_preferencia: null,
+    responsavel: null,
+    status: mapLeadStatus(row),
+    ...mapCvcrmFields(row),
+    ...mapStageDateFields(row),
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? row.created_at,
+  };
+}
+
 export function mapSolarBosqueRow(row, sourceTable, defaults = {}) {
   const email = String(row.email ?? '').trim();
   const phone = String(row.whatsapp ?? '').trim();
@@ -467,7 +512,7 @@ const UPSERT_LEAD_COLUMNS = [
   'empreendimento', 'responsavel', 'relacionamento', 'investimento', 'cidade_residencia',
   'birth_date', 'profile_type', 'profile_notes', 'dispositivo', 'pagamento_preferencia',
   'status', 'cvcrm_lead_id', 'cvcrm_sync_status', 'cvcrm_is_sold',
-  'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage',
+  'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage', 'cvcrm_last_update',
   ...STAGE_DATE_COLUMNS,
   'created_at', 'updated_at',
 ];
@@ -507,11 +552,12 @@ ON CONFLICT (id) DO UPDATE SET
   cvcrm_status = EXCLUDED.cvcrm_status,
   cvcrm_situation = EXCLUDED.cvcrm_situation,
   cvcrm_stage = EXCLUDED.cvcrm_stage,
+  cvcrm_last_update = COALESCE(EXCLUDED.cvcrm_last_update, leads.cvcrm_last_update),
   ${STAGE_DATE_COALESCE_UPDATES},
   updated_at = EXCLUDED.updated_at;
 `;
 
-// 500 linhas × 29 colunas = 14.500 parâmetros por query (limite do Postgres: 65.535).
+// 500 linhas × 30 colunas = 15.000 parâmetros por query (limite do Postgres: 65.535).
 const UPSERT_BATCH_SIZE = 500;
 
 function buildBatchUpsertSql(rowCount) {
@@ -554,6 +600,7 @@ function leadToUpsertParams(mapped) {
     mapped.cvcrm_status,
     mapped.cvcrm_situation,
     mapped.cvcrm_stage,
+    mapped.cvcrm_last_update,
     mapped.data_primeiro_atendimento,
     mapped.data_visita_agendada,
     mapped.data_visita_realizada,
@@ -585,6 +632,27 @@ const SYNC_INTERVAL_MS = 300_000;
 let syncInFlight = false;
 /** Evita sync concorrente da mesma tabela fonte → leads */
 const tableSyncInFlight = {};
+
+async function dedupeLeadsByCvcrmLeadId(client) {
+  const result = await client.query(
+    `DELETE FROM leads l
+     WHERE l.cvcrm_lead_id IS NOT NULL
+       AND l.id NOT IN (
+         SELECT DISTINCT ON (cvcrm_lead_id) id
+         FROM leads
+         WHERE cvcrm_lead_id IS NOT NULL
+         ORDER BY cvcrm_lead_id,
+                  cvcrm_last_update DESC NULLS LAST,
+                  updated_at DESC,
+                  created_at DESC
+       )`,
+  );
+  const removed = result.rowCount ?? 0;
+  if (removed > 0) {
+    console.log(`[leads/sync] ${removed} duplicata(s) removida(s) por cvcrm_lead_id`);
+  }
+  return removed;
+}
 
 async function processLeadSourceSync(client, source) {
   const tableName = await resolveSourceTable(client, source.tables);
@@ -652,6 +720,7 @@ export async function syncLeadsFromSources({ force = false } = {}) {
     await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_status TEXT`);
     await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_situation TEXT`);
     await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_stage TEXT`);
+    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_last_update TIMESTAMPTZ`);
     for (const col of STAGE_DATE_COLUMNS) {
       const colType = col === 'motivo_perda' ? 'TEXT' : 'TIMESTAMPTZ';
       await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ${col} ${colType}`);
@@ -664,6 +733,8 @@ export async function syncLeadsFromSources({ force = false } = {}) {
           sources.push({ source: result.source, table: result.table, count: result.count });
         }
       }
+
+      await dedupeLeadsByCvcrmLeadId(client);
 
       lastSyncAt = now;
       return { synced: totalSynced, sources };
