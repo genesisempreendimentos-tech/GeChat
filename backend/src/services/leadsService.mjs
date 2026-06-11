@@ -21,6 +21,13 @@ function toIso(value) {
   return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
 }
 
+function toIsoOptional(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
 function mapLeadCodigo(row) {
   const codigo = String(row.codigo ?? '').trim();
   return codigo || null;
@@ -73,6 +80,15 @@ function mapNeonRowToLead(row) {
     cvcrm_status: String(row.cvcrm_status ?? '').trim() || null,
     cvcrm_situation: String(row.cvcrm_situation ?? '').trim() || null,
     cvcrm_stage: String(row.cvcrm_stage ?? '').trim() || null,
+    dataPrimeiroAtendimento: toIsoOptional(row.data_primeiro_atendimento),
+    dataVisitaAgendada: toIsoOptional(row.data_visita_agendada),
+    dataVisitaRealizada: toIsoOptional(row.data_visita_realizada),
+    dataAnaliseCreditoInicio: toIsoOptional(row.data_analise_credito_inicio),
+    dataAnaliseCreditoFim: toIsoOptional(row.data_analise_credito_fim),
+    dataProposta: toIsoOptional(row.data_proposta),
+    dataVenda: toIsoOptional(row.data_venda),
+    dataPerdido: toIsoOptional(row.data_perdido),
+    motivoPerda: String(row.motivo_perda ?? '').trim() || null,
     _table: String(row.source_table ?? '').trim(),
   };
 }
@@ -111,6 +127,15 @@ export async function listLeads(_supabaseUrl, _supabaseAnonKey, _accessToken, fi
   const fetchRows = () =>
     withNeonClient(async (client) => {
       await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS codigo TEXT`);
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_primeiro_atendimento TIMESTAMPTZ`);
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_visita_agendada TIMESTAMPTZ`);
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_visita_realizada TIMESTAMPTZ`);
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_analise_credito_inicio TIMESTAMPTZ`);
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_analise_credito_fim TIMESTAMPTZ`);
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_proposta TIMESTAMPTZ`);
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_venda TIMESTAMPTZ`);
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_perdido TIMESTAMPTZ`);
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS motivo_perda TEXT`);
       const params = [];
       let sql = 'SELECT * FROM leads';
       if (filters.status) {

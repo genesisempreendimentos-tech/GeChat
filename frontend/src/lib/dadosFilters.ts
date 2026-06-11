@@ -1,5 +1,6 @@
 import { endOfDay, startOfDay } from 'date-fns';
 import { filterRowsByBalancoRange, getLeadsBalancoRanges } from '@/lib/leadsBalanco';
+import { getLeadEtapaAtual, type LeadEtapaComercial } from '@/lib/leadStage';
 import { resolveEmpreendimentoPagina } from '@/lib/leadEmpreendimento';
 import {
   defaultLeadsPageControlFilters,
@@ -14,6 +15,8 @@ import {
 } from '@/lib/leadsMetrics';
 import type { LeadsBalanceComparison } from '@/components/charts/Balance';
 
+export type DadosVisao = 'entrada' | 'maturacao';
+
 export type DadosFilters = LeadsPageControlFilters & {
   dataInicial: string;
   dataFinal: string;
@@ -21,12 +24,19 @@ export type DadosFilters = LeadsPageControlFilters & {
   empreendimento: string;
   origem: string;
   dispositivo: string;
+  canal: string;
+  qualificacao: string;
+  etapaAtual: string;
+  visao: DadosVisao;
 };
 
 export type DadosFilterOptions = {
   empreendimentos: string[];
   origens: string[];
   dispositivos: string[];
+  canais: string[];
+  qualificacoes: string[];
+  etapas: string[];
 };
 
 export const DADOS_BALANCO_OPTIONS: { value: LeadsBalancoMode; label: string }[] = [
@@ -34,6 +44,17 @@ export const DADOS_BALANCO_OPTIONS: { value: LeadsBalancoMode; label: string }[]
   { value: 'mes_anterior', label: 'Vs. mês anterior' },
   { value: 'semana_anterior', label: 'Vs. semana anterior' },
 ];
+
+const ETAPA_LABELS: Record<LeadEtapaComercial, string> = {
+  venda: 'Venda',
+  proposta: 'Proposta',
+  credito: 'Análise de crédito',
+  visita: 'Visita',
+  atendimento: 'Atendimento',
+  capturado: 'Lead capturado',
+  perdido: 'Perdido',
+  em_aberto: 'Em aberto',
+};
 
 export function defaultDadosFilters(): DadosFilters {
   return {
@@ -43,6 +64,10 @@ export function defaultDadosFilters(): DadosFilters {
     empreendimento: '',
     origem: '',
     dispositivo: '',
+    canal: '',
+    qualificacao: '',
+    etapaAtual: '',
+    visao: 'entrada',
   };
 }
 
@@ -73,12 +98,20 @@ export function collectDadosFilterOptions(rows: LeadMetricsRow[]): DadosFilterOp
   const origens = new Set<string>();
   const dispositivos = new Set<string>();
 
+  const canais = new Set<string>();
+  const qualificacoes = new Set<string>();
+  const etapas = new Set<string>();
+
   for (const row of rows) {
     const pagina = resolveEmpreendimentoPagina(row);
     if (pagina) empreendimentos.add(pagina);
     if (row.origem) origens.add(row.origem);
     const device = row.dispositivo?.trim();
     if (device) dispositivos.add(device);
+    const canal = row.canal?.trim();
+    if (canal) canais.add(canal);
+    if (row.qualificacao) qualificacoes.add(row.qualificacao);
+    etapas.add(ETAPA_LABELS[getLeadEtapaAtual(row)]);
   }
 
   const sortPt = (a: string, b: string) => a.localeCompare(b, 'pt-BR');
@@ -87,12 +120,25 @@ export function collectDadosFilterOptions(rows: LeadMetricsRow[]): DadosFilterOp
     empreendimentos: Array.from(empreendimentos).sort(sortPt),
     origens: Array.from(origens).sort(sortPt),
     dispositivos: Array.from(dispositivos).sort(sortPt),
+    canais: Array.from(canais).sort(sortPt),
+    qualificacoes: Array.from(qualificacoes).sort(sortPt),
+    etapas: Array.from(etapas).sort(sortPt),
   };
 }
 
 export function filterDadosRows<T extends LeadMetricsRow>(
   rows: T[],
-  filtros: Pick<DadosFilters, 'dataInicial' | 'dataFinal' | 'empreendimento' | 'origem' | 'dispositivo'>,
+  filtros: Pick<
+    DadosFilters,
+    | 'dataInicial'
+    | 'dataFinal'
+    | 'empreendimento'
+    | 'origem'
+    | 'dispositivo'
+    | 'canal'
+    | 'qualificacao'
+    | 'etapaAtual'
+  >,
 ): T[] {
   const startMs = parseFilterDate(filtros.dataInicial, false);
   const endMs = parseFilterDate(filtros.dataFinal, true);
@@ -107,6 +153,11 @@ export function filterDadosRows<T extends LeadMetricsRow>(
     if (filtros.empreendimento && resolveEmpreendimentoPagina(row) !== filtros.empreendimento) return false;
     if (filtros.origem && row.origem !== filtros.origem) return false;
     if (filtros.dispositivo && (row.dispositivo ?? '') !== filtros.dispositivo) return false;
+    if (filtros.canal && (row.canal ?? '') !== filtros.canal) return false;
+    if (filtros.qualificacao && row.qualificacao !== filtros.qualificacao) return false;
+    if (filtros.etapaAtual && ETAPA_LABELS[getLeadEtapaAtual(row)] !== filtros.etapaAtual) {
+      return false;
+    }
     return true;
   });
 }
@@ -145,6 +196,7 @@ export function computeDadosBalanceCtx(
     comparison,
     deltas: {
       leads: statsC.leads - statsP.leads,
+      qualificados: statsC.qualificados - statsP.qualificados,
       forms: statsC.forms - statsP.forms,
       whatsapp: statsC.whatsapp - statsP.whatsapp,
       taxaConversaoPct: Math.round(statsC.taxaConversaoPct - statsP.taxaConversaoPct),

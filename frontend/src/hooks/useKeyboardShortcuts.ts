@@ -30,6 +30,18 @@ export function useKeyboardShortcuts() {
       description: "Ir para Análise",
     },
     {
+      key: "m",
+      altKey: true,
+      action: () => navigate("/maturacao"),
+      description: "Ir para Maturação",
+    },
+    {
+      key: "e",
+      altKey: true,
+      action: () => navigate("/empreendimentos"),
+      description: "Ir para Empreendimentos",
+    },
+    {
       key: "l",
       altKey: true,
       action: () => navigate("/leads"),
@@ -91,6 +103,8 @@ export function useKeyboardShortcuts() {
 • Ctrl+K - Busca global
 • Alt+H - Dashboard
 • Alt+D - Análise
+• Alt+M - Maturação
+• Alt+E - Empreendimentos
 • Alt+L - Leads
 • Alt+P - Perfil (GêApps)
 • Alt+, - Configurações

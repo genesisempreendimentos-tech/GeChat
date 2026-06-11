@@ -126,6 +126,93 @@ export function DadosFiltersPanel({
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <span className="text-sm font-medium leading-none">Canal / campanha</span>
+          <Select
+            value={value.canal || '__all__'}
+            onValueChange={(v) => onChange({ ...value, canal: v === '__all__' ? '' : v })}
+          >
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todos</SelectItem>
+              {filterOptions.canais.map((canal) => (
+                <SelectItem key={canal} value={canal}>
+                  {canal}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <span className="text-sm font-medium leading-none">Qualificação</span>
+          <Select
+            value={value.qualificacao || '__all__'}
+            onValueChange={(v) => onChange({ ...value, qualificacao: v === '__all__' ? '' : v })}
+          >
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todas</SelectItem>
+              {filterOptions.qualificacoes.map((q) => (
+                <SelectItem key={q} value={q}>
+                  {q}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <span className="text-sm font-medium leading-none">Etapa atual</span>
+          <Select
+            value={value.etapaAtual || '__all__'}
+            onValueChange={(v) => onChange({ ...value, etapaAtual: v === '__all__' ? '' : v })}
+          >
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todas</SelectItem>
+              {filterOptions.etapas.map((etapa) => (
+                <SelectItem key={etapa} value={etapa}>
+                  {etapa}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <span className="text-sm font-medium leading-none">Visão da análise</span>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              { value: 'entrada' as const, label: 'Entrada de leads' },
+              { value: 'maturacao' as const, label: 'Maturação dos leads' },
+            ] as const
+          ).map((opt) => {
+            const active = value.visao === opt.value;
+            return (
+              <Button
+                key={opt.value}
+                type="button"
+                size="sm"
+                variant={active ? 'default' : 'outline'}
+                className={cn(
+                  'h-8 rounded-lg text-xs font-medium sm:text-sm',
+                  !active && 'border-border/60 bg-background/40',
+                )}
+                aria-pressed={active}
+                onClick={() => onChange({ ...value, visao: opt.value })}
+              >
+                {opt.label}
+              </Button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="space-y-2">

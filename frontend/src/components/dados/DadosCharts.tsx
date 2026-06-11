@@ -31,7 +31,12 @@ import type {
   HeatmapCell,
   VolumePoint,
 } from '@/lib/dadosAggregations';
-import { DADOS_TIME_RANGE_LABELS, type DadosTimeRange } from '@/lib/dadosAggregations';
+import {
+  DAY_METRIC_LABELS,
+  DADOS_TIME_RANGE_LABELS,
+  type DayMetric,
+  type DadosTimeRange,
+} from '@/lib/dadosAggregations';
 import { useThemeStore } from '@/store/themeStore';
 
 /** Animação de entrada — só quando `active`; filtros remontam o chart sem animar (evita travamento). */
@@ -842,5 +847,65 @@ export function LeadHeatmapChart({
         Passe o mouse sobre uma célula para ver o detalhe. Cor mais intensa = mais leads.
       </p>
     </ChartCard>
+  );
+}
+
+const EVOLUCAO_METRICS: DayMetric[] = ['leads', 'conversoes', 'qualificados', 'visitas'];
+
+export function EvolucaoLeadsChart({
+  data,
+  previousData,
+  metric,
+  onMetricChange,
+  timeRange,
+  onTimeRangeChange,
+  revision,
+  animateEntrance = true,
+}: {
+  data: VolumePoint[];
+  previousData?: VolumePoint[];
+  metric: DayMetric;
+  onMetricChange: (metric: DayMetric) => void;
+  timeRange: DadosTimeRange;
+  onTimeRangeChange: (range: DadosTimeRange) => void;
+  revision?: string;
+  animateEntrance?: boolean;
+}) {
+  const metricToggle = (
+    <div className="flex flex-wrap gap-1">
+      {EVOLUCAO_METRICS.map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onMetricChange(m)}
+          className={cn(
+            'rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 sm:text-sm',
+            metric === m
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground hover:bg-muted/80',
+          )}
+        >
+          {DAY_METRIC_LABELS[m]}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-end gap-2">{metricToggle}</div>
+      <EnhancedVolumeChart
+        data={data}
+        previousData={previousData}
+        showTrendLine={metric === 'conversoes'}
+        timeRange={timeRange}
+        onTimeRangeChange={onTimeRangeChange}
+        revision={revision}
+        animateEntrance={animateEntrance}
+        title="Evolução dos leads"
+        description="Volume captado ao longo do período"
+        valueLabel={DAY_METRIC_LABELS[metric]}
+      />
+    </div>
   );
 }

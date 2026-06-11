@@ -45,5 +45,14 @@ export type LeadRow = {
   cvcrm_status: string | null;
   cvcrm_situation: string | null;
   cvcrm_stage: string | null;
+  dataPrimeiroAtendimento: string | null;
+  dataVisitaAgendada: string | null;
+  dataVisitaRealizada: string | null;
+  dataAnaliseCreditoInicio: string | null;
+  dataAnaliseCreditoFim: string | null;
+  dataProposta: string | null;
+  dataVenda: string | null;
+  dataPerdido: string | null;
+  motivoPerda: string | null;
   _table?: string;
 };

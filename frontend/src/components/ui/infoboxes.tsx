@@ -80,7 +80,7 @@ export function InfoBox({
     <MotionReveal
       index={motionIndex}
       className={cn(
-        'flex min-h-[8.25rem] flex-col gap-4 rounded-2xl border p-5 shadow-sm backdrop-blur-sm',
+        'flex flex-col gap-3 rounded-2xl border p-4 shadow-sm backdrop-blur-sm',
         palette.shell,
         className,
       )}
@@ -119,7 +119,7 @@ export function InfoBox({
           </Tooltip>
         ) : null}
       </div>
-      <div className="mt-auto flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <p className="inline-flex min-h-[1em] items-center text-2xl font-bold leading-none tracking-tight text-foreground">
           {typeof value === 'number' || typeof value === 'string' ? (
             animateValue ? (

@@ -2,8 +2,8 @@ import type { LeadQualificacao } from '@/rules/qualifyLead';
 import { format, getDay, getHours, startOfDay, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { leadRespondeuFormularioPerfil } from '@/rules/qualifyLead';
-import type { LeadMetricsRow } from '@/lib/leadsMetrics';
-import type { LeadsInfoboxStats } from '@/lib/leadsMetrics';
+import type { LeadMetricsRow, LeadsInfoboxStats } from '@/lib/leadsMetrics';
+import { isVisitaAgendada } from '@/lib/leadStage';
 import { resolveEmpreendimentoLabel, resolveEmpreendimentoPagina } from '@/lib/leadEmpreendimento';
 
 export type DadosTimeRange = '7' | '30' | '90';
@@ -14,7 +14,15 @@ export const DADOS_TIME_RANGE_LABELS: Record<DadosTimeRange, string> = {
   '90': '3 meses',
 };
 
-export type DayMetric = 'leads' | 'forms' | 'conversoes';
+export type DayMetric = 'leads' | 'forms' | 'conversoes' | 'qualificados' | 'visitas';
+
+export const DAY_METRIC_LABELS: Record<DayMetric, string> = {
+  leads: 'Leads',
+  forms: 'Formulários',
+  conversoes: 'Conversões',
+  qualificados: 'Qualificados',
+  visitas: 'Visitas',
+};
 
 export type BarRankItem = {
   name: string;
@@ -95,8 +103,6 @@ const DEVICE_COLORS: Record<string, string> = {
 const CHANNEL_KEYS = ['Google', 'Instagram', 'Facebook', 'LinkedIn', 'Direto'] as const;
 
 const DAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-const DEFAULT_CAMPAIGN_COST = { cpl: 0, cpc: 0 };
 
 export function dadosTimeRangeDays(range: DadosTimeRange): number {
   return range === '7' ? 7 : range === '30' ? 30 : 90;
@@ -182,7 +188,11 @@ export function aggregateByDay(
         ? true
         : metric === 'forms'
           ? contatoIsForm(row.contato)
-          : isConversaoLead(row);
+          : metric === 'qualificados'
+            ? isQualificadoLead(row)
+            : metric === 'visitas'
+              ? isVisitaAgendada(row)
+              : isConversaoLead(row);
 
     if (matches) bucket.leads += 1;
   }
@@ -322,15 +332,14 @@ export function buildConversionFunnel(rows: LeadMetricsRow[]): FunnelStep[] {
   const forms = rows.filter((r) => contatoIsForm(r.contato)).length;
   const qualificados = rows.filter(isQualificadoLead).length;
   const conversoes = rows.filter(isConversaoLead).length;
-  const visitantes = Math.max(leads, Math.round(leads * 4.2));
-
   const steps = [
-    { label: 'Visitantes', value: visitantes, color: '#64748b' },
-    { label: 'Leads', value: leads, color: '#14b8a6' },
-    { label: 'Formulários', value: forms, color: '#6366f1' },
+    { label: 'Leads capturados', value: leads, color: '#14b8a6' },
+    { label: 'Formulários enviados', value: forms, color: '#6366f1' },
     { label: 'Conversões', value: conversoes, color: '#10b981' },
-    { label: 'Leads Qualificados', value: qualificados, color: '#8b5cf6' },
+    { label: 'Leads qualificados', value: qualificados, color: '#8b5cf6' },
   ];
+
+  const topValue = Math.max(leads, 1);
 
   return steps.map((step, index) => {
     const prev = index > 0 ? steps[index - 1]!.value : null;
@@ -338,7 +347,7 @@ export function buildConversionFunnel(rows: LeadMetricsRow[]): FunnelStep[] {
       label: step.label,
       value: step.value,
       pctOfPrevious: prev && prev > 0 ? Math.round((step.value / prev) * 1000) / 10 : null,
-      pctOfFirst: visitantes > 0 ? Math.round((step.value / visitantes) * 1000) / 10 : 0,
+      pctOfFirst: topValue > 0 ? Math.round((step.value / topValue) * 1000) / 10 : 0,
       color: step.color,
     };
   });
@@ -350,6 +359,9 @@ export function buildOperationalFunnelFromStats(stats: LeadsInfoboxStats): Funne
     { label: 'Em atendimento', value: stats.atendimentoCorretor, color: '#3b82f6' },
     { label: 'Visitas', value: stats.visitasAgendadas, color: '#8b5cf6' },
     { label: 'Análise de Crédito', value: stats.analiseCredito, color: '#64748b' },
+    ...(stats.propostas > 0
+      ? [{ label: 'Propostas', value: stats.propostas, color: '#f59e0b' }]
+      : []),
     { label: 'Vendas', value: stats.vendas, color: '#10b981' },
   ];
 
@@ -373,12 +385,8 @@ export function aggregateChannelSeriesOverTime(
 ): { data: ChannelSeriesPoint[]; channels: string[] } {
   const range = buildDayRange(days);
 
-  let channels: string[] = CHANNEL_KEYS.filter((c) => rows.some((r) => r.origem === c));
-  if (channels.length === 0) {
-    channels = aggregateByOrigemBars(rows)
-      .slice(0, 5)
-      .map((b) => b.name);
-  }
+  const channels = collectOrigemCatalog(rows).slice(0, 8);
+  if (channels.length === 0) return { data: [], channels: [] };
 
   const data: ChannelSeriesPoint[] = range.map((r) => {
     const point: ChannelSeriesPoint = { date: r.date, fullDate: r.fullDate };
@@ -412,14 +420,13 @@ export function aggregateCampaignPerformance(rows: LeadMetricsRow[]): CampaignRo
       const leads = group.length;
       const conversoes = group.filter(isConversaoLead).length;
       const taxaConversaoPct = leads > 0 ? Math.round((conversoes / leads) * 1000) / 10 : 0;
-      const costs = DEFAULT_CAMPAIGN_COST;
       return {
         origem,
         leads,
         conversoes,
         taxaConversaoPct,
-        cpl: costs.cpl,
-        cpc: costs.cpc,
+        cpl: 0,
+        cpc: 0,
       };
     })
     .sort((a, b) => b.conversoes - a.conversoes || b.leads - a.leads);

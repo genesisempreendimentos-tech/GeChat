@@ -1,6 +1,13 @@
 import { filterRowsByBalancoRange, getLeadsBalancoRanges } from '@/lib/leadsBalanco';
 import { resolveEmpreendimentoLabel, resolveEmpreendimentoPagina } from '@/lib/leadEmpreendimento';
 import type { LeadsBalancoMode, LeadMetricaFiltro } from '@/lib/leadsControlLine';
+import type { LeadStatus } from '@/types/lead';
+import {
+  isAnaliseCreditoStage,
+  isAtendimentoCorretor as isAtendimentoCorretorStage,
+  isPropostaLead,
+  isVisitaAgendada as isVisitaAgendadaStage,
+} from '@/lib/leadStage';
 import {
   leadRespondeuFormularioPerfil,
   type LeadQualificacao,
@@ -10,6 +17,7 @@ export type LeadMetricsRow = {
   dataHora: string;
   contato: string;
   origem: string;
+  canal?: string;
   pagina: string;
   empreendimento?: string;
   _table?: string;
@@ -27,15 +35,27 @@ export type LeadMetricsRow = {
   cvcrm_status?: string | null;
   cvcrm_situation?: string | null;
   cvcrm_stage?: string | null;
+  dataPrimeiroAtendimento?: string | null;
+  dataVisitaAgendada?: string | null;
+  dataVisitaRealizada?: string | null;
+  dataAnaliseCreditoInicio?: string | null;
+  dataAnaliseCreditoFim?: string | null;
+  dataProposta?: string | null;
+  dataVenda?: string | null;
+  dataPerdido?: string | null;
+  motivoPerda?: string | null;
+  status?: LeadStatus;
 };
 
 export type LeadsInfoboxStats = {
   leads: number;
+  qualificados: number;
   forms: number;
   whatsapp: number;
   taxaConversaoPct: number;
   pontuacao: number;
   vendas: number;
+  propostas: number;
   sincronizados: number;
   visitasAgendadas: number;
   atendimentoCorretor: number;
@@ -59,14 +79,19 @@ function contatoIsWhatsapp(contato: string) {
   return !contatoIsForm(contato);
 }
 
-/** Pendente: virá do CVCRM (cvcrm_stage / cvcrm_situation) via webhook. */
-function isAtendimentoCorretor(_row: LeadMetricsRow) {
-  return false;
+function isAtendimentoCorretor(row: LeadMetricsRow) {
+  return isAtendimentoCorretorStage(row);
 }
 
-/** Pendente: virá do CVCRM (cvcrm_stage / cvcrm_situation) via webhook. */
-function isVisitaAgendada(_row: LeadMetricsRow) {
-  return false;
+function isVisitaAgendada(row: LeadMetricsRow) {
+  return isVisitaAgendadaStage(row);
+}
+
+function isQualificadoLead(row: LeadMetricsRow) {
+  return (
+    leadRespondeuFormularioPerfil(row) &&
+    (row.qualificacao === 'Alta' || row.qualificacao === 'Média')
+  );
 }
 
 function isVendaLead(row: LeadMetricsRow) {
@@ -86,14 +111,11 @@ function isPontuacaoLead(row: LeadMetricsRow) {
 }
 
 function isAnaliseCreditoLead(row: LeadMetricsRow) {
-  if (!leadRespondeuFormularioPerfil(row)) return false;
-  const pref = row.pagamentoPreferencia?.trim().toLowerCase() ?? '';
-  return (
-    pref.includes('financiamento') ||
-    pref.includes('cartão') ||
-    pref.includes('cartao') ||
-    pref.includes('parcelado')
-  );
+  return isAnaliseCreditoStage(row);
+}
+
+function isPropostaLeadRow(row: LeadMetricsRow) {
+  return isPropostaLead(row);
 }
 
 export function getOrigemDominante(rows: LeadMetricsRow[]): string {
@@ -180,16 +202,20 @@ function computePontuacaoScore(rows: LeadMetricsRow[]): number {
 }
 
 export function computeLeadsInfoboxStats(rows: LeadMetricsRow[]): LeadsInfoboxStats {
+  const leads = rows.length;
   const forms = rows.filter((row) => contatoIsForm(row.contato)).length;
   const whatsapp = rows.filter((row) => contatoIsWhatsapp(row.contato)).length;
+  const qualificados = rows.filter(isQualificadoLead).length;
 
   return {
-    leads: rows.length,
+    leads,
+    qualificados,
     forms,
     whatsapp,
     taxaConversaoPct: computeTaxaConversaoPct(rows),
     pontuacao: computePontuacaoScore(rows),
     vendas: rows.filter(isVendaLead).length,
+    propostas: rows.filter(isPropostaLeadRow).length,
     sincronizados: rows.filter(isSincronizadoLead).length,
     visitasAgendadas: rows.filter(isVisitaAgendada).length,
     atendimentoCorretor: rows.filter(isAtendimentoCorretor).length,

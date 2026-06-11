@@ -1,18 +1,18 @@
 import { useMemo } from 'react';
-import { BarChart3, SlidersHorizontal } from 'lucide-react';
+import { Building2, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { MainViewHeader } from '@/components/layout/header';
-import {
-  DadosFiltersPanel,
-  collectDadosFilterOptions,
-} from '@/components/dados/DadosFiltersPanel';
 import { FiltrosPanelMotion } from '@/components/dados/FiltrosPanelMotion';
-import { useLeadsFilters } from '@/hooks/useLeadsFilters';
-import { DadosView } from '@/views/dados/DadosView';
+import {
+  collectEmpreendimentosFilterOptions,
+  EmpreendimentosFiltersPanel,
+} from '@/components/empreendimentos/EmpreendimentosFiltersPanel';
+import { useEmpreendimentosFilters } from '@/hooks/useEmpreendimentosFilters';
 import { useLeadsData } from '@/hooks/useLeadsData';
+import { EmpreendimentosView } from '@/views/empreendimentos/EmpreendimentosView';
 
-export default function DadosPage() {
+export default function EmpreendimentosPage() {
   const {
     filtrosPanelAberto,
     setFiltrosPanelAberto,
@@ -21,22 +21,18 @@ export default function DadosPage() {
     appliedFiltros,
     handleApplyFiltros,
     handleClearFiltros,
-    handleMetricaSelect,
-  } = useLeadsFilters();
+    handlePeriodoRapido,
+  } = useEmpreendimentosFilters();
 
   const { rows } = useLeadsData();
-
-  const filterOptions = useMemo(
-    () => collectDadosFilterOptions(rows),
-    [rows],
-  );
+  const filterOptions = useMemo(() => collectEmpreendimentosFilterOptions(rows), [rows]);
 
   return (
     <MainViewFluidShell>
       <MainViewHeader
-        icon={<BarChart3 className="h-6 w-6" />}
-        title="Análise"
-        description="Métricas, distribuição e maturação dos leads no período"
+        icon={<Building2 className="h-6 w-6" />}
+        title="Empreendimentos"
+        description="Performance, qualidade e avanço comercial por produto"
         button={
           <Button
             type="button"
@@ -51,16 +47,16 @@ export default function DadosPage() {
       />
       <div className="mt-8">
         <FiltrosPanelMotion open={filtrosPanelAberto}>
-          <DadosFiltersPanel
+          <EmpreendimentosFiltersPanel
             value={filtros}
             onChange={setFiltros}
             onApply={handleApplyFiltros}
             onClear={handleClearFiltros}
-            onMetricaSelect={handleMetricaSelect}
+            onPeriodoRapido={handlePeriodoRapido}
             filterOptions={filterOptions}
           />
         </FiltrosPanelMotion>
-        <DadosView filtros={appliedFiltros} onMetricaSelect={handleMetricaSelect} />
+        <EmpreendimentosView filtros={appliedFiltros} />
       </div>
     </MainViewFluidShell>
   );

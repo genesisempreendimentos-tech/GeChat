@@ -284,6 +284,21 @@ function mapCvcrmFields(row) {
   };
 }
 
+function mapStageDateFields(row) {
+  const motivo = String(row.motivo_perda ?? '').trim();
+  return {
+    data_primeiro_atendimento: row.data_primeiro_atendimento ?? null,
+    data_visita_agendada: row.data_visita_agendada ?? null,
+    data_visita_realizada: row.data_visita_realizada ?? null,
+    data_analise_credito_inicio: row.data_analise_credito_inicio ?? null,
+    data_analise_credito_fim: row.data_analise_credito_fim ?? null,
+    data_proposta: row.data_proposta ?? null,
+    data_venda: row.data_venda ?? null,
+    data_perdido: row.data_perdido ?? null,
+    motivo_perda: motivo || null,
+  };
+}
+
 function mapLeadCodigo(row) {
   const codigo = String(row.codigo ?? '').trim();
   return codigo || null;
@@ -321,6 +336,7 @@ export function mapStandardLeadRow(row, sourceTable, defaults = {}) {
     responsavel: null,
     status: mapLeadStatus(row),
     ...mapCvcrmFields(row),
+    ...mapStageDateFields(row),
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
   };
@@ -357,6 +373,7 @@ export function mapOasisIiRow(row, sourceTable, defaults = {}) {
     responsavel: null,
     status: mapLeadStatus(row),
     ...mapCvcrmFields(row),
+    ...mapStageDateFields(row),
     created_at: row.created_at,
     updated_at: row.created_at,
   };
@@ -393,10 +410,23 @@ export function mapSolarBosqueRow(row, sourceTable, defaults = {}) {
     responsavel: null,
     status: mapLeadStatus(row),
     ...mapCvcrmFields(row),
+    ...mapStageDateFields(row),
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
   };
 }
+
+const STAGE_DATE_COLUMNS = [
+  'data_primeiro_atendimento',
+  'data_visita_agendada',
+  'data_visita_realizada',
+  'data_analise_credito_inicio',
+  'data_analise_credito_fim',
+  'data_proposta',
+  'data_venda',
+  'data_perdido',
+  'motivo_perda',
+];
 
 const ENSURE_LEADS_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS leads (
@@ -437,8 +467,17 @@ const UPSERT_LEAD_COLUMNS = [
   'empreendimento', 'responsavel', 'relacionamento', 'investimento', 'cidade_residencia',
   'birth_date', 'profile_type', 'profile_notes', 'dispositivo', 'pagamento_preferencia',
   'status', 'cvcrm_lead_id', 'cvcrm_sync_status', 'cvcrm_is_sold',
-  'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage', 'created_at', 'updated_at',
+  'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage',
+  ...STAGE_DATE_COLUMNS,
+  'created_at', 'updated_at',
 ];
+
+const STAGE_DATE_COALESCE_UPDATES = STAGE_DATE_COLUMNS.map(
+  (col) =>
+    col === 'motivo_perda'
+      ? `${col} = COALESCE(NULLIF(TRIM(EXCLUDED.${col}), ''), leads.${col})`
+      : `${col} = COALESCE(leads.${col}, EXCLUDED.${col})`,
+).join(',\n  ');
 
 const UPSERT_LEAD_CONFLICT_SQL = `
 ON CONFLICT (id) DO UPDATE SET
@@ -468,6 +507,7 @@ ON CONFLICT (id) DO UPDATE SET
   cvcrm_status = EXCLUDED.cvcrm_status,
   cvcrm_situation = EXCLUDED.cvcrm_situation,
   cvcrm_stage = EXCLUDED.cvcrm_stage,
+  ${STAGE_DATE_COALESCE_UPDATES},
   updated_at = EXCLUDED.updated_at;
 `;
 
@@ -514,6 +554,15 @@ function leadToUpsertParams(mapped) {
     mapped.cvcrm_status,
     mapped.cvcrm_situation,
     mapped.cvcrm_stage,
+    mapped.data_primeiro_atendimento,
+    mapped.data_visita_agendada,
+    mapped.data_visita_realizada,
+    mapped.data_analise_credito_inicio,
+    mapped.data_analise_credito_fim,
+    mapped.data_proposta,
+    mapped.data_venda,
+    mapped.data_perdido,
+    mapped.motivo_perda,
     mapped.created_at,
     mapped.updated_at,
   ];
@@ -603,6 +652,10 @@ export async function syncLeadsFromSources({ force = false } = {}) {
     await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_status TEXT`);
     await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_situation TEXT`);
     await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_stage TEXT`);
+    for (const col of STAGE_DATE_COLUMNS) {
+      const colType = col === 'motivo_perda' ? 'TEXT' : 'TIMESTAMPTZ';
+      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ${col} ${colType}`);
+    }
 
       for (const source of LEAD_SOURCE_TABLES) {
         const result = await processLeadSourceSync(client, source);

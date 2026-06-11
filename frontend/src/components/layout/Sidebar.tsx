@@ -1,4 +1,4 @@
-import { LayoutDashboard, BarChart3, FileBarChart, Users } from 'lucide-react';
+import { LayoutDashboard, BarChart3, FileBarChart, Users, Hourglass, Building2 } from 'lucide-react';
 
 import { motion } from 'framer-motion';
 
@@ -22,6 +22,10 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
 
   { icon: BarChart3, label: 'Análise', path: '/dados' },
+
+  { icon: Hourglass, label: 'Maturação', path: '/maturacao' },
+
+  { icon: Building2, label: 'Empreendimentos', path: '/empreendimentos' },
 
   { icon: Users, label: 'Leads', path: '/leads' },
 

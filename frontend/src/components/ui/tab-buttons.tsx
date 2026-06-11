@@ -28,7 +28,7 @@ export function TabButtons<T extends string>({
   return (
     <div
       className={cn(
-        'flex rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80',
+        'inline-flex w-fit flex-wrap rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80',
         className
       )}
     >

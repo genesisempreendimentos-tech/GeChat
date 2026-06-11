@@ -49,6 +49,43 @@ function extractLeadPayload(body) {
   return body;
 }
 
+function resolveStageDateColumns(stage, situation, isSold) {
+  const texts = [stage, situation].filter(Boolean).join(' ');
+  const columns = [];
+
+  if (isSold || /venda/i.test(texts)) columns.push('data_venda');
+  if (/proposta/i.test(texts)) columns.push('data_proposta');
+
+  if (/cr[eé]dito/i.test(texts) || /financiamento/i.test(texts) || /an[aá]lise/i.test(texts)) {
+    columns.push('data_analise_credito_inicio');
+    if (
+      /aprov/i.test(texts) ||
+      /reprov/i.test(texts) ||
+      /negad/i.test(texts) ||
+      /recus/i.test(texts) ||
+      /indefer/i.test(texts)
+    ) {
+      columns.push('data_analise_credito_fim');
+    }
+  }
+
+  if (/visita/i.test(texts)) {
+    if (/agendad/i.test(texts)) {
+      columns.push('data_visita_agendada');
+    } else {
+      columns.push('data_visita_realizada');
+    }
+  }
+
+  if (/atendimento/i.test(texts) || /contato/i.test(texts) || /corretor/i.test(texts)) {
+    columns.push('data_primeiro_atendimento');
+  }
+
+  if (/perdid/i.test(texts) || /descart/i.test(texts)) columns.push('data_perdido');
+
+  return [...new Set(columns)];
+}
+
 export function parseCvcrmLeadResponse(body) {
   const lead = extractLeadPayload(body);
   if (!lead || typeof lead !== 'object') {
@@ -148,6 +185,14 @@ async function fetchCvcrmLeadById(idlead) {
 
 async function updateLeadTable(client, tableName, idlead, fields, cvcrmResponse) {
   const touchUpdatedAt = TABLES_WITH_UPDATED_AT.has(tableName) ? ', updated_at = now()' : '';
+  const stageDateColumns = resolveStageDateColumns(
+    fields.cvcrm_stage,
+    fields.cvcrm_situation,
+    fields.cvcrm_is_sold,
+  );
+  const stageDateSet = stageDateColumns
+    .map((col) => `, ${col} = COALESCE(${col}, now())`)
+    .join('');
   const result = await client.query(
     `UPDATE ${tableName}
      SET cvcrm_status = $1,
@@ -155,7 +200,7 @@ async function updateLeadTable(client, tableName, idlead, fields, cvcrmResponse)
          cvcrm_stage = $3,
          cvcrm_last_update = now(),
          cvcrm_payload = $4::jsonb,
-         cvcrm_is_sold = $5${touchUpdatedAt}
+         cvcrm_is_sold = $5${stageDateSet}${touchUpdatedAt}
      WHERE cvcrm_lead_id = $6
      RETURNING id, empreendimento`,
     [
