@@ -302,22 +302,39 @@ export const supabase = {
     },
   },
   from(table: string) {
-    let chain: Promise<any> = Promise.resolve(null);
+    const ops: Array<{ op: string; args: unknown[] }> = [];
+
+    const execute = async () => {
+      const client = await getSupabaseClient();
+      if (!client) throw new Error('Supabase indisponível.');
+      let q: any = client.from(table);
+      for (const { op, args } of ops) {
+        const fn = q[op];
+        if (typeof fn !== 'function') {
+          throw new TypeError(`Supabase: "${op}" não é método válido nesta etapa da query`);
+        }
+        q = fn.apply(q, args);
+      }
+      return q;
+    };
+
     const proxy: any = new Proxy(
       {},
       {
         get(_target, prop) {
           if (prop === 'then') {
             return (onFulfilled: any, onRejected: any) =>
-              chain.then(onFulfilled, onRejected);
+              execute().then(onFulfilled, onRejected);
           }
+          if (prop === 'catch') {
+            return (onRejected: any) => execute().catch(onRejected);
+          }
+          if (prop === 'finally') {
+            return (onFinally: any) => execute().finally(onFinally);
+          }
+          if (typeof prop === 'symbol') return undefined;
           return (...args: any[]) => {
-            chain = chain.then(async (prev) => {
-              const client = await getSupabaseClient();
-              if (!client) throw new Error('Supabase indisponível.');
-              const q = prev ?? client.from(table);
-              return (q as any)[prop](...args);
-            });
+            ops.push({ op: String(prop), args });
             return proxy;
           };
         },
