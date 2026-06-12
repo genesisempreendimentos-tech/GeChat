@@ -13,6 +13,7 @@ import { DadosView } from '@/views/dados/DadosView';
 import { useLeadsData } from '@/hooks/useLeadsData';
 import { CvcrmPendingSyncButton } from '@/components/cvcrm/CvcrmPendingSyncButton';
 import { CvcrmSyncAllDayButton } from '@/components/cvcrm/CvcrmSyncAllDayButton';
+import { CvcrmUpdatesModal } from '@/components/cvcrm/CvcrmUpdatesModal';
 
 export default function DadosPage() {
   const {
@@ -43,6 +44,7 @@ export default function DadosPage() {
           <>
             <CvcrmPendingSyncButton onSynced={() => void refreshFromDatabase()} />
             <CvcrmSyncAllDayButton onSynced={() => void refreshFromDatabase()} />
+            <CvcrmUpdatesModal />
             <Button
               type="button"
               variant={filtrosPanelAberto ? 'default' : 'outline'}

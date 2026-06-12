@@ -34,11 +34,70 @@ export function formatCvcrmSyncStatusLabel(
   if (!lastSyncAt) return 'Nunca sincronizado';
   const date = new Date(lastSyncAt);
   if (Number.isNaN(date.getTime())) return 'Nunca sincronizado';
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
+  const timeStr = date.toLocaleTimeString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const [hh = '00', mm = '00'] = timeStr.split(':');
   const leadLabel =
     lastProcessed === 1 ? '1 lead atualizado' : `${lastProcessed} leads atualizados`;
   return `${leadLabel} às ${hh}h${mm}m`;
+}
+
+export type CvcrmLeadUpdateChange = {
+  de: string | boolean | null;
+  para: string | boolean | null;
+};
+
+export type CvcrmLeadUpdateRow = {
+  id: number;
+  idlead: number;
+  cvcrm_lead_id: string | null;
+  lead_name: string | null;
+  source_table: string | null;
+  action: string;
+  changes: Record<string, CvcrmLeadUpdateChange>;
+  synced_at: string | null;
+};
+
+export type CvcrmLeadUpdatesResponse = {
+  updates: CvcrmLeadUpdateRow[];
+};
+
+export function formatCvcrmUpdateSyncedAt(iso: string | null): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+export function formatAuditFieldLabel(field: string): string {
+  const labels: Record<string, string> = {
+    cvcrm_situation: 'Situação',
+    cvcrm_status: 'Status',
+    cvcrm_stage: 'Estágio',
+    cvcrm_is_sold: 'Vendido',
+    documento_cliente: 'Documento',
+    cvcrm_last_update: 'Última alteração CVCRM',
+    idsituacao: 'ID situação',
+  };
+  return labels[field] ?? field;
+}
+
+export function formatAuditValue(value: string | boolean | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Sim' : 'Não';
+  return String(value);
 }
 
 export const CVCRM_SYNC_STATUS_REFRESH_EVENT = 'cvcrm-sync-status-refresh';
@@ -75,5 +134,11 @@ export const cvcrmService = {
 
   async syncAll() {
     return apiFetch<CvcrmSyncAllResponse>('/api/cvcrm/sync-all', { method: 'POST' });
+  },
+
+  async listUpdates(limit = 100, offset = 0) {
+    return apiFetch<CvcrmLeadUpdatesResponse>(
+      `/api/cvcrm/updates?limit=${limit}&offset=${offset}`,
+    );
   },
 };

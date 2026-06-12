@@ -4,6 +4,7 @@ import { MainViewHeader } from '@/components/layout/header';
 import { LeadsOperacionalView } from '@/views/leads/LeadsOperacionalView';
 import { CvcrmPendingSyncButton } from '@/components/cvcrm/CvcrmPendingSyncButton';
 import { CvcrmSyncAllDayButton } from '@/components/cvcrm/CvcrmSyncAllDayButton';
+import { CvcrmUpdatesModal } from '@/components/cvcrm/CvcrmUpdatesModal';
 import { useLeadsData } from '@/hooks/useLeadsData';
 
 export default function LeadsPage() {
@@ -19,6 +20,7 @@ export default function LeadsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <CvcrmPendingSyncButton onSynced={() => void refreshFromDatabase()} />
             <CvcrmSyncAllDayButton onSynced={() => void refreshFromDatabase()} />
+            <CvcrmUpdatesModal />
           </div>
         }
       />

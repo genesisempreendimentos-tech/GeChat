@@ -5,6 +5,7 @@ import { syncLeadsFromSources } from '../services/leadSourceSync.mjs';
 import { listLeads, getLeadStats, getLeadById, LEAD_STATUSES } from '../services/leadsService.mjs';
 import { sendLeadToCvcrm } from '../services/cvcrmService.mjs';
 import { processCvcrmWebhook } from '../services/cvcrmWebhook.mjs';
+import { processCvcrmReservaWebhook } from '../services/cvcrmReservaWebhook.mjs';
 
 function getNeonLeadsUrl() {
   return process.env.NEON_LEADS_DATABASE_URL || process.env.NEON_GELEADS_DATABASE_URL || null;
@@ -70,6 +71,17 @@ export function createCvcrmWebhookRouter() {
       query: req.query,
     }).catch((err) => {
       console.error('[cvcrm/webhook]', err);
+    });
+  });
+
+  router.post('/cvcrm/reserva', (req, res) => {
+    res.status(200).json({ ok: true });
+    void processCvcrmReservaWebhook({
+      headers: req.headers,
+      body: req.body,
+      query: req.query,
+    }).catch((err) => {
+      console.error('[cvcrm/webhook/reserva]', err);
     });
   });
 

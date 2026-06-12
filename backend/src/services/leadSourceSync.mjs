@@ -281,6 +281,31 @@ function mapCvcrmNullableString(row, key) {
   return value || null;
 }
 
+function mapCvcrmSaleValue(row) {
+  const value = row.cvcrm_sale_value;
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseCvcrmPayload(row) {
+  const raw = row.cvcrm_payload;
+  if (!raw) return null;
+  if (typeof raw === 'object') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function mapAttributionFields(row) {
+  const payload = parseCvcrmPayload(row);
+  const idcorretor = String(payload?.idcorretor ?? '').trim() || null;
+  const idimobiliaria = String(payload?.idimobiliaria ?? '').trim() || null;
+  return { idcorretor, idimobiliaria };
+}
+
 function mapCvcrmFields(row) {
   return {
     cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
@@ -290,6 +315,9 @@ function mapCvcrmFields(row) {
     cvcrm_situation: mapCvcrmNullableString(row, 'cvcrm_situation'),
     cvcrm_stage: mapCvcrmNullableString(row, 'cvcrm_stage'),
     cvcrm_last_update: row.cvcrm_last_update ?? null,
+    cvcrm_sale_value: mapCvcrmSaleValue(row),
+    cvcrm_sale_date: row.cvcrm_sale_date ?? null,
+    ...mapAttributionFields(row),
   };
 }
 
@@ -513,6 +541,8 @@ const UPSERT_LEAD_COLUMNS = [
   'birth_date', 'profile_type', 'profile_notes', 'dispositivo', 'pagamento_preferencia',
   'status', 'cvcrm_lead_id', 'cvcrm_sync_status', 'cvcrm_is_sold',
   'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage', 'cvcrm_last_update',
+  'cvcrm_sale_value', 'cvcrm_sale_date',
+  'idcorretor', 'idimobiliaria',
   ...STAGE_DATE_COLUMNS,
   'created_at', 'updated_at',
 ];
@@ -553,6 +583,10 @@ ON CONFLICT (id) DO UPDATE SET
   cvcrm_situation = EXCLUDED.cvcrm_situation,
   cvcrm_stage = EXCLUDED.cvcrm_stage,
   cvcrm_last_update = COALESCE(EXCLUDED.cvcrm_last_update, leads.cvcrm_last_update),
+  cvcrm_sale_value = COALESCE(EXCLUDED.cvcrm_sale_value, leads.cvcrm_sale_value),
+  cvcrm_sale_date = COALESCE(EXCLUDED.cvcrm_sale_date, leads.cvcrm_sale_date),
+  idcorretor = COALESCE(NULLIF(TRIM(EXCLUDED.idcorretor), ''), leads.idcorretor),
+  idimobiliaria = COALESCE(NULLIF(TRIM(EXCLUDED.idimobiliaria), ''), leads.idimobiliaria),
   ${STAGE_DATE_COALESCE_UPDATES},
   updated_at = EXCLUDED.updated_at;
 `;
@@ -601,6 +635,10 @@ function leadToUpsertParams(mapped) {
     mapped.cvcrm_situation,
     mapped.cvcrm_stage,
     mapped.cvcrm_last_update,
+    mapped.cvcrm_sale_value,
+    mapped.cvcrm_sale_date,
+    mapped.idcorretor,
+    mapped.idimobiliaria,
     mapped.data_primeiro_atendimento,
     mapped.data_visita_agendada,
     mapped.data_visita_realizada,
@@ -654,6 +692,132 @@ async function dedupeLeadsByCvcrmLeadId(client) {
   return removed;
 }
 
+async function loadLeadsIdentityMaps(client, mappedRows) {
+  const cvcrmIds = [
+    ...new Set(mappedRows.map((r) => r.cvcrm_lead_id).filter(Boolean)),
+  ];
+  const codigos = [...new Set(mappedRows.map((r) => r.codigo).filter(Boolean))];
+  const ids = [...new Set(mappedRows.map((r) => r.id).filter(Boolean))];
+
+  if (cvcrmIds.length === 0 && codigos.length === 0 && ids.length === 0) {
+    return { byCvcrm: new Map(), byCodigo: new Map() };
+  }
+
+  const result = await client.query(
+    `SELECT id, codigo, cvcrm_lead_id
+     FROM leads
+     WHERE cvcrm_lead_id = ANY($1::text[])
+        OR codigo = ANY($2::text[])
+        OR id = ANY($3::uuid[])`,
+    [cvcrmIds, codigos, ids],
+  );
+
+  const byCvcrm = new Map();
+  const byCodigo = new Map();
+  for (const row of result.rows) {
+    if (row.cvcrm_lead_id) byCvcrm.set(String(row.cvcrm_lead_id), row);
+    if (row.codigo) byCodigo.set(String(row.codigo), row);
+  }
+  return { byCvcrm, byCodigo };
+}
+
+function reconcileMappedLeadForUpsert(mapped, maps) {
+  const out = { ...mapped };
+
+  if (out.cvcrm_lead_id) {
+    const existingByCvcrm = maps.byCvcrm.get(String(out.cvcrm_lead_id));
+    if (existingByCvcrm) {
+      out.id = existingByCvcrm.id;
+      out.codigo = existingByCvcrm.codigo ?? out.codigo;
+      return out;
+    }
+  }
+
+  if (out.codigo) {
+    const codigo = String(out.codigo);
+    const existingByCodigo = maps.byCodigo.get(codigo);
+    if (existingByCodigo && String(existingByCodigo.id) !== String(out.id)) {
+      out.codigo = null;
+    }
+  }
+
+  return out;
+}
+
+function reconcileChunkForUpsert(chunk, identityMaps) {
+  const claimedCodigos = new Map();
+
+  return chunk.map((row) => {
+    let out = reconcileMappedLeadForUpsert(row, identityMaps);
+
+    if (out.codigo) {
+      const codigo = String(out.codigo);
+      const ownerId = claimedCodigos.get(codigo);
+      if (ownerId && String(ownerId) !== String(out.id)) {
+        out = { ...out, codigo: null };
+      } else {
+        claimedCodigos.set(codigo, out.id);
+      }
+    }
+
+    return out;
+  });
+}
+
+function refreshIdentityMapsFromChunk(identityMaps, chunk) {
+  for (const row of chunk) {
+    const entry = {
+      id: row.id,
+      codigo: row.codigo,
+      cvcrm_lead_id: row.cvcrm_lead_id,
+    };
+    if (row.cvcrm_lead_id) {
+      identityMaps.byCvcrm.set(String(row.cvcrm_lead_id), entry);
+    }
+    if (row.codigo) {
+      identityMaps.byCodigo.set(String(row.codigo), entry);
+    }
+  }
+}
+
+function rowUpsertRecency(row) {
+  const candidates = [row.updated_at, row.cvcrm_last_update, row.created_at];
+  for (const value of candidates) {
+    if (!value) continue;
+    const ts = new Date(value).getTime();
+    if (Number.isFinite(ts)) return ts;
+  }
+  return 0;
+}
+
+/** Evita Postgres 21000: um único INSERT não pode repetir id (ON CONFLICT) nem codigo (índice único). */
+function deduplicateChunkForUpsert(chunk) {
+  const sorted = [...chunk].sort((a, b) => rowUpsertRecency(b) - rowUpsertRecency(a));
+  const seenIds = new Set();
+  const seenCodigos = new Set();
+  const kept = [];
+
+  for (const row of sorted) {
+    const id = String(row.id);
+    if (seenIds.has(id)) continue;
+
+    const codigo = row.codigo != null ? String(row.codigo).trim() : '';
+    if (codigo && seenCodigos.has(codigo)) continue;
+
+    seenIds.add(id);
+    if (codigo) seenCodigos.add(codigo);
+    kept.push(row);
+  }
+
+  if (kept.length < chunk.length) {
+    console.log(
+      `[leads/sync] dedupe lote: ${chunk.length - kept.length} linha(s) omitida(s) (id/codigo duplicado no batch)`,
+    );
+  }
+
+  return kept;
+}
+
 async function processLeadSourceSync(client, source) {
   const tableName = await resolveSourceTable(client, source.tables);
   if (!tableName) {
@@ -672,16 +836,27 @@ async function processLeadSourceSync(client, source) {
     let count = 0;
 
     const mappedRows = rows.map((row) => source.mapRow(row, source.sourceTable, source));
+    const identityMaps = await loadLeadsIdentityMaps(client, mappedRows);
 
     for (let i = 0; i < mappedRows.length; i += UPSERT_BATCH_SIZE) {
-      const chunk = mappedRows.slice(i, i + UPSERT_BATCH_SIZE);
+      const reconciled = reconcileChunkForUpsert(
+        mappedRows.slice(i, i + UPSERT_BATCH_SIZE),
+        identityMaps,
+      );
+      const chunk = deduplicateChunkForUpsert(reconciled);
+      if (chunk.length === 0) continue;
       await client.query(buildBatchUpsertSql(chunk.length), chunk.flatMap(leadToUpsertParams));
+      refreshIdentityMapsFromChunk(identityMaps, chunk);
     }
 
     count = mappedRows.length;
 
     console.log(`[leads/sync] ${tableName}: ${count} lead(s) sincronizado(s) → leads`);
     return { source: source.key, table: tableName, count, skipped: false };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[leads/sync] ${tableName} error:`, message);
+    return { source: source.key, table: tableName, count: 0, skipped: false, error: message };
   } finally {
     tableSyncInFlight[tableName] = false;
   }
@@ -721,6 +896,10 @@ export async function syncLeadsFromSources({ force = false } = {}) {
     await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_situation TEXT`);
     await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_stage TEXT`);
     await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_last_update TIMESTAMPTZ`);
+    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_sale_value NUMERIC`);
+    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_sale_date TIMESTAMPTZ`);
+    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS idcorretor TEXT`);
+    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS idimobiliaria TEXT`);
     for (const col of STAGE_DATE_COLUMNS) {
       const colType = col === 'motivo_perda' ? 'TEXT' : 'TIMESTAMPTZ';
       await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ${col} ${colType}`);

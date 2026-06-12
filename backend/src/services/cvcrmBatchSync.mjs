@@ -19,7 +19,7 @@ export const VALID_SOURCE_TABLES = [
   'leads_cvcrm',
 ];
 
-const VALID_SOURCE_TABLES_SET = new Set(VALID_SOURCE_TABLES);
+export const VALID_SOURCE_TABLES_SET = new Set(VALID_SOURCE_TABLES);
 
 /** @deprecated Use VALID_SOURCE_TABLES */
 export const CVCRM_WEBHOOK_TABLES = VALID_SOURCE_TABLES;
@@ -72,8 +72,144 @@ function extractLeadPayload(body) {
   return body;
 }
 
-function todayReferenceDate() {
-  return new Date().toISOString().slice(0, 10);
+function brtNowParts(date = new Date()) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const p = Object.fromEntries(fmt.formatToParts(date).map((x) => [x.type, x.value]));
+  const hour = Number(p.hour) % 24;
+  return { date: `${p.year}-${p.month}-${p.day}`, hour, minute: Number(p.minute) };
+}
+
+export function todayReferenceDate() {
+  return brtNowParts().date;
+}
+
+const AUDIT_FIELD_KEYS = [
+  'cvcrm_situation',
+  'cvcrm_status',
+  'cvcrm_stage',
+  'cvcrm_is_sold',
+  'documento_cliente',
+  'cvcrm_last_update',
+  'idsituacao',
+];
+
+function normalizeAuditValue(value) {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'boolean') return value;
+  return String(value);
+}
+
+function auditValuesEqual(a, b) {
+  return normalizeAuditValue(a) === normalizeAuditValue(b);
+}
+
+function fieldsToAuditMap(fields) {
+  return {
+    cvcrm_situation: fields.cvcrm_situation,
+    cvcrm_status: fields.cvcrm_status,
+    cvcrm_stage: fields.cvcrm_stage,
+    cvcrm_is_sold: fields.cvcrm_is_sold,
+    documento_cliente: fields.documento_cliente,
+    cvcrm_last_update: fields.cvcrm_last_update,
+    idsituacao: fields.idsituacao,
+  };
+}
+
+async function fetchCurrentAuditValues(client, tableName, idlead) {
+  const cols = [];
+  for (const col of AUDIT_FIELD_KEYS) {
+    if (await columnExists(client, tableName, col)) {
+      cols.push(col);
+    }
+  }
+
+  let nameCol = null;
+  if (await columnExists(client, tableName, 'nome')) nameCol = 'nome';
+  else if (await columnExists(client, tableName, 'name')) nameCol = 'name';
+
+  const selectCols = [...cols];
+  if (nameCol) selectCols.push(nameCol);
+
+  if (selectCols.length === 0) {
+    const exists = await client.query(
+      `SELECT 1 FROM ${tableName} WHERE cvcrm_lead_id = $1 LIMIT 1`,
+      [String(idlead)],
+    );
+    return exists.rowCount > 0 ? {} : null;
+  }
+
+  const result = await client.query(
+    `SELECT ${selectCols.join(', ')} FROM ${tableName} WHERE cvcrm_lead_id = $1 LIMIT 1`,
+    [String(idlead)],
+  );
+  if (result.rowCount === 0) return null;
+  return result.rows[0];
+}
+
+function computeAuditChanges(current, fields, isNewInsert) {
+  const novoMap = fieldsToAuditMap(fields);
+  const changes = {};
+
+  for (const field of AUDIT_FIELD_KEYS) {
+    const novo = novoMap[field] ?? null;
+    const atual = current?.[field] ?? null;
+
+    if (isNewInsert) {
+      if (novo !== null && novo !== undefined && novo !== '') {
+        changes[field] = { de: null, para: normalizeAuditValue(novo) };
+      }
+      continue;
+    }
+
+    if (!auditValuesEqual(atual, novo)) {
+      changes[field] = {
+        de: normalizeAuditValue(atual),
+        para: normalizeAuditValue(novo),
+      };
+    }
+  }
+
+  return changes;
+}
+
+async function logCvcrmLeadUpdate(client, entry) {
+  const { idlead, cvcrmLeadId, leadName, sourceTable, action, changes } = entry;
+  if (!changes || Object.keys(changes).length === 0) return;
+
+  const idleadParam = idlead == null ? null : toLeadIdNumber(idlead);
+  const changesJson = JSON.stringify(changes ?? {});
+
+  try {
+    await client.query(
+      `INSERT INTO cvcrm_lead_updates (
+         idlead,
+         cvcrm_lead_id,
+         lead_name,
+         source_table,
+         action,
+         changes
+       ) VALUES ($1::bigint, $2::text, $3::text, $4::text, $5::text, $6::jsonb)`,
+      [
+        idleadParam,
+        cvcrmLeadId ?? null,
+        leadName ?? null,
+        sourceTable ?? null,
+        action ?? null,
+        changesJson,
+      ],
+    );
+  } catch (err) {
+    console.error('[cvcrm/batch] Erro ao gravar cvcrm_lead_updates:', err?.message ?? err);
+  }
 }
 
 function resolveStageDateColumns(stage, situation, isSold) {
@@ -236,7 +372,7 @@ function assertValidSourceTable(tableName) {
   }
 }
 
-async function resolveLeadSourceTable(client, idlead) {
+export async function resolveLeadSourceTable(client, idlead) {
   const result = await client.query(
     `SELECT source_table FROM leads WHERE cvcrm_lead_id = $1 LIMIT 1`,
     [String(idlead)],
@@ -272,29 +408,32 @@ async function updateLeadTable(client, tableName, idlead, fields, cvcrmLead) {
     setClauses.push('cvcrm_last_synced_at = now()');
   }
   const params = [
-    fields.cvcrm_status,
-    fields.cvcrm_situation,
-    fields.cvcrm_stage,
+    fields.cvcrm_status ?? null,
+    fields.cvcrm_situation ?? null,
+    fields.cvcrm_stage ?? null,
     fields.cvcrm_last_update ?? null,
     JSON.stringify(cvcrmLead ?? {}),
-    fields.cvcrm_is_sold,
+    fields.cvcrm_is_sold ?? false,
   ];
   let paramIndex = 7;
 
-  if (stageDateColumns.length > 0 && referenceDate) {
+  const existingStageDateColumns = [];
+  for (const col of stageDateColumns) {
+    if (await columnExists(client, tableName, col)) {
+      existingStageDateColumns.push(col);
+    }
+  }
+
+  if (existingStageDateColumns.length > 0 && referenceDate) {
     const stageDateParam = paramIndex;
     params.push(referenceDate);
     paramIndex += 1;
-    for (const col of stageDateColumns) {
-      if (await columnExists(client, tableName, col)) {
-        setClauses.push(`${col} = COALESCE(${col}, $${stageDateParam}::timestamptz)`);
-      }
+    for (const col of existingStageDateColumns) {
+      setClauses.push(`${col} = COALESCE(${col}, $${stageDateParam}::timestamptz)`);
     }
-  } else {
-    for (const col of stageDateColumns) {
-      if (await columnExists(client, tableName, col)) {
-        setClauses.push(`${col} = COALESCE(${col}, now())`);
-      }
+  } else if (existingStageDateColumns.length > 0) {
+    for (const col of existingStageDateColumns) {
+      setClauses.push(`${col} = COALESCE(${col}, now())`);
     }
   }
 
@@ -389,14 +528,14 @@ async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
     [
       nome,
       whatsapp,
-      email,
-      empreendimento,
-      canal,
+      email ?? null,
+      empreendimento ?? null,
+      canal ?? null,
       String(idlead),
-      fields.cvcrm_status,
-      fields.cvcrm_situation,
-      fields.cvcrm_stage,
-      fields.cvcrm_is_sold,
+      fields.cvcrm_status ?? null,
+      fields.cvcrm_situation ?? null,
+      fields.cvcrm_stage ?? null,
+      fields.cvcrm_is_sold ?? false,
       fields.cvcrm_last_update ?? null,
       JSON.stringify(cvcrmLead ?? {}),
     ],
@@ -413,17 +552,34 @@ async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
 async function applyCvcrmLeadRouted(client, idlead, cvcrmLead) {
   const fields = parseCvcrmLeadResponse(cvcrmLead);
   const sourceTable = await resolveLeadSourceTable(client, idlead);
+  const fallbackName = toSafeString(cvcrmLead.nome) || toSafeString(cvcrmLead.name) || null;
 
   if (sourceTable) {
     if (!(await tableExists(client, sourceTable))) {
       throw new Error(`Tabela-fonte ${sourceTable} não existe no Neon`);
     }
+
+    const current = await fetchCurrentAuditValues(client, sourceTable, idlead);
+    const changes = computeAuditChanges(current ?? {}, fields, false);
+    const leadName =
+      toSafeString(current?.nome) || toSafeString(current?.name) || fallbackName;
+
     const updateResult = await updateLeadTable(client, sourceTable, idlead, fields, cvcrmLead);
     if (updateResult.count === 0) {
       throw new Error(
         `Nenhum registro com cvcrm_lead_id=${idlead} em ${sourceTable}`,
       );
     }
+
+    await logCvcrmLeadUpdate(client, {
+      idlead,
+      cvcrmLeadId: String(idlead),
+      leadName,
+      sourceTable,
+      action: 'update',
+      changes,
+    });
+
     return {
       action: 'update',
       table: sourceTable,
@@ -433,10 +589,28 @@ async function applyCvcrmLeadRouted(client, idlead, cvcrmLead) {
     };
   }
 
+  const targetTable = 'leads_cvcrm';
+  const current = await fetchCurrentAuditValues(client, targetTable, idlead);
+  const isNewInsert = current === null;
+  const action = isNewInsert ? 'insert' : 'update';
+  const changes = computeAuditChanges(current, fields, isNewInsert);
+  const leadName =
+    toSafeString(current?.nome) || toSafeString(current?.name) || fallbackName;
+
   const insertResult = await upsertLeadsCvcrm(client, idlead, cvcrmLead, fields);
+
+  await logCvcrmLeadUpdate(client, {
+    idlead,
+    cvcrmLeadId: String(idlead),
+    leadName,
+    sourceTable: targetTable,
+    action,
+    changes,
+  });
+
   return {
-    action: 'insert',
-    table: 'leads_cvcrm',
+    action: isNewInsert ? 'insert' : 'update',
+    table: targetTable,
     leadUuid: insertResult.leadUuid,
     empreendimento: insertResult.empreendimento,
     fields,
@@ -514,6 +688,54 @@ export async function getCvcrmSyncStatus() {
     if (err?.code === '42P01') {
       return { last_sync_at: null, last_processed: 0 };
     }
+    throw err;
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+export async function listCvcrmLeadUpdates(limit = 100, offset = 0) {
+  const neonUrl = getNeonLeadsUrl();
+  if (!neonUrl) return { updates: [] };
+
+  const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
+  const safeOffset = Math.max(Number(offset) || 0, 0);
+
+  const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+  try {
+    await client.connect();
+    const result = await client.query(
+      `SELECT id, idlead, cvcrm_lead_id, lead_name, source_table, action, changes, synced_at
+       FROM cvcrm_lead_updates
+       ORDER BY synced_at DESC
+       LIMIT $1 OFFSET $2`,
+      [safeLimit, safeOffset],
+    );
+    return {
+      updates: result.rows.map((row) => ({
+        ...row,
+        synced_at: row.synced_at ? new Date(row.synced_at).toISOString() : null,
+      })),
+    };
+  } catch (err) {
+    if (err?.code === '42P01') return { updates: [] };
+    throw err;
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+export async function getCvcrmLeadUpdatesCount() {
+  const neonUrl = getNeonLeadsUrl();
+  if (!neonUrl) return 0;
+
+  const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
+  try {
+    await client.connect();
+    const result = await client.query(`SELECT COUNT(*)::int AS count FROM cvcrm_lead_updates`);
+    return result.rows[0]?.count ?? 0;
+  } catch (err) {
+    if (err?.code === '42P01') return 0;
     throw err;
   } finally {
     await client.end().catch(() => {});
@@ -777,18 +999,29 @@ export async function syncAllChangedToday() {
 
 function scheduleDailyBatchSync() {
   setInterval(() => {
-    const now = new Date();
-    const today = now.toISOString().slice(0, 10);
+    const brt = brtNowParts();
     if (
-      now.getHours() === DAILY_SYNC_HOUR &&
-      now.getMinutes() === DAILY_SYNC_MINUTE &&
-      lastDailySyncDate !== today
+      brt.hour === DAILY_SYNC_HOUR &&
+      brt.minute === DAILY_SYNC_MINUTE &&
+      lastDailySyncDate !== brt.date
     ) {
-      lastDailySyncDate = today;
-      console.log('[cvcrm/batch] Job diário 23:59 — iniciando syncPendingLeads');
-      syncPendingLeads({ skipThrottle: true }).catch((err) => {
-        console.error('[cvcrm/batch] Job diário falhou:', err?.message ?? err);
-      });
+      lastDailySyncDate = brt.date;
+      console.log(
+        '[cvcrm/batch] Job diário 23:59 BRT — leads, reservas, corretores, imobiliárias',
+      );
+      syncPendingLeads({ skipThrottle: true })
+        .then(async () => {
+          const { syncPendingReservas } = await import('./cvcrmReservasSync.mjs');
+          return syncPendingReservas({ skipThrottle: true });
+        })
+        .then(async () => {
+          const { syncCorretores, syncImobiliarias } = await import('./cvcrmCadastrosSync.mjs');
+          await syncCorretores();
+          return syncImobiliarias();
+        })
+        .catch((err) => {
+          console.error('[cvcrm/batch] Job diário falhou:', err?.message ?? err);
+        });
     }
   }, 60_000);
 }

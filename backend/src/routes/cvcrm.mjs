@@ -1,11 +1,24 @@
 import express from 'express';
 import { getBearerJwt, resolveUserFromJwt } from '../middleware/authSupabase.mjs';
 import {
+  getCvcrmLeadUpdatesCount,
   getCvcrmPendingCount,
   getCvcrmSyncStatus,
+  listCvcrmLeadUpdates,
   syncAllChangedToday,
   syncPendingLeads,
 } from '../services/cvcrmBatchSync.mjs';
+import {
+  getCvcrmReservasPendingCount,
+  syncPendingReservas,
+} from '../services/cvcrmReservasSync.mjs';
+import {
+  getCompetenciaReport,
+  getCorretoresCount,
+  getImobiliariasCount,
+  syncCorretores,
+  syncImobiliarias,
+} from '../services/cvcrmCadastrosSync.mjs';
 
 const ACCESS_COOKIE = 'geleads_sb_access';
 
@@ -64,6 +77,28 @@ export function createCvcrmRouter() {
     }
   });
 
+  router.get('/updates/count', async (_req, res) => {
+    try {
+      const count = await getCvcrmLeadUpdatesCount();
+      res.json({ count });
+    } catch (err) {
+      console.error('[cvcrm/updates/count]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao consultar total de atualizações CVCRM.' });
+    }
+  });
+
+  router.get('/updates', async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 100;
+      const offset = Number(req.query.offset) || 0;
+      const result = await listCvcrmLeadUpdates(limit, offset);
+      res.json(result);
+    } catch (err) {
+      console.error('[cvcrm/updates]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao listar atualizações CVCRM.' });
+    }
+  });
+
   router.get('/pending-count', async (_req, res) => {
     try {
       const pending = await getCvcrmPendingCount();
@@ -100,6 +135,94 @@ export function createCvcrmRouter() {
     } catch (err) {
       console.error('[cvcrm/sync-all]', err);
       res.status(500).json({ error: err.message ?? 'Erro ao baixar leads do dia no CVCRM.' });
+    }
+  });
+
+  router.get('/reservas-pending-count', async (_req, res) => {
+    try {
+      const pending = await getCvcrmReservasPendingCount();
+      res.json({ pending });
+    } catch (err) {
+      console.error('[cvcrm/reservas-pending-count]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao consultar fila de reservas CVCRM.' });
+    }
+  });
+
+  router.post('/sync-reservas-now', async (req, res) => {
+    try {
+      const referenceDate =
+        typeof req.body?.referenceDate === 'string' ? req.body.referenceDate.trim() : undefined;
+      const result = await syncPendingReservas({ referenceDate });
+      if (result.message === 'fila vazia') {
+        return res.status(200).json({ processed: 0, message: 'Nada para atualizar' });
+      }
+      if (result.skipped) {
+        return res.status(200).json({ skipped: true, message: result.message });
+      }
+      res.json(result);
+    } catch (err) {
+      console.error('[cvcrm/sync-reservas-now]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao sincronizar reservas do CVCRM.' });
+    }
+  });
+
+  router.get('/corretores-count', async (_req, res) => {
+    try {
+      const count = await getCorretoresCount();
+      res.json({ count });
+    } catch (err) {
+      console.error('[cvcrm/corretores-count]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao consultar total de corretores.' });
+    }
+  });
+
+  router.get('/imobiliarias-count', async (_req, res) => {
+    try {
+      const count = await getImobiliariasCount();
+      res.json({ count });
+    } catch (err) {
+      console.error('[cvcrm/imobiliarias-count]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao consultar total de imobiliárias.' });
+    }
+  });
+
+  router.post('/sync-corretores', async (req, res) => {
+    try {
+      const referenceDate =
+        typeof req.body?.referenceDate === 'string' ? req.body.referenceDate.trim() : undefined;
+      const result = await syncCorretores({ referenceDate });
+      if (result.skipped) {
+        return res.status(200).json({ skipped: true, message: result.message });
+      }
+      res.json(result);
+    } catch (err) {
+      console.error('[cvcrm/sync-corretores]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao sincronizar corretores do CVCRM.' });
+    }
+  });
+
+  router.post('/sync-imobiliarias', async (req, res) => {
+    try {
+      const referenceDate =
+        typeof req.body?.referenceDate === 'string' ? req.body.referenceDate.trim() : undefined;
+      const result = await syncImobiliarias({ referenceDate });
+      if (result.skipped) {
+        return res.status(200).json({ skipped: true, message: result.message });
+      }
+      res.json(result);
+    } catch (err) {
+      console.error('[cvcrm/sync-imobiliarias]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao sincronizar imobiliárias do CVCRM.' });
+    }
+  });
+
+  router.get('/competencia', async (_req, res) => {
+    try {
+      const rows = await getCompetenciaReport();
+      res.json({ rows });
+    } catch (err) {
+      console.error('[cvcrm/competencia]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao consultar competência CVCRM.' });
     }
   });
 
