@@ -8,7 +8,7 @@ import {
   type Location as RouterLocation,
 } from 'react-router-dom';
 import { useEffect } from 'react';
-import { initGeAdsAudit } from '@/assets/audit-log';
+import { initGeLeadsAudit } from '@/assets/audit-log';
 import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
@@ -100,7 +100,7 @@ function AppRoutes() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    const cleanup = initGeAdsAudit();
+    const cleanup = initGeLeadsAudit();
     return () => {
       cleanup?.();
     };

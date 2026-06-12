@@ -45,6 +45,10 @@ declare module '*.webp' {
 }
 
 declare module '@/assets/audit-log' {
+  export function initGeLeadsAudit(): (() => void) | undefined
+  export function emitGeLeadsAuditAppLogin(userId: string, email?: string): Promise<void>
+  /** @deprecated use initGeLeadsAudit */
   export function initGeAdsAudit(): (() => void) | undefined
+  /** @deprecated use emitGeLeadsAuditAppLogin */
   export function emitGeAdsAuditAppLogin(userId: string, email?: string): Promise<void>
 }
