@@ -35,5 +35,5 @@ CREATE TABLE IF NOT EXISTS cvcrm_pending_reservas (
   last_error   TEXT
 );
 
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_sale_value NUMERIC;
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_sale_date TIMESTAMPTZ;
+ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS cvcrm_sale_value NUMERIC;
+ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS cvcrm_sale_date TIMESTAMPTZ;

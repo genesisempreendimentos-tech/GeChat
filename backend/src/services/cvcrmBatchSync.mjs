@@ -3,19 +3,19 @@ import { syncLeadsFromSources } from './leadSourceSync.mjs';
 
 /** Tabelas-fonte onde o sync em lote pode gravar (allowlist). */
 export const VALID_SOURCE_TABLES = [
-  'leads_aniversario_208_anos',
-  'leads_blackgenesis',
-  'leads_flow',
-  'leads_gesite',
-  'leads_kastell',
-  'leads_nature',
-  'leads_oasis_i',
-  'leads_oasis_ii',
-  'leads_old',
-  'leads_solar_bellavista',
-  'leads_solar_bosque',
-  'leads_solar_flores',
-  'leads_vita',
+  'campanha_niver_208_anos_friburgo',
+  'campanha_blackgenesis',
+  'site_flow',
+  'site_gesite',
+  'site_kastell',
+  'site_nature',
+  'site_oasis_i',
+  'site_oasis_ii',
+  'leads_antigos',
+  'site_solar_bellavista',
+  'site_solar_bosque',
+  'site_solar_flores',
+  'site_vita',
   'leads_cvcrm',
 ];
 
@@ -24,17 +24,17 @@ export const VALID_SOURCE_TABLES_SET = new Set(VALID_SOURCE_TABLES);
 /** @deprecated Use VALID_SOURCE_TABLES */
 export const CVCRM_WEBHOOK_TABLES = VALID_SOURCE_TABLES;
 
-const TABLES_WITH_UPDATED_AT = new Set(['leads_solar_bosque', 'leads_cvcrm']);
+const TABLES_WITH_UPDATED_AT = new Set(['site_solar_bosque', 'leads_cvcrm']);
 
 const CVCRM_CVDW_LEADS_URL = 'https://genesis.cvcrm.com.br/api/v1/cvdw/leads';
 const CVDW_PAGE_SIZE = 500;
 const BATCH_SYNC_MIN_INTERVAL_MS = 30_000;
-const DAILY_SYNC_HOUR = 23;
-const DAILY_SYNC_MINUTE = 59;
+/** Dreno automático cvcrm_pending_updates → CVDW (startup PROD). */
+const PENDING_LEADS_DRAIN_INTERVAL_MS = 90_000;
 
 let batchSyncInFlight = false;
 let lastBatchSyncAt = 0;
-let lastDailySyncDate = null;
+let pendingLeadsDrainInFlight = false;
 
 function trimEnv(key) {
   return String(process.env[key] ?? '')
@@ -98,18 +98,97 @@ const AUDIT_FIELD_KEYS = [
   'cvcrm_is_sold',
   'documento_cliente',
   'cvcrm_last_update',
-  'idsituacao',
 ];
 
-function normalizeAuditValue(value) {
-  if (value === null || value === undefined) return null;
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'boolean') return value;
-  return String(value);
+const AUDIT_DATE_FIELDS = new Set(['cvcrm_last_update']);
+const AUDIT_BOOLEAN_FIELDS = new Set(['cvcrm_is_sold']);
+const AUDIT_TEXT_FIELDS = new Set([
+  'cvcrm_situation',
+  'cvcrm_status',
+  'cvcrm_stage',
+  'documento_cliente',
+]);
+
+function normalizeBooleanToken(value) {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
 }
 
-function auditValuesEqual(a, b) {
-  return normalizeAuditValue(a) === normalizeAuditValue(b);
+function normalizeAuditBoolean(value) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'boolean') return value;
+  const s = normalizeBooleanToken(value);
+  if (['sim', 's', 'y', 'yes', 'true', '1'].includes(s)) return true;
+  if (['nao', 'n', 'no', 'false', '0'].includes(s)) return false;
+  return null;
+}
+
+function formatDateBrtWallClock(d) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  const p = Object.fromEntries(fmt.formatToParts(d).map((x) => [x.type, x.value]));
+  const hour = String(Number(p.hour) % 24).padStart(2, '0');
+  return `${p.year}-${p.month}-${p.day} ${hour}:${p.minute}:${p.second}`;
+}
+
+/** Strings wall-clock BRT do CVDW → parâmetro timestamptz com instante real em UTC. */
+export function toCvcrmTimestamptzParam(value) {
+  if (value === null || value === undefined || value === '') return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) {
+    return `${raw.replace(' ', 'T')}-03:00`;
+  }
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  return /[zZ]|[+-]\d{2}:?\d{2}$/.test(normalized) ? normalized : `${normalized}-03:00`;
+}
+
+function toAuditDateCanonical(value) {
+  if (value === null || value === undefined || value === '') return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : formatDateBrtWallClock(value);
+  }
+
+  const raw = String(value).trim().slice(0, 19);
+  return raw || null;
+}
+
+function normalizeAuditText(value) {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  return s || null;
+}
+
+function normalizeAuditNumeric(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeAuditField(field, value) {
+  if (AUDIT_DATE_FIELDS.has(field)) return toAuditDateCanonical(value);
+  if (AUDIT_BOOLEAN_FIELDS.has(field)) return normalizeAuditBoolean(value);
+  if (AUDIT_TEXT_FIELDS.has(field)) return normalizeAuditText(value);
+  return normalizeAuditNumeric(value);
+}
+
+function auditValuesEqual(field, a, b) {
+  return normalizeAuditField(field, a) === normalizeAuditField(field, b);
 }
 
 function fieldsToAuditMap(fields) {
@@ -120,7 +199,6 @@ function fieldsToAuditMap(fields) {
     cvcrm_is_sold: fields.cvcrm_is_sold,
     documento_cliente: fields.documento_cliente,
     cvcrm_last_update: fields.cvcrm_last_update,
-    idsituacao: fields.idsituacao,
   };
 }
 
@@ -133,8 +211,8 @@ async function fetchCurrentAuditValues(client, tableName, idlead) {
   }
 
   let nameCol = null;
-  if (await columnExists(client, tableName, 'nome')) nameCol = 'nome';
-  else if (await columnExists(client, tableName, 'name')) nameCol = 'name';
+  if (await columnExists(client, tableName, 'name')) nameCol = 'name';
+  else if (await columnExists(client, tableName, 'nome')) nameCol = 'nome';
 
   const selectCols = [...cols];
   if (nameCol) selectCols.push(nameCol);
@@ -160,20 +238,24 @@ function computeAuditChanges(current, fields, isNewInsert) {
   const changes = {};
 
   for (const field of AUDIT_FIELD_KEYS) {
-    const novo = novoMap[field] ?? null;
-    const atual = current?.[field] ?? null;
+    const novoNorm = normalizeAuditField(field, novoMap[field] ?? null);
+    const atualNorm = normalizeAuditField(field, current?.[field] ?? null);
 
     if (isNewInsert) {
-      if (novo !== null && novo !== undefined && novo !== '') {
-        changes[field] = { de: null, para: normalizeAuditValue(novo) };
+      if (novoNorm !== null) {
+        changes[field] = { de: null, para: novoNorm };
       }
       continue;
     }
 
-    if (!auditValuesEqual(atual, novo)) {
+    if (current != null && !Object.prototype.hasOwnProperty.call(current, field)) {
+      continue;
+    }
+
+    if (!auditValuesEqual(field, current?.[field] ?? null, novoMap[field] ?? null)) {
       changes[field] = {
-        de: normalizeAuditValue(atual),
-        para: normalizeAuditValue(novo),
+        de: atualNorm,
+        para: novoNorm,
       };
     }
   }
@@ -340,9 +422,9 @@ async function cvcrmApiRequest(method, url) {
   return parsedBody ?? {};
 }
 
-async function fetchCvdwLeadsPage(pagina) {
+async function fetchCvdwLeadsPage(pagina, referenceDate = todayReferenceDate()) {
   const params = new URLSearchParams({
-    a_partir_data_referencia: todayReferenceDate(),
+    a_partir_data_referencia: referenceDate,
     registros_por_pagina: String(CVDW_PAGE_SIZE),
     pagina: String(pagina),
   });
@@ -366,6 +448,115 @@ export async function fetchAllCvdwLeadsToday() {
   return allLeads;
 }
 
+/** Sweep paginado CVDW/leads desde data/hora BRT (ex.: "2000-01-01 00:00:00"). */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchCvdwLeadsPageSince(pagina, sinceBrt, { retries = 8 } = {}) {
+  const pageParams = new URLSearchParams({
+    registros_por_pagina: String(CVDW_PAGE_SIZE),
+    pagina: String(pagina),
+  });
+  const url = `${CVCRM_CVDW_LEADS_URL}?a_partir_data_referencia=${encodeURIComponent(sinceBrt)}&${pageParams}`;
+
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    try {
+      return await cvcrmApiRequest('GET', url);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('429') && attempt < retries - 1) {
+        const waitMs = Math.min(60_000, 5000 * 2 ** attempt);
+        console.warn(`[cvcrm/batch] 429 página ${pagina} — retry em ${waitMs}ms`);
+        await sleep(waitMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error(`Falha ao buscar CVDW leads página ${pagina}`);
+}
+
+export async function fetchAllCvdwLeadsSince(sinceBrt = '2000-01-01 00:00:00', { onPage } = {}) {
+  const since = toSafeString(sinceBrt) || '2000-01-01 00:00:00';
+  const allLeads = [];
+  let pagina = 1;
+  let totalPages = 1;
+
+  while (pagina <= totalPages) {
+    const pageData = await fetchCvdwLeadsPageSince(pagina, since);
+    const dados = Array.isArray(pageData.dados) ? pageData.dados : [];
+    allLeads.push(...dados);
+    totalPages = Number(pageData.total_de_paginas) || 1;
+    if (onPage) {
+      onPage({ pagina, totalPages, pageCount: dados.length, totalSoFar: allLeads.length, dados });
+    }
+    if (pagina < totalPages) await sleep(400);
+    pagina += 1;
+  }
+
+  return allLeads;
+}
+
+export async function sweepCvdwLeadsSince(
+  sinceBrt = '2000-01-01 00:00:00',
+  { onPage, pageDelayMs = 1500 } = {},
+) {
+  const since = toSafeString(sinceBrt) || '2000-01-01 00:00:00';
+  let pagina = 1;
+  let totalPages = 1;
+  let totalDownloaded = 0;
+
+  while (pagina <= totalPages) {
+    const pageData = await fetchCvdwLeadsPageSince(pagina, since);
+    const dados = Array.isArray(pageData.dados) ? pageData.dados : [];
+    totalPages = Number(pageData.total_de_paginas) || 1;
+    totalDownloaded += dados.length;
+    if (onPage) {
+      await onPage(dados, { pagina, totalPages, totalDownloaded });
+    }
+    if (pagina < totalPages && pageDelayMs > 0) await sleep(pageDelayMs);
+    pagina += 1;
+  }
+
+  return { since_brt: since, totalPages, totalDownloaded };
+}
+
+export async function isLeadKnownInNeon(client, idlead) {
+  const result = await client.query(
+    `SELECT 1 FROM all_leads WHERE cvcrm_lead_id = $1 LIMIT 1`,
+    [String(idlead)],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export function enrichCvcrmLeadAttribution(cvcrmLead, idlead, reservaByIdlead) {
+  const enriched = { ...(cvcrmLead ?? {}) };
+  let idcorretor = toSafeString(enriched.idcorretor);
+  let idimobiliaria = toSafeString(enriched.idimobiliaria);
+
+  if (!idcorretor || idcorretor === '0') {
+    const reserva = reservaByIdlead?.get?.(String(idlead));
+    if (reserva) {
+      idcorretor = toSafeString(reserva.idcorretor) || idcorretor;
+      idimobiliaria = toSafeString(reserva.idimobiliaria) || idimobiliaria;
+    }
+  }
+
+  if (idcorretor && idcorretor !== '0') enriched.idcorretor = idcorretor;
+  if (idimobiliaria && idimobiliaria !== '0') enriched.idimobiliaria = idimobiliaria;
+  return enriched;
+}
+
+export async function enqueueCvcrmPendingUpdateOnClient(client, idlead) {
+  await client.query(
+    `INSERT INTO cvcrm_pending_updates (idlead)
+     VALUES ($1)
+     ON CONFLICT (idlead) DO UPDATE SET received_at = now()`,
+    [toLeadIdNumber(idlead)],
+  );
+}
+
 function assertValidSourceTable(tableName) {
   if (!VALID_SOURCE_TABLES_SET.has(tableName)) {
     throw new Error(`Tabela-fonte não permitida: ${tableName}`);
@@ -374,7 +565,7 @@ function assertValidSourceTable(tableName) {
 
 export async function resolveLeadSourceTable(client, idlead) {
   const result = await client.query(
-    `SELECT source_table FROM leads WHERE cvcrm_lead_id = $1 LIMIT 1`,
+    `SELECT source_table FROM all_leads WHERE cvcrm_lead_id = $1 LIMIT 1`,
     [String(idlead)],
   );
   const sourceTable = toSafeString(result.rows[0]?.source_table);
@@ -392,7 +583,7 @@ async function updateLeadTable(client, tableName, idlead, fields, cvcrmLead) {
     fields.cvcrm_situation,
     fields.cvcrm_is_sold,
   );
-  const referenceDate = fields.cvcrm_last_update ?? null;
+  const referenceDate = toCvcrmTimestamptzParam(fields.cvcrm_last_update);
   const setClauses = [
     'cvcrm_status = $1',
     'cvcrm_situation = $2',
@@ -411,7 +602,7 @@ async function updateLeadTable(client, tableName, idlead, fields, cvcrmLead) {
     fields.cvcrm_status ?? null,
     fields.cvcrm_situation ?? null,
     fields.cvcrm_stage ?? null,
-    fields.cvcrm_last_update ?? null,
+    referenceDate,
     JSON.stringify(cvcrmLead ?? {}),
     fields.cvcrm_is_sold ?? false,
   ];
@@ -464,14 +655,14 @@ async function updateLeadTable(client, tableName, idlead, fields, cvcrmLead) {
     `UPDATE ${tableName}
      SET ${setClauses.join(',\n         ')}
      WHERE cvcrm_lead_id = $${paramIndex}
-     RETURNING id, empreendimento`,
+     RETURNING id, empreendimento_interesse`,
     params,
   );
   const row = result.rows[0];
   return {
     count: result.rowCount ?? 0,
     leadUuid: row?.id ?? null,
-    empreendimento: row?.empreendimento ?? null,
+    empreendimento: row?.empreendimento_interesse ?? null,
   };
 }
 
@@ -482,18 +673,18 @@ async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
     throw new Error('Tabela leads_cvcrm não existe. Execute neon-leads-cvcrm.sql.');
   }
 
-  const nome = toSafeString(cvcrmLead.nome) || 'Sem nome';
-  const whatsapp = toSafeString(cvcrmLead.telefone) || '';
+  const name = toSafeString(cvcrmLead.nome ?? cvcrmLead.name) || 'Sem nome';
+  const phone = toSafeString(cvcrmLead.telefone ?? cvcrmLead.phone) || '';
   const email = toSafeString(cvcrmLead.email) || null;
-  const empreendimento = toSafeString(cvcrmLead.empreendimento) || null;
+  const empreendimentoInteresse = toSafeString(cvcrmLead.empreendimento) || null;
   const canal = toSafeString(cvcrmLead.origem_nome ?? cvcrmLead.origem) || null;
 
   const result = await client.query(
     `INSERT INTO leads_cvcrm (
-       nome,
-       whatsapp,
+       name,
+       phone,
        email,
-       empreendimento,
+       empreendimento_interesse,
        canal,
        cvcrm_lead_id,
        cvcrm_status,
@@ -510,10 +701,10 @@ async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
        $11::timestamptz, $12::jsonb, 'synced', now(), now()
      )
      ON CONFLICT (cvcrm_lead_id) DO UPDATE SET
-       nome = EXCLUDED.nome,
-       whatsapp = EXCLUDED.whatsapp,
+       name = EXCLUDED.name,
+       phone = EXCLUDED.phone,
        email = EXCLUDED.email,
-       empreendimento = EXCLUDED.empreendimento,
+       empreendimento_interesse = EXCLUDED.empreendimento_interesse,
        canal = EXCLUDED.canal,
        cvcrm_status = EXCLUDED.cvcrm_status,
        cvcrm_situation = EXCLUDED.cvcrm_situation,
@@ -524,19 +715,19 @@ async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
        cvcrm_sync_status = 'synced',
        cvcrm_last_synced_at = now(),
        updated_at = now()
-     RETURNING id, empreendimento`,
+     RETURNING id, empreendimento_interesse`,
     [
-      nome,
-      whatsapp,
+      name,
+      phone,
       email ?? null,
-      empreendimento ?? null,
+      empreendimentoInteresse ?? null,
       canal ?? null,
       String(idlead),
       fields.cvcrm_status ?? null,
       fields.cvcrm_situation ?? null,
       fields.cvcrm_stage ?? null,
       fields.cvcrm_is_sold ?? false,
-      fields.cvcrm_last_update ?? null,
+      toCvcrmTimestamptzParam(fields.cvcrm_last_update),
       JSON.stringify(cvcrmLead ?? {}),
     ],
   );
@@ -545,11 +736,11 @@ async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
   return {
     count: result.rowCount ?? 0,
     leadUuid: row?.id ?? null,
-    empreendimento: row?.empreendimento ?? null,
+    empreendimento: row?.empreendimento_interesse ?? null,
   };
 }
 
-async function applyCvcrmLeadRouted(client, idlead, cvcrmLead) {
+export async function applyCvcrmLeadRouted(client, idlead, cvcrmLead) {
   const fields = parseCvcrmLeadResponse(cvcrmLead);
   const sourceTable = await resolveLeadSourceTable(client, idlead);
   const fallbackName = toSafeString(cvcrmLead.nome) || toSafeString(cvcrmLead.name) || null;
@@ -562,7 +753,7 @@ async function applyCvcrmLeadRouted(client, idlead, cvcrmLead) {
     const current = await fetchCurrentAuditValues(client, sourceTable, idlead);
     const changes = computeAuditChanges(current ?? {}, fields, false);
     const leadName =
-      toSafeString(current?.nome) || toSafeString(current?.name) || fallbackName;
+      toSafeString(current?.name) || toSafeString(current?.nome) || fallbackName;
 
     const updateResult = await updateLeadTable(client, sourceTable, idlead, fields, cvcrmLead);
     if (updateResult.count === 0) {
@@ -595,7 +786,7 @@ async function applyCvcrmLeadRouted(client, idlead, cvcrmLead) {
   const action = isNewInsert ? 'insert' : 'update';
   const changes = computeAuditChanges(current, fields, isNewInsert);
   const leadName =
-    toSafeString(current?.nome) || toSafeString(current?.name) || fallbackName;
+    toSafeString(current?.name) || toSafeString(current?.nome) || fallbackName;
 
   const insertResult = await upsertLeadsCvcrm(client, idlead, cvcrmLead, fields);
 
@@ -781,6 +972,34 @@ export async function enqueueCvcrmPendingUpdate(idlead) {
   }
 }
 
+/** Drena fila cvcrm_pending_updates; idempotente + throttle interno (30s). */
+export async function drainPendingLeadsUpdates() {
+  if (pendingLeadsDrainInFlight) {
+    return { skipped: true, message: 'Dreno pending_updates em andamento' };
+  }
+
+  pendingLeadsDrainInFlight = true;
+  try {
+    return await syncPendingLeads();
+  } finally {
+    pendingLeadsDrainInFlight = false;
+  }
+}
+
+function schedulePendingLeadsDrain() {
+  setInterval(() => {
+    drainPendingLeadsUpdates().catch((err) => {
+      console.error('[cvcrm/pending-drain] Job falhou:', err?.message ?? err);
+    });
+  }, PENDING_LEADS_DRAIN_INTERVAL_MS);
+
+  console.log(
+    `[cvcrm/pending-drain] Scheduler ativo: a cada ${PENDING_LEADS_DRAIN_INTERVAL_MS / 1000}s`,
+  );
+}
+
+schedulePendingLeadsDrain();
+
 export async function syncPendingLeads({ skipThrottle = false } = {}) {
   const neonUrl = getNeonLeadsUrl();
   if (!neonUrl) {
@@ -901,7 +1120,7 @@ export async function syncPendingLeads({ skipThrottle = false } = {}) {
       try {
         const syncResult = await syncLeadsFromSources({ force: true });
         console.log(
-          `[cvcrm/batch] leads_* → leads: ${syncResult.synced} sincronizado(s)`,
+          `[cvcrm/batch] fontes → all_leads: ${syncResult.synced} sincronizado(s)`,
         );
       } catch (err) {
         console.error('[cvcrm/batch] Falha ao sincronizar leads unificados:', err?.message ?? err);
@@ -979,7 +1198,7 @@ export async function syncAllChangedToday() {
       try {
         const syncResult = await syncLeadsFromSources({ force: true });
         console.log(
-          `[cvcrm/batch-all] leads_* → leads: ${syncResult.synced} sincronizado(s)`,
+          `[cvcrm/batch-all] fontes → all_leads: ${syncResult.synced} sincronizado(s)`,
         );
       } catch (err) {
         console.error('[cvcrm/batch-all] Falha ao sincronizar leads unificados:', err?.message ?? err);
@@ -996,34 +1215,3 @@ export async function syncAllChangedToday() {
     await client.end().catch(() => {});
   }
 }
-
-function scheduleDailyBatchSync() {
-  setInterval(() => {
-    const brt = brtNowParts();
-    if (
-      brt.hour === DAILY_SYNC_HOUR &&
-      brt.minute === DAILY_SYNC_MINUTE &&
-      lastDailySyncDate !== brt.date
-    ) {
-      lastDailySyncDate = brt.date;
-      console.log(
-        '[cvcrm/batch] Job diário 23:59 BRT — leads, reservas, corretores, imobiliárias',
-      );
-      syncPendingLeads({ skipThrottle: true })
-        .then(async () => {
-          const { syncPendingReservas } = await import('./cvcrmReservasSync.mjs');
-          return syncPendingReservas({ skipThrottle: true });
-        })
-        .then(async () => {
-          const { syncCorretores, syncImobiliarias } = await import('./cvcrmCadastrosSync.mjs');
-          await syncCorretores();
-          return syncImobiliarias();
-        })
-        .catch((err) => {
-          console.error('[cvcrm/batch] Job diário falhou:', err?.message ?? err);
-        });
-    }
-  }, 60_000);
-}
-
-scheduleDailyBatchSync();

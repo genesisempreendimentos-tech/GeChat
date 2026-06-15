@@ -1,11 +1,14 @@
 /*
-  GêLeads – Schema de all_leads no Neon (união pura das 14 fontes)
-  Execute no console SQL do Neon. Supabase permanece apenas para autenticação.
+  GêLeads – all_leads = união pura (sem dedup por codigo)
+  Execute no SQL Editor do Neon após neon-source-tables-canonical-schema.sql
 */
 
 DROP INDEX IF EXISTS public.leads_codigo_uidx;
 
-CREATE TABLE IF NOT EXISTS all_leads (
+-- Recria all_leads com schema canônico + source_table (duplicados permitidos)
+DROP TABLE IF EXISTS public.all_leads;
+
+CREATE TABLE public.all_leads (
   id UUID NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -41,6 +44,8 @@ CREATE TABLE IF NOT EXISTS all_leads (
   PRIMARY KEY (id, source_table)
 );
 
-CREATE INDEX IF NOT EXISTS all_leads_created_at_idx ON all_leads (created_at DESC);
-CREATE INDEX IF NOT EXISTS all_leads_source_table_idx ON all_leads (source_table);
-CREATE INDEX IF NOT EXISTS all_leads_codigo_idx ON all_leads (codigo);
+CREATE INDEX all_leads_created_at_idx ON all_leads (created_at DESC);
+CREATE INDEX all_leads_source_table_idx ON all_leads (source_table);
+CREATE INDEX all_leads_codigo_idx ON all_leads (codigo);
+
+-- Repovoar via backend: syncLeadsFromSources({ force: true })

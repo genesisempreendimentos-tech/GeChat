@@ -7,6 +7,7 @@ import { SidebarProvider, useSidebarWidth } from '@/contexts/SidebarContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useState, useEffect } from 'react';
 import { MotionPage } from '@/components/motion/AppMotion';
+import { useCvcrmIncrementalOnMount } from '@/hooks/useCvcrmIncrementalOnMount';
 
 function MainContent() {
   const location = useLocation();
@@ -39,6 +40,8 @@ function MainContent() {
 export default function MainLayout() {
   const { user } = useAuthStore();
   const [zoomLevelBack, setZoomLevelBack] = useState(100);
+
+  useCvcrmIncrementalOnMount();
 
   // Polling para altura
   useEffect(() => {

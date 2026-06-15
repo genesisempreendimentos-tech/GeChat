@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { rebuildAllLeadsUnique } from './allLeadsUnique.mjs';
 import {
   CVCRM_TABLE_CONFIGS,
   sendLeadGeneric,
@@ -8,111 +9,52 @@ import {
 
 const CVCRM_POLL_SOURCES = [
   {
-    table: 'leads_solar_bosque',
-    sourceTable: 'leads_solar_bosque',
+    table: 'site_solar_bosque',
+    sourceTable: 'site_solar_bosque',
     send: sendLeadToCvcrm,
-    displayName: (lead) => lead.nome ?? lead.name ?? 'Lead',
+    displayName: (lead) => lead.name ?? 'Lead',
     touchUpdatedAt: true,
   },
   {
-    table: 'leads_oasis_ii',
-    sourceTable: 'leads_oasis_ii',
+    table: 'site_oasis_ii',
+    sourceTable: 'site_oasis_ii',
     send: sendLeadToCvcrm_oasis_ii,
-    displayName: (lead) => lead.name ?? lead.nome ?? 'Lead',
+    displayName: (lead) => lead.name ?? 'Lead',
     touchUpdatedAt: false,
   },
   ...Object.entries(CVCRM_TABLE_CONFIGS).map(([table, config]) => ({
     table,
     sourceTable: config.sourceTable ?? table,
     send: (lead) => sendLeadGeneric(lead, config),
-    displayName: (lead) => lead.name ?? lead.nome ?? 'Lead',
+    displayName: (lead) => lead.name ?? 'Lead',
     touchUpdatedAt: false,
   })),
 ];
 
-/** Fontes de entrada no Neon — `leads` é a tabela unificada do GêLeads. */
-export const LEAD_SOURCE_TABLES = [
-  {
-    key: 'solar_bosque',
-    tables: ['leads_solar_bosque', 'leads_solar_do_bosque'],
-    sourceTable: 'leads_solar_bosque',
-    defaultPage: '/solar-do-bosque',
-    defaultEmpreendimento: 'Solar do Bosque',
-    mapRow: mapSolarBosqueRow,
-  },
-  {
-    key: 'oasis_ii',
-    tables: ['leads_oasis_ii'],
-    sourceTable: 'leads_oasis_ii',
-    defaultPage: '/oasis-ii',
-    defaultEmpreendimento: 'Oásis Residencial II',
-    mapRow: mapOasisIiRow,
-  },
-  {
-    key: 'kastell',
-    tables: ['leads_kastell'],
-    sourceTable: 'leads_kastell',
-    defaultPage: '/kastell',
-    defaultEmpreendimento: 'Kastell Residencial',
-    mapRow: mapStandardLeadRow,
-  },
-  {
-    key: 'nature',
-    tables: ['leads_nature'],
-    sourceTable: 'leads_nature',
-    defaultPage: '/nature',
-    defaultEmpreendimento: 'Nature Residencial',
-    mapRow: mapStandardLeadRow,
-  },
-  {
-    key: 'oasis_i',
-    tables: ['leads_oasis_i', 'leads_oasis'],
-    sourceTable: 'leads_oasis_i',
-    defaultPage: '/oasis',
-    defaultEmpreendimento: 'Oásis Residencial',
-    mapRow: mapStandardLeadRow,
-  },
-  {
-    key: 'solar_bellavista',
-    tables: ['leads_solar_bellavista', 'leads_bellavista'],
-    sourceTable: 'leads_solar_bellavista',
-    defaultPage: '/solar-bellavista',
-    defaultEmpreendimento: 'Solar Bellavista',
-    mapRow: mapStandardLeadRow,
-  },
-  {
-    key: 'solar_flores',
-    tables: ['leads_solar_flores', 'leads_flores'],
-    sourceTable: 'leads_solar_flores',
-    defaultPage: '/solar-das-flores',
-    defaultEmpreendimento: 'Solar das Flores',
-    mapRow: mapStandardLeadRow,
-  },
-  {
-    key: 'vita',
-    tables: ['leads_vita'],
-    sourceTable: 'leads_vita',
-    defaultPage: '/vita',
-    defaultEmpreendimento: 'Vita Residencial',
-    mapRow: mapStandardLeadRow,
-  },
-  {
-    key: 'flow',
-    tables: ['leads_flow'],
-    sourceTable: 'leads_flow',
-    defaultPage: '/flow',
-    defaultEmpreendimento: 'Flow',
-    mapRow: mapStandardLeadRow,
-  },
-  {
-    key: 'cvcrm',
-    tables: ['leads_cvcrm'],
-    sourceTable: 'leads_cvcrm',
-    defaultPage: '/cvcrm',
-    defaultEmpreendimento: 'CVCRM',
-    mapRow: mapCvcrmRow,
-  },
+/** 14 tabelas-fonte com schema canônico idêntico (espelha VALID_SOURCE_TABLES). */
+const ALL_SOURCE_TABLES = [
+  'campanha_niver_208_anos_friburgo',
+  'campanha_blackgenesis',
+  'site_flow',
+  'site_gesite',
+  'site_kastell',
+  'site_nature',
+  'site_oasis_i',
+  'site_oasis_ii',
+  'leads_antigos',
+  'site_solar_bellavista',
+  'site_solar_bosque',
+  'site_solar_flores',
+  'site_vita',
+  'leads_cvcrm',
 ];
+
+/** Fontes de entrada no Neon — `all_leads` é união pura das 14 fontes. */
+export const LEAD_SOURCE_TABLES = ALL_SOURCE_TABLES.map((table) => ({
+  key: table,
+  tables: [table],
+  sourceTable: table,
+}));
 
 import { IGNORED_NEON_LEAD_SOURCE_TABLES } from '../ignoredLeadSources.mjs';
 
@@ -239,46 +181,14 @@ setInterval(() => {
   pollCvcrmPendingLeads().catch((err) => console.error('[cvcrm/poll]', err));
 }, CVCRM_POLL_INTERVAL_MS);
 
-function formatBirthDatePtBr(value) {
-  if (value == null || value === '') return '';
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value).trim();
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const year = date.getUTCFullYear();
-  return `${day}/${month}/${year}`;
+function toNullableString(value) {
+  const s = String(value ?? '').trim();
+  return s || null;
 }
 
-function mapLeadStatus(row) {
-  if (row.cvcrm_is_sold) return 'ganho';
-  if (row.profile_completed || row.completed) return 'qualificado';
-  if (row.cvcrm_status) {
-    const normalized = String(row.cvcrm_status).toLowerCase();
-    if (normalized.includes('negoci')) return 'negociacao';
-    if (normalized.includes('contato')) return 'contato';
-    if (normalized.includes('perd')) return 'perdido';
-  }
-  return 'novo';
-}
-
-function mapCanalOrigem(row) {
-  const canal = String(row.canal ?? '').trim();
-  if (!canal) return 'Direto';
-  if (canal.toLowerCase() === 'site') return 'Direto';
-  return canal;
-}
-
-function mapCvcrmSyncStatus(row) {
-  return String(row.cvcrm_sync_status ?? '').trim() || 'pending';
-}
-
-function mapCvcrmIsSold(row) {
-  return Boolean(row.cvcrm_is_sold);
-}
-
-function mapCvcrmNullableString(row, key) {
-  const value = String(row[key] ?? '').trim();
-  return value || null;
+function mapLeadCodigo(row) {
+  const codigo = String(row.codigo ?? '').trim();
+  return codigo || null;
 }
 
 function mapCvcrmSaleValue(row) {
@@ -288,369 +198,157 @@ function mapCvcrmSaleValue(row) {
   return Number.isFinite(n) ? n : null;
 }
 
-function parseCvcrmPayload(row) {
-  const raw = row.cvcrm_payload;
-  if (!raw) return null;
-  if (typeof raw === 'object') return raw;
+function parseCvcrmPayload(value) {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
   try {
-    return JSON.parse(raw);
+    return JSON.parse(value);
   } catch {
     return null;
   }
 }
 
-function mapAttributionFields(row) {
-  const payload = parseCvcrmPayload(row);
-  const idcorretor = String(payload?.idcorretor ?? '').trim() || null;
-  const idimobiliaria = String(payload?.idimobiliaria ?? '').trim() || null;
-  return { idcorretor, idimobiliaria };
-}
-
-function mapCvcrmFields(row) {
+/** Copia colunas canônicas da fonte para all_leads (sem transformação por tabela). */
+export function mapCanonicalLeadRow(row, sourceTable) {
   return {
-    cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
-    cvcrm_sync_status: mapCvcrmSyncStatus(row),
-    cvcrm_is_sold: mapCvcrmIsSold(row),
-    cvcrm_status: mapCvcrmNullableString(row, 'cvcrm_status'),
-    cvcrm_situation: mapCvcrmNullableString(row, 'cvcrm_situation'),
-    cvcrm_stage: mapCvcrmNullableString(row, 'cvcrm_stage'),
-    cvcrm_last_update: row.cvcrm_last_update ?? null,
+    id: row.id,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? row.created_at,
+    name: toNullableString(row.name) || 'Lead',
+    email: toNullableString(row.email),
+    phone: toNullableString(row.phone),
+    gender: toNullableString(row.gender),
+    birth_date: row.birth_date ?? null,
+    current_city: toNullableString(row.current_city),
+    relationship_status: toNullableString(row.relationship_status),
+    monthly_investment: toNullableString(row.monthly_investment),
+    profile_type: toNullableString(row.profile_type),
+    profile_completed: Boolean(row.profile_completed),
+    whatsapp_clicked: Boolean(row.whatsapp_clicked),
+    canal: toNullableString(row.canal),
+    empreendimento_interesse: toNullableString(row.empreendimento_interesse),
+    parameter: Array.isArray(row.parameter) ? row.parameter : row.parameter ?? null,
+    children_status: toNullableString(row.children_status),
+    codigo: mapLeadCodigo(row),
+    cvcrm_lead_id: toNullableString(row.cvcrm_lead_id),
+    cvcrm_status: toNullableString(row.cvcrm_status),
+    cvcrm_situation: toNullableString(row.cvcrm_situation),
+    cvcrm_stage: toNullableString(row.cvcrm_stage),
+    cvcrm_is_sold: Boolean(row.cvcrm_is_sold),
     cvcrm_sale_value: mapCvcrmSaleValue(row),
     cvcrm_sale_date: row.cvcrm_sale_date ?? null,
-    ...mapAttributionFields(row),
-  };
-}
-
-function mapStageDateFields(row) {
-  const motivo = String(row.motivo_perda ?? '').trim();
-  return {
-    data_primeiro_atendimento: row.data_primeiro_atendimento ?? null,
-    data_visita_agendada: row.data_visita_agendada ?? null,
-    data_visita_realizada: row.data_visita_realizada ?? null,
-    data_analise_credito_inicio: row.data_analise_credito_inicio ?? null,
-    data_analise_credito_fim: row.data_analise_credito_fim ?? null,
-    data_proposta: row.data_proposta ?? null,
-    data_venda: row.data_venda ?? null,
-    data_perdido: row.data_perdido ?? null,
-    motivo_perda: motivo || null,
-  };
-}
-
-function mapLeadCodigo(row) {
-  const codigo = String(row.codigo ?? '').trim();
-  return codigo || null;
-}
-
-export function mapStandardLeadRow(row, sourceTable, defaults = {}) {
-  const email = String(row.email ?? '').trim();
-  const phone = String(row.phone ?? '').trim();
-  const canal = String(row.canal ?? '').trim();
-  const empreendimento =
-    String(row.empreendimento ?? '').trim() || defaults.defaultEmpreendimento || 'Lead';
-  const childrenStatus = String(row.children_status ?? '').trim();
-  const interesse = String(row.interesse ?? '').trim();
-
-  return {
-    id: row.id,
-    codigo: mapLeadCodigo(row),
+    cvcrm_last_update: row.cvcrm_last_update ?? null,
+    cvcrm_payload: parseCvcrmPayload(row.cvcrm_payload),
+    cvcrm_sync_status: toNullableString(row.cvcrm_sync_status) || 'pending',
+    cvcrm_sync_error: toNullableString(row.cvcrm_sync_error),
+    cvcrm_last_synced_at: row.cvcrm_last_synced_at ?? null,
     source_table: sourceTable,
-    name: String(row.name ?? '').trim() || 'Lead',
-    email: email || null,
-    phone: phone || null,
-    page: defaults.defaultPage || '/',
-    origem: mapCanalOrigem(row),
-    canal: canal || 'Site',
-    parametro: interesse || empreendimento,
-    empreendimento,
-    relacionamento: String(row.relationship_status ?? '').trim() || null,
-    investimento: String(row.monthly_investment ?? '').trim() || null,
-    cidade_residencia: String(row.current_city ?? '').trim() || null,
-    birth_date: formatBirthDatePtBr(row.birth_date) || null,
-    profile_type: String(row.profile_type ?? '').trim() || null,
-    profile_notes: childrenStatus ? `Filhos: ${childrenStatus}` : interesse || null,
-    dispositivo: null,
-    pagamento_preferencia: null,
-    responsavel: null,
-    status: mapLeadStatus(row),
-    ...mapCvcrmFields(row),
-    ...mapStageDateFields(row),
-    created_at: row.created_at,
-    updated_at: row.updated_at ?? row.created_at,
   };
 }
 
-export function mapOasisIiRow(row, sourceTable, defaults = {}) {
-  const email = String(row.email ?? '').trim();
-  const phone = String(row.phone ?? '').trim();
-  const canal = String(row.canal ?? '').trim();
-  const empreendimento =
-    String(row.empreendimento ?? '').trim() || defaults.defaultEmpreendimento || 'Oásis Residencial II';
-  const childrenStatus = String(row.children_status ?? '').trim();
-
-  return {
-    id: row.id,
-    codigo: mapLeadCodigo(row),
-    source_table: sourceTable,
-    name: String(row.name ?? '').trim() || 'Lead',
-    email: email || null,
-    phone: phone || null,
-    page: defaults.defaultPage || '/oasis-ii',
-    origem: mapCanalOrigem(row),
-    canal: canal || 'Site',
-    parametro: empreendimento,
-    empreendimento,
-    relacionamento: String(row.relationship_status ?? '').trim() || null,
-    investimento: String(row.monthly_investment ?? '').trim() || null,
-    cidade_residencia: String(row.current_city ?? '').trim() || null,
-    birth_date: formatBirthDatePtBr(row.birth_date) || null,
-    profile_type: String(row.profile_type ?? '').trim() || null,
-    profile_notes: childrenStatus ? `Filhos: ${childrenStatus}` : null,
-    dispositivo: null,
-    pagamento_preferencia: null,
-    responsavel: null,
-    status: mapLeadStatus(row),
-    ...mapCvcrmFields(row),
-    ...mapStageDateFields(row),
-    created_at: row.created_at,
-    updated_at: row.created_at,
-  };
-}
-
-export function mapCvcrmRow(row, sourceTable, defaults = {}) {
-  const email = String(row.email ?? '').trim();
-  const phone = String(row.whatsapp ?? '').trim();
-  const canal = String(row.canal ?? '').trim();
-  const empreendimento =
-    String(row.empreendimento ?? '').trim() || defaults.defaultEmpreendimento || 'CVCRM';
-
-  return {
-    id: row.id,
-    codigo: mapLeadCodigo(row),
-    source_table: sourceTable,
-    name: String(row.nome ?? '').trim() || 'Sem nome',
-    email: email || null,
-    phone: phone || null,
-    page: defaults.defaultPage || '/cvcrm',
-    origem: canal || 'CVCRM',
-    canal: canal || 'CVCRM',
-    parametro: empreendimento,
-    empreendimento,
-    relacionamento: null,
-    investimento: null,
-    cidade_residencia: null,
-    birth_date: null,
-    profile_type: null,
-    profile_notes: null,
-    dispositivo: null,
-    pagamento_preferencia: null,
-    responsavel: null,
-    status: mapLeadStatus(row),
-    ...mapCvcrmFields(row),
-    ...mapStageDateFields(row),
-    created_at: row.created_at,
-    updated_at: row.updated_at ?? row.created_at,
-  };
-}
-
-export function mapSolarBosqueRow(row, sourceTable, defaults = {}) {
-  const email = String(row.email ?? '').trim();
-  const phone = String(row.whatsapp ?? '').trim();
-  const canal = String(row.canal ?? '').trim();
-  const interesse = String(row.interesse ?? '').trim();
-  const empreendimento =
-    String(row.empreendimento ?? '').trim() || defaults.defaultEmpreendimento || 'Solar do Bosque';
-
-  return {
-    id: row.id,
-    codigo: mapLeadCodigo(row),
-    source_table: sourceTable,
-    name: String(row.nome ?? '').trim() || 'Lead',
-    email: email || null,
-    phone: phone || null,
-    page: defaults.defaultPage || '/solar-do-bosque',
-    origem: mapCanalOrigem(row),
-    canal: canal || 'Site',
-    parametro: interesse || empreendimento,
-    empreendimento,
-    relacionamento: String(row.relationship_status ?? '').trim() || null,
-    investimento: String(row.monthly_investment ?? '').trim() || null,
-    cidade_residencia: String(row.current_city ?? '').trim() || null,
-    birth_date: formatBirthDatePtBr(row.birth_date) || null,
-    profile_type: String(row.profile_type ?? '').trim() || null,
-    profile_notes: interesse || null,
-    dispositivo: null,
-    pagamento_preferencia: null,
-    responsavel: null,
-    status: mapLeadStatus(row),
-    ...mapCvcrmFields(row),
-    ...mapStageDateFields(row),
-    created_at: row.created_at,
-    updated_at: row.updated_at ?? row.created_at,
-  };
-}
-
-const STAGE_DATE_COLUMNS = [
-  'data_primeiro_atendimento',
-  'data_visita_agendada',
-  'data_visita_realizada',
-  'data_analise_credito_inicio',
-  'data_analise_credito_fim',
-  'data_proposta',
-  'data_venda',
-  'data_perdido',
-  'motivo_perda',
+const ALL_LEADS_COLUMNS = [
+  'id', 'created_at', 'updated_at', 'name', 'email', 'phone', 'gender', 'birth_date',
+  'current_city', 'relationship_status', 'monthly_investment', 'profile_type',
+  'profile_completed', 'whatsapp_clicked', 'canal', 'empreendimento_interesse',
+  'parameter', 'children_status', 'codigo',
+  'cvcrm_lead_id', 'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage', 'cvcrm_is_sold',
+  'cvcrm_sale_value', 'cvcrm_sale_date', 'cvcrm_last_update', 'cvcrm_payload',
+  'cvcrm_sync_status', 'cvcrm_sync_error', 'cvcrm_last_synced_at',
+  'source_table',
 ];
 
-const ENSURE_LEADS_TABLE_SQL = `
-CREATE TABLE IF NOT EXISTS leads (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  codigo TEXT,
-  source_table TEXT,
+const LEGACY_ALL_LEADS_COLUMNS = new Set([
+  'page', 'origem', 'parametro', 'empreendimento', 'status', 'relacionamento', 'investimento',
+  'cidade_residencia', 'profile_notes', 'dispositivo', 'pagamento_preferencia', 'responsavel',
+  'idcorretor', 'idimobiliaria', 'data_primeiro_atendimento', 'data_visita_agendada',
+  'data_visita_realizada', 'data_analise_credito_inicio', 'data_analise_credito_fim',
+  'data_proposta', 'data_venda', 'data_perdido', 'motivo_perda',
+]);
+
+const ENSURE_ALL_LEADS_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS all_leads (
+  id UUID NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   name TEXT NOT NULL,
   email TEXT,
   phone TEXT,
-  page TEXT,
-  origem TEXT,
-  canal TEXT,
-  parametro TEXT,
-  empreendimento TEXT,
-  responsavel TEXT,
-  relacionamento TEXT,
-  investimento TEXT,
-  cidade_residencia TEXT,
-  birth_date TEXT,
+  gender TEXT,
+  birth_date DATE,
+  current_city TEXT,
+  relationship_status TEXT,
+  monthly_investment TEXT,
   profile_type TEXT,
-  profile_notes TEXT,
-  dispositivo TEXT,
-  pagamento_preferencia TEXT,
-  status TEXT NOT NULL DEFAULT 'novo',
+  profile_completed BOOLEAN DEFAULT false,
+  whatsapp_clicked BOOLEAN DEFAULT false,
+  canal TEXT,
+  empreendimento_interesse TEXT,
+  parameter TEXT[],
+  children_status TEXT,
+  codigo TEXT,
   cvcrm_lead_id TEXT,
-  cvcrm_sync_status TEXT DEFAULT 'pending',
-  cvcrm_is_sold BOOLEAN DEFAULT false,
   cvcrm_status TEXT,
   cvcrm_situation TEXT,
   cvcrm_stage TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  cvcrm_is_sold BOOLEAN DEFAULT false,
+  cvcrm_sale_value NUMERIC,
+  cvcrm_sale_date TIMESTAMPTZ,
+  cvcrm_last_update TIMESTAMPTZ,
+  cvcrm_payload JSONB,
+  cvcrm_sync_status TEXT DEFAULT 'pending',
+  cvcrm_sync_error TEXT,
+  cvcrm_last_synced_at TIMESTAMPTZ,
+  source_table TEXT NOT NULL,
+  PRIMARY KEY (id, source_table)
 );
+CREATE INDEX IF NOT EXISTS all_leads_created_at_idx ON all_leads (created_at DESC);
+CREATE INDEX IF NOT EXISTS all_leads_source_table_idx ON all_leads (source_table);
+CREATE INDEX IF NOT EXISTS all_leads_codigo_idx ON all_leads (codigo);
 `;
 
-const UPSERT_LEAD_COLUMNS = [
-  'id', 'codigo', 'source_table', 'name', 'email', 'phone', 'page', 'origem', 'canal', 'parametro',
-  'empreendimento', 'responsavel', 'relacionamento', 'investimento', 'cidade_residencia',
-  'birth_date', 'profile_type', 'profile_notes', 'dispositivo', 'pagamento_preferencia',
-  'status', 'cvcrm_lead_id', 'cvcrm_sync_status', 'cvcrm_is_sold',
-  'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage', 'cvcrm_last_update',
-  'cvcrm_sale_value', 'cvcrm_sale_date',
-  'idcorretor', 'idimobiliaria',
-  ...STAGE_DATE_COLUMNS,
-  'created_at', 'updated_at',
-];
+const INSERT_BATCH_SIZE = 500;
 
-const STAGE_DATE_COALESCE_UPDATES = STAGE_DATE_COLUMNS.map(
-  (col) =>
-    col === 'motivo_perda'
-      ? `${col} = COALESCE(NULLIF(TRIM(EXCLUDED.${col}), ''), leads.${col})`
-      : `${col} = COALESCE(leads.${col}, EXCLUDED.${col})`,
-).join(',\n  ');
-
-const UPSERT_LEAD_CONFLICT_SQL = `
-ON CONFLICT (id) DO UPDATE SET
-  codigo = COALESCE(NULLIF(TRIM(EXCLUDED.codigo), ''), leads.codigo),
-  source_table = EXCLUDED.source_table,
-  name = EXCLUDED.name,
-  email = EXCLUDED.email,
-  phone = EXCLUDED.phone,
-  page = EXCLUDED.page,
-  origem = EXCLUDED.origem,
-  canal = EXCLUDED.canal,
-  parametro = EXCLUDED.parametro,
-  empreendimento = EXCLUDED.empreendimento,
-  responsavel = EXCLUDED.responsavel,
-  relacionamento = EXCLUDED.relacionamento,
-  investimento = EXCLUDED.investimento,
-  cidade_residencia = EXCLUDED.cidade_residencia,
-  birth_date = EXCLUDED.birth_date,
-  profile_type = EXCLUDED.profile_type,
-  profile_notes = EXCLUDED.profile_notes,
-  dispositivo = EXCLUDED.dispositivo,
-  pagamento_preferencia = EXCLUDED.pagamento_preferencia,
-  status = EXCLUDED.status,
-  cvcrm_lead_id = EXCLUDED.cvcrm_lead_id,
-  cvcrm_sync_status = EXCLUDED.cvcrm_sync_status,
-  cvcrm_is_sold = EXCLUDED.cvcrm_is_sold,
-  cvcrm_status = EXCLUDED.cvcrm_status,
-  cvcrm_situation = EXCLUDED.cvcrm_situation,
-  cvcrm_stage = EXCLUDED.cvcrm_stage,
-  cvcrm_last_update = COALESCE(EXCLUDED.cvcrm_last_update, leads.cvcrm_last_update),
-  cvcrm_sale_value = COALESCE(EXCLUDED.cvcrm_sale_value, leads.cvcrm_sale_value),
-  cvcrm_sale_date = COALESCE(EXCLUDED.cvcrm_sale_date, leads.cvcrm_sale_date),
-  idcorretor = COALESCE(NULLIF(TRIM(EXCLUDED.idcorretor), ''), leads.idcorretor),
-  idimobiliaria = COALESCE(NULLIF(TRIM(EXCLUDED.idimobiliaria), ''), leads.idimobiliaria),
-  ${STAGE_DATE_COALESCE_UPDATES},
-  updated_at = EXCLUDED.updated_at;
-`;
-
-// 500 linhas × 30 colunas = 15.000 parâmetros por query (limite do Postgres: 65.535).
-const UPSERT_BATCH_SIZE = 500;
-
-function buildBatchUpsertSql(rowCount) {
-  const colCount = UPSERT_LEAD_COLUMNS.length;
+function buildBatchInsertSql(rowCount) {
+  const colCount = ALL_LEADS_COLUMNS.length;
   const tuples = [];
   for (let i = 0; i < rowCount; i += 1) {
     const base = i * colCount;
-    const placeholders = UPSERT_LEAD_COLUMNS.map((_, j) => `$${base + j + 1}`);
+    const placeholders = ALL_LEADS_COLUMNS.map((_, j) => `$${base + j + 1}`);
     tuples.push(`(${placeholders.join(', ')})`);
   }
-  return `INSERT INTO leads (${UPSERT_LEAD_COLUMNS.join(', ')}) VALUES ${tuples.join(', ')} ${UPSERT_LEAD_CONFLICT_SQL}`;
+  return `INSERT INTO all_leads (${ALL_LEADS_COLUMNS.join(', ')}) VALUES ${tuples.join(', ')}`;
 }
 
-function leadToUpsertParams(mapped) {
-  return [
-    mapped.id,
-    mapped.codigo,
-    mapped.source_table,
-    mapped.name,
-    mapped.email,
-    mapped.phone,
-    mapped.page,
-    mapped.origem,
-    mapped.canal,
-    mapped.parametro,
-    mapped.empreendimento,
-    mapped.responsavel,
-    mapped.relacionamento,
-    mapped.investimento,
-    mapped.cidade_residencia,
-    mapped.birth_date,
-    mapped.profile_type,
-    mapped.profile_notes,
-    mapped.dispositivo,
-    mapped.pagamento_preferencia,
-    mapped.status,
-    mapped.cvcrm_lead_id,
-    mapped.cvcrm_sync_status,
-    mapped.cvcrm_is_sold,
-    mapped.cvcrm_status,
-    mapped.cvcrm_situation,
-    mapped.cvcrm_stage,
-    mapped.cvcrm_last_update,
-    mapped.cvcrm_sale_value,
-    mapped.cvcrm_sale_date,
-    mapped.idcorretor,
-    mapped.idimobiliaria,
-    mapped.data_primeiro_atendimento,
-    mapped.data_visita_agendada,
-    mapped.data_visita_realizada,
-    mapped.data_analise_credito_inicio,
-    mapped.data_analise_credito_fim,
-    mapped.data_proposta,
-    mapped.data_venda,
-    mapped.data_perdido,
-    mapped.motivo_perda,
-    mapped.created_at,
-    mapped.updated_at,
-  ];
+function leadToInsertParams(mapped) {
+  return ALL_LEADS_COLUMNS.map((col) => mapped[col]);
+}
+
+async function tableHasLegacyAllLeadsColumns(client) {
+  const { rows } = await client.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'all_leads'
+       AND column_name = ANY($1::text[])`,
+    [[...LEGACY_ALL_LEADS_COLUMNS]],
+  );
+  return rows.length > 0;
+}
+
+async function ensureAllLeadsUnionSchema(client) {
+  await client.query(`DROP INDEX IF EXISTS public.leads_codigo_uidx`);
+
+  const tableCheck = await client.query(
+    `SELECT 1 FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name = 'all_leads'`,
+  );
+
+  if (tableCheck.rowCount > 0 && (await tableHasLegacyAllLeadsColumns(client))) {
+    console.log('[leads/sync] Recriando all_leads com schema canônico (união pura)');
+    await client.query(`DROP TABLE public.all_leads`);
+  }
+
+  await client.query(ENSURE_ALL_LEADS_TABLE_SQL);
 }
 
 async function resolveSourceTable(client, candidates) {
@@ -668,155 +366,7 @@ async function resolveSourceTable(client, candidates) {
 let lastSyncAt = 0;
 const SYNC_INTERVAL_MS = 300_000;
 let syncInFlight = false;
-/** Evita sync concorrente da mesma tabela fonte → leads */
 const tableSyncInFlight = {};
-
-async function dedupeLeadsByCvcrmLeadId(client) {
-  const result = await client.query(
-    `DELETE FROM leads l
-     WHERE l.cvcrm_lead_id IS NOT NULL
-       AND l.id NOT IN (
-         SELECT DISTINCT ON (cvcrm_lead_id) id
-         FROM leads
-         WHERE cvcrm_lead_id IS NOT NULL
-         ORDER BY cvcrm_lead_id,
-                  cvcrm_last_update DESC NULLS LAST,
-                  updated_at DESC,
-                  created_at DESC
-       )`,
-  );
-  const removed = result.rowCount ?? 0;
-  if (removed > 0) {
-    console.log(`[leads/sync] ${removed} duplicata(s) removida(s) por cvcrm_lead_id`);
-  }
-  return removed;
-}
-
-async function loadLeadsIdentityMaps(client, mappedRows) {
-  const cvcrmIds = [
-    ...new Set(mappedRows.map((r) => r.cvcrm_lead_id).filter(Boolean)),
-  ];
-  const codigos = [...new Set(mappedRows.map((r) => r.codigo).filter(Boolean))];
-  const ids = [...new Set(mappedRows.map((r) => r.id).filter(Boolean))];
-
-  if (cvcrmIds.length === 0 && codigos.length === 0 && ids.length === 0) {
-    return { byCvcrm: new Map(), byCodigo: new Map() };
-  }
-
-  const result = await client.query(
-    `SELECT id, codigo, cvcrm_lead_id
-     FROM leads
-     WHERE cvcrm_lead_id = ANY($1::text[])
-        OR codigo = ANY($2::text[])
-        OR id = ANY($3::uuid[])`,
-    [cvcrmIds, codigos, ids],
-  );
-
-  const byCvcrm = new Map();
-  const byCodigo = new Map();
-  for (const row of result.rows) {
-    if (row.cvcrm_lead_id) byCvcrm.set(String(row.cvcrm_lead_id), row);
-    if (row.codigo) byCodigo.set(String(row.codigo), row);
-  }
-  return { byCvcrm, byCodigo };
-}
-
-function reconcileMappedLeadForUpsert(mapped, maps) {
-  const out = { ...mapped };
-
-  if (out.cvcrm_lead_id) {
-    const existingByCvcrm = maps.byCvcrm.get(String(out.cvcrm_lead_id));
-    if (existingByCvcrm) {
-      out.id = existingByCvcrm.id;
-      out.codigo = existingByCvcrm.codigo ?? out.codigo;
-      return out;
-    }
-  }
-
-  if (out.codigo) {
-    const codigo = String(out.codigo);
-    const existingByCodigo = maps.byCodigo.get(codigo);
-    if (existingByCodigo && String(existingByCodigo.id) !== String(out.id)) {
-      out.codigo = null;
-    }
-  }
-
-  return out;
-}
-
-function reconcileChunkForUpsert(chunk, identityMaps) {
-  const claimedCodigos = new Map();
-
-  return chunk.map((row) => {
-    let out = reconcileMappedLeadForUpsert(row, identityMaps);
-
-    if (out.codigo) {
-      const codigo = String(out.codigo);
-      const ownerId = claimedCodigos.get(codigo);
-      if (ownerId && String(ownerId) !== String(out.id)) {
-        out = { ...out, codigo: null };
-      } else {
-        claimedCodigos.set(codigo, out.id);
-      }
-    }
-
-    return out;
-  });
-}
-
-function refreshIdentityMapsFromChunk(identityMaps, chunk) {
-  for (const row of chunk) {
-    const entry = {
-      id: row.id,
-      codigo: row.codigo,
-      cvcrm_lead_id: row.cvcrm_lead_id,
-    };
-    if (row.cvcrm_lead_id) {
-      identityMaps.byCvcrm.set(String(row.cvcrm_lead_id), entry);
-    }
-    if (row.codigo) {
-      identityMaps.byCodigo.set(String(row.codigo), entry);
-    }
-  }
-}
-
-function rowUpsertRecency(row) {
-  const candidates = [row.updated_at, row.cvcrm_last_update, row.created_at];
-  for (const value of candidates) {
-    if (!value) continue;
-    const ts = new Date(value).getTime();
-    if (Number.isFinite(ts)) return ts;
-  }
-  return 0;
-}
-
-/** Evita Postgres 21000: um único INSERT não pode repetir id (ON CONFLICT) nem codigo (índice único). */
-function deduplicateChunkForUpsert(chunk) {
-  const sorted = [...chunk].sort((a, b) => rowUpsertRecency(b) - rowUpsertRecency(a));
-  const seenIds = new Set();
-  const seenCodigos = new Set();
-  const kept = [];
-
-  for (const row of sorted) {
-    const id = String(row.id);
-    if (seenIds.has(id)) continue;
-
-    const codigo = row.codigo != null ? String(row.codigo).trim() : '';
-    if (codigo && seenCodigos.has(codigo)) continue;
-
-    seenIds.add(id);
-    if (codigo) seenCodigos.add(codigo);
-    kept.push(row);
-  }
-
-  if (kept.length < chunk.length) {
-    console.log(
-      `[leads/sync] dedupe lote: ${chunk.length - kept.length} linha(s) omitida(s) (id/codigo duplicado no batch)`,
-    );
-  }
-
-  return kept;
-}
 
 async function processLeadSourceSync(client, source) {
   const tableName = await resolveSourceTable(client, source.tables);
@@ -833,26 +383,18 @@ async function processLeadSourceSync(client, source) {
   tableSyncInFlight[tableName] = true;
   try {
     const { rows } = await client.query(`SELECT * FROM ${tableName} ORDER BY created_at ASC`);
-    let count = 0;
+    const mappedRows = rows.map((row) => mapCanonicalLeadRow(row, source.sourceTable));
 
-    const mappedRows = rows.map((row) => source.mapRow(row, source.sourceTable, source));
-    const identityMaps = await loadLeadsIdentityMaps(client, mappedRows);
+    await client.query(`DELETE FROM all_leads WHERE source_table = $1`, [source.sourceTable]);
 
-    for (let i = 0; i < mappedRows.length; i += UPSERT_BATCH_SIZE) {
-      const reconciled = reconcileChunkForUpsert(
-        mappedRows.slice(i, i + UPSERT_BATCH_SIZE),
-        identityMaps,
-      );
-      const chunk = deduplicateChunkForUpsert(reconciled);
+    for (let i = 0; i < mappedRows.length; i += INSERT_BATCH_SIZE) {
+      const chunk = mappedRows.slice(i, i + INSERT_BATCH_SIZE);
       if (chunk.length === 0) continue;
-      await client.query(buildBatchUpsertSql(chunk.length), chunk.flatMap(leadToUpsertParams));
-      refreshIdentityMapsFromChunk(identityMaps, chunk);
+      await client.query(buildBatchInsertSql(chunk.length), chunk.flatMap(leadToInsertParams));
     }
 
-    count = mappedRows.length;
-
-    console.log(`[leads/sync] ${tableName}: ${count} lead(s) sincronizado(s) → leads`);
-    return { source: source.key, table: tableName, count, skipped: false };
+    console.log(`[leads/sync] ${tableName}: ${mappedRows.length} lead(s) → all_leads (união pura)`);
+    return { source: source.key, table: tableName, count: mappedRows.length, skipped: false };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[leads/sync] ${tableName} error:`, message);
@@ -884,26 +426,11 @@ export async function syncLeadsFromSources({ force = false } = {}) {
     const sources = [];
 
     try {
-      await client.query(ENSURE_LEADS_TABLE_SQL);
-    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS codigo TEXT`);
-    await client.query(
-      `ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_sync_status TEXT DEFAULT 'pending'`,
-    );
-    await client.query(
-      `ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_is_sold BOOLEAN DEFAULT false`,
-    );
-    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_status TEXT`);
-    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_situation TEXT`);
-    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_stage TEXT`);
-    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_last_update TIMESTAMPTZ`);
-    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_sale_value NUMERIC`);
-    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cvcrm_sale_date TIMESTAMPTZ`);
-    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS idcorretor TEXT`);
-    await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS idimobiliaria TEXT`);
-    for (const col of STAGE_DATE_COLUMNS) {
-      const colType = col === 'motivo_perda' ? 'TEXT' : 'TIMESTAMPTZ';
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ${col} ${colType}`);
-    }
+      await ensureAllLeadsUnionSchema(client);
+
+      if (force) {
+        await client.query(`TRUNCATE all_leads`);
+      }
 
       for (const source of LEAD_SOURCE_TABLES) {
         const result = await processLeadSourceSync(client, source);
@@ -913,10 +440,10 @@ export async function syncLeadsFromSources({ force = false } = {}) {
         }
       }
 
-      await dedupeLeadsByCvcrmLeadId(client);
+      const uniqueResult = await rebuildAllLeadsUnique(client);
 
       lastSyncAt = now;
-      return { synced: totalSynced, sources };
+      return { synced: totalSynced, sources, unique: uniqueResult };
     } finally {
       await client.end();
     }

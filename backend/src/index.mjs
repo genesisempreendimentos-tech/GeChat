@@ -14,6 +14,7 @@ import { createAuthRouter } from './routes/auth.mjs';
 import { createLeadsRouter, createCvcrmWebhookRouter } from './routes/leads.mjs';
 import { createCvcrmRouter } from './routes/cvcrm.mjs';
 import { syncLeadsFromSources } from './services/leadSourceSync.mjs';
+import './services/cvcrmIncrementalSync.mjs';
 import {
   resolveNeonWorkspaceFilter,
   fetchCompanyGeTeamsWorkspaceName,

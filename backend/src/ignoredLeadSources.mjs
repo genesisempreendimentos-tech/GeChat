@@ -1,9 +1,9 @@
 /** Tabelas Neon excluídas da sync e da listagem do GêLeads. */
 export const IGNORED_NEON_LEAD_SOURCE_TABLES = [
-  'leads_aniversario_208_anos',
-  'leads_gesite',
-  'leads_blackgenesis',
-  'leads_old',
+  'campanha_niver_208_anos_friburgo',
+  'site_gesite',
+  'campanha_blackgenesis',
+  'leads_antigos',
 ];
 
 /** Rotas (`page`) associadas às fontes ignoradas — cobre dados já sincronizados. */
@@ -20,8 +20,22 @@ function normalizePagePath(page) {
   return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
 
+/** source_table legado → nome atual (subset usado na exclusão de sync/UI) */
+const LEGACY_SOURCE_TABLE_ALIASES = {
+  leads_aniversario_208_anos: 'campanha_niver_208_anos_friburgo',
+  leads_gesite: 'site_gesite',
+  leads_blackgenesis: 'campanha_blackgenesis',
+  leads_old: 'leads_antigos',
+};
+
+function normalizeSourceTable(sourceTable) {
+  const raw = String(sourceTable ?? '').trim().toLowerCase();
+  if (!raw) return '';
+  return LEGACY_SOURCE_TABLE_ALIASES[raw] ?? raw;
+}
+
 export function isIgnoredLeadSource(sourceTable, page) {
-  const table = String(sourceTable ?? '').trim().toLowerCase();
+  const table = normalizeSourceTable(sourceTable);
   if (table && IGNORED_NEON_LEAD_SOURCE_TABLES.includes(table)) return true;
 
   const normalizedPage = normalizePagePath(page);

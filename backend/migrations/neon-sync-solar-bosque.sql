@@ -1,79 +1,47 @@
 /*
-  GêLeads – Sincroniza leads_solar_bosque → leads (Neon)
-  Execute após neon-leads.sql no mesmo banco Neon.
+  GêLeads – Exemplo: união pura site_solar_bosque → all_leads (Neon)
+  Preferir syncLeadsFromSources({ force: true }) no backend.
 */
 
-INSERT INTO leads (
-  id,
-  source_table,
-  name,
-  email,
-  phone,
-  page,
-  origem,
-  canal,
-  parametro,
-  empreendimento,
-  relacionamento,
-  investimento,
-  cidade_residencia,
-  birth_date,
-  profile_type,
-  profile_notes,
-  status,
-  cvcrm_lead_id,
-  created_at,
-  updated_at
+INSERT INTO all_leads (
+  id, created_at, updated_at, name, email, phone, gender, birth_date, current_city,
+  relationship_status, monthly_investment, profile_type, profile_completed,
+  whatsapp_clicked, canal, empreendimento_interesse, parameter, children_status,
+  codigo, cvcrm_lead_id, cvcrm_status, cvcrm_situation, cvcrm_stage, cvcrm_is_sold,
+  cvcrm_sale_value, cvcrm_sale_date, cvcrm_last_update, cvcrm_payload,
+  cvcrm_sync_status, cvcrm_sync_error, cvcrm_last_synced_at, source_table
 )
 SELECT
   s.id,
-  'leads_solar_bosque',
-  s.nome,
+  s.created_at,
+  COALESCE(s.updated_at, s.created_at),
+  s.name,
   NULLIF(TRIM(s.email), ''),
-  NULLIF(TRIM(s.whatsapp), ''),
-  '/solar-do-bosque',
-  CASE
-    WHEN NULLIF(TRIM(s.canal), '') IS NULL THEN 'Direto'
-    WHEN LOWER(TRIM(s.canal)) = 'site' THEN 'Direto'
-    ELSE TRIM(s.canal)
-  END,
-  COALESCE(NULLIF(TRIM(s.canal), ''), 'Site'),
-  COALESCE(NULLIF(TRIM(s.interesse), ''), COALESCE(NULLIF(TRIM(s.empreendimento), ''), 'Solar do Bosque')),
-  COALESCE(NULLIF(TRIM(s.empreendimento), ''), 'Solar do Bosque'),
+  NULLIF(TRIM(s.phone), ''),
+  NULLIF(TRIM(s.gender), ''),
+  s.birth_date,
+  NULLIF(TRIM(s.current_city), ''),
   NULLIF(TRIM(s.relationship_status), ''),
   NULLIF(TRIM(s.monthly_investment), ''),
-  NULLIF(TRIM(s.current_city), ''),
-  CASE
-    WHEN s.birth_date IS NULL THEN NULL
-    ELSE to_char(s.birth_date AT TIME ZONE 'UTC', 'DD/MM/YYYY')
-  END,
   NULLIF(TRIM(s.profile_type), ''),
-  NULLIF(TRIM(s.interesse), ''),
-  CASE
-    WHEN s.cvcrm_is_sold THEN 'ganho'
-    WHEN s.profile_completed OR s.completed THEN 'qualificado'
-    ELSE 'novo'
-  END,
+  COALESCE(s.profile_completed, false),
+  COALESCE(s.whatsapp_clicked, false),
+  NULLIF(TRIM(s.canal), ''),
+  NULLIF(TRIM(s.empreendimento_interesse), ''),
+  s.parameter,
+  NULLIF(TRIM(s.children_status), ''),
+  NULLIF(TRIM(s.codigo), ''),
   NULLIF(TRIM(s.cvcrm_lead_id), ''),
-  s.created_at,
-  COALESCE(s.updated_at, s.created_at)
-FROM leads_solar_bosque s
-ON CONFLICT (id) DO UPDATE SET
-  source_table = EXCLUDED.source_table,
-  name = EXCLUDED.name,
-  email = EXCLUDED.email,
-  phone = EXCLUDED.phone,
-  page = EXCLUDED.page,
-  origem = EXCLUDED.origem,
-  canal = EXCLUDED.canal,
-  parametro = EXCLUDED.parametro,
-  empreendimento = EXCLUDED.empreendimento,
-  relacionamento = EXCLUDED.relacionamento,
-  investimento = EXCLUDED.investimento,
-  cidade_residencia = EXCLUDED.cidade_residencia,
-  birth_date = EXCLUDED.birth_date,
-  profile_type = EXCLUDED.profile_type,
-  profile_notes = EXCLUDED.profile_notes,
-  status = EXCLUDED.status,
-  cvcrm_lead_id = EXCLUDED.cvcrm_lead_id,
-  updated_at = EXCLUDED.updated_at;
+  NULLIF(TRIM(s.cvcrm_status), ''),
+  NULLIF(TRIM(s.cvcrm_situation), ''),
+  NULLIF(TRIM(s.cvcrm_stage), ''),
+  COALESCE(s.cvcrm_is_sold, false),
+  s.cvcrm_sale_value,
+  s.cvcrm_sale_date,
+  s.cvcrm_last_update,
+  s.cvcrm_payload,
+  COALESCE(NULLIF(TRIM(s.cvcrm_sync_status), ''), 'pending'),
+  NULLIF(TRIM(s.cvcrm_sync_error), ''),
+  s.cvcrm_last_synced_at,
+  'site_solar_bosque'
+FROM site_solar_bosque s;

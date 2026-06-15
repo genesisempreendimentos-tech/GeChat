@@ -3,9 +3,9 @@
  */
 
 const SOLAR_BOSQUE_PAYLOAD_CONFIG = {
-  campoNome: ['nome', 'name'],
-  campoTelefone: ['whatsapp', 'phone', 'telefone'],
-  sourceTable: 'leads_solar_bosque',
+  campoNome: 'name',
+  campoTelefone: 'phone',
+  sourceTable: 'site_solar_bosque',
   defaultEmpreendimento: 'Solar do Bosque',
   idEmpreendimento: 'SOLAR_DO_BOSQUE',
 };
@@ -13,7 +13,7 @@ const SOLAR_BOSQUE_PAYLOAD_CONFIG = {
 const OASIS_II_PAYLOAD_CONFIG = {
   campoNome: 'name',
   campoTelefone: 'phone',
-  sourceTable: 'leads_oasis_ii',
+  sourceTable: 'site_oasis_ii',
   defaultEmpreendimento: 'Oásis Residencial II',
   idEmpreendimento: 'OASIS_RESIDENCIAL_II',
   extraObservacaoFields: [{ key: 'children_status', label: 'Filhos' }],
@@ -65,89 +65,83 @@ const STANDARD_NAME_PHONE_CONFIG = {
 
 /** Configuração CVCRM por tabela (exceto solar_bosque e oasis_ii — legado). */
 export const CVCRM_TABLE_CONFIGS = {
-  leads_kastell: {
+  site_kastell: {
     ...STANDARD_NAME_PHONE_CONFIG,
-    sourceTable: 'leads_kastell',
+    sourceTable: 'site_kastell',
     defaultEmpreendimento: 'Kastell Residencial',
     idEmpreendimento: 'KASTELL_RESIDENCIAL',
   },
-  leads_nature: {
+  site_nature: {
     ...STANDARD_NAME_PHONE_CONFIG,
-    sourceTable: 'leads_nature',
+    sourceTable: 'site_nature',
     defaultEmpreendimento: 'Nature Residencial',
     idEmpreendimento: 'NATURE_PETROPOLIS_RESIDENCES',
   },
-  leads_oasis_i: {
+  site_oasis_i: {
     ...STANDARD_NAME_PHONE_CONFIG,
-    sourceTable: 'leads_oasis_i',
+    sourceTable: 'site_oasis_i',
     defaultEmpreendimento: 'Oásis Residencial',
     idEmpreendimento: 'OASIS_RESIDENCIAL',
   },
-  leads_solar_bellavista: {
+  site_solar_bellavista: {
     ...STANDARD_NAME_PHONE_CONFIG,
-    sourceTable: 'leads_solar_bellavista',
+    sourceTable: 'site_solar_bellavista',
     defaultEmpreendimento: 'Solar Bellavista',
     idEmpreendimento: 'SOLAR_BELLAVISTA',
   },
-  leads_solar_flores: {
+  site_solar_flores: {
     ...STANDARD_NAME_PHONE_CONFIG,
-    sourceTable: 'leads_solar_flores',
+    sourceTable: 'site_solar_flores',
     defaultEmpreendimento: 'Solar das Flores',
     idEmpreendimento: 'SOLAR_DAS_FLORES',
   },
-  leads_vita: {
+  site_vita: {
     ...STANDARD_NAME_PHONE_CONFIG,
-    sourceTable: 'leads_vita',
+    sourceTable: 'site_vita',
     defaultEmpreendimento: 'Vita Residencial',
     idEmpreendimento: 'VITA_RESIDENCIAL',
   },
-  leads_flow: {
+  site_flow: {
     ...STANDARD_NAME_PHONE_CONFIG,
-    sourceTable: 'leads_flow',
+    sourceTable: 'site_flow',
     defaultEmpreendimento: 'Flow',
     idEmpreendimento: 'FLOW',
   },
-  leads_aniversario_208_anos: {
+  campanha_niver_208_anos_friburgo: {
     ...STANDARD_NAME_PHONE_CONFIG,
-    sourceTable: 'leads_aniversario_208_anos',
+    sourceTable: 'campanha_niver_208_anos_friburgo',
     defaultEmpreendimento: 'Solar das Flores',
     idEmpreendimento: 'SOLAR_DAS_FLORES',
   },
-  leads_gesite: {
+  site_gesite: {
     ...STANDARD_NAME_PHONE_CONFIG,
-    sourceTable: 'leads_gesite',
+    sourceTable: 'site_gesite',
     defaultEmpreendimento: 'GêSite',
     idEmpreendimento: null,
   },
-  leads_blackgenesis: {
+  campanha_blackgenesis: {
     ...STANDARD_NAME_PHONE_CONFIG,
-    sourceTable: 'leads_blackgenesis',
+    sourceTable: 'campanha_blackgenesis',
     defaultEmpreendimento: 'Black Gênesis',
     idEmpreendimento: 'dynamic',
-    campoEmpreendimentoDinamico: ['empreendimento', 'selected_empreendimento', 'projeto', 'project'],
+    campoEmpreendimentoDinamico: ['empreendimento_interesse', 'selected_empreendimento', 'projeto', 'project'],
     isBlack: true,
   },
-  leads_old: {
+  leads_antigos: {
     campoNome: 'name',
     campoTelefone: 'phone',
-    sourceTable: 'leads_old',
+    sourceTable: 'leads_antigos',
     defaultEmpreendimento: null,
     idEmpreendimento: 'dynamic',
-    campoEmpreendimentoDinamico: ['interesse', 'empreendimento'],
-    birthDateField: 'nascimento',
-    birthDateUnix: true,
-    extraObservacaoFields: [
-      { key: 'interesse', label: 'Interesse' },
-      { key: 'data_entrada', label: 'Data entrada' },
-    ],
+    campoEmpreendimentoDinamico: ['empreendimento_interesse'],
     skipProfileType: true,
   },
 };
 
 /** Ordem de polling CVCRM (solar_bosque e oasis_ii tratados à parte). */
 export const CVCRM_POLL_TABLES = [
-  'leads_solar_bosque',
-  'leads_oasis_ii',
+  'site_solar_bosque',
+  'site_oasis_ii',
   ...Object.keys(CVCRM_TABLE_CONFIGS),
 ];
 
@@ -309,8 +303,8 @@ function getCvcrmDefaultStatusId() {
 }
 
 export function buildCvcrmPayload(lead, config = {}) {
-  const nomeFields = resolveFieldNames(config.campoNome ?? ['nome', 'name']);
-  const phoneFields = resolveFieldNames(config.campoTelefone ?? ['whatsapp', 'phone', 'telefone']);
+  const nomeFields = resolveFieldNames(config.campoNome ?? 'name');
+  const phoneFields = resolveFieldNames(config.campoTelefone ?? 'phone');
 
   const nome = toSafeString(firstNonEmpty(...nomeFields.map((field) => lead?.[field])));
   const email = toSafeString(firstNonEmpty(lead?.email));
@@ -326,8 +320,9 @@ export function buildCvcrmPayload(lead, config = {}) {
 
   const bodyLines = [];
   const canal = toSafeString(lead?.canal);
-  const interesse = toSafeString(lead?.interesse);
-  const empreendimento = toSafeString(firstNonEmpty(lead?.empreendimento, config.defaultEmpreendimento));
+  const empreendimento = toSafeString(
+    firstNonEmpty(lead?.empreendimento_interesse, config.defaultEmpreendimento),
+  );
   const relationshipStatus = toSafeString(lead?.relationship_status);
   const monthlyInvestment = toSafeString(lead?.monthly_investment);
   const currentCity = toSafeString(lead?.current_city);
@@ -339,7 +334,6 @@ export function buildCvcrmPayload(lead, config = {}) {
   const extraFieldKeys = new Set((config.extraObservacaoFields ?? []).map((field) => field.key));
 
   if (canal) bodyLines.push(`Canal: ${canal}`);
-  if (interesse && !extraFieldKeys.has('interesse')) bodyLines.push(`Interesse: ${interesse}`);
   if (empreendimento) bodyLines.push(`Empreendimento: ${empreendimento}`);
   if (monthlyInvestment) bodyLines.push(`Renda familiar: ${monthlyInvestment}`);
   if (relationshipStatus) bodyLines.push(`Estado civil: ${relationshipStatus}`);
@@ -457,12 +451,12 @@ export async function sendLeadGeneric(lead, tableConfig) {
   return postLeadToCvcrm(lead, tableConfig, { requireIdEmpreendimento: false });
 }
 
-/** Envia um lead (linha de leads_solar_bosque) para o CVCRM. */
+/** Envia um lead (linha de site_solar_bosque) para o CVCRM. */
 export async function sendLeadToCvcrm(lead) {
   return postLeadToCvcrm(lead, SOLAR_BOSQUE_PAYLOAD_CONFIG);
 }
 
-/** Envia um lead (linha de leads_oasis_ii) para o CVCRM. */
+/** Envia um lead (linha de site_oasis_ii) para o CVCRM. */
 export async function sendLeadToCvcrm_oasis_ii(lead) {
   return postLeadToCvcrm(lead, OASIS_II_PAYLOAD_CONFIG);
 }

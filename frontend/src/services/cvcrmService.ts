@@ -119,6 +119,39 @@ export type CvcrmSyncAllResponse = {
   skipped?: boolean;
 };
 
+export type CvcrmSyncIncrementalResponse = {
+  processed?: number;
+  reservas_processed?: number;
+  errors?: number;
+  leads_updated_from_reservas?: number;
+  attribution_updated?: number;
+  leads_consolidated?: number;
+  sweep48h?: boolean;
+  run_start?: string;
+  message?: string;
+  skipped?: boolean;
+  leads?: {
+    processed?: number;
+    errors?: number;
+    total_baixados?: number;
+    since_brt?: string;
+    cursor_before?: string | null;
+    cursor_after?: string;
+  };
+  reservas?: {
+    processed?: number;
+    errors?: number;
+    total_baixados?: number;
+    since_brt?: string;
+    cursor_before?: string | null;
+    cursor_after?: string;
+  };
+  cursors?: {
+    leads: string | null;
+    reservas: string | null;
+  };
+};
+
 export const cvcrmService = {
   async getSyncStatus() {
     return apiFetch<CvcrmSyncStatusResponse>('/api/cvcrm/sync-status');
@@ -130,6 +163,13 @@ export const cvcrmService = {
 
   async syncNow() {
     return apiFetch<CvcrmSyncNowResponse>('/api/cvcrm/sync-now', { method: 'POST' });
+  },
+
+  async syncIncremental(options?: { skipIfRecent?: boolean }) {
+    return apiFetch<CvcrmSyncIncrementalResponse>('/api/cvcrm/sync-incremental', {
+      method: 'POST',
+      body: JSON.stringify({ skipIfRecent: options?.skipIfRecent === true }),
+    });
   },
 
   async syncAll() {

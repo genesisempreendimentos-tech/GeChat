@@ -7,9 +7,9 @@
   - Sequência GLOBAL única (não reinicia por empreendimento).
   - Ordenação do backfill: created_at ASC, depois id ASC.
   - Primeiro lead histórico → A0000, segundo → A0001, etc.
-  - Tabela unificada `leads` recebe a numeração oficial.
-  - Demais tabelas leads_* recebem o mesmo codigo quando o id coincide.
-  - Linhas só na fonte (sem espelho em `leads`) ganham número no final da fila.
+  - Tabela unificada `all_leads` recebe a numeração oficial.
+  - Demais tabelas fonte recebem o mesmo codigo quando o id coincide.
+  - Linhas só na fonte (sem espelho em `all_leads`) ganham número no final da fila.
 */
 
 BEGIN;
@@ -17,7 +17,7 @@ BEGIN;
 -- ---------------------------------------------------------------------------
 -- 1) Sequência global
 -- ---------------------------------------------------------------------------
-CREATE SEQUENCE IF NOT EXISTS public.leads_codigo_seq
+CREATE SEQUENCE IF NOT EXISTS public.all_leads_codigo_seq
   AS BIGINT
   START WITH 0
   INCREMENT BY 1
@@ -26,7 +26,7 @@ CREATE SEQUENCE IF NOT EXISTS public.leads_codigo_seq
   CACHE 1;
 
 -- ---------------------------------------------------------------------------
--- 2) Coluna codigo em todas as tabelas public.leads*
+-- 2) Coluna codigo em tabelas fonte (site_*, campanha_*, leads_*)
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -37,7 +37,12 @@ BEGIN
     FROM information_schema.tables
     WHERE table_schema = 'public'
       AND table_type = 'BASE TABLE'
-      AND table_name LIKE 'leads%'
+      AND (
+        table_name LIKE 'leads%'
+        OR table_name LIKE 'site_%'
+        OR table_name LIKE 'campanha_%'
+      )
+      AND table_name NOT IN ('leads')
     ORDER BY table_name
   LOOP
     EXECUTE format(
@@ -53,15 +58,15 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------
--- 3) Backfill na tabela unificada `leads`
+-- 3) Backfill na tabela unificada `all_leads`
 -- ---------------------------------------------------------------------------
 WITH numbered AS (
   SELECT
     id,
     'A' || lpad((row_number() OVER (ORDER BY created_at ASC NULLS LAST, id ASC) - 1)::text, 4, '0') AS new_codigo
-  FROM public.leads
+  FROM public.all_leads
 )
-UPDATE public.leads AS l
+UPDATE public.all_leads AS l
 SET codigo = n.new_codigo
 FROM numbered AS n
 WHERE l.id = n.id;
@@ -78,15 +83,20 @@ BEGIN
     FROM information_schema.tables
     WHERE table_schema = 'public'
       AND table_type = 'BASE TABLE'
-      AND table_name LIKE 'leads%'
-      AND table_name <> 'leads'
+      AND (
+        table_name LIKE 'leads%'
+        OR table_name LIKE 'site_%'
+        OR table_name LIKE 'campanha_%'
+      )
+      AND table_name NOT IN ('leads')
+      AND table_name <> 'all_leads'
     ORDER BY table_name
   LOOP
     EXECUTE format(
       $sql$
       UPDATE public.%1$I AS s
       SET codigo = l.codigo
-      FROM public.leads AS l
+      FROM public.all_leads AS l
       WHERE l.id = s.id
         AND l.codigo IS NOT NULL
       $sql$,
@@ -96,7 +106,7 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------
--- 5) Linhas só nas fontes (sem registro em `leads`)
+-- 5) Linhas só nas fontes (sem registro em `all_leads`)
 -- ---------------------------------------------------------------------------
 CREATE TEMP TABLE _lead_codigo_orphans (
   table_name TEXT NOT NULL,
@@ -115,8 +125,13 @@ BEGIN
     FROM information_schema.tables
     WHERE table_schema = 'public'
       AND table_type = 'BASE TABLE'
-      AND table_name LIKE 'leads%'
-      AND table_name <> 'leads'
+      AND (
+        table_name LIKE 'leads%'
+        OR table_name LIKE 'site_%'
+        OR table_name LIKE 'campanha_%'
+      )
+      AND table_name NOT IN ('leads')
+      AND table_name <> 'all_leads'
     ORDER BY table_name
   LOOP
     EXECUTE format(
@@ -134,7 +149,7 @@ END $$;
 
 WITH max_seq AS (
   SELECT COALESCE(MAX(substring(codigo FROM 2)::bigint), -1) AS last_n
-  FROM public.leads
+  FROM public.all_leads
   WHERE codigo ~ '^A[0-9]+$'
 ),
 numbered AS (
@@ -187,7 +202,12 @@ BEGIN
     FROM information_schema.tables
     WHERE table_schema = 'public'
       AND table_type = 'BASE TABLE'
-      AND table_name LIKE 'leads%'
+      AND (
+        table_name LIKE 'leads%'
+        OR table_name LIKE 'site_%'
+        OR table_name LIKE 'campanha_%'
+      )
+      AND table_name NOT IN ('leads')
   LOOP
     EXECUTE format(
       'SELECT COALESCE(MAX(substring(codigo FROM 2)::bigint), -1) FROM public.%I WHERE codigo ~ ''^A[0-9]+$''',
@@ -198,18 +218,18 @@ BEGIN
     END IF;
   END LOOP;
 
-  PERFORM setval('public.leads_codigo_seq', max_n + 1, false);
+  PERFORM setval('public.all_leads_codigo_seq', max_n + 1, false);
 END $$;
 
 -- ---------------------------------------------------------------------------
 -- 7) Índice / unicidade na tabela unificada
 -- ---------------------------------------------------------------------------
 CREATE UNIQUE INDEX IF NOT EXISTS leads_codigo_uidx
-  ON public.leads (codigo)
+  ON public.all_leads (codigo)
   WHERE codigo IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS leads_codigo_idx
-  ON public.leads (codigo);
+  ON public.all_leads (codigo);
 
 -- ---------------------------------------------------------------------------
 -- 8) Função + triggers para novos registros
@@ -220,7 +240,7 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   IF NEW.codigo IS NULL OR btrim(NEW.codigo) = '' THEN
-    NEW.codigo := 'A' || lpad(nextval('public.leads_codigo_seq')::text, 4, '0');
+    NEW.codigo := 'A' || lpad(nextval('public.all_leads_codigo_seq')::text, 4, '0');
   END IF;
   RETURN NEW;
 END;
@@ -236,7 +256,12 @@ BEGIN
     FROM information_schema.tables
     WHERE table_schema = 'public'
       AND table_type = 'BASE TABLE'
-      AND table_name LIKE 'leads%'
+      AND (
+        table_name LIKE 'leads%'
+        OR table_name LIKE 'site_%'
+        OR table_name LIKE 'campanha_%'
+      )
+      AND table_name NOT IN ('leads')
     ORDER BY table_name
   LOOP
     trg_name := tbl.table_name || '_assign_codigo_trg';
@@ -254,6 +279,6 @@ COMMIT;
 -- ---------------------------------------------------------------------------
 -- Conferência (opcional — rode depois do COMMIT)
 -- ---------------------------------------------------------------------------
--- SELECT codigo, id, created_at, source_table FROM public.leads ORDER BY codigo LIMIT 10;
--- SELECT codigo, count(*) FROM public.leads GROUP BY 1 HAVING count(*) > 1;
--- SELECT 'leads' AS tbl, count(*) FILTER (WHERE codigo IS NULL) AS sem_codigo FROM public.leads;
+-- SELECT codigo, id, created_at, source_table FROM public.all_leads ORDER BY codigo LIMIT 10;
+-- SELECT codigo, count(*) FROM public.all_leads GROUP BY 1 HAVING count(*) > 1;
+-- SELECT 'all_leads' AS tbl, count(*) FILTER (WHERE codigo IS NULL) AS sem_codigo FROM public.all_leads;

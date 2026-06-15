@@ -21,11 +21,24 @@ for (const [name, url] of Object.entries(urls)) {
     await client.connect();
     const r = await client.query(
       `SELECT table_name FROM information_schema.tables
-       WHERE table_schema = 'public' AND table_name LIKE 'leads%'
+       WHERE table_schema = 'public'
+         AND (
+           table_name LIKE 'leads%'
+           OR table_name LIKE 'site_%'
+           OR table_name LIKE 'campanha_%'
+           OR table_name = 'all_leads'
+           OR table_name = 'all_leads_unique'
+         )
        ORDER BY 1`,
     );
     console.log(`${name} tables:`, r.rows.map((x) => x.table_name).join(', ') || '(none)');
-    for (const t of ['leads_solar_bosque', 'leads_solar_do_bosque', 'leads']) {
+
+    const legacy = r.rows.find((x) => x.table_name === 'leads');
+    if (legacy) {
+      console.warn(`${name} AVISO: tabela legada "leads" ainda existe — execute neon-drop-legacy-leads.sql`);
+    }
+
+    for (const t of ['site_solar_bosque', 'all_leads', 'all_leads_unique']) {
       try {
         const c = await client.query(`SELECT count(*)::int AS n FROM ${t}`);
         console.log(`${name} ${t} count:`, c.rows[0].n);

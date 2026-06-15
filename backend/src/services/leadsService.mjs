@@ -21,16 +21,46 @@ function toIso(value) {
   return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
 }
 
-function toIsoOptional(value) {
-  if (!value) return null;
-  if (value instanceof Date) return value.toISOString();
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
-}
-
 function mapLeadCodigo(row) {
   const codigo = String(row.codigo ?? '').trim();
   return codigo || null;
+}
+
+function formatBirthDate(value) {
+  if (value == null || value === '') return '';
+  if (value instanceof Date) {
+    const day = String(value.getUTCDate()).padStart(2, '0');
+    const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const year = value.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  }
+  return String(value).trim();
+}
+
+function formatParameter(value) {
+  if (Array.isArray(value)) {
+    return value.map((x) => String(x ?? '').trim()).filter(Boolean).join(', ');
+  }
+  return String(value ?? '').trim();
+}
+
+function mapCanalOrigem(row) {
+  const canal = String(row.canal ?? '').trim();
+  if (!canal) return 'Direto';
+  if (canal.toLowerCase() === 'site') return 'Direto';
+  return canal;
+}
+
+function deriveLeadStatus(row) {
+  if (row.cvcrm_is_sold) return 'ganho';
+  if (row.profile_completed) return 'qualificado';
+  if (row.cvcrm_status) {
+    const normalized = String(row.cvcrm_status).toLowerCase();
+    if (normalized.includes('negoci')) return 'negociacao';
+    if (normalized.includes('contato')) return 'contato';
+    if (normalized.includes('perd')) return 'perdido';
+  }
+  return 'novo';
 }
 
 function mapNeonRowToLead(row) {
@@ -39,20 +69,23 @@ function mapNeonRowToLead(row) {
   const createdAt = toIso(row.created_at);
   const updatedAt = toIso(row.updated_at ?? row.created_at);
   const name = String(row.name ?? '').trim() || 'Lead';
+  const empreendimento = String(row.empreendimento_interesse ?? '').trim();
+  const childrenStatus = String(row.children_status ?? '').trim();
+  const parameter = formatParameter(row.parameter);
 
   return {
     id: String(row.id),
     codigo: mapLeadCodigo(row),
     name,
-    gender: null,
+    gender: String(row.gender ?? '').trim() || null,
     email: email || null,
     phone: phone || null,
     company: null,
-    source: String(row.origem ?? '').trim() || 'direto',
+    source: mapCanalOrigem(row).toLowerCase(),
     campaign: String(row.canal ?? '').trim() || null,
-    status: LEAD_STATUSES.includes(row.status) ? row.status : 'novo',
-    notes: String(row.profile_notes ?? '').trim() || null,
-    assignedTo: String(row.responsavel ?? '').trim() || null,
+    status: LEAD_STATUSES.includes(deriveLeadStatus(row)) ? deriveLeadStatus(row) : 'novo',
+    notes: childrenStatus ? `Filhos: ${childrenStatus}` : null,
+    assignedTo: null,
     createdBy: 'sistema',
     createdAt,
     updatedAt,
@@ -60,35 +93,37 @@ function mapNeonRowToLead(row) {
     nome: name,
     contato: email || phone || '',
     pagina: resolveEmpreendimentoPage(row),
-    origem: String(row.origem ?? '').trim(),
+    origem: mapCanalOrigem(row),
     canal: String(row.canal ?? '').trim(),
-    qualificacao: 'Indefinida',
-    relacionamento: String(row.relacionamento ?? '').trim(),
-    investimento: String(row.investimento ?? '').trim(),
-    cidadeResidencia: String(row.cidade_residencia ?? '').trim(),
-    dataNascimento: String(row.birth_date ?? '').trim(),
+    qualificacao: row.profile_completed ? 'Qualificado' : 'Indefinida',
+    relacionamento: String(row.relationship_status ?? '').trim(),
+    investimento: String(row.monthly_investment ?? '').trim(),
+    cidadeResidencia: String(row.current_city ?? '').trim(),
+    dataNascimento: formatBirthDate(row.birth_date),
     perfilLead: String(row.profile_type ?? '').trim(),
-    perfilOutrasRespostas: String(row.profile_notes ?? '').trim(),
-    dispositivo: String(row.dispositivo ?? '').trim(),
-    pagamentoPreferencia: String(row.pagamento_preferencia ?? '').trim(),
-    empreendimento: String(row.empreendimento ?? '').trim(),
-    responsavel: String(row.responsavel ?? '').trim(),
-    parametro: String(row.parametro ?? '').trim(),
+    perfilOutrasRespostas: childrenStatus,
+    dispositivo: '',
+    pagamentoPreferencia: '',
+    empreendimento,
+    responsavel: '',
+    parametro: parameter,
+    profile_completed: Boolean(row.profile_completed),
+    whatsapp_clicked: Boolean(row.whatsapp_clicked),
     cvcrm_lead_id: String(row.cvcrm_lead_id ?? '').trim() || null,
     cvcrm_sync_status: String(row.cvcrm_sync_status ?? '').trim() || 'pending',
     cvcrm_is_sold: Boolean(row.cvcrm_is_sold),
     cvcrm_status: String(row.cvcrm_status ?? '').trim() || null,
     cvcrm_situation: String(row.cvcrm_situation ?? '').trim() || null,
     cvcrm_stage: String(row.cvcrm_stage ?? '').trim() || null,
-    dataPrimeiroAtendimento: toIsoOptional(row.data_primeiro_atendimento),
-    dataVisitaAgendada: toIsoOptional(row.data_visita_agendada),
-    dataVisitaRealizada: toIsoOptional(row.data_visita_realizada),
-    dataAnaliseCreditoInicio: toIsoOptional(row.data_analise_credito_inicio),
-    dataAnaliseCreditoFim: toIsoOptional(row.data_analise_credito_fim),
-    dataProposta: toIsoOptional(row.data_proposta),
-    dataVenda: toIsoOptional(row.data_venda),
-    dataPerdido: toIsoOptional(row.data_perdido),
-    motivoPerda: String(row.motivo_perda ?? '').trim() || null,
+    dataPrimeiroAtendimento: null,
+    dataVisitaAgendada: null,
+    dataVisitaRealizada: null,
+    dataAnaliseCreditoInicio: null,
+    dataAnaliseCreditoFim: null,
+    dataProposta: null,
+    dataVenda: row.cvcrm_sale_date ? toIso(row.cvcrm_sale_date) : null,
+    dataPerdido: null,
+    motivoPerda: null,
     _table: String(row.source_table ?? '').trim(),
   };
 }
@@ -111,7 +146,6 @@ async function withNeonClient(fn) {
 
 let syncInFlight = null;
 
-/** Dispara a sincronização sem duplicar execuções concorrentes. */
 function runSyncOnce() {
   if (!syncInFlight) {
     syncInFlight = syncLeadsFromSources()
@@ -126,26 +160,11 @@ function runSyncOnce() {
 export async function listLeads(_supabaseUrl, _supabaseAnonKey, _accessToken, filters = {}) {
   const fetchRows = () =>
     withNeonClient(async (client) => {
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS codigo TEXT`);
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_primeiro_atendimento TIMESTAMPTZ`);
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_visita_agendada TIMESTAMPTZ`);
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_visita_realizada TIMESTAMPTZ`);
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_analise_credito_inicio TIMESTAMPTZ`);
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_analise_credito_fim TIMESTAMPTZ`);
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_proposta TIMESTAMPTZ`);
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_venda TIMESTAMPTZ`);
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_perdido TIMESTAMPTZ`);
-      await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS motivo_perda TEXT`);
-      const params = [];
-      let sql = 'SELECT * FROM leads';
-      if (filters.status) {
-        params.push(filters.status);
-        sql += ` WHERE status = $${params.length}`;
-      }
-      sql += ` ORDER BY
-        CASE WHEN codigo ~ '^A[0-9]+$' THEN substring(codigo FROM 2)::bigint END DESC NULLS LAST,
-        created_at DESC`;
-      const { rows } = await client.query(sql, params);
+      const { rows } = await client.query(
+        `SELECT * FROM all_leads ORDER BY
+          CASE WHEN codigo ~ '^A[0-9]+$' THEN substring(codigo FROM 2)::bigint END DESC NULLS LAST,
+          created_at DESC`,
+      );
       return rows;
     });
 
@@ -154,23 +173,23 @@ export async function listLeads(_supabaseUrl, _supabaseAnonKey, _accessToken, fi
     try {
       result = await fetchRows();
     } catch (err) {
-      // 42P01 = tabela leads ainda não existe; o sync abaixo cria.
       if (err?.code !== '42P01') throw err;
     }
 
     if (!result || result.length === 0) {
-      // Primeira carga: espera a sincronização popular a tabela unificada.
       await runSyncOnce();
       result = await fetchRows();
     } else {
-      // Já há dados: responde imediatamente e sincroniza em segundo plano.
       void runSyncOnce();
     }
 
     if (!result) return [];
     return result
       .map(mapNeonRowToLead)
-      .filter((lead) => !isIgnoredLeadSource(lead._table, lead.pagina));
+      .filter((lead) => {
+        if (filters.status && lead.status !== filters.status) return false;
+        return !isIgnoredLeadSource(lead._table, lead.pagina);
+      });
   } catch (err) {
     console.error('[leads/list]', err);
     return [];
@@ -192,7 +211,7 @@ export async function getLeadStats(supabaseUrl, supabaseAnonKey, accessToken) {
 export async function getLeadById(_supabaseUrl, _supabaseAnonKey, _accessToken, leadId) {
   try {
     const result = await withNeonClient(async (client) => {
-      const { rows } = await client.query('SELECT * FROM leads WHERE id = $1 LIMIT 1', [leadId]);
+      const { rows } = await client.query('SELECT * FROM all_leads WHERE id = $1 LIMIT 1', [leadId]);
       return rows[0] ?? null;
     });
 

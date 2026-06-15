@@ -103,7 +103,7 @@ export function createLeadsRouter() {
 
       const { rows } = await client.query(
         `SELECT *
-         FROM leads_solar_bosque
+         FROM site_solar_bosque
          WHERE cvcrm_sync_status = 'pending'
            AND cvcrm_lead_id IS NULL
          ORDER BY created_at ASC`,
@@ -113,11 +113,11 @@ export function createLeadsRouter() {
       let errors = 0;
 
       for (const lead of rows) {
-        const result = await sendLeadToCvcrm({ ...lead, source_table: 'leads_solar_bosque' });
+        const result = await sendLeadToCvcrm({ ...lead, source_table: 'site_solar_bosque' });
 
         if (result.ok) {
           await client.query(
-            `UPDATE leads_solar_bosque
+            `UPDATE site_solar_bosque
              SET cvcrm_lead_id = $1,
                  cvcrm_sync_status = 'synced',
                  cvcrm_last_synced_at = now(),
@@ -130,7 +130,7 @@ export function createLeadsRouter() {
           synced += 1;
         } else {
           await client.query(
-            `UPDATE leads_solar_bosque
+            `UPDATE site_solar_bosque
              SET cvcrm_sync_status = 'error',
                  cvcrm_sync_error = $1,
                  updated_at = now()

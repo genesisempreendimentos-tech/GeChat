@@ -1,9 +1,12 @@
 import pg from 'pg';
 import {
+  enqueueCvcrmPendingUpdateOnClient,
   getCvcrmCredentials,
   getNeonLeadsUrl,
+  isLeadKnownInNeon,
   resolveLeadSourceTable,
   todayReferenceDate,
+  toCvcrmTimestamptzParam,
   VALID_SOURCE_TABLES_SET,
 } from './cvcrmBatchSync.mjs';
 import { syncLeadsFromSources } from './leadSourceSync.mjs';
@@ -12,7 +15,7 @@ const CVCRM_CVDW_RESERVAS_URL = 'https://genesis.cvcrm.com.br/api/v1/cvdw/reserv
 const CVDW_PAGE_SIZE = 500;
 const RESERVAS_SYNC_MIN_INTERVAL_MS = 30_000;
 
-const TABLES_WITH_UPDATED_AT = new Set(['leads_solar_bosque', 'leads_cvcrm']);
+const TABLES_WITH_UPDATED_AT = new Set(['site_solar_bosque', 'leads_cvcrm']);
 
 let reservasSyncInFlight = false;
 let lastReservasSyncAt = 0;
@@ -35,17 +38,6 @@ function parseNumeric(value) {
   const cleaned = String(value).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
-}
-
-function parseCvcrmTimestamp(value) {
-  if (value === null || value === undefined || value === '') return null;
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
-  const raw = String(value).trim();
-  if (!raw) return null;
-  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
-  const withTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(normalized) ? normalized : `${normalized}-03:00`;
-  const d = new Date(withTz);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 function normalizeBooleanToken(value) {
@@ -98,9 +90,9 @@ export function parseCvdwReservaRow(raw) {
     unidade: toSafeString(raw.unidade) || null,
     bloco: toSafeString(raw.bloco) || null,
     empreendimento: toSafeString(raw.empreendimento) || null,
-    data_venda: parseCvcrmTimestamp(raw.data_venda),
-    data_contrato: parseCvcrmTimestamp(raw.data_contrato),
-    data_aprovacao: parseCvcrmTimestamp(raw.data_aprovacao),
+    data_venda: toCvcrmTimestamptzParam(raw.data_venda),
+    data_contrato: toCvcrmTimestamptzParam(raw.data_contrato),
+    data_aprovacao: toCvcrmTimestamptzParam(raw.data_aprovacao),
     aprovada,
     numero_venda: toSafeString(raw.numero_venda) || null,
     usuario_aprovacao: toSafeString(raw.usuario_aprovacao) || null,
@@ -173,6 +165,82 @@ export async function fetchAllCvdwReservasToday({ referenceDate } = {}) {
   return allReservas;
 }
 
+/** Backfill: todas as reservas desde uma data/hora BRT (ex.: "2000-01-01 00:00:00"). */
+export async function fetchAllCvdwReservasSince(sinceBrt = '2000-01-01 00:00:00') {
+  const since = toSafeString(sinceBrt) || '2000-01-01 00:00:00';
+  const allReservas = [];
+  let pagina = 1;
+  let totalPages = 1;
+
+  while (pagina <= totalPages) {
+    const pageParams = new URLSearchParams({
+      registros_por_pagina: String(CVDW_PAGE_SIZE),
+      pagina: String(pagina),
+    });
+    const url = `${CVCRM_CVDW_RESERVAS_URL}?a_partir_data_referencia=${encodeURIComponent(since)}&${pageParams}`;
+    const pageData = await cvcrmApiRequest('GET', url);
+    const dados = Array.isArray(pageData.dados) ? pageData.dados : [];
+    allReservas.push(...dados);
+    totalPages = Number(pageData.total_de_paginas) || 1;
+    console.log(
+      `[cvcrm/reservas/backfill] página ${pagina}/${totalPages} — ${dados.length} registro(s)`,
+    );
+    pagina += 1;
+  }
+
+  return allReservas;
+}
+
+/** Upsert em cvcrm_reservas apenas (sem atualizar fontes nem all_leads). */
+export async function upsertCvcrmReservaRow(client, raw) {
+  const parsed = parseCvdwReservaRow(raw);
+  if (!parsed?.idreserva) {
+    throw new Error('idreserva inválido no payload CVDW');
+  }
+  await upsertCvcrmReserva(client, parsed);
+  return parsed;
+}
+
+/** Backfill completo do histórico CVDW → cvcrm_reservas. */
+export async function backfillCvcrmReservasFromCvdw(
+  client,
+  { sinceBrt = '2000-01-01 00:00:00' } = {},
+) {
+  const rawRows = await fetchAllCvdwReservasSince(sinceBrt);
+  let upserted = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (const raw of rawRows) {
+    try {
+      const parsed = parseCvdwReservaRow(raw);
+      if (!parsed?.idreserva) {
+        skipped += 1;
+        continue;
+      }
+      await upsertCvcrmReserva(client, parsed);
+      upserted += 1;
+      if (upserted % 250 === 0) {
+        console.log(`[cvcrm/reservas/backfill] upsert ${upserted}/${rawRows.length}`);
+      }
+    } catch (err) {
+      errors += 1;
+      console.error(
+        `[cvcrm/reservas/backfill] erro idreserva=${raw?.idreserva ?? '?'}`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  return {
+    since_brt: sinceBrt,
+    fetched: rawRows.length,
+    upserted,
+    skipped,
+    errors,
+  };
+}
+
 async function columnExists(client, tableName, columnName) {
   const result = await client.query(
     `SELECT 1 FROM information_schema.columns
@@ -188,7 +256,171 @@ function assertValidSourceTable(tableName) {
   }
 }
 
+function normalizeSituacao(value) {
+  const s = toSafeString(value);
+  return s || null;
+}
+
+function situacoesDiffer(stored, incoming) {
+  return normalizeSituacao(stored) !== normalizeSituacao(incoming);
+}
+
+function resolveReservaSituacaoChangedAt(parsed, { fallbackNow = true } = {}) {
+  const raw = parsed?.payload ?? {};
+  const fromPayload = toCvcrmTimestamptzParam(raw.data_ultima_alteracao_situacao);
+  if (fromPayload) return fromPayload;
+  if (fallbackNow) return new Date().toISOString();
+  return null;
+}
+
+async function getStoredReservaSituacao(client, idreserva) {
+  const result = await client.query(
+    `SELECT situacao FROM cvcrm_reservas WHERE idreserva = $1`,
+    [idreserva],
+  );
+  if ((result.rowCount ?? 0) === 0) return undefined;
+  return result.rows[0].situacao;
+}
+
+async function insertReservaSituacaoUpdate(
+  client,
+  parsed,
+  { situacaoAnterior = null, situacaoNova, changedAt } = {},
+) {
+  const nova = normalizeSituacao(situacaoNova ?? parsed.situacao);
+  if (!nova) return false;
+
+  const changed = changedAt ?? resolveReservaSituacaoChangedAt(parsed);
+
+  const result = await client.query(
+    `INSERT INTO cvcrm_reserva_updates (
+       idreserva,
+       idlead,
+       situacao_anterior,
+       situacao_nova,
+       changed_at,
+       observed_at,
+       idcorretor,
+       idimobiliaria,
+       valor_contrato,
+       empreendimento,
+       data_venda,
+       payload
+     ) VALUES (
+       $1, $2, $3, $4, $5::timestamptz, now(),
+       $6, $7, $8, $9, $10::timestamptz, $11::jsonb
+     )
+     ON CONFLICT (idreserva, changed_at, situacao_nova) DO NOTHING`,
+    [
+      parsed.idreserva,
+      parsed.idlead,
+      normalizeSituacao(situacaoAnterior),
+      nova,
+      changed,
+      parsed.idcorretor,
+      parsed.idimobiliaria,
+      parsed.valor_contrato,
+      parsed.empreendimento,
+      parsed.data_venda,
+      JSON.stringify(parsed.payload ?? {}),
+    ],
+  );
+
+  return (result.rowCount ?? 0) > 0;
+}
+
+/** Seed único: última transição conhecida (payload.situacao_anterior → situacao atual). */
+export async function seedCvcrmReservaUpdatesFromExisting(client) {
+  const candidates = await client.query(
+    `SELECT
+       idreserva,
+       idlead,
+       situacao,
+       idcorretor,
+       idimobiliaria,
+       valor_contrato,
+       empreendimento,
+       data_venda,
+       payload
+     FROM cvcrm_reservas
+     WHERE NULLIF(TRIM(payload->>'situacao_anterior'), '') IS NOT NULL
+       AND TRIM(payload->>'situacao_anterior') IS DISTINCT FROM TRIM(situacao)`,
+  );
+
+  let inserted = 0;
+  let skipped = 0;
+
+  for (const row of candidates.rows) {
+    const parsed = parseCvdwReservaRow(row.payload ?? row);
+    if (!parsed?.idreserva) {
+      skipped += 1;
+      continue;
+    }
+
+    parsed.idreserva = row.idreserva;
+    parsed.idlead = row.idlead ?? parsed.idlead;
+    parsed.situacao = row.situacao ?? parsed.situacao;
+    parsed.idcorretor = row.idcorretor ?? parsed.idcorretor;
+    parsed.idimobiliaria = row.idimobiliaria ?? parsed.idimobiliaria;
+    parsed.valor_contrato = row.valor_contrato ?? parsed.valor_contrato;
+    parsed.empreendimento = row.empreendimento ?? parsed.empreendimento;
+    parsed.data_venda = row.data_venda ?? parsed.data_venda;
+
+    const situacaoAnterior = toSafeString(row.payload?.situacao_anterior) || null;
+    const changedAt = resolveReservaSituacaoChangedAt(parsed, { fallbackNow: false });
+    if (!changedAt) {
+      skipped += 1;
+      continue;
+    }
+
+    const ok = await insertReservaSituacaoUpdate(client, parsed, {
+      situacaoAnterior,
+      situacaoNova: parsed.situacao,
+      changedAt,
+    });
+    if (ok) inserted += 1;
+    else skipped += 1;
+  }
+
+  return {
+    candidates: candidates.rowCount ?? 0,
+    inserted,
+    skipped,
+  };
+}
+
+async function recordReservaSituacaoChangeBeforeUpsert(client, parsed) {
+  const stored = await getStoredReservaSituacao(client, parsed.idreserva);
+  const isNew = stored === undefined;
+  if (!isNew && !situacoesDiffer(stored, parsed.situacao)) {
+    return false;
+  }
+  return insertReservaSituacaoUpdate(client, parsed, {
+    situacaoAnterior: isNew ? null : stored,
+    situacaoNova: parsed.situacao,
+    changedAt: resolveReservaSituacaoChangedAt(parsed),
+  });
+}
+
+async function enqueueMissingIdleadsForReserva(client, parsed) {
+  for (const idlead of splitIdleadIds(parsed.idlead)) {
+    try {
+      if (!(await isLeadKnownInNeon(client, idlead))) {
+        await enqueueCvcrmPendingUpdateOnClient(client, idlead);
+        console.log(`[cvcrm/reservas] idlead=${idlead} enfileirado em cvcrm_pending_updates`);
+      }
+    } catch (err) {
+      console.error(
+        `[cvcrm/reservas] Falha ao enfileirar idlead=${idlead}:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
 async function upsertCvcrmReserva(client, parsed) {
+  await recordReservaSituacaoChangeBeforeUpsert(client, parsed);
+
   await client.query(
     `INSERT INTO cvcrm_reservas (
        idreserva,
@@ -264,6 +496,8 @@ async function upsertCvcrmReserva(client, parsed) {
       JSON.stringify(parsed.payload ?? {}),
     ],
   );
+
+  await enqueueMissingIdleadsForReserva(client, parsed);
 }
 
 async function updateLeadSaleFromReserva(client, idlead, parsed) {
@@ -322,24 +556,53 @@ async function updateLeadSaleFromReserva(client, idlead, parsed) {
   };
 }
 
-/** Atribuição autoritativa de venda na tabela unificada `leads` (sem alterar fontes). */
-async function applyReservaAttributionToLead(client, idlead, parsed) {
-  if (!isReservaSaleIndicated(parsed)) return false;
+/** Atribuição de venda em all_leads — schema canônico não inclui idcorretor/idimobiliaria. */
+async function applyReservaAttributionToLead(_client, _idlead, _parsed) {
+  return false;
+}
 
-  const idcorretor = parsed.idcorretor ?? null;
-  const idimobiliaria = parsed.idimobiliaria ?? null;
-  if (!idcorretor && !idimobiliaria) return false;
+/** Processa uma reserva CVDW: upsert + update venda nas fontes (Leva 1). */
+export async function applyCvdwReservaIncremental(client, raw) {
+  const parsed = parseCvdwReservaRow(raw);
+  if (!parsed?.idreserva) {
+    throw new Error('idreserva inválido no payload CVDW');
+  }
 
-  const result = await client.query(
-    `UPDATE leads
-     SET idcorretor = COALESCE($1, idcorretor),
-         idimobiliaria = COALESCE($2, idimobiliaria),
-         updated_at = now()
-     WHERE cvcrm_lead_id = $3`,
-    [idcorretor, idimobiliaria, String(idlead)],
-  );
+  await upsertCvcrmReserva(client, parsed);
 
-  return (result.rowCount ?? 0) > 0;
+  let leads_updated = 0;
+  const attributionQueue = [];
+
+  for (const idlead of splitIdleadIds(parsed.idlead)) {
+    const leadUpdate = await updateLeadSaleFromReserva(client, idlead, parsed);
+    if (leadUpdate.updated) leads_updated += 1;
+    if (isReservaSaleIndicated(parsed)) {
+      attributionQueue.push({ idlead, parsed });
+    }
+  }
+
+  return {
+    idreserva: parsed.idreserva,
+    leads_updated,
+    attributionQueue,
+  };
+}
+
+export async function flushReservaAttributionQueue(client, attributionQueue) {
+  let attribution_updated = 0;
+  for (const { idlead, parsed } of attributionQueue) {
+    try {
+      if (await applyReservaAttributionToLead(client, idlead, parsed)) {
+        attribution_updated += 1;
+      }
+    } catch (err) {
+      console.error(
+        `[cvcrm/reservas] Falha ao atribuir corretor/imobiliária idlead=${idlead}:`,
+        err?.message ?? err,
+      );
+    }
+  }
+  return attribution_updated;
 }
 
 export async function getCvcrmReservasPendingCount() {
@@ -521,7 +784,7 @@ export async function syncPendingReservas({ skipThrottle = false, referenceDate 
       try {
         const syncResult = await syncLeadsFromSources({ force: true });
         console.log(
-          `[cvcrm/reservas] leads_* → leads: ${syncResult.synced} sincronizado(s)`,
+          `[cvcrm/reservas] fontes → all_leads: ${syncResult.synced} sincronizado(s)`,
         );
       } catch (err) {
         console.error('[cvcrm/reservas] Falha ao consolidar leads:', err?.message ?? err);

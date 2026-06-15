@@ -283,26 +283,52 @@ export async function getCompetenciaReport() {
   const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
   try {
     await client.connect();
-    const result = await client.query(
+
+    const totaisResult = await client.query(
+      `SELECT
+         COUNT(*) FILTER (
+           WHERE NULLIF(TRIM(payload->>'data_venda'), '') IS NOT NULL
+         )::int AS vendas_efetuadas,
+         COALESCE(
+           SUM(valor_contrato) FILTER (
+             WHERE NULLIF(TRIM(payload->>'data_venda'), '') IS NOT NULL
+           ),
+           0
+         )::numeric AS valor_efetuado,
+         AVG(valor_contrato) FILTER (
+           WHERE NULLIF(TRIM(payload->>'data_venda'), '') IS NOT NULL
+         )::numeric AS ticket_medio,
+         COUNT(DISTINCT idcorretor::text) FILTER (
+           WHERE NULLIF(TRIM(payload->>'data_venda'), '') IS NOT NULL
+             AND NULLIF(TRIM(idcorretor::text), '') IS NOT NULL
+             AND TRIM(idcorretor::text) <> '0'
+         )::int AS corretores_que_venderam,
+         COUNT(*) FILTER (WHERE TRIM(situacao) = 'Vendida')::int AS carteira_vigente,
+         COUNT(*) FILTER (WHERE TRIM(situacao) = 'Distrato')::int AS distratos,
+         COUNT(*) FILTER (WHERE TRIM(situacao) = 'Cancelada')::int AS cancelados
+       FROM cvcrm_reservas`,
+    );
+
+    const rankingResult = await client.query(
       `WITH leads_by_corretor AS (
          SELECT
            NULLIF(TRIM(l.idcorretor), '') AS idcorretor,
-           COUNT(*)::int AS total_leads
-         FROM leads l
+           COUNT(*)::int AS leads
+         FROM all_leads_unique l
          WHERE NULLIF(TRIM(l.idcorretor), '') IS NOT NULL
+           AND TRIM(l.idcorretor) <> '0'
          GROUP BY 1
        ),
        vendas_by_corretor AS (
          SELECT
-           NULLIF(TRIM(r.idcorretor), '') AS idcorretor,
-           COUNT(*)::int AS total_vendas,
-           COALESCE(SUM(r.valor_contrato), 0)::numeric AS soma_valor
+           NULLIF(TRIM(r.idcorretor::text), '') AS idcorretor,
+           COUNT(*)::int AS vendas,
+           COALESCE(SUM(r.valor_contrato), 0)::numeric AS valor_vendas,
+           AVG(r.valor_contrato) FILTER (WHERE r.valor_contrato IS NOT NULL)::numeric AS ticket_medio
          FROM cvcrm_reservas r
-         WHERE NULLIF(TRIM(r.idcorretor), '') IS NOT NULL
-           AND (
-             LOWER(COALESCE(r.situacao, '')) LIKE '%vendida%'
-             OR r.aprovada IS TRUE
-           )
+         WHERE NULLIF(TRIM(r.payload->>'data_venda'), '') IS NOT NULL
+           AND NULLIF(TRIM(r.idcorretor::text), '') IS NOT NULL
+           AND TRIM(r.idcorretor::text) <> '0'
          GROUP BY 1
        ),
        corretores_ids AS (
@@ -314,18 +340,55 @@ export async function getCompetenciaReport() {
          ci.idcorretor,
          c.nome,
          c.imobiliaria,
-         COALESCE(l.total_leads, 0)::int AS total_leads,
-         COALESCE(v.total_vendas, 0)::int AS total_vendas,
-         COALESCE(v.soma_valor, 0)::numeric AS soma_valor
+         COALESCE(l.leads, 0)::int AS leads,
+         COALESCE(v.vendas, 0)::int AS vendas,
+         COALESCE(v.valor_vendas, 0)::numeric AS valor_vendas,
+         v.ticket_medio
        FROM corretores_ids ci
        LEFT JOIN leads_by_corretor l ON l.idcorretor = ci.idcorretor
        LEFT JOIN vendas_by_corretor v ON v.idcorretor = ci.idcorretor
        LEFT JOIN cvcrm_corretores c ON c.idcorretor::text = ci.idcorretor
-       ORDER BY soma_valor DESC, total_vendas DESC, total_leads DESC`,
+       ORDER BY valor_vendas DESC, vendas DESC, leads DESC`,
     );
-    return result.rows;
+
+    const totaisRow = totaisResult.rows[0] ?? {};
+
+    return {
+      totais: {
+        vendas_efetuadas: totaisRow.vendas_efetuadas ?? 0,
+        valor_efetuado: Number(totaisRow.valor_efetuado ?? 0),
+        ticket_medio:
+          totaisRow.ticket_medio != null ? Number(totaisRow.ticket_medio) : null,
+        corretores_que_venderam: totaisRow.corretores_que_venderam ?? 0,
+        carteira_vigente: totaisRow.carteira_vigente ?? 0,
+        distratos: totaisRow.distratos ?? 0,
+        cancelados: totaisRow.cancelados ?? 0,
+      },
+      ranking: rankingResult.rows.map((row) => ({
+        idcorretor: row.idcorretor,
+        nome: row.nome ?? null,
+        imobiliaria: row.imobiliaria ?? null,
+        leads: row.leads ?? 0,
+        vendas: row.vendas ?? 0,
+        valor_vendas: Number(row.valor_vendas ?? 0),
+        ticket_medio: row.ticket_medio != null ? Number(row.ticket_medio) : null,
+      })),
+    };
   } catch (err) {
-    if (err?.code === '42P01') return [];
+    if (err?.code === '42P01') {
+      return {
+        totais: {
+          vendas_efetuadas: 0,
+          valor_efetuado: 0,
+          ticket_medio: null,
+          corretores_que_venderam: 0,
+          carteira_vigente: 0,
+          distratos: 0,
+          cancelados: 0,
+        },
+        ranking: [],
+      };
+    }
     throw err;
   } finally {
     await client.end().catch(() => {});

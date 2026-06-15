@@ -20,7 +20,7 @@ try {
 
   const { rows } = await client.query(
     `SELECT *
-     FROM leads_solar_bosque
+     FROM site_solar_bosque
      WHERE cvcrm_sync_status = 'pending'
      ORDER BY created_at ASC
      LIMIT 1`,
@@ -40,7 +40,7 @@ try {
     cvcrm_sync_status: lead.cvcrm_sync_status,
   });
 
-  const result = await sendLeadToCvcrm({ ...lead, source_table: 'leads_solar_bosque' });
+  const result = await sendLeadToCvcrm({ ...lead, source_table: 'site_solar_bosque' });
   console.log('Resposta completa:');
   console.log(JSON.stringify(result, null, 2));
 } catch (err) {

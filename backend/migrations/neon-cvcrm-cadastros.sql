@@ -1,4 +1,4 @@
--- Cadastros CVCRM: corretores e imobiliárias + atribuição em leads
+-- Cadastros CVCRM: corretores e imobiliárias + atribuição em all_leads_unique
 
 CREATE TABLE IF NOT EXISTS cvcrm_corretores (
   idcorretor      BIGINT PRIMARY KEY,
@@ -18,5 +18,5 @@ CREATE TABLE IF NOT EXISTS cvcrm_imobiliarias (
   last_synced_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS idcorretor TEXT;
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS idimobiliaria TEXT;
+ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS idcorretor TEXT;
+ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS idimobiliaria TEXT;

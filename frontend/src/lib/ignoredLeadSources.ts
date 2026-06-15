@@ -1,9 +1,9 @@
 /** Tabelas Neon excluídas da sync e dos relatórios do GêLeads. */
 export const IGNORED_NEON_LEAD_SOURCE_TABLES = [
-  'leads_aniversario_208_anos',
-  'leads_gesite',
-  'leads_blackgenesis',
-  'leads_old',
+  'campanha_niver_208_anos_friburgo',
+  'site_gesite',
+  'campanha_blackgenesis',
+  'leads_antigos',
 ] as const;
 
 /** Rotas (`pagina`) das fontes ignoradas — cobre dados já sincronizados. */
@@ -20,8 +20,21 @@ function normalizePagePath(page: string): string {
   return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
 
+const LEGACY_SOURCE_TABLE_ALIASES: Record<string, string> = {
+  leads_aniversario_208_anos: 'campanha_niver_208_anos_friburgo',
+  leads_gesite: 'site_gesite',
+  leads_blackgenesis: 'campanha_blackgenesis',
+  leads_old: 'leads_antigos',
+};
+
+function normalizeSourceTable(sourceTable: string): string {
+  const raw = sourceTable.trim().toLowerCase();
+  if (!raw) return '';
+  return LEGACY_SOURCE_TABLE_ALIASES[raw] ?? raw;
+}
+
 export function isIgnoredLeadSource(sourceTable?: string | null, page?: string | null): boolean {
-  const table = (sourceTable ?? '').trim().toLowerCase();
+  const table = normalizeSourceTable(sourceTable ?? '');
   if (table && (IGNORED_NEON_LEAD_SOURCE_TABLES as readonly string[]).includes(table)) {
     return true;
   }

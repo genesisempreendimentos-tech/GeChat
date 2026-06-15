@@ -19,6 +19,7 @@ import {
   syncCorretores,
   syncImobiliarias,
 } from '../services/cvcrmCadastrosSync.mjs';
+import { getSyncCursors, runIncrementalSync } from '../services/cvcrmIncrementalSync.mjs';
 
 const ACCESS_COOKIE = 'geleads_sb_access';
 
@@ -216,10 +217,36 @@ export function createCvcrmRouter() {
     }
   });
 
+  router.post('/sync-incremental', async (req, res) => {
+    try {
+      const skipIfRecent = req.body?.skipIfRecent === true;
+      const result = await runIncrementalSync({
+        skipIfRecentMs: skipIfRecent ? 2 * 60 * 1000 : 0,
+      });
+      if (result.skipped) {
+        return res.status(200).json({ skipped: true, message: result.message, ...result });
+      }
+      res.json(result);
+    } catch (err) {
+      console.error('[cvcrm/sync-incremental]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao sincronizar incrementalmente com o CVCRM.' });
+    }
+  });
+
+  router.get('/sync-cursors', async (_req, res) => {
+    try {
+      const cursors = await getSyncCursors();
+      res.json(cursors);
+    } catch (err) {
+      console.error('[cvcrm/sync-cursors]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao consultar cursors de sync.' });
+    }
+  });
+
   router.get('/competencia', async (_req, res) => {
     try {
-      const rows = await getCompetenciaReport();
-      res.json({ rows });
+      const report = await getCompetenciaReport();
+      res.json(report);
     } catch (err) {
       console.error('[cvcrm/competencia]', err);
       res.status(500).json({ error: err.message ?? 'Erro ao consultar competência CVCRM.' });
