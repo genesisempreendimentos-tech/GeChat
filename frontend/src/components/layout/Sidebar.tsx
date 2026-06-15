@@ -3,7 +3,7 @@ import { LayoutDashboard, BarChart3, FileBarChart, Users, Hourglass, Building2 }
 import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
 import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 import { SidebarFooterControl } from '@/components/layout/SidebarFooterControl';
@@ -41,7 +41,6 @@ export default function Sidebar({ userRole }: SidebarProps) {
   const location = useLocation();
   const layoutMode = useSidebarLayoutStore((s) => s.mode);
   const [isHovered, setIsHovered] = useState(false);
-  const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isExpanded =
     layoutMode === 'expanded' ? true : layoutMode === 'collapsed' ? false : isHovered;
   const setSidebarWidth = useSetSidebarWidth();
@@ -57,17 +56,11 @@ export default function Sidebar({ userRole }: SidebarProps) {
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
       onMouseEnter={() => {
         if (layoutMode !== 'hover') return;
-        if (hoverCloseTimer.current) {
-          clearTimeout(hoverCloseTimer.current);
-          hoverCloseTimer.current = null;
-        }
         setIsHovered(true);
       }}
       onMouseLeave={() => {
         if (layoutMode !== 'hover') return;
-        hoverCloseTimer.current = setTimeout(() => {
-          setIsHovered(false);
-        }, 1000);
+        setIsHovered(false);
       }}
       className="hidden md:flex fixed left-0 top-16 bottom-0 bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
       data-tour="sidebar"
