@@ -12,6 +12,7 @@ import {
   getCvcrmReservasPendingCount,
   syncPendingReservas,
 } from '../services/cvcrmReservasSync.mjs';
+import { syncComissoesNow } from '../services/cvcrmComissoesSync.mjs';
 import {
   getCompetenciaReport,
   getCorretoresCount,
@@ -164,6 +165,20 @@ export function createCvcrmRouter() {
     } catch (err) {
       console.error('[cvcrm/sync-reservas-now]', err);
       res.status(500).json({ error: err.message ?? 'Erro ao sincronizar reservas do CVCRM.' });
+    }
+  });
+
+  router.post('/sync-comissoes-now', async (req, res) => {
+    try {
+      const sweep48h = req.body?.sweep48h === true;
+      const result = await syncComissoesNow({ skipThrottle: true, sweep48h });
+      if (result.skipped) {
+        return res.status(200).json({ skipped: true, message: result.message });
+      }
+      res.json(result);
+    } catch (err) {
+      console.error('[cvcrm/sync-comissoes-now]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao sincronizar comissões do CVCRM.' });
     }
   });
 

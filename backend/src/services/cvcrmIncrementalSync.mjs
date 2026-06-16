@@ -11,6 +11,11 @@ import {
   applyCvdwReservaIncremental,
   flushReservaAttributionQueue,
 } from './cvcrmReservasSync.mjs';
+import {
+  ensureCvcrmComissoesSchema,
+  syncComissoesIncremental,
+  syncComissoesPagamentosIncremental,
+} from './cvcrmComissoesSync.mjs';
 
 const CVCRM_CVDW_LEADS_URL = 'https://genesis.cvcrm.com.br/api/v1/cvdw/leads';
 const CVCRM_CVDW_RESERVAS_URL = 'https://genesis.cvcrm.com.br/api/v1/cvdw/reservas';
@@ -157,7 +162,7 @@ async function persistCvcrmSyncStatus(client, processed) {
 
 export async function getSyncCursors() {
   const neonUrl = getNeonLeadsUrl();
-  if (!neonUrl) return { leads: null, reservas: null };
+  if (!neonUrl) return { leads: null, reservas: null, comissoes: null, comissoes_pagamentos: null };
 
   const client = new pg.Client({ connectionString: neonUrl, ssl: { rejectUnauthorized: true } });
   try {
@@ -165,15 +170,19 @@ export async function getSyncCursors() {
     const result = await client.query(
       `SELECT entity, last_sync_at FROM cvcrm_sync_cursors ORDER BY entity`,
     );
-    const out = { leads: null, reservas: null };
+    const out = { leads: null, reservas: null, comissoes: null, comissoes_pagamentos: null };
     for (const row of result.rows) {
       const iso = row.last_sync_at ? new Date(row.last_sync_at).toISOString() : null;
       if (row.entity === 'leads') out.leads = iso;
       if (row.entity === 'reservas') out.reservas = iso;
+      if (row.entity === 'comissoes') out.comissoes = iso;
+      if (row.entity === 'comissoes_pagamentos') out.comissoes_pagamentos = iso;
     }
     return out;
   } catch (err) {
-    if (err?.code === '42P01') return { leads: null, reservas: null };
+    if (err?.code === '42P01') {
+      return { leads: null, reservas: null, comissoes: null, comissoes_pagamentos: null };
+    }
     throw err;
   } finally {
     await client.end().catch(() => {});
@@ -343,12 +352,18 @@ export async function runIncrementalSync({
       )
     `);
     await client.query(
-      `INSERT INTO cvcrm_sync_cursors (entity) VALUES ('leads'), ('reservas')
+      `INSERT INTO cvcrm_sync_cursors (entity) VALUES ('leads'), ('reservas'), ('comissoes'), ('comissoes_pagamentos')
        ON CONFLICT (entity) DO NOTHING`,
     );
 
     const leadsResult = await syncLeadsIncremental(client, { runStart, sweep48h });
     const reservasResult = await syncReservasIncremental(client, { runStart, sweep48h });
+    await ensureCvcrmComissoesSchema(client);
+    const comissoesResult = await syncComissoesIncremental(client, { runStart, sweep48h });
+    const comissoesPagamentosResult = await syncComissoesPagamentosIncremental(client, {
+      runStart,
+      sweep48h,
+    });
 
     const needsConsolidation = leadsResult.processed > 0 || reservasResult.processed > 0;
     let leads_consolidated = 0;
@@ -376,17 +391,25 @@ export async function runIncrementalSync({
     const cursorRows = await client.query(
       `SELECT entity, last_sync_at FROM cvcrm_sync_cursors ORDER BY entity`,
     );
-    const cursors = { leads: null, reservas: null };
+    const cursors = { leads: null, reservas: null, comissoes: null, comissoes_pagamentos: null };
     for (const row of cursorRows.rows) {
       const iso = row.last_sync_at ? new Date(row.last_sync_at).toISOString() : null;
       if (row.entity === 'leads') cursors.leads = iso;
       if (row.entity === 'reservas') cursors.reservas = iso;
+      if (row.entity === 'comissoes') cursors.comissoes = iso;
+      if (row.entity === 'comissoes_pagamentos') cursors.comissoes_pagamentos = iso;
     }
 
     const summary = {
       processed: leadsResult.processed,
       reservas_processed: reservasResult.processed,
-      errors: leadsResult.errors + reservasResult.errors,
+      comissoes_processed: comissoesResult.processed,
+      comissoes_pagamentos_processed: comissoesPagamentosResult.processed,
+      errors:
+        leadsResult.errors +
+        reservasResult.errors +
+        comissoesResult.errors +
+        comissoesPagamentosResult.errors,
       leads_updated_from_reservas: reservasResult.leads_updated,
       attribution_updated,
       leads_consolidated,
@@ -397,6 +420,8 @@ export async function runIncrementalSync({
         ...reservasResult,
         attributionQueue: undefined,
       },
+      comissoes: comissoesResult,
+      comissoes_pagamentos: comissoesPagamentosResult,
       cursors,
     };
 
@@ -420,7 +445,7 @@ export async function runIncrementalSync({
     }
 
     console.log(
-      `[cvcrm/incremental] concluído: leads=${leadsResult.processed}, reservas=${reservasResult.processed}, errors=${summary.errors}`,
+      `[cvcrm/incremental] concluído: leads=${leadsResult.processed}, reservas=${reservasResult.processed}, comissoes=${comissoesResult.processed}, pagamentos=${comissoesPagamentosResult.processed}, errors=${summary.errors}`,
     );
 
     return summary;
