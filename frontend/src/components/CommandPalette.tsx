@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/command';
 import { LayoutDashboard, BarChart3, FileBarChart, Users, UserCircle, Settings, ExternalLink, Award } from 'lucide-react';
 import { BRAND_LOGO_SRC, GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
+import { vitrinePath } from '@/lib/panels';
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
@@ -43,23 +44,23 @@ export function CommandPalette() {
       <CommandList>
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
         <CommandGroup heading="Navegação">
-          <CommandItem onSelect={() => runCommand(() => navigate('/dashboard'))}>
+          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/dashboard')))}>
             <LayoutDashboard className="mr-2 h-4 w-4" />
             <span>Dashboard</span>
           </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/dados'))}>
+          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/dados')))}>
             <BarChart3 className="mr-2 h-4 w-4" />
             <span>Análise</span>
           </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/dados/qualidade'))}>
+          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/dados/qualidade')))}>
             <Award className="mr-2 h-4 w-4" />
             <span>Qualidade</span>
           </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/leads'))}>
+          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/leads')))}>
             <Users className="mr-2 h-4 w-4" />
             <span>Leads</span>
           </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/relatorios'))}>
+          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/relatorios')))}>
             <FileBarChart className="mr-2 h-4 w-4" />
             <span>Relatórios</span>
           </CommandItem>
@@ -73,7 +74,7 @@ export function CommandPalette() {
             </span>
             <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/settings'))}>
+          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/settings')))}>
             <Settings className="mr-2 h-4 w-4" />
             <span>Configurações</span>
           </CommandItem>

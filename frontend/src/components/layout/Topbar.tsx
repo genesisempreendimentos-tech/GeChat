@@ -24,14 +24,17 @@ import Zoom from './Zoom';
 import { NotificationsPanel, type NotificationItem } from '@/components/notifications/NotificationsPanel';
 import HelpModal from '@/views/navbar/HelpModal';
 import { Quotes } from '@/components/ui/quotes';
-import { AppBrandControl } from '@/components/layout/AppBrandHeader';
-import { SIDEBAR_BRAND_WIDTH } from '@/lib/sidebarLayout';
+import { AppBrandControl, topbarPillClassName } from '@/components/layout/AppBrandHeader';
 import { GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
+import { settingsPathForPanel } from '@/lib/panels';
+import { usePanelStore } from '@/store/panelStore';
 import { CvcrmSyncStatusIndicator } from '@/components/cvcrm/CvcrmSyncStatusIndicator';
+import { cn } from '@/lib/utils';
 
 function TopbarActions() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const activePanel = usePanelStore((s) => s.activePanel);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -52,7 +55,7 @@ function TopbarActions() {
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-border/50 bg-muted/40 p-1.5 shadow-sm transition-colors hover:bg-muted/50">
+      <div className={cn(topbarPillClassName, 'gap-1.5')}>
         <DropdownMenu
           open={tipsOpen}
           onOpenChange={(open) => {
@@ -126,7 +129,7 @@ function TopbarActions() {
               </span>
               <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/settings')}>
+            <DropdownMenuItem onClick={() => navigate(settingsPathForPanel(activePanel))}>
               <Settings className="mr-2 h-4 w-4" />
               Configurações
             </DropdownMenuItem>
@@ -176,23 +179,12 @@ function TopbarActions() {
 export default function Topbar() {
   const header = (
     <header
-      className="fixed inset-x-0 top-0 z-[100] flex h-16 items-center border-b border-border/70 bg-card/60 backdrop-blur-xl dark:bg-card/50"
+      className="fixed inset-x-0 top-0 z-[100] flex h-16 items-center justify-between gap-3 border-b border-border/70 bg-card/60 px-4 backdrop-blur-xl dark:bg-card/50 md:gap-4 md:px-6"
       data-tour="top-nav"
     >
-      <div
-        className="hidden shrink-0 items-center justify-center px-6 md:flex"
-        style={{ width: SIDEBAR_BRAND_WIDTH }}
-      >
-        <AppBrandControl />
-      </div>
-
-      <div className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4 md:gap-4 md:px-6">
-        <div className="shrink-0 md:hidden">
-          <AppBrandControl />
-        </div>
-        <CvcrmSyncStatusIndicator className="hidden min-w-0 flex-1 text-center sm:block" />
-        <TopbarActions />
-      </div>
+      <AppBrandControl />
+      <CvcrmSyncStatusIndicator className="hidden min-w-0 flex-1 text-center sm:block" />
+      <TopbarActions />
     </header>
   );
 

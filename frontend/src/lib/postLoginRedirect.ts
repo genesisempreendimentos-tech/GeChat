@@ -1,6 +1,6 @@
 import type { Location } from 'react-router-dom';
 
-export const DEFAULT_POST_AUTH_PATH = '/dashboard';
+export const DEFAULT_POST_AUTH_PATH = '/';
 
 /**
  * Caminho interno seguro após autenticação (evita open redirect via `location.state`).

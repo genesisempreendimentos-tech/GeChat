@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
     }
     await checkAuth();
     setLoading(false);
-    navigate('/dashboard', { replace: true });
+    navigate('/', { replace: true });
   };
 
   if (hasSession === null) {

@@ -2,6 +2,7 @@ import { LayoutDashboard, BarChart3, FileBarChart, Users, Settings } from 'lucid
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
+import { vitrinePath } from '@/lib/panels';
 
 interface NavItem {
   icon: React.ElementType;
@@ -15,11 +16,11 @@ export function BottomNavigation() {
   const { user } = useAuthStore();
 
   const navItems: NavItem[] = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-    { icon: BarChart3, label: 'Análise', path: '/dados' },
-    { icon: Users, label: 'Leads', path: '/leads' },
-    { icon: FileBarChart, label: 'Relatórios', path: '/relatorios' },
-    { icon: Settings, label: 'Config', path: '/settings' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: vitrinePath('/dashboard') },
+    { icon: BarChart3, label: 'Análise', path: vitrinePath('/dados') },
+    { icon: Users, label: 'Leads', path: vitrinePath('/leads') },
+    { icon: FileBarChart, label: 'Relatórios', path: vitrinePath('/relatorios') },
+    { icon: Settings, label: 'Config', path: vitrinePath('/settings') },
   ];
 
   if (!user) return null;

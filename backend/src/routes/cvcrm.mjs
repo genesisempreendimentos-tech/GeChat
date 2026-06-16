@@ -243,9 +243,15 @@ export function createCvcrmRouter() {
     }
   });
 
-  router.get('/competencia', async (_req, res) => {
+  router.get('/competencia', async (req, res) => {
     try {
-      const report = await getCompetenciaReport();
+      const filters = {
+        dataVendaDe: req.query.data_venda_de || null,
+        dataVendaAte: req.query.data_venda_ate || null,
+        empreendimento: req.query.empreendimento || null,
+        imobiliaria: req.query.imobiliaria || null,
+      };
+      const report = await getCompetenciaReport(filters);
       res.json(report);
     } catch (err) {
       console.error('[cvcrm/competencia]', err);

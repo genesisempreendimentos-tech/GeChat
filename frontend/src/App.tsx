@@ -3,6 +3,7 @@ import {
   Routes,
   Route,
   Navigate,
+  Outlet,
   useSearchParams,
   useLocation,
   type Location as RouterLocation,
@@ -13,7 +14,9 @@ import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
 import { GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
+import { vitrinePath } from '@/lib/panels';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useAdminShortcut } from '@/hooks/useAdminShortcut';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useNaoGritaPopup, NaoGritaPopup } from '@/hooks/useNaoGritaPopup';
 import { Toaster } from '@/components/ui/toaster';
@@ -24,8 +27,11 @@ import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { OnboardingTour } from '@/components/OnboardingTour';
 import { LoadingGif } from '@/components/LoadingGif';
 import AuthLayout from '@/layouts/AuthLayout';
-import MainLayout from '@/layouts/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import AdminRoute from '@/components/AdminRoute';
+import AdminLayout from '@/admin/AdminLayout';
+import { UserLayout, UserHomePage, VendasPage } from '@/panels/user';
+import { VitrineLayout, vitrineLegacyRedirectRoutes } from '@/panels/vitrine';
 
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
@@ -40,6 +46,8 @@ import LeadsPage from '@/pages/LeadsPage';
 import RelatoriosPage from '@/pages/RelatoriosPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NotificationsPage from '@/pages/NotificationsPage';
+import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
+import AdminMembersPage from '@/admin/pages/AdminMembersPage';
 
 function GeAppsProfileRedirect() {
   useEffect(() => {
@@ -86,6 +94,29 @@ function LoginRoute() {
   return <Navigate to={internalAfterAuth} replace />;
 }
 
+function VitrinePanelExtras() {
+  const location = useLocation();
+  const isVitrine = location.pathname.startsWith('/vitrine');
+
+  if (!isVitrine) return null;
+
+  return (
+    <>
+      <CommandPalette />
+      <BottomNavigation />
+      <OnboardingTour />
+    </>
+  );
+}
+
+function AuthenticatedArea() {
+  return (
+    <ProtectedRoute>
+      <Outlet />
+    </ProtectedRoute>
+  );
+}
+
 function AppRoutes() {
   const { isAuthenticated } = useAuthStore();
   const { compactMode, animations } = useSettingsStore();
@@ -96,6 +127,7 @@ function AppRoutes() {
     root.classList.toggle('reduce-motion', !animations);
   }, [compactMode, animations]);
 
+  useAdminShortcut();
   useKeyboardShortcuts();
 
   useEffect(() => {
@@ -116,54 +148,69 @@ function AppRoutes() {
           <Route path="/login" element={<LoginRoute />} />
           <Route
             path="/signup"
-            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <SignupPage />}
+            element={isAuthenticated ? <Navigate to="/" replace /> : <SignupPage />}
           />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/access-denied" element={<AccessDeniedPage />} />
         </Route>
 
-        <Route
-          element={
-            <ProtectedRoute>
-              <MainLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/dados" element={<DadosPage />} />
-          <Route path="/dados/qualidade" element={<QualidadePage />} />
-          <Route path="/maturacao" element={<MaturacaoPage />} />
-          <Route path="/empreendimentos" element={<EmpreendimentosPage />} />
-          <Route path="/relatorios" element={<RelatoriosPage />} />
-          <Route path="/leads" element={<LeadsPage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/profile" element={<GeAppsProfileRedirect />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/systems" element={<Navigate to="/leads" replace />} />
-          <Route path="/favorites" element={<Navigate to="/leads" replace />} />
-          <Route path="/solicitacoes" element={<Navigate to="/leads" replace />} />
-          <Route path="/equipes" element={<Navigate to="/leads" replace />} />
-          <Route path="/empresa" element={<Navigate to="/leads" replace />} />
-          <Route path="/comunicados" element={<Navigate to="/leads" replace />} />
-          <Route path="/chat" element={<Navigate to="/leads" replace />} />
-          <Route path="/admin/*" element={<Navigate to="/dashboard" replace />} />
+        <Route element={<AuthenticatedArea />}>
+          {vitrineLegacyRedirectRoutes}
+
+          <Route element={<UserLayout />}>
+            <Route index element={<UserHomePage />} />
+            <Route path="/vendas" element={<VendasPage />} />
+          </Route>
+
+          <Route path="/vitrine" element={<VitrineLayout />}>
+            <Route index element={<Navigate to={vitrinePath('/dashboard')} replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="dados" element={<DadosPage />} />
+            <Route path="dados/qualidade" element={<QualidadePage />} />
+            <Route path="maturacao" element={<MaturacaoPage />} />
+            <Route path="empreendimentos" element={<EmpreendimentosPage />} />
+            <Route path="relatorios" element={<RelatoriosPage />} />
+            <Route path="leads" element={<LeadsPage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="profile" element={<GeAppsProfileRedirect />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="systems" element={<Navigate to={vitrinePath('/leads')} replace />} />
+            <Route path="favorites" element={<Navigate to={vitrinePath('/leads')} replace />} />
+            <Route path="solicitacoes" element={<Navigate to={vitrinePath('/leads')} replace />} />
+            <Route path="equipes" element={<Navigate to={vitrinePath('/leads')} replace />} />
+            <Route path="empresa" element={<Navigate to={vitrinePath('/leads')} replace />} />
+            <Route path="comunicados" element={<Navigate to={vitrinePath('/leads')} replace />} />
+            <Route path="chat" element={<Navigate to={vitrinePath('/leads')} replace />} />
+          </Route>
         </Route>
 
         <Route
-          path="/"
-          element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />}
-        />
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          }
+        >
+          <Route index element={<Navigate to="/admin/home" replace />} />
+          <Route path="home" element={<AdminDashboardPage />} />
+          <Route path="members" element={<AdminMembersPage />} />
+          <Route path="profile" element={<GeAppsProfileRedirect />} />
+          <Route path="systems" element={<Navigate to="/admin/members" replace />} />
+          <Route path="solicitacoes" element={<Navigate to="/admin/members" replace />} />
+          <Route path="equipes" element={<Navigate to="/admin/members" replace />} />
+          <Route path="comunicados" element={<Navigate to="/admin/members" replace />} />
+          <Route path="empresa" element={<Navigate to="/admin/members" replace />} />
+          <Route path="categories" element={<Navigate to="/admin/members" replace />} />
+          <Route path="reviews" element={<Navigate to="/admin/members" replace />} />
+          <Route path="administrators" element={<Navigate to="/admin/members" replace />} />
+        </Route>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       <NaoGritaPopup show={showPopup} onClose={() => setShowPopup(false)} />
-      {isAuthenticated && (
-        <>
-          <CommandPalette />
-          <BottomNavigation />
-          <OnboardingTour />
-        </>
-      )}
+      {isAuthenticated && <VitrinePanelExtras />}
     </>
   );
 }

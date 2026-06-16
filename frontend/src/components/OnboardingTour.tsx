@@ -5,6 +5,7 @@ import { X, ChevronRight, Sparkles } from 'lucide-react';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { vitrinePath } from '@/lib/panels';
 
 interface OnboardingStep {
   title: string;
@@ -18,35 +19,35 @@ const onboardingSteps: OnboardingStep[] = [
   {
     title: 'Menu principal',
     description: 'Navegue entre Dashboard, Análise, Leads e Relatórios pelo menu lateral.',
-    route: '/dashboard',
+    route: vitrinePath('/dashboard'),
     targetSelector: '[data-tour="sidebar"]',
     placement: 'right',
   },
   {
     title: 'Dashboard',
     description: 'Visão geral do workspace — KPIs, gráficos e atalhos rápidos.',
-    route: '/dashboard',
+    route: vitrinePath('/dashboard'),
     targetSelector: '[data-tour="menu-dashboard"]',
     placement: 'right',
   },
   {
     title: 'Análise',
     description: 'Métricas, gráficos e filtros analíticos do GêLeads.',
-    route: '/dados',
+    route: vitrinePath('/dados'),
     targetSelector: '[data-tour="menu-dados"]',
     placement: 'right',
   },
   {
     title: 'Leads',
     description: 'Gestão operacional — busca, planilha, cards e resumo por lead.',
-    route: '/leads',
+    route: vitrinePath('/leads'),
     targetSelector: '[data-tour="menu-leads"]',
     placement: 'right',
   },
   {
     title: 'Relatórios',
     description: 'Exportações, resumos periódicos e documentos consolidados.',
-    route: '/relatorios',
+    route: vitrinePath('/relatorios'),
     targetSelector: '[data-tour="menu-relatorios"]',
     placement: 'right',
   },

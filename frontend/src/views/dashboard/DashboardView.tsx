@@ -35,6 +35,7 @@ import { LEAD_SOURCE_LABELS } from '@/lib/dashboardLeadsMetrics';
 import { LEAD_STATUS_LABELS } from '@/types/lead';
 import type { LeadStatus } from '@/types/lead';
 import { cn } from '@/lib/utils';
+import { vitrinePath } from '@/lib/panels';
 import { startOfDay } from 'date-fns';
 
 type VolumeRange = '7' | '30' | '90';
@@ -46,10 +47,10 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const SHORTCUTS = [
-  { path: '/leads', label: 'Leads', description: 'Gestão operacional', icon: Users },
-  { path: '/dados', label: 'Análise', description: 'Analytics completos', icon: BarChart3 },
-  { path: '/relatorios', label: 'Relatórios', description: 'Exportações e resumos', icon: FileBarChart },
-  { path: '/notifications', label: 'Notificações', description: 'Alertas e avisos', icon: Bell },
+  { path: vitrinePath('/leads'), label: 'Leads', description: 'Gestão operacional', icon: Users },
+  { path: vitrinePath('/dados'), label: 'Análise', description: 'Analytics completos', icon: BarChart3 },
+  { path: vitrinePath('/relatorios'), label: 'Relatórios', description: 'Exportações e resumos', icon: FileBarChart },
+  { path: vitrinePath('/notifications'), label: 'Notificações', description: 'Alertas e avisos', icon: Bell },
 ] as const;
 
 function dashboardGreeting(): string {

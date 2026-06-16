@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { GEAPPS_PROFILE_URL } from "@/lib/brandAssets"
+import { vitrinePath } from "@/lib/panels"
 
 interface KeyboardShortcut {
   key: string
@@ -20,31 +21,31 @@ export function useKeyboardShortcuts() {
     {
       key: "h",
       altKey: true,
-      action: () => navigate("/dashboard"),
+      action: () => navigate(vitrinePath("/dashboard")),
       description: "Ir para Dashboard",
     },
     {
       key: "d",
       altKey: true,
-      action: () => navigate("/dados"),
+      action: () => navigate(vitrinePath("/dados")),
       description: "Ir para Análise",
     },
     {
       key: "m",
       altKey: true,
-      action: () => navigate("/maturacao"),
+      action: () => navigate(vitrinePath("/maturacao")),
       description: "Ir para Maturação",
     },
     {
       key: "e",
       altKey: true,
-      action: () => navigate("/empreendimentos"),
+      action: () => navigate(vitrinePath("/empreendimentos")),
       description: "Ir para Empreendimentos",
     },
     {
       key: "l",
       altKey: true,
-      action: () => navigate("/leads"),
+      action: () => navigate(vitrinePath("/leads")),
       description: "Ir para Leads",
     },
     {
@@ -56,7 +57,7 @@ export function useKeyboardShortcuts() {
     {
       key: ",",
       altKey: true,
-      action: () => navigate("/settings"),
+      action: () => navigate(vitrinePath("/settings")),
       description: "Ir para Configurações",
     },
   ]

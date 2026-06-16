@@ -74,7 +74,7 @@ export default function AccessDeniedPage() {
             </p>
             <Button
               className="w-full h-12 text-base font-medium shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/")}
             >
               Voltar para o sistema
             </Button>

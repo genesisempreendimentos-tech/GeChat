@@ -1,6 +1,7 @@
 import { ChevronRight, Home } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
+import { vitrinePath } from "@/lib/panels"
 
 interface BreadcrumbItem {
   label: string
@@ -13,6 +14,7 @@ interface BreadcrumbsProps {
 }
 
 const routeNames: Record<string, string> = {
+  vitrine: "Vitrine",
   dashboard: "Dashboard",
   dados: "Análise",
   qualidade: "Qualidade",
@@ -35,7 +37,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
       className={cn("flex items-center gap-1.5 text-sm text-muted-foreground", className)}
     >
       <Link
-        to="/dashboard"
+        to={vitrinePath('/dashboard')}
         className="flex items-center p-1 -m-1 rounded-md hover:text-foreground hover:bg-accent/50 transition-colors"
       >
         <Home className="h-4 w-4" />
