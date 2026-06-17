@@ -1,6 +1,5 @@
 import pg from 'pg';
 import { getNeonLeadsUrl } from '../lib/neonLeads.mjs';
-import { resolveIdAmigavel } from '../lib/leadDisplayId.mjs';
 import { computeLeadQualificacao } from '../lib/leadQualificacao.mjs';
 import {
   SQL_IS_MARKETING_BUCKET,
@@ -381,19 +380,8 @@ async function getList(client, filters) {
       OR EXISTS (SELECT 1 FROM unnest(u.email) e WHERE e ILIKE $${idx})
       OR EXISTS (SELECT 1 FROM unnest(u.phone) p WHERE p ILIKE $${idx})
       OR u.person_id::text ILIKE $${idx}
-      OR EXISTS (
-        SELECT 1 FROM all_leads al
-        WHERE (
-          (cardinality(u.email) > 0 AND al.email = ANY(u.email))
-          OR (cardinality(u.phone) > 0 AND al.phone = ANY(u.phone))
-        )
-        AND al.codigo IS NOT NULL
-        AND TRIM(al.codigo) <> ''
-        AND (
-          al.codigo ILIKE $${idx}
-          OR UPPER(TRIM(al.codigo)) = UPPER($${idxExact})
-        )
-      )
+      OR UPPER(TRIM(u.geleads_id)) = UPPER($${idxExact})
+      OR u.geleads_id ILIKE $${idx}
     )`;
   }
 
@@ -412,18 +400,7 @@ async function getList(client, filters) {
   const listSql = `
     SELECT
       u.person_id::text AS person_id,
-      (
-        SELECT al.codigo
-        FROM all_leads al
-        WHERE (
-          (cardinality(u.email) > 0 AND al.email = ANY(u.email))
-          OR (cardinality(u.phone) > 0 AND al.phone = ANY(u.phone))
-        )
-        AND al.codigo IS NOT NULL
-        AND TRIM(al.codigo) <> ''
-        ORDER BY al.created_at ASC NULLS LAST
-        LIMIT 1
-      ) AS codigo,
+      u.geleads_id,
       NULLIF(TRIM(u.name[1]), '') AS nome,
       NULLIF(TRIM(u.email[1]), '') AS email,
       NULLIF(TRIM(u.phone[1]), '') AS telefone,
@@ -453,8 +430,8 @@ async function getList(client, filters) {
 
   return {
     rows: rows.map((r) => {
-      const codigo = nullableString(r.codigo);
       const personId = String(r.person_id);
+      const geleadsId = nullableString(r.geleads_id);
       const qualificacaoInput = {
         email: r.email,
         telefone: r.telefone,
@@ -467,8 +444,9 @@ async function getList(client, filters) {
 
       return {
         person_id: personId,
-        id_amigavel: resolveIdAmigavel(personId, codigo),
-        codigo,
+        geleads_id: geleadsId,
+        id_amigavel: geleadsId ?? 'A0000',
+        codigo: geleadsId,
         nome: nullableString(r.nome) ?? 'Sem nome',
         email: nullableString(r.email),
         telefone: nullableString(r.telefone),

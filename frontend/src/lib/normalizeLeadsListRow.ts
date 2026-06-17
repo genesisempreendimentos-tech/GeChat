@@ -27,8 +27,9 @@ function parseQualificacao(value: unknown): LeadsQualificacaoStatus {
 /** Normaliza payload novo ou legado de /api/leads/list. */
 export function normalizeLeadsListRow(raw: Record<string, unknown>): LeadsListRow {
   const personId = String(raw.person_id ?? raw.id ?? '');
-  const codigo = strOrNull(raw.codigo);
-  const idAmigavel = strOrNull(raw.id_amigavel) ?? getLeadDisplayId({ id: personId, codigo });
+  const geleadsId = strOrNull(raw.geleads_id) ?? strOrNull(raw.id_amigavel);
+  const codigo = strOrNull(raw.codigo) ?? geleadsId;
+  const idAmigavel = geleadsId ?? getLeadDisplayId({ id: personId, codigo });
 
   const contato = strOrNull(raw.contato);
   const email = strOrNull(raw.email) ?? (contato?.includes('@') ? contato : null);
@@ -43,6 +44,7 @@ export function normalizeLeadsListRow(raw: Record<string, unknown>): LeadsListRo
 
   return {
     person_id: personId,
+    geleads_id: geleadsId,
     id_amigavel: idAmigavel,
     codigo,
     nome: str(raw.nome, 'Sem nome'),

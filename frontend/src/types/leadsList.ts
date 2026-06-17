@@ -3,6 +3,7 @@ export type LeadsQualificacaoStatus = 'Indefinida' | 'N/A' | 'Baixa' | 'Média' 
 /** Superset das 3 abas — contrato GET /api/leads/list */
 export type LeadsListRow = {
   person_id: string;
+  geleads_id: string | null;
   id_amigavel: string;
   codigo: string | null;
   nome: string;

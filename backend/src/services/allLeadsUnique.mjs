@@ -3,6 +3,12 @@ import {
   pickPersonCanalBucket,
   resolveFonteFromBucket,
 } from '../lib/leadsCanalMap.mjs';
+import { ensureGeleadsIdSchema, createGeleadsIdResolver, reconcileGeleadsRegistryActive } from '../lib/geleadsIdRegistry.mjs';
+import {
+  normalizePersonCvcrmLeadId,
+  normalizePersonEmail,
+  normalizePersonPhone,
+} from '../lib/personUnionKeys.mjs';
 
 function toSafeString(value) {
   if (value === null || value === undefined) return '';
@@ -24,7 +30,7 @@ function isReservaSaleIndicated(reserva) {
 }
 
 const UNIQUE_INSERT_COLUMNS = [
-  'person_id', 'name', 'email', 'phone', 'empreendimento_interesse', 'canal', 'source_table',
+  'person_id', 'geleads_id', 'name', 'email', 'phone', 'empreendimento_interesse', 'canal', 'source_table',
   'parameter', 'birth_date', 'gender', 'current_city', 'relationship_status',
   'monthly_investment', 'profile_type', 'profile_completed', 'whatsapp_clicked',
   'children_status', 'cvcrm_lead_id', 'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage',
@@ -36,6 +42,7 @@ const UNIQUE_INSERT_COLUMNS = [
 const ENSURE_ALL_LEADS_UNIQUE_SQL = `
 CREATE TABLE IF NOT EXISTS all_leads_unique (
   person_id UUID PRIMARY KEY,
+  geleads_id TEXT,
   name TEXT[] NOT NULL DEFAULT '{}',
   email TEXT[] NOT NULL DEFAULT '{}',
   phone TEXT[] NOT NULL DEFAULT '{}',
@@ -63,6 +70,10 @@ CREATE TABLE IF NOT EXISTS all_leads_unique (
   idcorretor TEXT,
   idimobiliaria TEXT,
   signup_count INT NOT NULL,
+  canal_bucket TEXT,
+  fonte TEXT,
+  has_reserva BOOLEAN NOT NULL DEFAULT false,
+  has_venda BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -71,6 +82,7 @@ CREATE INDEX IF NOT EXISTS all_leads_unique_cvcrm_lead_id_idx ON all_leads_uniqu
 `;
 
 const ENSURE_UNIQUE_COLUMNS_SQL = `
+ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS geleads_id TEXT;
 ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS canal_bucket TEXT;
 ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS fonte TEXT;
 ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS has_reserva BOOLEAN NOT NULL DEFAULT false;
@@ -90,34 +102,13 @@ CREATE INDEX IF NOT EXISTS all_leads_empreendimento_idx ON all_leads (empreendim
 
 const INSERT_BATCH_SIZE = 200;
 
-const VALID_EMAIL_KEY_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+export { normalizePersonCvcrmLeadId, normalizePersonEmail, normalizePersonPhone } from '../lib/personUnionKeys.mjs';
 
-/** Chave de union-find: email válido apenas (não grava em arrays). */
-export function normalizePersonEmail(value) {
-  const s = String(value ?? '').trim().toLowerCase();
-  if (!s || !VALID_EMAIL_KEY_RE.test(s)) return null;
-  return s;
-}
-
-/** Chave de union-find: telefone válido apenas (não grava em arrays). */
-export function normalizePersonPhone(value) {
-  let digits = String(value ?? '').replace(/\D/g, '');
-  if (!digits) return null;
-
-  if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
-    digits = digits.slice(2);
-  }
-
-  if (digits.length < 10 || digits.length > 11) return null;
-  if (/^(\d)\1+$/.test(digits)) return null;
-
-  return digits;
-}
-
-/** Chave de union-find: cvcrm_lead_id (trim; não vazio). */
-export function normalizePersonCvcrmLeadId(value) {
-  const s = String(value ?? '').trim();
-  return s || null;
+function clusterOldestCreatedTs(rows) {
+  return rows.reduce((min, row) => {
+    const ts = createdAtTimestamp(row);
+    return ts < min ? ts : min;
+  }, Infinity);
 }
 
 class UnionFind {
@@ -165,7 +156,7 @@ function rowTimestamp(row) {
 
 function createdAtTimestamp(row) {
   const ts = new Date(row.created_at).getTime();
-  return Number.isFinite(ts) ? ts : 0;
+  return Number.isFinite(ts) ? ts : Infinity;
 }
 
 function sortByCreatedAtDesc(rows) {
@@ -339,10 +330,10 @@ export function aggregatePersonCluster(rows, soldReservasByIdlead = new Map(), r
   const cv = pickCvSnapshot(rows);
   const attribution = resolveAttribution(rows, soldReservasByIdlead);
 
-  const oldestCreated = sortedByCreated.reduce((min, row) => {
+  const oldestCreated = rows.reduce((min, row) => {
     const ts = createdAtTimestamp(row);
     return ts < min ? ts : min;
-  }, createdAtTimestamp(sortedByCreated[0]));
+  }, Infinity);
 
   const canalValues = rows.map((row) => row.canal);
   const canal_bucket = pickPersonCanalBucket(canalValues);
@@ -353,6 +344,7 @@ export function aggregatePersonCluster(rows, soldReservasByIdlead = new Map(), r
 
   return {
     person_id: randomUUID(),
+    geleads_id: null,
     name: uniqueStrings(rows.map((row) => row.name)),
     email: uniqueStrings(rows.map((row) => row.email)),
     phone: uniqueStrings(rows.map((row) => row.phone)),
@@ -376,7 +368,7 @@ export function aggregatePersonCluster(rows, soldReservasByIdlead = new Map(), r
     fonte,
     has_reserva,
     has_venda,
-    created_at: new Date(oldestCreated),
+    created_at: oldestCreated === Infinity ? new Date('2099-01-01T00:00:00.000Z') : new Date(oldestCreated),
     updated_at: new Date(),
   };
 }
@@ -441,6 +433,9 @@ function buildBatchInsertSql(rowCount) {
 }
 
 function personToInsertParams(person) {
+  if (!person.geleads_id) {
+    throw new Error(`[leads/unique] geleads_id ausente antes do INSERT (person_id=${person.person_id})`);
+  }
   return UNIQUE_INSERT_COLUMNS.map((col) => person[col]);
 }
 
@@ -450,14 +445,29 @@ export async function rebuildAllLeadsUnique(client) {
   await client.query(ENSURE_UNIQUE_COLUMNS_SQL);
   await client.query(ENSURE_UNIQUE_INDEXES_SQL);
   await client.query(ENSURE_ALL_LEADS_INDEXES_SQL);
+  await ensureGeleadsIdSchema(client);
 
   const { rows } = await client.query(`SELECT * FROM all_leads ORDER BY created_at ASC`);
   const soldReservasByIdlead = await loadReservasAttributionByIdlead(client);
   const { reservaIdleads, vendaIdleads } = await loadReservaFlagsByIdlead(client);
 
   const clusters = clusterAllLeadsRows(rows);
-  const persons = clusters.map((cluster) =>
-    aggregatePersonCluster(cluster, soldReservasByIdlead, { reservaIdleads, vendaIdleads }),
+  clusters.sort((a, b) => clusterOldestCreatedTs(a) - clusterOldestCreatedTs(b));
+
+  const resolver = await createGeleadsIdResolver(client);
+  const persons = [];
+  for (const cluster of clusters) {
+    const person = aggregatePersonCluster(cluster, soldReservasByIdlead, {
+      reservaIdleads,
+      vendaIdleads,
+    });
+    person.geleads_id = resolver.resolveForCluster(cluster, person.created_at);
+    persons.push(person);
+  }
+  await resolver.flush();
+  await reconcileGeleadsRegistryActive(
+    client,
+    persons.map((p) => p.geleads_id).filter(Boolean),
   );
 
   await client.query(`TRUNCATE all_leads_unique`);
@@ -466,6 +476,18 @@ export async function rebuildAllLeadsUnique(client) {
     const chunk = persons.slice(i, i + INSERT_BATCH_SIZE);
     if (chunk.length === 0) continue;
     await client.query(buildBatchInsertSql(chunk.length), chunk.flatMap(personToInsertParams));
+  }
+
+  const { rows: [geleadsCheck] } = await client.query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(geleads_id)::int AS with_id
+    FROM all_leads_unique
+  `);
+  if (geleadsCheck.total > 0 && geleadsCheck.with_id !== geleadsCheck.total) {
+    throw new Error(
+      `[leads/unique] geleads_id NULL em ${geleadsCheck.total - geleadsCheck.with_id} de ${geleadsCheck.total} linha(s) após INSERT`,
+    );
   }
 
   const merged = rows.length - persons.length;
