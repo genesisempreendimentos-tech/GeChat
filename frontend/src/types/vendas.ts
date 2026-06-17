@@ -8,6 +8,39 @@ export type VendasFluxoCrosstab = {
   por_situacao: VendasSituacaoCrosstab[];
 };
 
+export type VendasDesdobramentoBalde = {
+  qtd: number;
+  valor: number;
+  qtd_com_valor: number;
+};
+
+export type VendasDesdobramentoReservas = {
+  valor_total: number;
+  vendas_efetuadas: VendasDesdobramentoBalde;
+  reservas_andamento: VendasDesdobramentoBalde;
+  reservas_perdidas: VendasDesdobramentoBalde;
+};
+
+export type VendasDesdobramentoVendas = {
+  valor_total: number;
+  consolidadas: VendasDesdobramentoBalde;
+  em_andamento: VendasDesdobramentoBalde;
+  revertidas: VendasDesdobramentoBalde;
+};
+
+export type VendasDesdobramentoPerdas = {
+  valor_total: number;
+  vendas_revertidas: VendasDesdobramentoBalde;
+  ativos_em_andamento: VendasDesdobramentoBalde;
+  reservas_perdidas: VendasDesdobramentoBalde;
+};
+
+export type VendasDesdobramento = {
+  reservas: VendasDesdobramentoReservas;
+  vendas: VendasDesdobramentoVendas;
+  perdas: VendasDesdobramentoPerdas;
+};
+
 export type VendasDurabilidade = {
   total_efetuadas: number;
   vendida: number;
@@ -16,6 +49,12 @@ export type VendasDurabilidade = {
   distrato: number;
   cancelada: number;
   outros: number;
+  valor_vendida: number;
+  valor_contrato_gerado: number;
+  valor_envio_sienge: number;
+  valor_distrato: number;
+  valor_cancelada: number;
+  valor_outros: number;
 };
 
 export type VendasTotais = {
@@ -26,12 +65,21 @@ export type VendasTotais = {
   reservas_perdidas: number;
   reservas_andamento: number;
   valor_efetuado: number;
+  valor_reservas_totais: number;
+  valor_vendas_efetuadas: number;
+  valor_reservas_andamento: number;
+  valor_reservas_perdidas: number;
+  valor_vendas_perdidas: number;
+  valor_perdas_totais: number;
   ticket_medio: number | null;
   corretores_que_venderam: number;
   carteira_vigente: number;
   distratos: number;
   cancelados: number;
+  comissoes_valor: number;
+  comissoes_preenchidas: number;
   durabilidade: VendasDurabilidade;
+  desdobramento?: VendasDesdobramento;
 };
 
 export type VendasCorretorRanking = {

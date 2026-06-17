@@ -1,4 +1,4 @@
-import { Home, HandCoins } from 'lucide-react';
+import { Home, HandCoins, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
 import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 import { SidebarFooterControl } from '@/components/layout/SidebarFooterControl';
-import { SidebarNavItem } from '@/components/layout/SidebarNavItem';
+import { SidebarNavItem, SidebarSectionTitle } from '@/components/layout/SidebarNavItem';
 
 export default function UserSidebar() {
   const location = useLocation();
@@ -50,11 +50,19 @@ export default function UserSidebar() {
           isActive={location.pathname === '/'}
           isExpanded={isExpanded}
         />
+        <SidebarSectionTitle title="Operação" isExpanded={isExpanded} />
         <SidebarNavItem
           to="/vendas"
           icon={HandCoins}
           label="Vendas"
           isActive={location.pathname.startsWith('/vendas')}
+          isExpanded={isExpanded}
+        />
+        <SidebarNavItem
+          to="/leads"
+          icon={Users}
+          label="Leads"
+          isActive={location.pathname.startsWith('/leads')}
           isExpanded={isExpanded}
         />
       </nav>

@@ -1,6 +1,6 @@
 /** Extrai número sequencial do id interno legado (`lead-001`, `lead-gen-42`). */
-export function parseLeadSequentialNumber(id: string): number {
-  const match = id.match(/(?:lead-gen-|lead-)(\d+)/i);
+export function parseLeadSequentialNumber(id: string | null | undefined): number {
+  const match = String(id ?? '').match(/(?:lead-gen-|lead-)(\d+)/i);
   return match ? Number.parseInt(match[1], 10) : 0;
 }
 
@@ -17,7 +17,7 @@ export function formatLeadDisplayId(seq: number): string {
 }
 
 export type LeadDisplayIdRow = {
-  id: string;
+  id?: string | null;
   codigo?: string | null;
 };
 

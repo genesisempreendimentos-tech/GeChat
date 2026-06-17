@@ -46,3 +46,25 @@ export function lineChartTooltipCursor(isDark: boolean, primaryRaw: string) {
         strokeDasharray: "4 4" as const,
       }
 }
+
+export function chartTooltipPanelStyle(isDark: boolean) {
+  return {
+    backgroundColor: isDark ? "#1f2937" : "#ffffff",
+    border: `1px solid ${isDark ? "#374151" : "#e5e7eb"}`,
+    borderRadius: "0.5rem" as const,
+    boxShadow: isDark
+      ? "0 10px 28px rgba(0, 0, 0, 0.5)"
+      : "0 4px 14px rgba(0, 0, 0, 0.08)",
+  }
+}
+
+/** Remove o painel padrão do Recharts quando o conteúdo do tooltip é customizado. */
+export function chartTooltipShellStyle() {
+  return {
+    backgroundColor: "transparent",
+    border: "none",
+    padding: 0,
+    margin: 0,
+    boxShadow: "none",
+  } as const
+}

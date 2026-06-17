@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import {
+  pickPersonCanalBucket,
+  resolveFonteFromBucket,
+} from '../lib/leadsCanalMap.mjs';
 
 function toSafeString(value) {
   if (value === null || value === undefined) return '';
@@ -25,7 +29,8 @@ const UNIQUE_INSERT_COLUMNS = [
   'monthly_investment', 'profile_type', 'profile_completed', 'whatsapp_clicked',
   'children_status', 'cvcrm_lead_id', 'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage',
   'cvcrm_is_sold', 'cvcrm_sale_value', 'cvcrm_sale_date', 'cvcrm_last_update',
-  'idcorretor', 'idimobiliaria', 'signup_count', 'created_at', 'updated_at',
+  'idcorretor', 'idimobiliaria', 'signup_count', 'canal_bucket', 'fonte',
+  'has_reserva', 'has_venda', 'created_at', 'updated_at',
 ];
 
 const ENSURE_ALL_LEADS_UNIQUE_SQL = `
@@ -63,6 +68,24 @@ CREATE TABLE IF NOT EXISTS all_leads_unique (
 );
 CREATE INDEX IF NOT EXISTS all_leads_unique_created_at_idx ON all_leads_unique (created_at DESC);
 CREATE INDEX IF NOT EXISTS all_leads_unique_cvcrm_lead_id_idx ON all_leads_unique (cvcrm_lead_id);
+`;
+
+const ENSURE_UNIQUE_COLUMNS_SQL = `
+ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS canal_bucket TEXT;
+ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS fonte TEXT;
+ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS has_reserva BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE all_leads_unique ADD COLUMN IF NOT EXISTS has_venda BOOLEAN NOT NULL DEFAULT false;
+`;
+
+const ENSURE_UNIQUE_INDEXES_SQL = `
+CREATE INDEX IF NOT EXISTS all_leads_unique_canal_bucket_idx ON all_leads_unique (canal_bucket);
+CREATE INDEX IF NOT EXISTS all_leads_unique_fonte_idx ON all_leads_unique (fonte);
+`;
+
+const ENSURE_ALL_LEADS_INDEXES_SQL = `
+CREATE INDEX IF NOT EXISTS all_leads_created_at_idx ON all_leads (created_at DESC);
+CREATE INDEX IF NOT EXISTS all_leads_canal_norm_idx ON all_leads (LOWER(TRIM(canal)));
+CREATE INDEX IF NOT EXISTS all_leads_empreendimento_idx ON all_leads (empreendimento_interesse);
 `;
 
 const INSERT_BATCH_SIZE = 200;
@@ -299,7 +322,19 @@ export function clusterAllLeadsRows(rows) {
   return [...clusters.values()];
 }
 
-export function aggregatePersonCluster(rows, soldReservasByIdlead = new Map()) {
+function resolvePersonReservaFlags(rows, reservaIdleads, vendaIdleads) {
+  let has_reserva = false;
+  let has_venda = false;
+  for (const row of rows) {
+    for (const idlead of splitIdleadIds(row.cvcrm_lead_id)) {
+      if (reservaIdleads.has(idlead)) has_reserva = true;
+      if (vendaIdleads.has(idlead)) has_venda = true;
+    }
+  }
+  return { has_reserva, has_venda };
+}
+
+export function aggregatePersonCluster(rows, soldReservasByIdlead = new Map(), reservaFlags = null) {
   const sortedByCreated = sortByCreatedAtDesc(rows);
   const cv = pickCvSnapshot(rows);
   const attribution = resolveAttribution(rows, soldReservasByIdlead);
@@ -308,6 +343,13 @@ export function aggregatePersonCluster(rows, soldReservasByIdlead = new Map()) {
     const ts = createdAtTimestamp(row);
     return ts < min ? ts : min;
   }, createdAtTimestamp(sortedByCreated[0]));
+
+  const canalValues = rows.map((row) => row.canal);
+  const canal_bucket = pickPersonCanalBucket(canalValues);
+  const fonte = resolveFonteFromBucket(canal_bucket);
+  const { has_reserva, has_venda } = reservaFlags
+    ? resolvePersonReservaFlags(rows, reservaFlags.reservaIdleads, reservaFlags.vendaIdleads)
+    : { has_reserva: false, has_venda: false };
 
   return {
     person_id: randomUUID(),
@@ -330,9 +372,38 @@ export function aggregatePersonCluster(rows, soldReservasByIdlead = new Map()) {
     ...cv,
     ...attribution,
     signup_count: rows.length,
+    canal_bucket,
+    fonte,
+    has_reserva,
+    has_venda,
     created_at: new Date(oldestCreated),
     updated_at: new Date(),
   };
+}
+
+async function loadReservaFlagsByIdlead(client) {
+  const reservaIdleads = new Set();
+  const vendaIdleads = new Set();
+  try {
+    const { rows } = await client.query(
+      `SELECT idlead, situacao, data_venda, payload
+       FROM cvcrm_reservas
+       WHERE NULLIF(TRIM(idlead), '') IS NOT NULL`,
+    );
+    for (const row of rows) {
+      const isVenda =
+        String(row.situacao ?? '').toLowerCase().includes('vendida')
+        || row.data_venda != null
+        || (row.payload && String(row.payload?.data_venda ?? '').trim() !== '');
+      for (const idlead of splitIdleadIds(row.idlead)) {
+        reservaIdleads.add(idlead);
+        if (isVenda) vendaIdleads.add(idlead);
+      }
+    }
+  } catch (err) {
+    if (err?.code !== '42P01') throw err;
+  }
+  return { reservaIdleads, vendaIdleads };
 }
 
 async function loadReservasAttributionByIdlead(client) {
@@ -376,12 +447,18 @@ function personToInsertParams(person) {
 /** Lê all_leads, clusteriza por email/telefone (union-find) e repovoa all_leads_unique. */
 export async function rebuildAllLeadsUnique(client) {
   await client.query(ENSURE_ALL_LEADS_UNIQUE_SQL);
+  await client.query(ENSURE_UNIQUE_COLUMNS_SQL);
+  await client.query(ENSURE_UNIQUE_INDEXES_SQL);
+  await client.query(ENSURE_ALL_LEADS_INDEXES_SQL);
 
   const { rows } = await client.query(`SELECT * FROM all_leads ORDER BY created_at ASC`);
   const soldReservasByIdlead = await loadReservasAttributionByIdlead(client);
+  const { reservaIdleads, vendaIdleads } = await loadReservaFlagsByIdlead(client);
 
   const clusters = clusterAllLeadsRows(rows);
-  const persons = clusters.map((cluster) => aggregatePersonCluster(cluster, soldReservasByIdlead));
+  const persons = clusters.map((cluster) =>
+    aggregatePersonCluster(cluster, soldReservasByIdlead, { reservaIdleads, vendaIdleads }),
+  );
 
   await client.query(`TRUNCATE all_leads_unique`);
 

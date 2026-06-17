@@ -47,9 +47,15 @@ export function filtersToQuery(filters: VendasFilters): VendasQueryParams {
   };
 }
 
+export function vendasCompetenciaIsEmpty(data: VendasCompetenciaResponse): boolean {
+  return data.totais.vendas_efetuadas === 0;
+}
+
 type UseVendasOptions = {
   /** Permite injetar mock na Vitrine sem alterar os componentes. */
   fetcher?: (params: VendasQueryParams) => ReturnType<typeof fetchVendasCompetencia>;
+  /** Predicado de vazio; default = vendas efetuadas === 0 (comportamento histórico de Vendas). */
+  isEmpty?: (data: VendasCompetenciaResponse) => boolean;
 };
 
 export function useVendas(filters: VendasFilters, options?: UseVendasOptions): UseVendasResult {
@@ -93,7 +99,9 @@ export function useVendas(filters: VendasFilters, options?: UseVendasOptions): U
     setFetchKey((k) => k + 1);
   }, []);
 
-  const isEmpty = !loading && !error && (data?.totais.vendas_efetuadas ?? 0) === 0;
+  const isEmptyPredicate = options?.isEmpty ?? vendasCompetenciaIsEmpty;
+  const isEmpty =
+    !loading && !error && (data == null ? true : isEmptyPredicate(data));
 
   return { data, loading, error, refetch, isEmpty };
 }

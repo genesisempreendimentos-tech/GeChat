@@ -34,7 +34,9 @@ function MetricCard({
   title,
   value,
   valueTooltip,
+  subtitle,
   infoTooltip,
+  hideInfo,
   icon,
   hero,
   heroValueClassName,
@@ -44,7 +46,9 @@ function MetricCard({
   title: string;
   value: string;
   valueTooltip?: string;
-  infoTooltip: string;
+  subtitle?: string;
+  infoTooltip?: string;
+  hideInfo?: boolean;
   icon: React.ReactNode;
   hero?: boolean;
   heroValueClassName?: string;
@@ -66,32 +70,34 @@ function MetricCard({
             <p className={cn('text-sm font-medium', hero ? 'text-primary' : 'text-muted-foreground')}>
               {title}
             </p>
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    'inline-flex shrink-0 rounded-md p-0.5 transition-colors',
-                    hero
-                      ? 'text-primary/70 hover:bg-primary/15 hover:text-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                  )}
-                  aria-label={`Informação: ${title}`}
+            {!hideInfo && infoTooltip ? (
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      'inline-flex shrink-0 rounded-md p-0.5 transition-colors',
+                      hero
+                        ? 'text-primary/70 hover:bg-primary/15 hover:text-primary'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    )}
+                    aria-label={`Informação: ${title}`}
+                  >
+                    <Info className="size-3.5" strokeWidth={2.25} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  align="start"
+                  sideOffset={8}
+                  collisionPadding={20}
+                  className={INFOBOX_TOOLTIP_CONTENT_CLASS}
                 >
-                  <Info className="size-3.5" strokeWidth={2.25} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent
-                side="bottom"
-                align="start"
-                sideOffset={8}
-                collisionPadding={20}
-                className={INFOBOX_TOOLTIP_CONTENT_CLASS}
-              >
-                {infoTooltip}
-              </TooltipContent>
-            </Tooltip>
+                  {infoTooltip}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
           </div>
           <div
             className={cn(
@@ -105,40 +111,50 @@ function MetricCard({
         {loading ? (
           <Skeleton className="mt-3 h-9 w-32" />
         ) : valueTooltip ? (
-          <Tooltip delayDuration={200}>
-            <TooltipTrigger asChild>
-              <p
-                className={cn(
-                  'mt-2 w-fit cursor-default tabular-nums tracking-tight',
-                  hero
-                    ? cn('text-2xl font-bold text-primary sm:text-3xl', heroValueClassName)
-                    : 'text-2xl font-semibold',
-                )}
+          <div className="mt-2">
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <p
+                  className={cn(
+                    'w-fit cursor-default tabular-nums tracking-tight',
+                    hero
+                      ? cn('text-2xl font-bold text-primary sm:text-3xl', heroValueClassName)
+                      : 'text-2xl font-semibold',
+                  )}
+                >
+                  {value}
+                </p>
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                align="start"
+                sideOffset={8}
+                collisionPadding={20}
+                className={INFOBOX_TOOLTIP_CONTENT_CLASS}
               >
-                {value}
-              </p>
-            </TooltipTrigger>
-            <TooltipContent
-              side="bottom"
-              align="start"
-              sideOffset={8}
-              collisionPadding={20}
-              className={INFOBOX_TOOLTIP_CONTENT_CLASS}
-            >
-              {valueTooltip}
-            </TooltipContent>
-          </Tooltip>
+                {valueTooltip}
+              </TooltipContent>
+            </Tooltip>
+            {subtitle ? (
+              <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+            ) : null}
+          </div>
         ) : (
-          <p
-            className={cn(
-              'mt-2 tabular-nums tracking-tight',
-              hero
-                ? cn('text-2xl font-bold text-primary sm:text-3xl', heroValueClassName)
-                : 'text-2xl font-semibold',
-            )}
-          >
-            {value}
-          </p>
+          <div className="mt-2">
+            <p
+              className={cn(
+                'tabular-nums tracking-tight',
+                hero
+                  ? cn('text-2xl font-bold text-primary sm:text-3xl', heroValueClassName)
+                  : 'text-2xl font-semibold',
+              )}
+            >
+              {value}
+            </p>
+            {subtitle ? (
+              <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+            ) : null}
+          </div>
         )}
       </div>
     </MotionReveal>
@@ -245,7 +261,7 @@ export function VendasBigNumbers({ totais, loading }: VendasBigNumbersProps) {
           motionIndex={8}
         />
         <MetricCard
-          title="Vendas perdidas"
+          title="Vendas revertidas"
           value={totais ? formatVendasCount(totais.vendas_perdidas) : '—'}
           infoTooltip="Vendeu e depois reverteu: com data de venda e situação Distrato ou Cancelada (pós-venda). Diferente de reserva perdida, que nunca chegou a vender."
           icon={<TrendingDown className="h-4 w-4" />}

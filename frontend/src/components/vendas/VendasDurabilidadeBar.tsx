@@ -120,7 +120,7 @@ export function VendasDurabilidadeBar({
   const revertidaSegments = SEGMENTS.filter((s) => s.group === 'revertida');
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader className="space-y-2">
         <CardTitle className="text-base">Durabilidade da venda</CardTitle>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">

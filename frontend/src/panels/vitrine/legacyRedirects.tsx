@@ -13,7 +13,6 @@ export const vitrineLegacyRedirectRoutes = (
     <Route path="/maturacao" element={<Navigate to={vitrinePath('/maturacao')} replace />} />
     <Route path="/empreendimentos" element={<Navigate to={vitrinePath('/empreendimentos')} replace />} />
     <Route path="/relatorios" element={<Navigate to={vitrinePath('/relatorios')} replace />} />
-    <Route path="/leads" element={<Navigate to={vitrinePath('/leads')} replace />} />
     <Route path="/notifications" element={<Navigate to={vitrinePath('/notifications')} replace />} />
     <Route path="/profile" element={<Navigate to={vitrinePath('/profile')} replace />} />
     <Route path="/settings" element={<Navigate to={vitrinePath('/settings')} replace />} />

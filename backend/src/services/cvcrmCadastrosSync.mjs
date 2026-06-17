@@ -354,7 +354,78 @@ export async function getCompetenciaReport(filters = {}) {
          )::int AS dur_contrato_gerado,
          COUNT(*) FILTER (WHERE ${saleExpr} AND TRIM(r.situacao) = 'Envio Sienge')::int AS dur_envio_sienge,
          COUNT(*) FILTER (WHERE ${saleExpr} AND TRIM(r.situacao) = 'Distrato')::int AS dur_distrato,
-         COUNT(*) FILTER (WHERE ${saleExpr} AND TRIM(r.situacao) = 'Cancelada')::int AS dur_cancelada
+         COUNT(*) FILTER (WHERE ${saleExpr} AND TRIM(r.situacao) = 'Cancelada')::int AS dur_cancelada,
+         COALESCE(SUM(COALESCE(r.valor_contrato, 0)), 0)::numeric AS valor_reservas_totais,
+         COALESCE(
+           SUM(COALESCE(r.valor_contrato, 0)) FILTER (
+             WHERE NOT (${saleExpr}) AND TRIM(r.situacao) IN ('Vencida', 'Cancelada')
+           ),
+           0
+         )::numeric AS valor_reservas_perdidas,
+         COALESCE(
+           SUM(COALESCE(r.valor_contrato, 0)) FILTER (
+             WHERE NOT (${saleExpr}) AND TRIM(r.situacao) NOT IN ('Vencida', 'Cancelada')
+           ),
+           0
+         )::numeric AS valor_reservas_andamento,
+         COALESCE(
+           SUM(COALESCE(r.valor_contrato, 0)) FILTER (
+             WHERE ${saleExpr} AND TRIM(r.situacao) IN ('Distrato', 'Cancelada')
+           ),
+           0
+         )::numeric AS valor_vendas_perdidas,
+         COALESCE(
+           SUM(COALESCE(r.valor_contrato, 0)) FILTER (WHERE ${saleExpr} AND TRIM(r.situacao) = 'Vendida'),
+           0
+         )::numeric AS valor_dur_vendida,
+         COALESCE(
+           SUM(COALESCE(r.valor_contrato, 0)) FILTER (
+             WHERE ${saleExpr} AND TRIM(r.situacao) = 'Contrato de Compra e Venda Gerado'
+           ),
+           0
+         )::numeric AS valor_dur_contrato_gerado,
+         COALESCE(
+           SUM(COALESCE(r.valor_contrato, 0)) FILTER (WHERE ${saleExpr} AND TRIM(r.situacao) = 'Envio Sienge'),
+           0
+         )::numeric AS valor_dur_envio_sienge,
+         COALESCE(
+           SUM(COALESCE(r.valor_contrato, 0)) FILTER (WHERE ${saleExpr} AND TRIM(r.situacao) = 'Distrato'),
+           0
+         )::numeric AS valor_dur_distrato,
+         COALESCE(
+           SUM(COALESCE(r.valor_contrato, 0)) FILTER (WHERE ${saleExpr} AND TRIM(r.situacao) = 'Cancelada'),
+           0
+         )::numeric AS valor_dur_cancelada,
+         COUNT(*) FILTER (WHERE COALESCE(r.valor_contrato, 0) > 0)::int AS qcv_reservas_totais,
+         COUNT(*) FILTER (WHERE ${saleExpr} AND COALESCE(r.valor_contrato, 0) > 0)::int AS qcv_vendas_efetuadas,
+         COUNT(*) FILTER (
+           WHERE NOT (${saleExpr}) AND TRIM(r.situacao) NOT IN ('Vencida', 'Cancelada')
+             AND COALESCE(r.valor_contrato, 0) > 0
+         )::int AS qcv_reservas_andamento,
+         COUNT(*) FILTER (
+           WHERE NOT (${saleExpr}) AND TRIM(r.situacao) IN ('Vencida', 'Cancelada')
+             AND COALESCE(r.valor_contrato, 0) > 0
+         )::int AS qcv_reservas_perdidas,
+         COUNT(*) FILTER (
+           WHERE ${saleExpr} AND TRIM(r.situacao) IN ('Distrato', 'Cancelada')
+             AND COALESCE(r.valor_contrato, 0) > 0
+         )::int AS qcv_vendas_perdidas,
+         COUNT(*) FILTER (
+           WHERE ${saleExpr} AND TRIM(r.situacao) = 'Vendida' AND COALESCE(r.valor_contrato, 0) > 0
+         )::int AS qcv_dur_vendida,
+         COUNT(*) FILTER (
+           WHERE ${saleExpr} AND TRIM(r.situacao) = 'Contrato de Compra e Venda Gerado'
+             AND COALESCE(r.valor_contrato, 0) > 0
+         )::int AS qcv_dur_contrato_gerado,
+         COUNT(*) FILTER (
+           WHERE ${saleExpr} AND TRIM(r.situacao) = 'Envio Sienge' AND COALESCE(r.valor_contrato, 0) > 0
+         )::int AS qcv_dur_envio_sienge,
+         COUNT(*) FILTER (
+           WHERE ${saleExpr} AND TRIM(r.situacao) = 'Distrato' AND COALESCE(r.valor_contrato, 0) > 0
+         )::int AS qcv_dur_distrato,
+         COUNT(*) FILTER (
+           WHERE ${saleExpr} AND TRIM(r.situacao) = 'Cancelada' AND COALESCE(r.valor_contrato, 0) > 0
+         )::int AS qcv_dur_cancelada
        FROM cvcrm_reservas r
        WHERE ${whereSql}`,
       params,
@@ -437,6 +508,42 @@ export async function getCompetenciaReport(filters = {}) {
       params,
     );
 
+    const comParams = [];
+    const comWhereParts = ['1=1'];
+    if (filters.empreendimento) {
+      comParams.push(`%${String(filters.empreendimento).trim()}%`);
+      comWhereParts.push(`TRIM(COALESCE(c.empreendimento, '')) ILIKE $${comParams.length}`);
+    }
+    if (filters.imobiliaria) {
+      comParams.push(`%${String(filters.imobiliaria).trim()}%`);
+      comWhereParts.push(`TRIM(COALESCE(c.imobiliaria, '')) ILIKE $${comParams.length}`);
+    }
+    const comWhereSql = comWhereParts.join(' AND ');
+
+    let comissoesValor = 0;
+    let comissoesPreenchidas = 0;
+    try {
+      const comissoesResult = await client.query(
+        `SELECT
+           COALESCE(
+             SUM(c.valor_comissao) FILTER (WHERE TRIM(COALESCE(c.situacao, '')) <> 'Cancelada'),
+             0
+           )::numeric AS comissoes_valor,
+           COUNT(*) FILTER (
+             WHERE COALESCE(c.valor_comissao, 0) > 0
+               AND TRIM(COALESCE(c.situacao, '')) <> 'Cancelada'
+           )::int AS comissoes_preenchidas
+         FROM cvcrm_comissoes c
+         WHERE ${comWhereSql}`,
+        comParams,
+      );
+      const comRow = comissoesResult.rows[0] ?? {};
+      comissoesValor = Number(comRow.comissoes_valor ?? 0);
+      comissoesPreenchidas = comRow.comissoes_preenchidas ?? 0;
+    } catch (comErr) {
+      if (comErr?.code !== '42P01') throw comErr;
+    }
+
     const totaisRow = totaisResult.rows[0] ?? {};
     const reservasTotais = totaisRow.reservas_totais ?? 0;
     const totalEfetuadas = totaisRow.vendas_efetuadas ?? 0;
@@ -452,6 +559,69 @@ export async function getCompetenciaReport(filters = {}) {
     const durCancelada = totaisRow.dur_cancelada ?? 0;
     const durNamedSum = durVendida + durContratoGerado + durEnvioSienge + durDistrato + durCancelada;
     const durOutros = Math.max(0, totalEfetuadas - durNamedSum);
+    const valorEfetuado = Number(totaisRow.valor_efetuado ?? 0);
+    const valorReservasTotais = Number(totaisRow.valor_reservas_totais ?? 0);
+    const valorReservasPerdidas = Number(totaisRow.valor_reservas_perdidas ?? 0);
+    const valorReservasAndamento = Number(totaisRow.valor_reservas_andamento ?? 0);
+    const valorVendasPerdidas = Number(totaisRow.valor_vendas_perdidas ?? 0);
+    const valorDurVendida = Number(totaisRow.valor_dur_vendida ?? 0);
+    const valorDurContratoGerado = Number(totaisRow.valor_dur_contrato_gerado ?? 0);
+    const valorDurEnvioSienge = Number(totaisRow.valor_dur_envio_sienge ?? 0);
+    const valorDurDistrato = Number(totaisRow.valor_dur_distrato ?? 0);
+    const valorDurCancelada = Number(totaisRow.valor_dur_cancelada ?? 0);
+    const valorDurNamedSum =
+      valorDurVendida + valorDurContratoGerado + valorDurEnvioSienge + valorDurDistrato + valorDurCancelada;
+    const valorDurOutros = Math.max(0, valorEfetuado - valorDurNamedSum);
+    const valorAtivosEmAndamento =
+      valorReservasAndamento + valorDurContratoGerado + valorDurEnvioSienge;
+    const valorPerdasTotais = valorVendasPerdidas + valorReservasPerdidas + valorAtivosEmAndamento;
+
+    const qcvReservasAndamento = totaisRow.qcv_reservas_andamento ?? 0;
+    const qcvReservasPerdidas = totaisRow.qcv_reservas_perdidas ?? 0;
+    const qcvVendasEfetuadas = totaisRow.qcv_vendas_efetuadas ?? 0;
+    const qcvVendasPerdidas = totaisRow.qcv_vendas_perdidas ?? 0;
+    const qcvDurVendida = totaisRow.qcv_dur_vendida ?? 0;
+    const qcvDurContratoGerado = totaisRow.qcv_dur_contrato_gerado ?? 0;
+    const qcvDurEnvioSienge = totaisRow.qcv_dur_envio_sienge ?? 0;
+    const qcvDurDistrato = totaisRow.qcv_dur_distrato ?? 0;
+    const qcvDurCancelada = totaisRow.qcv_dur_cancelada ?? 0;
+    const qcvVendasEmAndamento = qcvDurContratoGerado + qcvDurEnvioSienge;
+    const qcvAtivosEmAndamento = qcvReservasAndamento + qcvVendasEmAndamento;
+
+    const balde = (qtd, valor, qtdComValor) => ({ qtd, valor, qtd_com_valor: qtdComValor });
+
+    const desdobramento = {
+      reservas: {
+        valor_total: valorReservasTotais,
+        vendas_efetuadas: balde(totalEfetuadas, valorEfetuado, qcvVendasEfetuadas),
+        reservas_andamento: balde(reservasAndamento, valorReservasAndamento, qcvReservasAndamento),
+        reservas_perdidas: balde(reservasPerdidas, valorReservasPerdidas, qcvReservasPerdidas),
+      },
+      vendas: {
+        valor_total: valorEfetuado,
+        consolidadas: balde(durVendida, valorDurVendida, qcvDurVendida),
+        em_andamento: balde(
+          durContratoGerado + durEnvioSienge,
+          valorDurContratoGerado + valorDurEnvioSienge,
+          qcvVendasEmAndamento,
+        ),
+        revertidas: balde(
+          durDistrato + durCancelada,
+          valorDurDistrato + valorDurCancelada,
+          qcvDurDistrato + qcvDurCancelada,
+        ),
+      },
+      perdas: {
+        valor_total: valorPerdasTotais,
+        vendas_revertidas: balde(vendasPerdidas, valorVendasPerdidas, qcvVendasPerdidas),
+        ativos_em_andamento: balde(
+          reservasAndamento + durContratoGerado + durEnvioSienge,
+          valorAtivosEmAndamento,
+          qcvAtivosEmAndamento,
+        ),
+        reservas_perdidas: balde(reservasPerdidas, valorReservasPerdidas, qcvReservasPerdidas),
+      },
+    };
 
     const durabilidade = {
       total_efetuadas: totalEfetuadas,
@@ -461,6 +631,12 @@ export async function getCompetenciaReport(filters = {}) {
       distrato: durDistrato,
       cancelada: durCancelada,
       outros: durOutros,
+      valor_vendida: valorDurVendida,
+      valor_contrato_gerado: valorDurContratoGerado,
+      valor_envio_sienge: valorDurEnvioSienge,
+      valor_distrato: valorDurDistrato,
+      valor_cancelada: valorDurCancelada,
+      valor_outros: valorDurOutros,
     };
 
     return {
@@ -471,14 +647,23 @@ export async function getCompetenciaReport(filters = {}) {
         vendas_ativas: vendasAtivas,
         reservas_perdidas: reservasPerdidas,
         reservas_andamento: reservasAndamento,
-        valor_efetuado: Number(totaisRow.valor_efetuado ?? 0),
+        valor_efetuado: valorEfetuado,
+        valor_reservas_totais: valorReservasTotais,
+        valor_vendas_efetuadas: valorEfetuado,
+        valor_reservas_andamento: valorReservasAndamento,
+        valor_reservas_perdidas: valorReservasPerdidas,
+        valor_vendas_perdidas: valorVendasPerdidas,
+        valor_perdas_totais: valorPerdasTotais,
         ticket_medio:
           totaisRow.ticket_medio != null ? Number(totaisRow.ticket_medio) : null,
         corretores_que_venderam: totaisRow.corretores_que_venderam ?? 0,
         carteira_vigente: totaisRow.carteira_vigente ?? 0,
         distratos: totaisRow.distratos ?? 0,
         cancelados: totaisRow.cancelados ?? 0,
+        comissoes_valor: comissoesValor,
+        comissoes_preenchidas: comissoesPreenchidas,
         durabilidade,
+        desdobramento,
       },
       ranking: rankingResult.rows.map((row) => ({
         idcorretor: row.idcorretor,
@@ -513,11 +698,19 @@ export async function getCompetenciaReport(filters = {}) {
           reservas_perdidas: 0,
           reservas_andamento: 0,
           valor_efetuado: 0,
+          valor_reservas_totais: 0,
+          valor_vendas_efetuadas: 0,
+          valor_reservas_andamento: 0,
+          valor_reservas_perdidas: 0,
+          valor_vendas_perdidas: 0,
+          valor_perdas_totais: 0,
           ticket_medio: null,
           corretores_que_venderam: 0,
           carteira_vigente: 0,
           distratos: 0,
           cancelados: 0,
+          comissoes_valor: 0,
+          comissoes_preenchidas: 0,
           durabilidade: {
             total_efetuadas: 0,
             vendida: 0,
@@ -526,6 +719,32 @@ export async function getCompetenciaReport(filters = {}) {
             distrato: 0,
             cancelada: 0,
             outros: 0,
+            valor_vendida: 0,
+            valor_contrato_gerado: 0,
+            valor_envio_sienge: 0,
+            valor_distrato: 0,
+            valor_cancelada: 0,
+            valor_outros: 0,
+          },
+          desdobramento: {
+            reservas: {
+              valor_total: 0,
+              vendas_efetuadas: { qtd: 0, valor: 0, qtd_com_valor: 0 },
+              reservas_andamento: { qtd: 0, valor: 0, qtd_com_valor: 0 },
+              reservas_perdidas: { qtd: 0, valor: 0, qtd_com_valor: 0 },
+            },
+            vendas: {
+              valor_total: 0,
+              consolidadas: { qtd: 0, valor: 0, qtd_com_valor: 0 },
+              em_andamento: { qtd: 0, valor: 0, qtd_com_valor: 0 },
+              revertidas: { qtd: 0, valor: 0, qtd_com_valor: 0 },
+            },
+            perdas: {
+              valor_total: 0,
+              vendas_revertidas: { qtd: 0, valor: 0, qtd_com_valor: 0 },
+              ativos_em_andamento: { qtd: 0, valor: 0, qtd_com_valor: 0 },
+              reservas_perdidas: { qtd: 0, valor: 0, qtd_com_valor: 0 },
+            },
           },
         },
         ranking: [],

@@ -39,7 +39,7 @@ export function formatVendasBRLShort(value: number): string {
   return BRL.format(value);
 }
 
-/** Valor compacto para cards grandes (ex.: R$ 650,4 mi). */
+/** Valor compacto para desdobramento financeiro (até mil → R$ X; milhão → mil; bilhão → mi/bi). */
 export function formatVendasBRLCompact(value: number): string {
   const abs = Math.abs(value);
   if (abs >= 1_000_000_000) {
@@ -54,6 +54,7 @@ export function formatVendasBRLCompact(value: number): string {
   return BRL.format(value);
 }
 
+export const formatBRLCompact = formatVendasBRLCompact;
 export function formatVendasCount(value: number): string {
   return NUMBER.format(value);
 }

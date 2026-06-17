@@ -3,6 +3,7 @@ import pg from 'pg';
 import { getBearerJwt, resolveUserFromJwt } from '../middleware/authSupabase.mjs';
 import { syncLeadsFromSources } from '../services/leadSourceSync.mjs';
 import { listLeads, getLeadStats, getLeadById, LEAD_STATUSES } from '../services/leadsService.mjs';
+import { getLeadsOverview, getLeadsOverviewBignumbers, getLeadsOverviewCharts, getLeadsList } from '../services/leadsOverviewService.mjs';
 import { sendLeadToCvcrm } from '../services/cvcrmService.mjs';
 import { processCvcrmWebhook } from '../services/cvcrmWebhook.mjs';
 import { processCvcrmReservaWebhook } from '../services/cvcrmReservaWebhook.mjs';
@@ -151,6 +152,33 @@ export function createLeadsRouter() {
   });
 
   router.use(requireAuth);
+
+  router.get('/overview', async (req, res) => {
+    try {
+      const section = String(req.query.section ?? '').trim().toLowerCase();
+      if (section === 'bignumbers') {
+        return res.json(await getLeadsOverviewBignumbers(req.query));
+      }
+      if (section === 'charts') {
+        return res.json(await getLeadsOverviewCharts(req.query));
+      }
+      const data = await getLeadsOverview(req.query);
+      res.json(data);
+    } catch (err) {
+      console.error('[leads/overview]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao carregar overview de leads.' });
+    }
+  });
+
+  router.get('/list', async (req, res) => {
+    try {
+      const data = await getLeadsList(req.query);
+      res.json(data);
+    } catch (err) {
+      console.error('[leads/list]', err);
+      res.status(500).json({ error: err.message ?? 'Erro ao listar leads.' });
+    }
+  });
 
   router.get('/statuses', (_req, res) => {
     res.json({ statuses: LEAD_STATUSES });

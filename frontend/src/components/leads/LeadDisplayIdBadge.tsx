@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import { getLeadDisplayId } from '@/lib/leadDisplayId';
 
 type Props = {
-  id: string;
+  id?: string | null;
   codigo?: string | null;
   className?: string;
 };

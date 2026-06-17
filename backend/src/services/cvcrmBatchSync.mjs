@@ -678,6 +678,7 @@ async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
   const email = toSafeString(cvcrmLead.email) || null;
   const empreendimentoInteresse = toSafeString(cvcrmLead.empreendimento) || null;
   const canal = toSafeString(cvcrmLead.origem_nome ?? cvcrmLead.origem) || null;
+  const createdAt = toCvcrmTimestamptzParam(cvcrmLead.data_cad ?? cvcrmLead.data_cadastro);
 
   const result = await client.query(
     `INSERT INTO leads_cvcrm (
@@ -695,10 +696,11 @@ async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
        cvcrm_payload,
        cvcrm_sync_status,
        cvcrm_last_synced_at,
+       created_at,
        updated_at
      ) VALUES (
        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-       $11::timestamptz, $12::jsonb, 'synced', now(), now()
+       $11::timestamptz, $12::jsonb, 'synced', now(), COALESCE($13::timestamptz, now()), now()
      )
      ON CONFLICT (cvcrm_lead_id) DO UPDATE SET
        name = EXCLUDED.name,
@@ -714,6 +716,7 @@ async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
        cvcrm_payload = EXCLUDED.cvcrm_payload,
        cvcrm_sync_status = 'synced',
        cvcrm_last_synced_at = now(),
+       created_at = COALESCE($13::timestamptz, leads_cvcrm.created_at),
        updated_at = now()
      RETURNING id, empreendimento_interesse`,
     [
@@ -729,6 +732,7 @@ async function upsertLeadsCvcrm(client, idlead, cvcrmLead, fields) {
       fields.cvcrm_is_sold ?? false,
       toCvcrmTimestamptzParam(fields.cvcrm_last_update),
       JSON.stringify(cvcrmLead ?? {}),
+      createdAt,
     ],
   );
 

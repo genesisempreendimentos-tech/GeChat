@@ -30,7 +30,7 @@ import AuthLayout from '@/layouts/AuthLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AdminRoute from '@/components/AdminRoute';
 import AdminLayout from '@/admin/AdminLayout';
-import { UserLayout, UserHomePage, VendasPage } from '@/panels/user';
+import { UserLayout, UserHomePage, VendasPage, UserLeadsPage } from '@/panels/user';
 import { VitrineLayout, vitrineLegacyRedirectRoutes } from '@/panels/vitrine';
 
 import LoginPage from '@/pages/LoginPage';
@@ -160,6 +160,7 @@ function AppRoutes() {
           <Route element={<UserLayout />}>
             <Route index element={<UserHomePage />} />
             <Route path="/vendas" element={<VendasPage />} />
+            <Route path="/leads" element={<UserLeadsPage />} />
           </Route>
 
           <Route path="/vitrine" element={<VitrineLayout />}>
@@ -217,7 +218,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <TooltipProvider delayDuration={300}>
         <AppRoutes />
         <Toaster />
