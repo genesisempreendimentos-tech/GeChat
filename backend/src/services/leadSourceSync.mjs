@@ -257,6 +257,161 @@ const ALL_LEADS_COLUMNS = [
   'source_table',
 ];
 
+/** Colunas lidas das tabelas-fonte (sem cvcrm_payload jsonb no cliente). */
+export const SOURCE_TABLE_SLIM_SELECT_SQL = `
+  id,
+  created_at,
+  updated_at,
+  name,
+  email,
+  phone,
+  gender,
+  birth_date,
+  current_city,
+  relationship_status,
+  monthly_investment,
+  profile_type,
+  profile_completed,
+  whatsapp_clicked,
+  canal,
+  empreendimento_interesse,
+  parameter,
+  children_status,
+  codigo,
+  cvcrm_lead_id,
+  cvcrm_status,
+  cvcrm_situation,
+  cvcrm_stage,
+  cvcrm_is_sold,
+  cvcrm_sale_value,
+  cvcrm_sale_date,
+  cvcrm_last_update,
+  cvcrm_sync_status,
+  cvcrm_sync_error,
+  cvcrm_last_synced_at
+`.trim();
+
+const SOURCE_TABLE_SET = new Set(ALL_SOURCE_TABLES);
+
+function assertSourceTableName(tableName) {
+  if (!SOURCE_TABLE_SET.has(tableName)) {
+    throw new Error(`[leads/sync] tabela-fonte inválida: ${tableName}`);
+  }
+  return tableName;
+}
+
+function srcTextTrim(alias, col, cols) {
+  if (!cols.has(col)) return 'NULL::text';
+  return `NULLIF(TRIM(${alias}.${col}), '')`;
+}
+
+/** Expressões canônicas (iguais no INSERT e na assinatura). */
+function buildCanonicalSelectExprs(cols, alias) {
+  const s = alias;
+  return [
+    `${s}.id`,
+    `${s}.created_at`,
+    cols.has('updated_at') ? `COALESCE(${s}.updated_at, ${s}.created_at)` : `${s}.created_at`,
+    cols.has('name') ? `COALESCE(NULLIF(TRIM(${s}.name), ''), 'Lead')` : `'Lead'`,
+    srcTextTrim(s, 'email', cols),
+    srcTextTrim(s, 'phone', cols),
+    srcTextTrim(s, 'gender', cols),
+    cols.has('birth_date') ? `${s}.birth_date` : 'NULL::date',
+    srcTextTrim(s, 'current_city', cols),
+    srcTextTrim(s, 'relationship_status', cols),
+    srcTextTrim(s, 'monthly_investment', cols),
+    srcTextTrim(s, 'profile_type', cols),
+    cols.has('profile_completed') ? `COALESCE(${s}.profile_completed, false)` : 'false',
+    cols.has('whatsapp_clicked') ? `COALESCE(${s}.whatsapp_clicked, false)` : 'false',
+    srcTextTrim(s, 'canal', cols),
+    srcTextTrim(s, 'empreendimento_interesse', cols),
+    cols.has('parameter') ? `${s}.parameter` : 'NULL::text[]',
+    srcTextTrim(s, 'children_status', cols),
+    srcTextTrim(s, 'codigo', cols),
+    srcTextTrim(s, 'cvcrm_lead_id', cols),
+    srcTextTrim(s, 'cvcrm_status', cols),
+    srcTextTrim(s, 'cvcrm_situation', cols),
+    srcTextTrim(s, 'cvcrm_stage', cols),
+    cols.has('cvcrm_is_sold') ? `COALESCE(${s}.cvcrm_is_sold, false)` : 'false',
+    cols.has('cvcrm_sale_value') ? `${s}.cvcrm_sale_value` : 'NULL::numeric',
+    cols.has('cvcrm_sale_date') ? `${s}.cvcrm_sale_date` : 'NULL::timestamptz',
+    cols.has('cvcrm_last_update') ? `${s}.cvcrm_last_update` : 'NULL::timestamptz',
+    cols.has('cvcrm_payload') ? `${s}.cvcrm_payload` : 'NULL::jsonb',
+    cols.has('cvcrm_sync_status')
+      ? `COALESCE(NULLIF(TRIM(${s}.cvcrm_sync_status), ''), 'pending')`
+      : `'pending'`,
+    srcTextTrim(s, 'cvcrm_sync_error', cols),
+    cols.has('cvcrm_last_synced_at') ? `${s}.cvcrm_last_synced_at` : 'NULL::timestamptz',
+  ];
+}
+
+const FULL_SOURCE_COLUMNS = new Set([
+  'id', 'created_at', 'updated_at', 'name', 'email', 'phone', 'gender', 'birth_date',
+  'current_city', 'relationship_status', 'monthly_investment', 'profile_type',
+  'profile_completed', 'whatsapp_clicked', 'canal', 'empreendimento_interesse',
+  'parameter', 'children_status', 'codigo',
+  'cvcrm_lead_id', 'cvcrm_status', 'cvcrm_situation', 'cvcrm_stage', 'cvcrm_is_sold',
+  'cvcrm_sale_value', 'cvcrm_sale_date', 'cvcrm_last_update', 'cvcrm_payload',
+  'cvcrm_sync_status', 'cvcrm_sync_error', 'cvcrm_last_synced_at',
+]);
+
+function rowDigestSql(exprs) {
+  const parts = exprs.map((expr) => `COALESCE((${expr})::text, '')`).join(', ');
+  return `md5(CONCAT_WS('|', ${parts}))`;
+}
+
+const tableColumnCache = new Map();
+
+async function getSourceTableColumns(client, tableName) {
+  if (tableColumnCache.has(tableName)) return tableColumnCache.get(tableName);
+  const { rows } = await client.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = $1`,
+    [tableName],
+  );
+  const set = new Set(rows.map((r) => r.column_name));
+  tableColumnCache.set(tableName, set);
+  return set;
+}
+
+function buildSourceTableSignatureSql(tableName, cols) {
+  const table = assertSourceTableName(tableName);
+  const srcExprs = buildCanonicalSelectExprs(cols, 's');
+  const alExprs = buildCanonicalSelectExprs(FULL_SOURCE_COLUMNS, 'a');
+  const srcRowDig = rowDigestSql(srcExprs);
+  const alRowDig = rowDigestSql(alExprs);
+  return `
+    SELECT
+      src.cnt::int AS src_count,
+      al.cnt::int AS al_count,
+      src.sig AS src_sig,
+      al.sig AS al_sig,
+      (src.cnt = al.cnt AND src.sig IS NOT DISTINCT FROM al.sig) AS unchanged
+    FROM (
+      SELECT COUNT(*)::bigint AS cnt,
+             md5(COALESCE(string_agg(${srcRowDig}, '' ORDER BY s.id, s.created_at), '')) AS sig
+      FROM ${table} s
+    ) src,
+    (
+      SELECT COUNT(*)::bigint AS cnt,
+             md5(COALESCE(string_agg(${alRowDig}, '' ORDER BY a.id, a.created_at), '')) AS sig
+      FROM all_leads a
+      WHERE a.source_table = $1
+    ) al
+  `;
+}
+
+function buildSourceConsolidateInsertSql(tableName, cols) {
+  const table = assertSourceTableName(tableName);
+  const selectExprs = [...buildCanonicalSelectExprs(cols, 's'), '$1::text'];
+  return `
+    INSERT INTO all_leads (${ALL_LEADS_COLUMNS.join(', ')})
+    SELECT ${selectExprs.join(', ')}
+    FROM ${table} s
+    ORDER BY s.created_at ASC
+  `;
+}
+
 const LEGACY_ALL_LEADS_COLUMNS = new Set([
   'page', 'origem', 'parametro', 'empreendimento', 'status', 'relacionamento', 'investimento',
   'cidade_residencia', 'profile_notes', 'dispositivo', 'pagamento_preferencia', 'responsavel',
@@ -364,7 +519,11 @@ async function resolveSourceTable(client, candidates) {
 }
 
 let lastSyncAt = 0;
+let lastRebuildAt = 0;
+let pendingRebuild = false;
 const SYNC_INTERVAL_MS = 300_000;
+/** Rebuild de all_leads_unique no máximo 1x/h após mudança real. */
+const REBUILD_MIN_INTERVAL_MS = 60 * 60 * 1000;
 let syncInFlight = false;
 const tableSyncInFlight = {};
 
@@ -372,39 +531,62 @@ async function processLeadSourceSync(client, source) {
   const tableName = await resolveSourceTable(client, source.tables);
   if (!tableName) {
     console.warn(`[leads/sync] Tabela não encontrada: ${source.tables.join(' | ')}`);
-    return { source: source.key, table: null, count: 0, skipped: false };
+    return { source: source.key, table: null, count: 0, changed: 0, skipped: false };
   }
 
   if (tableSyncInFlight[tableName]) {
     console.log(`[leads/sync] Skipping ${tableName} as previous sync still in flight`);
-    return { source: source.key, table: tableName, count: 0, skipped: true };
+    return { source: source.key, table: tableName, count: 0, changed: 0, skipped: true };
   }
 
   tableSyncInFlight[tableName] = true;
   try {
-    const { rows } = await client.query(`SELECT * FROM ${tableName} ORDER BY created_at ASC`);
-    const mappedRows = rows.map((row) => mapCanonicalLeadRow(row, source.sourceTable));
+    const cols = await getSourceTableColumns(client, tableName);
+    const { rows: [sig] } = await client.query(
+      buildSourceTableSignatureSql(tableName, cols),
+      [source.sourceTable],
+    );
 
-    await client.query(`DELETE FROM all_leads WHERE source_table = $1`, [source.sourceTable]);
-
-    for (let i = 0; i < mappedRows.length; i += INSERT_BATCH_SIZE) {
-      const chunk = mappedRows.slice(i, i + INSERT_BATCH_SIZE);
-      if (chunk.length === 0) continue;
-      await client.query(buildBatchInsertSql(chunk.length), chunk.flatMap(leadToInsertParams));
+    if (sig.unchanged) {
+      console.log(`[leads/sync] ${tableName}: sem alterações (${sig.src_count} lead(s))`);
+      return {
+        source: source.key,
+        table: tableName,
+        count: sig.src_count,
+        changed: 0,
+        skipped: false,
+      };
     }
 
-    console.log(`[leads/sync] ${tableName}: ${mappedRows.length} lead(s) → all_leads (união pura)`);
-    return { source: source.key, table: tableName, count: mappedRows.length, skipped: false };
+    await client.query(`DELETE FROM all_leads WHERE source_table = $1`, [source.sourceTable]);
+    await client.query(buildSourceConsolidateInsertSql(tableName, cols), [source.sourceTable]);
+    const changed = Number(sig.src_count) || 0;
+    console.log(
+      `[leads/sync] ${tableName}: ${changed} lead(s) → all_leads (alterado; consolidação server-side)`,
+    );
+    return {
+      source: source.key,
+      table: tableName,
+      count: changed,
+      changed,
+      skipped: false,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[leads/sync] ${tableName} error:`, message);
-    return { source: source.key, table: tableName, count: 0, skipped: false, error: message };
+    return { source: source.key, table: tableName, count: 0, changed: 0, skipped: false, error: message };
   } finally {
     tableSyncInFlight[tableName] = false;
   }
 }
 
-export async function syncLeadsFromSources({ force = false } = {}) {
+/**
+ * @param {object} opts
+ * @param {boolean} [opts.force] bypass do throttle de sync (5 min)
+ * @param {boolean} [opts.truncate] TRUNCATE all_leads antes (reset total; scripts manuais)
+ * @param {boolean} [opts.rebuildHint] sinaliza mudança externa (ex.: reservas) para rebuild
+ */
+export async function syncLeadsFromSources({ force = false, truncate = false, rebuildHint = false } = {}) {
   if (syncInFlight) return { synced: 0, sources: [], skipped: true };
   syncInFlight = true;
   try {
@@ -423,12 +605,13 @@ export async function syncLeadsFromSources({ force = false } = {}) {
     await client.connect();
 
     let totalSynced = 0;
+    let totalChanged = 0;
     const sources = [];
 
     try {
       await ensureAllLeadsUnionSchema(client);
 
-      if (force) {
+      if (truncate) {
         await client.query(`TRUNCATE all_leads`);
       }
 
@@ -436,14 +619,44 @@ export async function syncLeadsFromSources({ force = false } = {}) {
         const result = await processLeadSourceSync(client, source);
         if (result.table && !result.skipped) {
           totalSynced += result.count;
-          sources.push({ source: result.source, table: result.table, count: result.count });
+          totalChanged += result.changed ?? 0;
+          sources.push({
+            source: result.source,
+            table: result.table,
+            count: result.count,
+            changed: result.changed ?? 0,
+          });
         }
       }
 
-      const uniqueResult = await rebuildAllLeadsUnique(client);
+      const needsRebuild = totalChanged > 0 || rebuildHint;
+      if (needsRebuild) {
+        pendingRebuild = true;
+      }
+
+      const rebuildDue = pendingRebuild && now - lastRebuildAt >= REBUILD_MIN_INTERVAL_MS;
+      let uniqueResult = null;
+      if (rebuildDue) {
+        uniqueResult = await rebuildAllLeadsUnique(client);
+        lastRebuildAt = now;
+        pendingRebuild = false;
+      } else if (pendingRebuild) {
+        console.log(
+          '[leads/unique] rebuild adiado (mudança detectada; intervalo mínimo de 1h não atingido)',
+        );
+      } else {
+        console.log('[leads/unique] rebuild ignorado (sem mudança real em all_leads)');
+      }
 
       lastSyncAt = now;
-      return { synced: totalSynced, sources, unique: uniqueResult };
+      return {
+        synced: totalSynced,
+        changed: totalChanged,
+        sources,
+        unique: uniqueResult,
+        uniqueSkipped: !rebuildDue,
+        rebuildPending: pendingRebuild,
+      };
     } finally {
       await client.end();
     }

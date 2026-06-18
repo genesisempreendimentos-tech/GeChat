@@ -371,7 +371,10 @@ export async function runIncrementalSync({
 
     if (needsConsolidation) {
       try {
-        const syncResult = await syncLeadsFromSources({ force: true });
+        const syncResult = await syncLeadsFromSources({
+          force: true,
+          rebuildHint: reservasResult.processed > 0,
+        });
         leads_consolidated = syncResult.synced ?? 0;
         console.log(`[cvcrm/incremental] fontes → all_leads: ${leads_consolidated} sincronizado(s)`);
       } catch (err) {

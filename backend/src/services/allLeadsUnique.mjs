@@ -102,6 +102,39 @@ CREATE INDEX IF NOT EXISTS all_leads_empreendimento_idx ON all_leads (empreendim
 
 const INSERT_BATCH_SIZE = 200;
 
+/** Colunas lidas do rebuild (cluster + aggregate + geleads_id signup keys). */
+export const ALL_LEADS_REBUILD_SELECT_SQL = `
+  id,
+  source_table,
+  created_at,
+  updated_at,
+  name,
+  email,
+  phone,
+  gender,
+  birth_date,
+  current_city,
+  relationship_status,
+  monthly_investment,
+  profile_type,
+  profile_completed,
+  whatsapp_clicked,
+  canal,
+  empreendimento_interesse,
+  parameter,
+  children_status,
+  cvcrm_lead_id,
+  cvcrm_status,
+  cvcrm_situation,
+  cvcrm_stage,
+  cvcrm_is_sold,
+  cvcrm_sale_value,
+  cvcrm_sale_date,
+  cvcrm_last_update,
+  cvcrm_payload->>'idcorretor' AS cvcrm_payload_idcorretor,
+  cvcrm_payload->>'idimobiliaria' AS cvcrm_payload_idimobiliaria
+`.trim();
+
 export { normalizePersonCvcrmLeadId, normalizePersonEmail, normalizePersonPhone } from '../lib/personUnionKeys.mjs';
 
 function clusterOldestCreatedTs(rows) {
@@ -243,13 +276,10 @@ function pickCvSnapshot(rows) {
   };
 }
 
-function attributionFromPayload(payload) {
-  if (!payload || typeof payload !== 'object') {
-    return { idcorretor: null, idimobiliaria: null };
-  }
+function attributionFromLeadRow(row) {
   return {
-    idcorretor: toNullableString(payload.idcorretor),
-    idimobiliaria: toNullableString(payload.idimobiliaria),
+    idcorretor: toNullableString(row.cvcrm_payload_idcorretor),
+    idimobiliaria: toNullableString(row.cvcrm_payload_idimobiliaria),
   };
 }
 
@@ -267,7 +297,7 @@ function resolveAttribution(rows, reservasByIdlead) {
   }
 
   for (const row of sortByRecencyDesc(rows)) {
-    const fromPayload = attributionFromPayload(row.cvcrm_payload);
+    const fromPayload = attributionFromLeadRow(row);
     if (fromPayload.idcorretor || fromPayload.idimobiliaria) {
       return fromPayload;
     }
@@ -378,7 +408,7 @@ async function loadReservaFlagsByIdlead(client) {
   const vendaIdleads = new Set();
   try {
     const { rows } = await client.query(
-      `SELECT idlead, situacao, data_venda, payload
+      `SELECT idlead, situacao, data_venda, payload->>'data_venda' AS payload_data_venda
        FROM cvcrm_reservas
        WHERE NULLIF(TRIM(idlead), '') IS NOT NULL`,
     );
@@ -386,7 +416,7 @@ async function loadReservaFlagsByIdlead(client) {
       const isVenda =
         String(row.situacao ?? '').toLowerCase().includes('vendida')
         || row.data_venda != null
-        || (row.payload && String(row.payload?.data_venda ?? '').trim() !== '');
+        || String(row.payload_data_venda ?? '').trim() !== '';
       for (const idlead of splitIdleadIds(row.idlead)) {
         reservaIdleads.add(idlead);
         if (isVenda) vendaIdleads.add(idlead);
@@ -447,7 +477,9 @@ export async function rebuildAllLeadsUnique(client) {
   await client.query(ENSURE_ALL_LEADS_INDEXES_SQL);
   await ensureGeleadsIdSchema(client);
 
-  const { rows } = await client.query(`SELECT * FROM all_leads ORDER BY created_at ASC`);
+  const { rows } = await client.query(
+    `SELECT ${ALL_LEADS_REBUILD_SELECT_SQL} FROM all_leads ORDER BY created_at ASC`,
+  );
   const soldReservasByIdlead = await loadReservasAttributionByIdlead(client);
   const { reservaIdleads, vendaIdleads } = await loadReservaFlagsByIdlead(client);
 
