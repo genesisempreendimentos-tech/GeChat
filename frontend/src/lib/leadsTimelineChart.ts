@@ -7,6 +7,7 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { LeadsOverviewResponse, LeadsPeriodoPreset } from '@/types/leadsOverview';
+import { empreendimentoColorHex } from '@/lib/brandColors';
 import { timelineSeriesColor } from '@/lib/leadsPanelColors';
 
 export type LeadsTimelineViewMode = 'compacto' | 'detalhado';
@@ -52,7 +53,7 @@ function slugSeriesKey(name: string): string {
 }
 
 export function normalizeTimelineSeries(
-  series: string[] | { dataKey: string; name: string }[],
+  series: string[] | { dataKey: string; name: string; color?: string }[],
 ): LeadsTimelineSeries[] {
   return series.map((item, index) => {
     if (typeof item === 'string') {
@@ -62,10 +63,13 @@ export function normalizeTimelineSeries(
         color: timelineSeriesColor(index),
       };
     }
+    const color = item.color
+      ? empreendimentoColorHex(item.color)
+      : timelineSeriesColor(index);
     return {
       dataKey: item.dataKey,
       name: item.name,
-      color: timelineSeriesColor(index),
+      color,
     };
   });
 }

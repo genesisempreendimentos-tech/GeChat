@@ -39,7 +39,7 @@ export type LeadsOverviewResponse = {
     por_empreendimento: { empreendimento: string; cadastros: number; pessoas: number }[];
   };
   timeline: {
-    series: string[] | { dataKey: string; name: string }[];
+    series: string[] | { dataKey: string; name: string; color?: string }[];
     points: Record<string, string | number>[];
     grain: LeadsTimelineGrain;
   };

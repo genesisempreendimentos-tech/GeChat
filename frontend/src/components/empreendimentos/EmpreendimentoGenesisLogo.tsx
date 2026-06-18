@@ -47,7 +47,9 @@ export function EmpreendimentoGenesisLogo({
   return (
     <span
       className={cn(boxClass, 'items-center justify-center text-white')}
-      style={{ backgroundColor: empreendimentoColorHex(item.cor ?? DEFAULT_EMPREENDIMENTO_COLOR) }}
+      style={{
+        backgroundColor: empreendimentoColorHex(item.cor ?? DEFAULT_EMPREENDIMENTO_COLOR),
+      }}
       aria-hidden
     >
       <Building2 className={iconSizeClass[size]} />

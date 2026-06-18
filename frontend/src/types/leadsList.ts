@@ -4,7 +4,7 @@ export type LeadsQualificacaoStatus = 'Indefinida' | 'N/A' | 'Baixa' | 'Média' 
 export type LeadsListRow = {
   person_id: string;
   geleads_id: string | null;
-  id_amigavel: string;
+  id_amigavel: string | null;
   codigo: string | null;
   nome: string;
   email: string | null;

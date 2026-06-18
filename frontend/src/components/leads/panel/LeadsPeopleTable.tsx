@@ -20,6 +20,7 @@ import {
 } from '@/components/leads/panel/leadsPanelTableCells';
 import { MotionFlipNumber } from '@/components/motion/AppMotion';
 import { formatLeadDateCreated } from '@/lib/formatDateTime';
+import { parseGeleadsIdSeq } from '@/lib/leadDisplayId';
 import type { LeadsListRow } from '@/types/leadsList';
 import { cn } from '@/lib/utils';
 
@@ -102,12 +103,7 @@ type LeadsPeopleTableProps = {
 function renderPanelCell(row: LeadsListRow, key: LeadsPanelSortKey): ReactNode {
   switch (key) {
     case 'id_amigavel':
-      return (
-        <LeadDisplayIdBadge
-          id={row.person_id}
-          codigo={row.id_amigavel || row.codigo}
-        />
-      );
+      return <LeadDisplayIdBadge geleadsId={row.geleads_id} codigo={row.codigo} />;
     case 'nome':
       return row.nome;
     case 'email':
@@ -154,7 +150,7 @@ function renderPanelCell(row: LeadsListRow, key: LeadsPanelSortKey): ReactNode {
 function sortValue(row: LeadsListRow, key: LeadsPanelSortKey): string | number {
   switch (key) {
     case 'id_amigavel':
-      return row.id_amigavel;
+      return parseGeleadsIdSeq(row.geleads_id) ?? row.geleads_id ?? '';
     case 'created_at':
       return new Date(row.created_at).getTime() || 0;
     case 'cvcrm':
@@ -175,7 +171,7 @@ function sortValue(row: LeadsListRow, key: LeadsPanelSortKey): string | number {
 function toLeadCardRow(row: LeadsListRow): LeadCardRow {
   return {
     id: row.person_id,
-    codigo: row.id_amigavel,
+    codigo: row.geleads_id ?? row.codigo,
     dataHora: row.created_at,
     nome: row.nome,
     pagina: '',

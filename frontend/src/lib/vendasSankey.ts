@@ -87,8 +87,87 @@ function leafColor(bucket: SankeyLeafBucket, index: number): string {
   return palettes[bucket][index % palettes[bucket].length];
 }
 
-function leafDepth(bucket: SankeyLeafBucket): number {
-  return bucket === 'venda_perdida' || bucket === 'aprovada' ? 3 : 2;
+function leafDepth(bucket: SankeyLeafBucket, depthOffset = 0): number {
+  const base = bucket === 'venda_perdida' || bucket === 'aprovada' ? 3 : 2;
+  return base + depthOffset;
+}
+
+type ArvoreMetrics = {
+  reservas_andamento: number;
+  reservas_perdidas: number;
+  vendas_efetuadas: number;
+  vendas_perdidas: number;
+  vendas_ativas: number;
+};
+
+function appendReservaArvore(
+  b: SankeyBuilder,
+  parentId: string,
+  depthOffset: number,
+  metrics: ArvoreMetrics,
+  rows: VendasFluxoCrosstab['por_situacao'],
+) {
+  const d1 = 1 + depthOffset;
+  const d2 = 2 + depthOffset;
+  const leafOff = depthOffset;
+
+  b.addNode('andamento', 'Reservas em Andamento', COLORS.andamento, 'andamento', d1);
+  b.addNode('reservas_perdidas', 'Reservas Perdidas', COLORS.reservasPerdidas, 'reservas_perdidas', d1);
+  b.addNode('efetuadas', 'Vendas Efetuadas', COLORS.efetuadas, 'efetuadas', d1);
+
+  b.addLink(parentId, 'andamento', metrics.reservas_andamento);
+  b.addLink(parentId, 'reservas_perdidas', metrics.reservas_perdidas);
+  b.addLink(parentId, 'efetuadas', metrics.vendas_efetuadas);
+
+  b.addLeaves(
+    'andamento',
+    'andamento',
+    collectLeaves(rows, (row) => {
+      const s = row.situacao?.trim() ?? '';
+      if (row.sem_venda <= 0 || RESERVAS_PERDIDAS_SITUACOES.has(s)) return 0;
+      return row.sem_venda;
+    }),
+    leafOff,
+  );
+
+  b.addLeaves(
+    'reservas_perdidas',
+    'reserva_perdida',
+    collectLeaves(rows, (row) => {
+      const s = row.situacao?.trim() ?? '';
+      if (row.sem_venda <= 0 || !RESERVAS_PERDIDAS_SITUACOES.has(s)) return 0;
+      return row.sem_venda;
+    }),
+    leafOff,
+  );
+
+  b.addNode('vendas_perdidas', 'Vendas Perdidas', COLORS.vendasPerdidas, 'vendas_perdidas', d2);
+  b.addNode('vendas_aprovadas', 'Vendas Aprovadas', COLORS.vendasAprovadas, 'vendas_aprovadas', d2);
+
+  b.addLink('efetuadas', 'vendas_perdidas', metrics.vendas_perdidas);
+  b.addLink('efetuadas', 'vendas_aprovadas', metrics.vendas_ativas);
+
+  b.addLeaves(
+    'vendas_perdidas',
+    'venda_perdida',
+    collectLeaves(rows, (row) => {
+      const s = row.situacao?.trim() ?? '';
+      if (row.com_venda <= 0 || !VENDAS_PERDIDAS_SITUACOES.has(s)) return 0;
+      return row.com_venda;
+    }),
+    leafOff,
+  );
+
+  b.addLeaves(
+    'vendas_aprovadas',
+    'aprovada',
+    collectLeaves(rows, (row) => {
+      const s = row.situacao?.trim() ?? '';
+      if (row.com_venda <= 0 || VENDAS_PERDIDAS_SITUACOES.has(s)) return 0;
+      return row.com_venda;
+    }),
+    leafOff,
+  );
 }
 
 class SankeyBuilder {
@@ -131,12 +210,13 @@ class SankeyBuilder {
     parentId: string,
     bucket: SankeyLeafBucket,
     leaves: { situacao: string; value: number }[],
+    depthOffset = 0,
   ) {
     const sorted = [...leaves].filter((l) => l.value > 0).sort((a, b) => b.value - a.value);
     sorted.forEach((leaf, i) => {
       const { label, infoTooltip } = getSankeyLeafMeta(leaf.situacao, bucket);
       const id = `${parentId}_folha_${slugify(leaf.situacao)}`;
-      this.addNode(id, label, leafColor(bucket, i), `folha_${bucket}`, leafDepth(bucket), {
+      this.addNode(id, label, leafColor(bucket, i), `folha_${bucket}`, leafDepth(bucket, depthOffset), {
         infoTooltip,
         situacaoReal: leaf.situacao,
         isLeaf: true,
@@ -175,59 +255,18 @@ export function buildVendasSankeyData(
   const b = new SankeyBuilder();
 
   b.addNode('totais', 'Reservas Totais', COLORS.root, 'root', 0);
-
-  b.addNode('andamento', 'Reservas em Andamento', COLORS.andamento, 'andamento', 1);
-  b.addNode('reservas_perdidas', 'Reservas Perdidas', COLORS.reservasPerdidas, 'reservas_perdidas', 1);
-  b.addNode('efetuadas', 'Vendas Efetuadas', COLORS.efetuadas, 'efetuadas', 1);
-
-  b.addLink('totais', 'andamento', totais.reservas_andamento);
-  b.addLink('totais', 'reservas_perdidas', totais.reservas_perdidas);
-  b.addLink('totais', 'efetuadas', totais.vendas_efetuadas);
-
-  b.addLeaves(
-    'andamento',
-    'andamento',
-    collectLeaves(rows, (row) => {
-      const s = row.situacao?.trim() ?? '';
-      if (row.sem_venda <= 0 || RESERVAS_PERDIDAS_SITUACOES.has(s)) return 0;
-      return row.sem_venda;
-    }),
-  );
-
-  b.addLeaves(
-    'reservas_perdidas',
-    'reserva_perdida',
-    collectLeaves(rows, (row) => {
-      const s = row.situacao?.trim() ?? '';
-      if (row.sem_venda <= 0 || !RESERVAS_PERDIDAS_SITUACOES.has(s)) return 0;
-      return row.sem_venda;
-    }),
-  );
-
-  b.addNode('vendas_perdidas', 'Vendas Perdidas', COLORS.vendasPerdidas, 'vendas_perdidas', 2);
-  b.addNode('vendas_aprovadas', 'Vendas Aprovadas', COLORS.vendasAprovadas, 'vendas_aprovadas', 2);
-
-  b.addLink('efetuadas', 'vendas_perdidas', totais.vendas_perdidas);
-  b.addLink('efetuadas', 'vendas_aprovadas', totais.vendas_ativas);
-
-  b.addLeaves(
-    'vendas_perdidas',
-    'venda_perdida',
-    collectLeaves(rows, (row) => {
-      const s = row.situacao?.trim() ?? '';
-      if (row.com_venda <= 0 || !VENDAS_PERDIDAS_SITUACOES.has(s)) return 0;
-      return row.com_venda;
-    }),
-  );
-
-  b.addLeaves(
-    'vendas_aprovadas',
-    'aprovada',
-    collectLeaves(rows, (row) => {
-      const s = row.situacao?.trim() ?? '';
-      if (row.com_venda <= 0 || VENDAS_PERDIDAS_SITUACOES.has(s)) return 0;
-      return row.com_venda;
-    }),
+  appendReservaArvore(
+    b,
+    'totais',
+    0,
+    {
+      reservas_andamento: totais.reservas_andamento,
+      reservas_perdidas: totais.reservas_perdidas,
+      vendas_efetuadas: totais.vendas_efetuadas,
+      vendas_perdidas: totais.vendas_perdidas,
+      vendas_ativas: totais.vendas_ativas,
+    },
+    rows,
   );
 
   const data = b.build();

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -19,7 +20,22 @@ function keyToken(key_type, key_value) {
   return `${key_type}:${key_value}`;
 }
 
-/** Coleta chaves normalizadas do cluster (mesmas regras do union-find + signup estável se vazio). */
+function stableRowFingerprint(row) {
+  const createdAt = row.created_at instanceof Date ? row.created_at : new Date(row.created_at);
+  const created = Number.isFinite(createdAt.getTime()) ? createdAt.toISOString() : '';
+  const source = String(row.source_table ?? '').trim();
+  const name = String(row.name ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const signupId = String(row.id ?? '').trim();
+  return `${created}|${source}|${name}|${signupId}`;
+}
+
+/** Chave determinística para clusters sem email/telefone/cvcrm (estável entre rebuilds). */
+export function buildClusterFallbackKeyValue(rows) {
+  const fingerprints = rows.map(stableRowFingerprint).sort();
+  return createHash('sha256').update(fingerprints.join('\n')).digest('hex');
+}
+
+/** Coleta chaves normalizadas do cluster (mesmas regras do union-find + fallback estável se vazio). */
 export function collectClusterKeys(rows) {
   const keys = [];
   const seen = new Set();
@@ -38,17 +54,8 @@ export function collectClusterKeys(rows) {
     }
   }
   if (keys.length === 0) {
-    for (const row of rows) {
-      const id = String(row.id ?? '').trim();
-      const source = String(row.source_table ?? '').trim();
-      if (!id || !source) continue;
-      const key_type = 'signup';
-      const key_value = `${id}|${source}`;
-      const token = keyToken(key_type, key_value);
-      if (seen.has(token)) continue;
-      seen.add(token);
-      keys.push({ key_type, key_value });
-    }
+    const key_value = buildClusterFallbackKeyValue(rows);
+    keys.push({ key_type: 'fallback', key_value });
   }
   return keys;
 }
@@ -91,6 +98,14 @@ async function batchUpsertKeys(client, rows) {
   }
 }
 
+function sortMatchesByLowestSeq(matches) {
+  return [...matches].sort((a, b) => {
+    const seqDiff = Number(a.seq) - Number(b.seq);
+    if (seqDiff !== 0) return seqDiff;
+    return String(a.geleads_id).localeCompare(String(b.geleads_id));
+  });
+}
+
 /**
  * Resolver em memória + flush em lote (uma transação).
  * Carrega registry e chaves no início; zero queries por cluster.
@@ -116,22 +131,28 @@ export async function createGeleadsIdResolver(client) {
   const pendingKeyUpserts = new Map();
   const pendingMerges = [];
 
-  function activeMeta(geleadsId) {
+  function resolveActiveMeta(geleadsId, seen = new Set()) {
+    if (!geleadsId || seen.has(geleadsId)) return null;
+    seen.add(geleadsId);
     const row = registryById.get(geleadsId);
-    if (!row || row.status !== 'active') return null;
-    return row;
+    if (!row) return null;
+    if (row.status === 'active') return row;
+    if (row.status === 'merged' && row.merged_into) {
+      return resolveActiveMeta(row.merged_into, seen);
+    }
+    return null;
   }
 
   function lookupActiveMatches(keys) {
     const byId = new Map();
     for (const key of keys) {
-      const geleadsId = keyToGeleads.get(keyToken(key.key_type, key.key_value));
-      if (!geleadsId) continue;
-      const meta = activeMeta(geleadsId);
+      const rawGeleadsId = keyToGeleads.get(keyToken(key.key_type, key.key_value));
+      if (!rawGeleadsId) continue;
+      const meta = resolveActiveMeta(rawGeleadsId);
       if (!meta) continue;
-      if (!byId.has(geleadsId)) byId.set(geleadsId, meta);
+      if (!byId.has(meta.geleads_id)) byId.set(meta.geleads_id, meta);
     }
-    return [...byId.values()].sort((a, b) => Number(a.seq) - Number(b.seq));
+    return sortMatchesByLowestSeq([...byId.values()]);
   }
 
   function registerKeyUpserts(keys, geleadsId) {

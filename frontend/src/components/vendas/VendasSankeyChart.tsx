@@ -181,31 +181,31 @@ export function VendasSankeyChart({ totais, fluxoCrosstab, loading }: VendasSank
                 className="block"
                 aria-label="Fluxo de reservas"
               >
-              {layout.links.map((link, i) => (
-                <path
-                  key={`link-${i}`}
-                  d={linkPath(link)}
-                  fill="none"
-                  stroke={link.fill}
-                  strokeWidth={link.linkWidth}
-                  strokeOpacity={hoveredLink === i ? 0.7 : 0.28}
-                  className="transition-[stroke-opacity] duration-150"
-                  onMouseEnter={(e) => onLinkHover(link, i, e, true)}
-                  onMouseMove={(e) => onLinkHover(link, i, e, true)}
-                  onMouseLeave={(e) => onLinkHover(link, i, e, false)}
-                />
-              ))}
-              {layout.nodes.map((node) => (
-                <rect
-                  key={node.id}
-                  x={node.x}
-                  y={node.y}
-                  width={node.width}
-                  height={node.height}
-                  fill={node.fill}
-                  rx={2}
-                />
-              ))}
+                {layout.links.map((link, i) => (
+                  <path
+                    key={`link-${i}`}
+                    d={linkPath(link)}
+                    fill="none"
+                    stroke={link.fill}
+                    strokeWidth={link.linkWidth}
+                    strokeOpacity={hoveredLink === i ? 0.7 : 0.28}
+                    className="transition-[stroke-opacity] duration-150"
+                    onMouseEnter={(e) => onLinkHover(link, i, e, true)}
+                    onMouseMove={(e) => onLinkHover(link, i, e, true)}
+                    onMouseLeave={(e) => onLinkHover(link, i, e, false)}
+                  />
+                ))}
+                {layout.nodes.map((node) => (
+                  <rect
+                    key={node.id}
+                    x={node.x}
+                    y={node.y}
+                    width={node.width}
+                    height={node.height}
+                    fill={node.fill}
+                    rx={2}
+                  />
+                ))}
               </svg>
               {layout.nodes.map((node) => (
                 <SankeyNodeLabel key={`label-${node.id}`} node={node} />

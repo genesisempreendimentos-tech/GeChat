@@ -26,6 +26,29 @@ export type EmpreendimentoColorToken = (typeof EMPREENDIMENTO_COLOR_OPTIONS)[num
 
 export const DEFAULT_EMPREENDIMENTO_COLOR: EmpreendimentoColorToken = 'teal500';
 
+const TOKEN_TO_TAILWIND: Record<EmpreendimentoColorToken, string> = {
+  teal500: 'bg-teal-500',
+  sky500: 'bg-sky-500',
+  blue500: 'bg-blue-500',
+  indigo500: 'bg-indigo-500',
+  violet500: 'bg-violet-500',
+  purple500: 'bg-purple-500',
+  fuchsia500: 'bg-fuchsia-500',
+  pink500: 'bg-pink-500',
+  rose500: 'bg-rose-500',
+  red500: 'bg-red-500',
+  orange500: 'bg-orange-500',
+  amber500: 'bg-amber-500',
+  yellow500: 'bg-yellow-500',
+  lime500: 'bg-lime-500',
+  green500: 'bg-green-500',
+  emerald500: 'bg-emerald-500',
+  cyan500: 'bg-cyan-500',
+  slate500: 'bg-slate-500',
+  gray500: 'bg-gray-500',
+  stone500: 'bg-stone-500',
+};
+
 const LEGACY_CLASS_TO_TOKEN: Record<string, EmpreendimentoColorToken> = {
   'bg-teal-500': 'teal500',
   'bg-sky-500': 'sky500',
@@ -34,6 +57,8 @@ const LEGACY_CLASS_TO_TOKEN: Record<string, EmpreendimentoColorToken> = {
   'bg-violet-500': 'violet500',
   'bg-purple-500': 'purple500',
   'bg-fuchsia-500': 'fuchsia500',
+  'bg-pink-500': 'pink500',
+  'bg-rose-500': 'rose500',
   'bg-red-500': 'red500',
   'bg-orange-500': 'orange500',
   'bg-amber-500': 'amber500',
@@ -55,8 +80,21 @@ export function normalizeEmpreendimentoColorToken(value: string | null | undefin
   return LEGACY_CLASS_TO_TOKEN[value] ?? DEFAULT_EMPREENDIMENTO_COLOR;
 }
 
+export function empreendimentoColorTokenToTailwind(token: EmpreendimentoColorToken): string {
+  return TOKEN_TO_TAILWIND[token] ?? TOKEN_TO_TAILWIND[DEFAULT_EMPREENDIMENTO_COLOR];
+}
+
+export function normalizeEmpreendimentoTailwindColor(value: string | null | undefined): string {
+  if (!value) return TOKEN_TO_TAILWIND[DEFAULT_EMPREENDIMENTO_COLOR];
+  const trimmed = value.trim();
+  if (!trimmed) return TOKEN_TO_TAILWIND[DEFAULT_EMPREENDIMENTO_COLOR];
+  if (trimmed.startsWith('bg-')) return trimmed;
+  return empreendimentoColorTokenToTailwind(normalizeEmpreendimentoColorToken(trimmed));
+}
+
 export function empreendimentoColorHex(value: string | null | undefined): string {
-  const token = normalizeEmpreendimentoColorToken(value);
+  const tailwind = normalizeEmpreendimentoTailwindColor(value);
+  const token = LEGACY_CLASS_TO_TOKEN[tailwind] ?? DEFAULT_EMPREENDIMENTO_COLOR;
   return EMPREENDIMENTO_COLOR_OPTIONS.find((c) => c.token === token)?.hex ?? '#14b8a6';
 }
 

@@ -284,7 +284,11 @@ export default function VendasPage() {
 
             <MotionReveal index={6}>
 
-              <VendasCorretoresTable rows={data?.ranking ?? []} loading={loading && !data} />
+              <VendasCorretoresTable
+                rankingCorretores={data?.ranking ?? []}
+                rankingImobiliarias={data?.ranking_imobiliarias ?? []}
+                loading={loading && !data}
+              />
 
             </MotionReveal>
 

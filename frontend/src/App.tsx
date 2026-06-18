@@ -30,7 +30,7 @@ import AuthLayout from '@/layouts/AuthLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AdminRoute from '@/components/AdminRoute';
 import AdminLayout from '@/admin/AdminLayout';
-import { UserLayout, UserHomePage, VendasPage, UserLeadsPage, UserEmpreendimentosPage } from '@/panels/user';
+import { UserLayout, UserHomePage, VendasPage, UserLeadsPage, UserEmpreendimentosPage, UserHistoricoPage } from '@/panels/user';
 import { VitrineLayout, vitrineLegacyRedirectRoutes } from '@/panels/vitrine';
 
 import LoginPage from '@/pages/LoginPage';
@@ -166,6 +166,7 @@ function AppRoutes() {
             <Route path="/vendas" element={<VendasPage />} />
             <Route path="/leads" element={<UserLeadsPage />} />
             <Route path="/empreendimentos" element={<UserEmpreendimentosPage />} />
+            <Route path="/historico" element={<UserHistoricoPage />} />
           </Route>
 
           <Route path="/vitrine" element={<VitrineLayout />}>

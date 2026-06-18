@@ -1,6 +1,7 @@
 import pg from 'pg';
 import { getNeonLeadsUrl } from '../lib/neonLeads.mjs';
 import { ensureEmpreendimentosSchema } from '../lib/empreendimentosSchema.mjs';
+import { normalizeEmpreendimentoColorToken } from '../lib/empreendimentoColor.mjs';
 import {
   extractEmpreendimentoParts,
   normalizeEmpreendimento,
@@ -353,7 +354,7 @@ export async function saveEmpreendimentoGenesis(client, payload, { id = null } =
   const nome = String(payload?.nome ?? '').trim();
   if (!nome) throw Object.assign(new Error('Nome é obrigatório.'), { statusCode: 400 });
 
-  const cor = payload?.cor != null ? String(payload.cor).trim() || null : null;
+  const cor = normalizeEmpreendimentoColorToken(payload?.cor ?? payload?.color);
   const logoUrl = payload?.logo_url != null ? String(payload.logo_url).trim() || null : null;
   const aliasIds = normalizeAliasIds(payload?.alias_ids);
   const removeAliasIds = normalizeAliasIds(payload?.remove_alias_ids);

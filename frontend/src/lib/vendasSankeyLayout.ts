@@ -41,11 +41,11 @@ export function layoutVendasSankey(
   width: number,
   height: number,
 ): LayoutSankeyData {
-  const margin = { top: 16, right: 200, bottom: 16, left: 12 };
+  const maxDepth = data.nodes.reduce((max, node) => Math.max(max, node.depth), 0);
+  const margin = { top: 16, right: maxDepth > 3 ? 260 : 200, bottom: 16, left: 12 };
   const nodeWidth = 16;
   const nodePadding = 14;
   const minNodeHeight = 3;
-  const maxDepth = 3;
   const innerW = width - margin.left - margin.right;
   const innerH = height - margin.top - margin.bottom;
   const colStep = maxDepth > 0 ? innerW / maxDepth : innerW;

@@ -113,6 +113,10 @@ export function parseCvdwImobiliariaRow(raw) {
 }
 
 async function upsertCorretor(client, parsed) {
+  const nome = parsed.nome != null ? toTitleCasePtBr(parsed.nome) : null;
+  const imobiliaria =
+    parsed.imobiliaria != null ? toTitleCaseImobiliaria(parsed.imobiliaria) : null;
+
   await client.query(
     `INSERT INTO cvcrm_corretores (
        idcorretor, nome, documento, idimobiliaria, imobiliaria, payload, last_synced_at
@@ -126,16 +130,18 @@ async function upsertCorretor(client, parsed) {
        last_synced_at = now()`,
     [
       parsed.idcorretor,
-      parsed.nome,
+      nome,
       parsed.documento,
       parsed.idimobiliaria,
-      parsed.imobiliaria,
+      imobiliaria,
       JSON.stringify(parsed.payload ?? {}),
     ],
   );
 }
 
 async function upsertImobiliaria(client, parsed) {
+  const nome = parsed.nome != null ? toTitleCaseImobiliaria(parsed.nome) : null;
+
   await client.query(
     `INSERT INTO cvcrm_imobiliarias (
        idimobiliaria, nome, cnpj, payload, last_synced_at
@@ -147,7 +153,7 @@ async function upsertImobiliaria(client, parsed) {
        last_synced_at = now()`,
     [
       parsed.idimobiliaria,
-      parsed.nome,
+      nome,
       parsed.cnpj,
       JSON.stringify(parsed.payload ?? {}),
     ],

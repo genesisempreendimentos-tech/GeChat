@@ -5,6 +5,7 @@ import {
   extractEmpreendimentoParts,
   normalizeEmpreendimento,
 } from '../lib/normalizeEmpreendimento.mjs';
+import { normalizeEmpreendimentoTailwindColor } from '../lib/empreendimentoColor.mjs';
 
 export const LABEL_NAO_INFORMADO = 'Não informado';
 export const LABEL_A_CLASSIFICAR = 'A classificar';
@@ -13,12 +14,15 @@ export const LABEL_A_CLASSIFICAR = 'A classificar';
 let aliasMap = new Map();
 /** @type {Set<string>} */
 let genesisNameSet = new Set();
+/** @type {Map<string, string>} nome canônico → classe Tailwind (bg-*-500) */
+let genesisColorByName = new Map();
 let loadedAt = 0;
 const CACHE_TTL_MS = 60_000;
 
 export function invalidateEmpreendimentoResolver() {
   aliasMap = new Map();
   genesisNameSet = new Set();
+  genesisColorByName = new Map();
   loadedAt = 0;
 }
 
@@ -47,19 +51,24 @@ export async function loadEmpreendimentoResolver(client, { force = false } = {})
   }
 
   let genesisNames = new Set();
+  let genesisColors = new Map();
   try {
     const { rows: genesisRows } = await client.query(`
-      SELECT nome FROM empreendimentos_genesis ORDER BY nome
+      SELECT nome, cor FROM empreendimentos_genesis ORDER BY nome
     `);
-    genesisNames = new Set(
-      genesisRows.map((row) => String(row.nome ?? '').trim()).filter(Boolean),
-    );
+    for (const row of genesisRows) {
+      const name = String(row.nome ?? '').trim();
+      if (!name) continue;
+      genesisNames.add(name);
+      genesisColors.set(name, normalizeEmpreendimentoTailwindColor(row.cor));
+    }
   } catch (err) {
     if (err?.code !== '42P01') throw err;
   }
 
   aliasMap = next;
   genesisNameSet = genesisNames;
+  genesisColorByName = genesisColors;
   loadedAt = Date.now();
   return aliasMap;
 }
@@ -187,4 +196,9 @@ export function orderGenesisEmpreendimentoSeries(totalsByLabel) {
     .filter(([name]) => genesisNameSet.has(name))
     .sort((a, b) => b[1] - a[1])
     .map(([name]) => name);
+}
+
+/** Classe Tailwind da cor de marca (ex.: bg-teal-500). */
+export function resolveGenesisEmpreendimentoColor(nome) {
+  return genesisColorByName.get(nome) ?? 'bg-teal-500';
 }

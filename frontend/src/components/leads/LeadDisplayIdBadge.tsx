@@ -1,15 +1,21 @@
 import { cn } from '@/lib/utils';
-import { getLeadDisplayId } from '@/lib/leadDisplayId';
+import { getLeadDisplayId, isGeleadsId } from '@/lib/leadDisplayId';
 
 type Props = {
   id?: string | null;
   codigo?: string | null;
+  geleadsId?: string | null;
   className?: string;
 };
 
-/** Badge discreto com ID amigável do lead (A0000). */
-export function LeadDisplayIdBadge({ id, codigo, className }: Props) {
-  const code = getLeadDisplayId({ id, codigo });
+/** Badge com GêLeads ID (geleads_id) ou fallback legado. */
+export function LeadDisplayIdBadge({ id, codigo, geleadsId, className }: Props) {
+  const code = getLeadDisplayId({ id, codigo, geleads_id: geleadsId });
+  const isRealGeleadsId = isGeleadsId(geleadsId ?? codigo);
+
+  if (!isRealGeleadsId && code === 'A0000') {
+    return <span className={cn('text-muted-foreground', className)}>—</span>;
+  }
 
   return (
     <span

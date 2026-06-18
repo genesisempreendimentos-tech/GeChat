@@ -1,4 +1,4 @@
-import { Home, HandCoins, Users, Building2 } from 'lucide-react';
+import { Home, HandCoins, Users, Building2, History } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -69,6 +69,13 @@ export default function UserSidebar() {
           icon={Building2}
           label="Empreendimentos"
           isActive={location.pathname.startsWith('/empreendimentos')}
+          isExpanded={isExpanded}
+        />
+        <SidebarNavItem
+          to="/historico"
+          icon={History}
+          label="Histórico"
+          isActive={location.pathname.startsWith('/historico')}
           isExpanded={isExpanded}
         />
       </nav>

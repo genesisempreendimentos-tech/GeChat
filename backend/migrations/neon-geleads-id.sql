@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS geleads_id_registry (
 );
 
 CREATE TABLE IF NOT EXISTS geleads_id_keys (
-  key_type    TEXT NOT NULL CHECK (key_type IN ('email', 'phone', 'cvcrm', 'signup')),
+  key_type    TEXT NOT NULL CHECK (key_type IN ('email', 'phone', 'cvcrm', 'signup', 'fallback')),
   key_value   TEXT NOT NULL,
   geleads_id  TEXT NOT NULL REFERENCES geleads_id_registry (geleads_id),
   PRIMARY KEY (key_type, key_value)
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS geleads_id_keys (
 
 ALTER TABLE geleads_id_keys DROP CONSTRAINT IF EXISTS geleads_id_keys_key_type_check;
 ALTER TABLE geleads_id_keys ADD CONSTRAINT geleads_id_keys_key_type_check
-  CHECK (key_type IN ('email', 'phone', 'cvcrm', 'signup'));
+  CHECK (key_type IN ('email', 'phone', 'cvcrm', 'signup', 'fallback'));
 
 CREATE INDEX IF NOT EXISTS geleads_id_registry_status_idx ON geleads_id_registry (status);
 

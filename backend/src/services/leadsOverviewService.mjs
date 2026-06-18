@@ -12,7 +12,9 @@ import {
   loadEmpreendimentoResolver,
   orderGenesisEmpreendimentoSeries,
   resolveEmpreendimentoInteresseGenesis,
+  resolveGenesisEmpreendimentoColor,
 } from './empreendimentoResolver.mjs';
+import { toTitleCasePtBr } from '../lib/toTitleCasePtBr.mjs';
 
 function nullableString(value) {
   if (value == null) return null;
@@ -27,6 +29,31 @@ function nullableDateIso(value) {
   if (!s) return null;
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
   return null;
+}
+
+function formatPersonName(value) {
+  const raw = nullableString(value);
+  if (!raw) return null;
+  return toTitleCasePtBr(raw) ?? raw;
+}
+
+/** Empreendimentos canônicos Genesis (aliases mapeados) para exibição na listagem. */
+function resolveGenesisInteresseDisplay(rawValues) {
+  const items = Array.isArray(rawValues)
+    ? rawValues
+    : rawValues != null
+      ? [rawValues]
+      : [];
+  const labels = [];
+  const seen = new Set();
+  for (const item of items) {
+    for (const label of resolveEmpreendimentoInteresseGenesis(item)) {
+      if (!label || seen.has(label)) continue;
+      seen.add(label);
+      labels.push(label);
+    }
+  }
+  return labels.length ? labels.join('; ') : null;
 }
 
 function pct(count, base) {
@@ -361,6 +388,7 @@ async function buildTimeline(client, filters, cad, uni) {
   const seriesMeta = orderedSeries.map((name) => ({
     dataKey: slugEmpreendimentoKey(name),
     name,
+    color: resolveGenesisEmpreendimentoColor(name),
   }));
 
   const pointsWithKeys = points.map((point) => {
@@ -384,6 +412,7 @@ async function fetchCharts(client, filters) {
 }
 
 async function getList(client, filters) {
+  await loadEmpreendimentoResolver(client);
   const uni = buildUniqueFilterSql(filters, 'u', 0);
   const params = [...uni.params];
   let searchSql = '1=1';
@@ -422,7 +451,7 @@ async function getList(client, filters) {
       NULLIF(TRIM(u.name[1]), '') AS nome,
       NULLIF(TRIM(u.email[1]), '') AS email,
       NULLIF(TRIM(u.phone[1]), '') AS telefone,
-      NULLIF(TRIM(u.empreendimento_interesse[1]), '') AS empreendimento_interesse,
+      u.empreendimento_interesse,
       NULLIF(TRIM(u.canal_bucket), '') AS canal_bucket,
       NULLIF(TRIM(u.canal[1]), '') AS canal_raw,
       NULLIF(TRIM(u.parameter[1]), '') AS parameter,
@@ -463,12 +492,12 @@ async function getList(client, filters) {
       return {
         person_id: personId,
         geleads_id: geleadsId,
-        id_amigavel: geleadsId ?? 'A0000',
+        id_amigavel: geleadsId,
         codigo: geleadsId,
-        nome: nullableString(r.nome) ?? 'Sem nome',
+        nome: formatPersonName(r.nome) ?? 'Sem nome',
         email: nullableString(r.email),
         telefone: nullableString(r.telefone),
-        empreendimento_interesse: nullableString(r.empreendimento_interesse),
+        empreendimento_interesse: resolveGenesisInteresseDisplay(r.empreendimento_interesse),
         canal_bucket: nullableString(r.canal_bucket) ?? 'Outros',
         canal_raw: nullableString(r.canal_raw) ?? nullableString(r.canal_bucket) ?? 'Outros',
         parameter: nullableString(r.parameter),
@@ -477,11 +506,11 @@ async function getList(client, filters) {
         birth_date: nullableDateIso(r.birth_date),
         relacionamento: nullableString(r.relacionamento),
         investimento: nullableString(r.investimento),
-        cidade: nullableString(r.cidade),
+        cidade: formatPersonName(r.cidade),
         perfil_tipo: nullableString(r.perfil_tipo),
         children_status: nullableString(r.children_status),
         observacoes: nullableString(r.children_status),
-        responsavel: nullableString(r.responsavel),
+        responsavel: formatPersonName(r.responsavel),
         created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
       };
     }),
