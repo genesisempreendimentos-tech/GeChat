@@ -1,4 +1,6 @@
 /** Cores de canal (teal / sky / violet / amber / slate). */
+import { normalizeCanalBucketLabel } from '@/lib/leadsCanalLabels';
+
 export const LEADS_CANAL_COLORS: Record<string, string> = {
   'Site forms': '#14b8a6',
   'Formulário do site': '#14b8a6',
@@ -25,7 +27,8 @@ export const LEADS_TIMELINE_COLORS = [
 ];
 
 export function canalColor(canal: string): string {
-  return LEADS_CANAL_COLORS[canal] ?? '#64748b';
+  const label = normalizeCanalBucketLabel(canal);
+  return LEADS_CANAL_COLORS[label] ?? '#64748b';
 }
 
 export function timelineSeriesColor(index: number): string {

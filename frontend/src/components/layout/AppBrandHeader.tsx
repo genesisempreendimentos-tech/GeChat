@@ -1,4 +1,5 @@
-import { Check, Layers, UserKey, UserStar } from 'lucide-react';
+import { Check, UserKey, UserStar } from 'lucide-react';
+import { MirrorRectangular } from '@/components/icons/MirrorRectangular';
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -107,7 +108,7 @@ export function AppBrandControl({ className }: { className?: string }) {
         <PanelMenuItem
           panel="vitrine"
           activePanel={activePanel}
-          icon={Layers}
+          icon={MirrorRectangular}
           label="Vitrine"
           onSelect={switchPanel}
         />

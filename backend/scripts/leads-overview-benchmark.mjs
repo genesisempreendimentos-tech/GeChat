@@ -55,7 +55,8 @@ async function main() {
     duplicados: bn.duplicados.count,
     conversao_reserva: bn.converteram_reserva.count,
     conversao_venda: bn.viraram_venda.count,
-    sem_fonte: bn.sem_fonte_marketing.count,
+    reservas_marketing: bn.reservas_marketing.count,
+    reservas_externas: bn.reservas_externas.count,
   });
   console.log('Match DB:', bn.leads_totais.count === counts.all_leads && bn.leads_unicos.count === counts.all_leads_unique);
 

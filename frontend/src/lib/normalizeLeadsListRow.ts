@@ -1,4 +1,5 @@
 import { getLeadDisplayId } from '@/lib/leadDisplayId';
+import { normalizeCanalBucketLabel } from '@/lib/leadsCanalLabels';
 import type { LeadsListRow, LeadsQualificacaoStatus } from '@/types/leadsList';
 
 const QUALIFICACOES = new Set<LeadsQualificacaoStatus>([
@@ -35,7 +36,7 @@ export function normalizeLeadsListRow(raw: Record<string, unknown>): LeadsListRo
   const email = strOrNull(raw.email) ?? (contato?.includes('@') ? contato : null);
   const telefone = strOrNull(raw.telefone) ?? (contato && !contato.includes('@') ? contato : null);
 
-  const canalBucket = str(raw.canal_bucket ?? raw.canal, 'Outros');
+  const canalBucket = normalizeCanalBucketLabel(str(raw.canal_bucket ?? raw.canal, 'Outros'));
   const canalRaw = str(raw.canal_raw ?? raw.origem ?? raw.canal, canalBucket);
 
   const cvcrmLeadId = strOrNull(raw.cvcrm_lead_id);

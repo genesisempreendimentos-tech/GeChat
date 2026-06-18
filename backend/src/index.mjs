@@ -13,6 +13,8 @@ import { getBearerJwt, resolveUserFromJwt } from './authSupabase.mjs';
 import { createAuthRouter } from './routes/auth.mjs';
 import { createLeadsRouter, createCvcrmWebhookRouter } from './routes/leads.mjs';
 import { createCvcrmRouter } from './routes/cvcrm.mjs';
+import { createAdminEmpreendimentosRouter } from './routes/adminEmpreendimentos.mjs';
+import { createEmpreendimentosRouter } from './routes/empreendimentos.mjs';
 import { syncLeadsFromSources } from './services/leadSourceSync.mjs';
 import './services/cvcrmIncrementalSync.mjs';
 import {
@@ -81,6 +83,9 @@ app.use('/api/auth', createAuthRouter());
 app.use('/api/webhooks', createCvcrmWebhookRouter());
 app.use('/api/cvcrm', createCvcrmRouter());
 app.use('/api/leads', createLeadsRouter());
+app.use('/api/empreendimentos', createEmpreendimentosRouter());
+app.use('/api/admin/empreendimentos', createAdminEmpreendimentosRouter());
+console.log('[server] Rotas empreendimentos: GET/POST /api/admin/empreendimentos, POST /api/admin/empreendimentos/logo');
 
 syncLeadsFromSources({ force: true })
   .then((result) => {

@@ -7,6 +7,7 @@ import { formatVendasCount } from '@/lib/vendasFormat';
 import { useThemeStore } from '@/store/themeStore';
 import { barChartTooltipCursor, chartTooltipPanelStyle, useChartPrimaryRaw } from '@/lib/chartTheme';
 import { canalColor, LEADS_FONTE_COLORS } from '@/lib/leadsPanelColors';
+import { normalizeCanalBucketLabel, normalizeFonteLabel } from '@/lib/leadsCanalLabels';
 import { LeadsGrainToggle } from './LeadsGrainToggle';
 
 type LeadsDistribuicaoSectionProps = {
@@ -26,25 +27,36 @@ export function LeadsDistribuicaoSection({ distribuicao, loading }: LeadsDistrib
 
   const canalData = useMemo(() => {
     if (!distribuicao?.por_canal) return [];
-    return distribuicao.por_canal
-      .map((row) => ({
-        name: row.canal,
-        value: grain === 'cadastros' ? row.cadastros : row.pessoas,
-        fill: canalColor(row.canal),
-      }))
-      .filter((row) => row.value > 0)
-      .sort((a, b) => b.value - a.value);
+    const merged = new Map<string, { name: string; value: number; fill: string }>();
+    for (const row of distribuicao.por_canal) {
+      const name = normalizeCanalBucketLabel(row.canal);
+      const value = grain === 'cadastros' ? row.cadastros : row.pessoas;
+      if (value <= 0) continue;
+      const prev = merged.get(name);
+      if (prev) prev.value += value;
+      else merged.set(name, { name, value, fill: canalColor(name) });
+    }
+    return [...merged.values()].sort((a, b) => b.value - a.value);
   }, [distribuicao?.por_canal, grain]);
 
   const fonteData = useMemo(() => {
     if (!distribuicao?.por_fonte) return [];
-    return distribuicao.por_fonte
-      .map((row) => ({
-        name: row.fonte,
-        value: grain === 'cadastros' ? row.cadastros : row.pessoas,
-        fill: row.fonte === 'Marketing' ? LEADS_FONTE_COLORS.Marketing : LEADS_FONTE_COLORS.Externo,
-      }))
-      .filter((row) => row.value > 0);
+    const merged = new Map<string, { name: string; value: number; fill: string }>();
+    for (const row of distribuicao.por_fonte) {
+      const name = normalizeFonteLabel(row.fonte);
+      const value = grain === 'cadastros' ? row.cadastros : row.pessoas;
+      if (value <= 0) continue;
+      const prev = merged.get(name);
+      if (prev) prev.value += value;
+      else {
+        merged.set(name, {
+          name,
+          value,
+          fill: name === 'Marketing' ? LEADS_FONTE_COLORS.Marketing : LEADS_FONTE_COLORS.Externo,
+        });
+      }
+    }
+    return [...merged.values()];
   }, [distribuicao?.por_fonte, grain]);
 
   return (

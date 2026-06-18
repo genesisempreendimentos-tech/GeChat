@@ -2,11 +2,13 @@ import {
   Users,
   UserCheck,
   Copy,
+  Sparkles,
   BookmarkCheck,
   BadgeCheck,
-  HelpCircle,
+  Megaphone,
+  Globe,
 } from 'lucide-react';
-import type { LeadsBignumbersData } from '@/types/leadsOverview';
+import type { LeadsBignumbersData, LeadsMetricBlock } from '@/types/leadsOverview';
 import { formatVendasCount } from '@/lib/vendasFormat';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MotionReveal } from '@/components/motion/AppMotion';
@@ -17,10 +19,14 @@ type LeadsBigNumbersProps = {
   loading?: boolean;
 };
 
+function formatMetricValue(block: LeadsMetricBlock, loading: boolean, hasData: boolean): string {
+  if (loading || !hasData) return '—';
+  return `${formatVendasCount(block.count)} · ${block.percent.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+}
+
 function MetricCard({
   title,
   value,
-  subtitle,
   icon,
   hero,
   loading,
@@ -28,7 +34,6 @@ function MetricCard({
 }: {
   title: string;
   value: string;
-  subtitle?: string;
   icon: React.ReactNode;
   hero?: boolean;
   loading?: boolean;
@@ -50,16 +55,11 @@ function MetricCard({
         </div>
         <div className="mt-3">
           {loading ? (
-            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-28" />
           ) : (
-            <>
-              <p className={cn('text-2xl font-bold tabular-nums tracking-tight', hero && 'text-primary')}>
-                {value}
-              </p>
-              {subtitle ? (
-                <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
-              ) : null}
-            </>
+            <p className={cn('text-2xl font-bold tabular-nums tracking-tight', hero && 'text-primary')}>
+              {value}
+            </p>
           )}
         </div>
       </div>
@@ -68,10 +68,8 @@ function MetricCard({
 }
 
 export function LeadsBigNumbers({ bignumbers, loading }: LeadsBigNumbersProps) {
-  const fmt = (n: LeadsBignumbersData['leads_totais']) =>
-    loading || !bignumbers
-      ? '—'
-      : `${formatVendasCount(n.count)} · ${n.percent}%`;
+  const hasData = Boolean(bignumbers);
+  const fmt = (block: LeadsMetricBlock) => formatMetricValue(block, Boolean(loading), hasData);
 
   const cards = [
     {
@@ -91,34 +89,36 @@ export function LeadsBigNumbers({ bignumbers, loading }: LeadsBigNumbersProps) {
       icon: <Copy className="h-5 w-5" />,
     },
     {
-      title: 'Conversão Reserva',
+      title: 'Qualificados',
+      value: fmt(bignumbers?.qualificados ?? { count: 0, percent: 0 }),
+      icon: <Sparkles className="h-5 w-5" />,
+    },
+    {
+      title: 'Conversão em Reserva',
       value: fmt(bignumbers?.converteram_reserva ?? { count: 0, percent: 0 }),
-      subtitle: '% sobre pessoas únicas',
       icon: <BookmarkCheck className="h-5 w-5" />,
     },
     {
-      title: 'Conversão Venda',
+      title: 'Conversão em Venda',
       value: fmt(bignumbers?.viraram_venda ?? { count: 0, percent: 0 }),
-      subtitle: '% sobre pessoas únicas',
       icon: <BadgeCheck className="h-5 w-5" />,
     },
     {
-      title: 'Sem fonte',
-      value: fmt(bignumbers?.sem_fonte_marketing ?? { count: 0, percent: 0 }),
-      subtitle: '% sobre pessoas únicas',
-      icon: <HelpCircle className="h-5 w-5" />,
+      title: 'Reservas do Marketing',
+      value: fmt(bignumbers?.reservas_marketing ?? { count: 0, percent: 0 }),
+      icon: <Megaphone className="h-5 w-5" />,
+    },
+    {
+      title: 'Reservas Externas',
+      value: fmt(bignumbers?.reservas_externas ?? { count: 0, percent: 0 }),
+      icon: <Globe className="h-5 w-5" />,
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
       {cards.map((card, i) => (
-        <MetricCard
-          key={card.title}
-          {...card}
-          loading={loading}
-          motionIndex={i}
-        />
+        <MetricCard key={card.title} {...card} loading={loading} motionIndex={i} />
       ))}
     </div>
   );

@@ -30,7 +30,7 @@ import AuthLayout from '@/layouts/AuthLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AdminRoute from '@/components/AdminRoute';
 import AdminLayout from '@/admin/AdminLayout';
-import { UserLayout, UserHomePage, VendasPage, UserLeadsPage } from '@/panels/user';
+import { UserLayout, UserHomePage, VendasPage, UserLeadsPage, UserEmpreendimentosPage } from '@/panels/user';
 import { VitrineLayout, vitrineLegacyRedirectRoutes } from '@/panels/vitrine';
 
 import LoginPage from '@/pages/LoginPage';
@@ -48,6 +48,10 @@ import SettingsPage from '@/pages/SettingsPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
 import AdminMembersPage from '@/admin/pages/AdminMembersPage';
+import AdminCategoriesPage from '@/admin/pages/AdminCategoriesPage';
+import AdminReviewsPage from '@/admin/pages/AdminReviewsPage';
+import AdminAdministratorsPage from '@/admin/pages/AdminAdministratorsPage';
+import AdminEmpreendimentosPage from '@/admin/pages/AdminEmpreendimentosPage';
 
 function GeAppsProfileRedirect() {
   useEffect(() => {
@@ -161,6 +165,7 @@ function AppRoutes() {
             <Route index element={<UserHomePage />} />
             <Route path="/vendas" element={<VendasPage />} />
             <Route path="/leads" element={<UserLeadsPage />} />
+            <Route path="/empreendimentos" element={<UserEmpreendimentosPage />} />
           </Route>
 
           <Route path="/vitrine" element={<VitrineLayout />}>
@@ -175,12 +180,6 @@ function AppRoutes() {
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="profile" element={<GeAppsProfileRedirect />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="systems" element={<Navigate to={vitrinePath('/leads')} replace />} />
-            <Route path="favorites" element={<Navigate to={vitrinePath('/leads')} replace />} />
-            <Route path="solicitacoes" element={<Navigate to={vitrinePath('/leads')} replace />} />
-            <Route path="equipes" element={<Navigate to={vitrinePath('/leads')} replace />} />
-            <Route path="empresa" element={<Navigate to={vitrinePath('/leads')} replace />} />
-            <Route path="comunicados" element={<Navigate to={vitrinePath('/leads')} replace />} />
             <Route path="chat" element={<Navigate to={vitrinePath('/leads')} replace />} />
           </Route>
         </Route>
@@ -197,14 +196,10 @@ function AppRoutes() {
           <Route path="home" element={<AdminDashboardPage />} />
           <Route path="members" element={<AdminMembersPage />} />
           <Route path="profile" element={<GeAppsProfileRedirect />} />
-          <Route path="systems" element={<Navigate to="/admin/members" replace />} />
-          <Route path="solicitacoes" element={<Navigate to="/admin/members" replace />} />
-          <Route path="equipes" element={<Navigate to="/admin/members" replace />} />
-          <Route path="comunicados" element={<Navigate to="/admin/members" replace />} />
-          <Route path="empresa" element={<Navigate to="/admin/members" replace />} />
-          <Route path="categories" element={<Navigate to="/admin/members" replace />} />
-          <Route path="reviews" element={<Navigate to="/admin/members" replace />} />
-          <Route path="administrators" element={<Navigate to="/admin/members" replace />} />
+          <Route path="categories" element={<AdminCategoriesPage />} />
+          <Route path="reviews" element={<AdminReviewsPage />} />
+          <Route path="administrators" element={<AdminAdministratorsPage />} />
+          <Route path="empreendimentos" element={<AdminEmpreendimentosPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

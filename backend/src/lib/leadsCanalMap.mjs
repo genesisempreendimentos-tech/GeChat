@@ -81,6 +81,42 @@ export const SQL_FONTEFROM_BUCKET = `CASE
   ELSE 'externo'
 END`;
 
+/** Labels legados → bucket canônico (exibição). */
+const CANAL_BUCKET_ALIASES = {
+  'formulário do site': 'Site forms',
+  'formulario do site': 'Site forms',
+  'meta forms': 'Meta Forms',
+  'site forms': 'Site forms',
+  'painel cv': 'Painel CV',
+  whatsapp: 'WhatsApp',
+  outros: 'Outros',
+};
+
+/**
+ * Normaliza rótulo de bucket para exibição (case + aliases legados).
+ * Aceita bucket já resolvido ou canal bruto.
+ */
+export function normalizeCanalBucketLabel(canal) {
+  const trimmed = String(canal ?? '').trim();
+  if (!trimmed) return 'Outros';
+
+  const lower = trimmed.toLowerCase();
+  if (CANAL_BUCKET_ALIASES[lower]) return CANAL_BUCKET_ALIASES[lower];
+
+  for (const bucket of CANAL_BUCKETS) {
+    if (bucket.toLowerCase() === lower) return bucket;
+  }
+
+  return resolveCanalBucket(trimmed);
+}
+
+/** Fonte de aquisição com capitalização consistente. */
+export function normalizeFonteLabel(fonte) {
+  const lower = String(fonte ?? '').trim().toLowerCase();
+  if (lower === 'marketing') return 'Marketing';
+  return 'Externo';
+}
+
 /** @deprecated use resolveCanalBucket */
 export function resolveProvisionalCanal(row) {
   return resolveCanalBucket(row?.canal);

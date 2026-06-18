@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Iris } from '@/components/ui/Iris';
 import { canalColor } from '@/lib/leadsPanelColors';
+import { normalizeCanalBucketLabel } from '@/lib/leadsCanalLabels';
 import { leadIrisVariantQualificacao } from '@/lib/leadQualificacaoIris';
 import type { LeadsQualificacaoStatus } from '@/types/leadsList';
 import { cn } from '@/lib/utils';
@@ -18,7 +19,7 @@ export function formatBirthDatePtBr(iso: string | null | undefined): string {
 }
 
 export function LeadCanalBucketCell({ bucket }: { bucket: string }) {
-  const label = bucket?.trim() || 'Outros';
+  const label = normalizeCanalBucketLabel(bucket);
   const color = canalColor(label);
   return (
     <Badge

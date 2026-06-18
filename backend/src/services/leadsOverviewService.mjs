@@ -2,9 +2,17 @@ import pg from 'pg';
 import { getNeonLeadsUrl } from '../lib/neonLeads.mjs';
 import { computeLeadQualificacao } from '../lib/leadQualificacao.mjs';
 import {
+  normalizeCanalBucketLabel,
+  normalizeFonteLabel,
   SQL_IS_MARKETING_BUCKET,
   SQL_RESOLVE_BUCKET_FROM_ALL_LEADS,
 } from '../lib/leadsCanalMap.mjs';
+import {
+  aggregateGenesisEmpreendimentoLabels,
+  loadEmpreendimentoResolver,
+  orderGenesisEmpreendimentoSeries,
+  resolveEmpreendimentoInteresseGenesis,
+} from './empreendimentoResolver.mjs';
 
 function nullableString(value) {
   if (value == null) return null;
@@ -151,9 +159,11 @@ async function fetchBignumbers(client, filters) {
   const { rows: [uniRow] } = await client.query(
     `SELECT
        COUNT(*)::int AS leads_unicos,
+       COUNT(*) FILTER (WHERE u.profile_completed)::int AS qualificados,
        COUNT(*) FILTER (WHERE u.has_reserva)::int AS converteram_reserva,
        COUNT(*) FILTER (WHERE u.has_venda)::int AS viraram_venda,
-       COUNT(*) FILTER (WHERE u.fonte = 'externo')::int AS sem_fonte
+       COUNT(*) FILTER (WHERE u.has_reserva AND u.fonte = 'marketing')::int AS reservas_marketing,
+       COUNT(*) FILTER (WHERE u.has_reserva AND u.fonte = 'externo')::int AS reservas_externas
      FROM all_leads_unique u
      WHERE ${uni.whereSql}`,
     uni.params,
@@ -162,14 +172,20 @@ async function fetchBignumbers(client, filters) {
   const leadsTotais = cadRow?.n ?? 0;
   const leadsUnicos = uniRow?.leads_unicos ?? 0;
   const duplicados = Math.max(0, leadsTotais - leadsUnicos);
+  const qualificados = uniRow?.qualificados ?? 0;
+  const converteramReserva = uniRow?.converteram_reserva ?? 0;
+  const reservasMarketing = uniRow?.reservas_marketing ?? 0;
+  const reservasExternas = uniRow?.reservas_externas ?? 0;
 
   return {
     leads_totais: metric(leadsTotais, leadsTotais),
     leads_unicos: metric(leadsUnicos, leadsTotais),
     duplicados: metric(duplicados, leadsTotais),
-    converteram_reserva: metric(uniRow?.converteram_reserva ?? 0, leadsUnicos),
+    qualificados: metric(qualificados, leadsUnicos),
+    converteram_reserva: metric(converteramReserva, leadsUnicos),
     viraram_venda: metric(uniRow?.viraram_venda ?? 0, leadsUnicos),
-    sem_fonte_marketing: metric(uniRow?.sem_fonte ?? 0, leadsUnicos),
+    reservas_marketing: metric(reservasMarketing, leadsUnicos),
+    reservas_externas: metric(reservasExternas, leadsUnicos),
   };
 }
 
@@ -212,27 +228,63 @@ async function fetchDistribuicao(client, filters) {
 
   const canalMap = new Map();
   for (const row of canalCadRows) {
-    canalMap.set(row.canal, { canal: row.canal, cadastros: row.cadastros, pessoas: 0 });
+    const canal = normalizeCanalBucketLabel(row.canal);
+    const prev = canalMap.get(canal) ?? { canal, cadastros: 0, pessoas: 0 };
+    prev.cadastros += row.cadastros;
+    canalMap.set(canal, prev);
   }
   for (const row of canalPessoasRows) {
-    const prev = canalMap.get(row.canal) ?? { canal: row.canal, cadastros: 0, pessoas: 0 };
-    prev.pessoas = row.pessoas;
-    canalMap.set(row.canal, prev);
+    const canal = normalizeCanalBucketLabel(row.canal);
+    const prev = canalMap.get(canal) ?? { canal, cadastros: 0, pessoas: 0 };
+    prev.pessoas += row.pessoas;
+    canalMap.set(canal, prev);
   }
 
   const fonteMap = new Map();
   for (const row of fonteCadRows) {
-    fonteMap.set(row.fonte, { fonte: row.fonte, cadastros: row.cadastros, pessoas: 0 });
+    const fonte = normalizeFonteLabel(row.fonte);
+    const prev = fonteMap.get(fonte) ?? { fonte, cadastros: 0, pessoas: 0 };
+    prev.cadastros += row.cadastros;
+    fonteMap.set(fonte, prev);
   }
   for (const row of fontePessoasRows) {
-    const prev = fonteMap.get(row.fonte) ?? { fonte: row.fonte, cadastros: 0, pessoas: 0 };
-    prev.pessoas = row.pessoas;
-    fonteMap.set(row.fonte, prev);
+    const fonte = normalizeFonteLabel(row.fonte);
+    const prev = fonteMap.get(fonte) ?? { fonte, cadastros: 0, pessoas: 0 };
+    prev.pessoas += row.pessoas;
+    fonteMap.set(fonte, prev);
   }
+
+  await loadEmpreendimentoResolver(client);
+
+  const { rows: empCadRows } = await client.query(
+    `SELECT al.empreendimento_interesse FROM all_leads al WHERE ${cad.whereSql}`,
+    cad.params,
+  );
+  const { rows: empPessoasRows } = await client.query(
+    `SELECT u.empreendimento_interesse FROM all_leads_unique u WHERE ${uni.whereSql}`,
+    uni.params,
+  );
+
+  const cadEmpMap = aggregateGenesisEmpreendimentoLabels(
+    empCadRows.map((row) => row.empreendimento_interesse),
+  );
+  const pessoasEmpMap = aggregateGenesisEmpreendimentoLabels(
+    empPessoasRows.map((row) => row.empreendimento_interesse),
+  );
+
+  const empKeys = new Set([...cadEmpMap.keys(), ...pessoasEmpMap.keys()]);
+  const porEmpreendimento = [...empKeys]
+    .map((empreendimento) => ({
+      empreendimento,
+      cadastros: cadEmpMap.get(empreendimento) ?? 0,
+      pessoas: pessoasEmpMap.get(empreendimento) ?? 0,
+    }))
+    .sort((a, b) => b.cadastros - a.cadastros);
 
   return {
     por_canal: [...canalMap.values()].sort((a, b) => b.cadastros - a.cadastros),
     por_fonte: [...fonteMap.values()].sort((a, b) => b.cadastros - a.cadastros),
+    por_empreendimento: porEmpreendimento,
   };
 }
 
@@ -246,24 +298,8 @@ function slugEmpreendimentoKey(name) {
   return slug ? `emp_${slug}` : 'emp_nao_informado';
 }
 
-function normalizeTimelineEmpreendimento(raw) {
-  const trimmed = String(raw ?? '').trim();
-  if (!trimmed) return 'Não informado';
-
-  const lower = trimmed.toLowerCase().replace(/_/g, ' ');
-  if (['outros', 'outro'].includes(lower)) return 'Outros';
-  if (['nao sei', 'não sei', 'n a', 'na', 'nao informado', 'não informado'].includes(lower)) {
-    return 'Não informado';
-  }
-
-  return trimmed
-    .split(/\s+/)
-    .map((word, index) => {
-      const wl = word.toLowerCase();
-      if (index > 0 && ['de', 'do', 'da', 'dos', 'das', 'e'].includes(wl)) return wl;
-      return wl.charAt(0).toUpperCase() + wl.slice(1);
-    })
-    .join(' ');
+function resolveLabelsForRaw(raw) {
+  return resolveEmpreendimentoInteresseGenesis(raw);
 }
 
 async function buildTimeline(client, filters, cad, uni) {
@@ -274,12 +310,15 @@ async function buildTimeline(client, filters, cad, uni) {
     const sql = `
       SELECT
         to_char(date_trunc('day', u.created_at AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') AS dia,
-        COALESCE(NULLIF(TRIM(u.empreendimento_interesse[1]), ''), 'Não informado') AS empreendimento,
-        COUNT(*)::int AS n
+        emp AS empreendimento_raw
       FROM all_leads_unique u
+      CROSS JOIN LATERAL unnest(
+        CASE
+          WHEN cardinality(u.empreendimento_interesse) > 0 THEN u.empreendimento_interesse
+          ELSE ARRAY[NULL::text]
+        END
+      ) AS emp
       WHERE ${uni.whereSql}
-      GROUP BY 1, 2
-      ORDER BY 1
     `;
     const res = await client.query(sql, uni.params);
     rawRows = res.rows;
@@ -287,52 +326,30 @@ async function buildTimeline(client, filters, cad, uni) {
     const sql = `
       SELECT
         to_char(date_trunc('day', al.created_at AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') AS dia,
-        COALESCE(NULLIF(TRIM(al.empreendimento_interesse), ''), 'Não informado') AS empreendimento,
-        COUNT(*)::int AS n
+        al.empreendimento_interesse AS empreendimento_raw
       FROM all_leads al
       WHERE ${cad.whereSql}
-      GROUP BY 1, 2
-      ORDER BY 1
     `;
     const res = await client.query(sql, cad.params);
     rawRows = res.rows;
   }
 
-  const totalsByEmp = new Map();
-  for (const row of rawRows) {
-    const emp = normalizeTimelineEmpreendimento(row.empreendimento);
-    totalsByEmp.set(emp, (totalsByEmp.get(emp) ?? 0) + row.n);
-  }
+  await loadEmpreendimentoResolver(client);
 
-  const ranked = [...totalsByEmp.entries()]
-    .filter(([emp]) => emp !== 'Não informado' && emp !== 'Outros')
-    .sort((a, b) => b[1] - a[1]);
-  const top6 = ranked.slice(0, 6).map(([emp]) => emp);
-  const seriesSet = new Set([...top6, 'Outros', 'Não informado']);
-
-  function bucketEmp(emp) {
-    if (!emp || emp === 'Não informado') return 'Não informado';
-    if (top6.includes(emp)) return emp;
-    return 'Outros';
-  }
-
+  const totalsByLabel = new Map();
   const byDay = new Map();
+
   for (const row of rawRows) {
-    const emp = bucketEmp(normalizeTimelineEmpreendimento(row.empreendimento));
-    if (!byDay.has(row.dia)) byDay.set(row.dia, { dia: row.dia });
-    const point = byDay.get(row.dia);
-    point[emp] = (point[emp] ?? 0) + row.n;
+    const labels = resolveLabelsForRaw(row.empreendimento_raw);
+    for (const label of labels) {
+      totalsByLabel.set(label, (totalsByLabel.get(label) ?? 0) + 1);
+      if (!byDay.has(row.dia)) byDay.set(row.dia, { dia: row.dia });
+      const point = byDay.get(row.dia);
+      point[label] = (point[label] ?? 0) + 1;
+    }
   }
 
-  const series = [...seriesSet].filter((key) =>
-    key === 'Não informado' || key === 'Outros' || top6.includes(key),
-  );
-
-  const orderedSeries = [
-    ...top6,
-    ...(series.includes('Outros') ? ['Outros'] : []),
-    ...(series.includes('Não informado') ? ['Não informado'] : []),
-  ];
+  const orderedSeries = orderGenesisEmpreendimentoSeries(totalsByLabel);
 
   const points = [...byDay.values()].sort((a, b) => a.dia.localeCompare(b.dia));
   for (const point of points) {
@@ -360,6 +377,7 @@ async function buildTimeline(client, filters, cad, uni) {
 async function fetchCharts(client, filters) {
   const cad = buildCadastroFilterSql(filters, 'al');
   const uni = buildUniqueFilterSql(filters, 'u', 0);
+  await loadEmpreendimentoResolver(client);
   const distribuicao = await fetchDistribuicao(client, filters);
   const timeline = await buildTimeline(client, filters, cad, uni);
   return { distribuicao, timeline };

@@ -351,7 +351,7 @@ export default function AdminMembersPage() {
             }}
           >
             <Boxes className="mr-2 h-4 w-4" />
-            Item 1
+            Apps
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

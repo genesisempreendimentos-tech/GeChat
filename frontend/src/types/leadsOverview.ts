@@ -24,9 +24,11 @@ export type LeadsBignumbersData = {
   leads_totais: LeadsMetricBlock;
   leads_unicos: LeadsMetricBlock;
   duplicados: LeadsMetricBlock;
+  qualificados: LeadsMetricBlock;
   converteram_reserva: LeadsMetricBlock;
   viraram_venda: LeadsMetricBlock;
-  sem_fonte_marketing: LeadsMetricBlock;
+  reservas_marketing: LeadsMetricBlock;
+  reservas_externas: LeadsMetricBlock;
 };
 
 export type LeadsOverviewResponse = {
@@ -34,6 +36,7 @@ export type LeadsOverviewResponse = {
   distribuicao: {
     por_canal: { canal: string; cadastros: number; pessoas: number }[];
     por_fonte: { fonte: string; cadastros: number; pessoas: number }[];
+    por_empreendimento: { empreendimento: string; cadastros: number; pessoas: number }[];
   };
   timeline: {
     series: string[] | { dataKey: string; name: string }[];

@@ -188,7 +188,7 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{counts?.apps ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Item 1 cadastrado</p>
+                <p className="text-xs text-muted-foreground">Apps cadastrados</p>
               </CardContent>
             </Card>
           </motion.div>

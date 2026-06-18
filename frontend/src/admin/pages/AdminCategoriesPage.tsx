@@ -177,7 +177,7 @@ export default function AdminCategoriesPage() {
       <MainViewHeader
         icon={<LibraryBig className="h-6 w-6" />}
         title="Categorias"
-        description="Gerencie as categorias do Item 1."
+        description="Gerencie as categorias dos apps."
         button={
           <Button
             onClick={() => handleOpenModal()}

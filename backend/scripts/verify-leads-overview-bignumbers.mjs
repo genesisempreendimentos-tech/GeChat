@@ -25,9 +25,11 @@ console.log('Overview default (sem query params):', {
   leads_totais: bn.leads_totais.count,
   leads_unicos: bn.leads_unicos.count,
   duplicados: bn.duplicados.count,
+  qualificados: bn.qualificados.count,
   conversao_reserva: bn.converteram_reserva.count,
   conversao_venda: bn.viraram_venda.count,
-  sem_fonte: bn.sem_fonte_marketing.count,
+  reservas_marketing: bn.reservas_marketing.count,
+  reservas_externas: bn.reservas_externas.count,
 });
 console.log('Match leads_totais:', bn.leads_totais.count === db.all_leads ? 'OK' : 'FAIL');
 console.log('Match leads_unicos:', bn.leads_unicos.count === db.all_leads_unique ? 'OK' : 'FAIL');
