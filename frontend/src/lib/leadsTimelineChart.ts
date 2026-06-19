@@ -180,6 +180,23 @@ function filterPointsInRange(
   });
 }
 
+/** Mantém só empreendimentos com soma de leads > 0 no período exibido. */
+export function filterSeriesWithLeadsInPeriod(
+  series: LeadsTimelineSeries[],
+  points: LeadsTimelinePoint[],
+  dayRange: LeadsDayRange,
+): LeadsTimelineSeries[] {
+  const inRange = filterPointsInRange(points, dayRange);
+  return series.filter((serie) => {
+    let total = 0;
+    for (const point of inRange) {
+      const raw = point[serie.dataKey];
+      total += typeof raw === 'number' ? raw : Number(raw) || 0;
+    }
+    return total > 0;
+  });
+}
+
 function aggregateSegment(
   segmentDays: string[],
   sourceByDay: Map<string, LeadsTimelinePoint>,
@@ -302,12 +319,15 @@ export function resolveLeadsTimelineSlice(
   if (!dayRange) return empty;
 
   const spanDays = inclusiveSpanDays(dayRange.first, dayRange.last);
-  let data = buildLeadsTimelinePointsForRange(remapped, series, dayRange, viewMode);
+  const activeSeries = filterSeriesWithLeadsInPeriod(series, remapped, dayRange);
+  if (!activeSeries.length) return { ...empty, spanDays };
+
+  let data = buildLeadsTimelinePointsForRange(remapped, activeSeries, dayRange, viewMode);
 
   if (stacked) {
     data = applyCumulativeBySeries(
       data,
-      series.map((s) => s.dataKey),
+      activeSeries.map((s) => s.dataKey),
     );
   }
 
@@ -324,7 +344,7 @@ export function resolveLeadsTimelineSlice(
   return {
     data,
     xKey: 'label',
-    series,
+    series: activeSeries,
     formatTooltipLabel,
     yTickFormatter: (v) => String(Math.round(v)),
     tooltipValueFormatter: (v) => String(Math.round(v)),

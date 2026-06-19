@@ -68,7 +68,9 @@ export function EmpreendimentoAliasPickerDialog({
           const cluster = findClusterForAlias(clusters, aliasId);
           if (cluster) {
             for (const alias of cluster.aliases) {
-              if (alias.status === 'a_classificar') next.add(alias.id);
+              if (alias.status === 'a_classificar' || alias.status === 'nao_informado') {
+                next.add(alias.id);
+              }
             }
             return next;
           }

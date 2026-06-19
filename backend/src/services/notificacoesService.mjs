@@ -1,6 +1,7 @@
 import pg from 'pg';
 import { getNeonLeadsUrl } from '../lib/neonLeads.mjs';
 import { ensureHistoricoSchema } from '../lib/historicoSchema.mjs';
+import { enrichHistoricoGeleadsIds } from '../lib/geleadsLookup.mjs';
 
 function mapNotificacaoRow(row) {
   return {
@@ -60,10 +61,12 @@ export async function getNotificacoes(userId, { limit = 20 } = {}) {
       [ultimaLeitura.toISOString(), safeLimit],
     );
 
+    const enriched = await enrichHistoricoGeleadsIds(client, rows);
+
     return {
       ultima_leitura_em: ultimaLeitura.toISOString(),
       nao_lidas: naoLidas,
-      items: rows.map(mapNotificacaoRow),
+      items: enriched.map(mapNotificacaoRow),
     };
   } finally {
     await client.end().catch(() => {});

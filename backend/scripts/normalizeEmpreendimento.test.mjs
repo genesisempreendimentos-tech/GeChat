@@ -6,6 +6,10 @@ import {
   normalizeEmpreendimento,
   splitEmpreendimentoInteresse,
 } from '../src/lib/normalizeEmpreendimento.mjs';
+import {
+  materializeEmpreendimentoInteresse,
+  EMPREENDIMENTO_INTERESSE_NULL_LABEL,
+} from '../src/lib/empreendimentoInteresseNull.mjs';
 
 describe('normalizeEmpreendimento', () => {
   it('lower + remove acento + pontuação', () => {
@@ -28,14 +32,26 @@ describe('splitEmpreendimentoInteresse', () => {
   });
 });
 
+describe('materializeEmpreendimentoInteresse', () => {
+  it('NULL ou vazio vira Null', () => {
+    assert.equal(materializeEmpreendimentoInteresse(null), EMPREENDIMENTO_INTERESSE_NULL_LABEL);
+    assert.equal(materializeEmpreendimentoInteresse(''), EMPREENDIMENTO_INTERESSE_NULL_LABEL);
+    assert.equal(materializeEmpreendimentoInteresse('  '), EMPREENDIMENTO_INTERESSE_NULL_LABEL);
+    assert.equal(materializeEmpreendimentoInteresse('Flow'), 'Flow');
+  });
+});
+
 describe('classifyAliasStatus', () => {
-  it('marca não informado', () => {
-    assert.equal(classifyAliasStatus('nao sei'), 'nao_informado');
+  it('marca não informado (lixo / vazio semântico)', () => {
+    assert.equal(classifyAliasStatus('nao informado'), 'nao_informado');
     assert.equal(classifyAliasStatus('genesis site'), 'nao_informado');
     assert.equal(classifyAliasStatus('apartamento 2 quartos'), 'nao_informado');
   });
 
-  it('marca a classificar', () => {
+  it('marca a classificar (inclui respostas legadas do form)', () => {
+    assert.equal(classifyAliasStatus('nao sei'), 'a_classificar');
+    assert.equal(classifyAliasStatus('outros'), 'a_classificar');
+    assert.equal(classifyAliasStatus('null'), 'a_classificar');
     assert.equal(classifyAliasStatus('flow'), 'a_classificar');
     assert.equal(classifyAliasStatus('solar do bosque'), 'a_classificar');
   });

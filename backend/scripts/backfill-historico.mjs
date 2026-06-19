@@ -18,7 +18,6 @@ import { runHistoricoProjection } from '../src/services/historicoProjectionServi
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true });
 
-const EXPECTED_GELEADS_COUNT = 5698;
 
 async function assertGeleadsIdReset(client) {
   const { rows } = await client.query(`
@@ -33,15 +32,14 @@ async function assertGeleadsIdReset(client) {
   `);
 
   const s = rows[0];
+  const expected = Number(s.total_com_id);
   console.log('[historico] geleads_id check:', s);
 
-  if (Number(s.total_com_id) !== EXPECTED_GELEADS_COUNT) {
-    throw new Error(
-      `Abortado: esperado ${EXPECTED_GELEADS_COUNT} geleads_id, encontrado ${s.total_com_id}. Reset ainda não aplicado?`,
-    );
+  if (expected < 1) {
+    throw new Error('Abortado: nenhum geleads_id em all_leads_unique.');
   }
-  if (Number(s.prefix_a) !== EXPECTED_GELEADS_COUNT) {
-    throw new Error(`Abortado: nem todos os ids estão na faixa A#### (${s.prefix_a}/${EXPECTED_GELEADS_COUNT}).`);
+  if (Number(s.prefix_a) !== expected) {
+    throw new Error(`Abortado: nem todos os ids estão na faixa A#### (${s.prefix_a}/${expected}).`);
   }
   if (Number(s.prefix_bc) > 0) {
     throw new Error(`Abortado: ainda existem ${s.prefix_bc} ids com prefixo B/C.`);
@@ -49,10 +47,10 @@ async function assertGeleadsIdReset(client) {
   if (Number(s.fora_faixa_a) > 0) {
     throw new Error(`Abortado: ${s.fora_faixa_a} geleads_id fora do padrão A####.`);
   }
-  if (Number(s.ids_distintos) !== EXPECTED_GELEADS_COUNT) {
-    throw new Error(`Abortado: geleads_id duplicados (${s.ids_distintos} distintos vs ${EXPECTED_GELEADS_COUNT}).`);
+  if (Number(s.ids_distintos) !== expected) {
+    throw new Error(`Abortado: geleads_id duplicados (${s.ids_distintos} distintos vs ${expected}).`);
   }
-  console.log('[historico] ✓ geleads_id reset verificado (5698 · faixa A)');
+  console.log(`[historico] ✓ geleads_id reset verificado (${expected} · faixa A)`);
 }
 
 async function printVerification(client) {

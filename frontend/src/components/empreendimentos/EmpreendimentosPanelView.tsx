@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, Pencil, Plus, Search } from 'lucide-react';
+import { BarChart3, Building2, ChessKnight, Info, List, Pencil, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Iris } from '@/components/ui/Iris';
+import { TabButtons } from '@/components/ui/tab-buttons';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
 import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { LoadingGifScreen } from '@/components/LoadingGif';
+import { EmpreendimentosAnalyticsView } from '@/components/empreendimentos/EmpreendimentosAnalyticsView';
+import { EmpreendimentoAliasesListDialog } from '@/components/empreendimentos/EmpreendimentoAliasesListDialog';
 import {
   EmpreendimentoGenesisCard,
   EmpreendimentoAliasesBadge,
@@ -17,7 +21,10 @@ import {
 } from '@/components/empreendimentos/EmpreendimentoGenesisCard';
 import { EmpreendimentoGenesisLogo } from '@/components/empreendimentos/EmpreendimentoGenesisLogo';
 import { cn } from '@/lib/utils';
-import type { EmpreendimentoGenesis } from '@/types/empreendimentos';
+import type { EmpreendimentoGenesis, EmpreendimentosKindFilter } from '@/types/empreendimentos';
+import { TROIA_INFO_TOOLTIP } from '@/lib/empreendimentosTroia';
+
+type EmpreendimentosPanelTab = 'lista' | 'analytics';
 
 type EmpreendimentosPanelViewProps = {
   mode: 'admin' | 'user';
@@ -28,6 +35,38 @@ type EmpreendimentosPanelViewProps = {
   onEdit?: (item: EmpreendimentoGenesis) => void;
   onRefresh?: () => void;
 };
+
+function filterByKind(items: EmpreendimentoGenesis[], kind: EmpreendimentosKindFilter) {
+  return items.filter((item) =>
+    kind === 'troia' ? Boolean(item.is_trojan) : !item.is_trojan,
+  );
+}
+
+function EmpreendimentoAliasesStatusButton({
+  pendingCount,
+  onClick,
+}: {
+  pendingCount: number;
+  onClick: () => void;
+}) {
+  const hasPending = pendingCount > 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-md transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+    >
+      <Iris
+        text={
+          hasPending
+            ? `${pendingCount} alias(es) a classificar`
+            : 'Aliases OK'
+        }
+        variant={hasPending ? 'iris1' : 'iris6'}
+      />
+    </button>
+  );
+}
 
 function EmpreendimentoStatusBadge({ ativo }: { ativo: boolean }) {
   return (
@@ -53,14 +92,26 @@ export function EmpreendimentosPanelView({
   onEdit,
 }: EmpreendimentosPanelViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [panelTab, setPanelTab] = useState<EmpreendimentosPanelTab>('lista');
+  const [kindFilter, setKindFilter] = useState<EmpreendimentosKindFilter>('empreendimentos');
   const [searchQuery, setSearchQuery] = useState('');
+  const [aliasesDialogOpen, setAliasesDialogOpen] = useState(false);
+
   const isAdmin = mode === 'admin';
+  const isLista = isAdmin || panelTab === 'lista';
+  const showListaAnalyticsTabs = !isAdmin;
 
   const filtered = useMemo(() => {
+    const byKind = filterByKind(empreendimentos, kindFilter);
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return empreendimentos;
-    return empreendimentos.filter((item) => item.nome.toLowerCase().includes(q));
-  }, [empreendimentos, searchQuery]);
+    if (!q) return byKind;
+    return byKind.filter((item) => item.nome.toLowerCase().includes(q));
+  }, [empreendimentos, searchQuery, kindFilter]);
+
+  const emptyMessage =
+    kindFilter === 'troia'
+      ? 'Nenhum empreendimento Troia encontrado.'
+      : 'Nenhum empreendimento encontrado.';
 
   return (
     <MainViewFluidShell>
@@ -91,116 +142,178 @@ export function EmpreendimentosPanelView({
           onViewModeChange={setViewMode}
           leftContent={
             <div className="flex flex-wrap items-center gap-3">
-              <div className="relative group/search">
+              <div className="flex items-center gap-1.5">
+                <TabButtons
+                  value={kindFilter}
+                  items={[
+                    { value: 'empreendimentos', label: 'Empreendimentos', Icon: Building2 },
+                    { value: 'troia', label: 'Troia', Icon: ChessKnight },
+                  ]}
+                  onChange={setKindFilter}
+                />
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                      aria-label="O que é Troia"
+                    >
+                      <Info className="size-3.5" strokeWidth={2.25} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs text-sm">
+                    {TROIA_INFO_TOOLTIP}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              {showListaAnalyticsTabs ? (
+                <TabButtons
+                  value={panelTab}
+                  items={[
+                    { value: 'lista', label: 'Lista', Icon: List },
+                    { value: 'analytics', label: 'Analytics', Icon: BarChart3 },
+                  ]}
+                  onChange={setPanelTab}
+                />
+              ) : null}
+            </div>
+          }
+          centerContent={
+            isLista ? (
+              <div className="relative group/search w-full max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors duration-200" />
                 <Input
-                  placeholder="Buscar empreendimentos..."
-                  className="pl-8 w-64 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
+                  placeholder={
+                    kindFilter === 'troia'
+                      ? 'Buscar Troia...'
+                      : 'Buscar empreendimentos...'
+                  }
+                  className="pl-8 w-full min-w-0 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              {isAdmin && pendingAliases > 0 ? (
-                <Badge variant="secondary" className="rounded-lg px-2.5 py-1">
-                  {pendingAliases} alias(es) a classificar
-                </Badge>
-              ) : null}
-            </div>
+            ) : undefined
           }
-          showViewToggle
+          rightContent={
+            isAdmin && isLista ? (
+              <EmpreendimentoAliasesStatusButton
+                pendingCount={pendingAliases}
+                onClick={() => setAliasesDialogOpen(true)}
+              />
+            ) : undefined
+          }
+          showViewToggle={isLista}
         />
 
-        <AdminBigBox>
-          {loading ? (
-            <LoadingGifScreen className="h-64" />
-          ) : filtered.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">
-              <Building2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p>Nenhum empreendimento encontrado.</p>
-            </div>
-          ) : viewMode === 'cards' ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {filtered.map((item, index) => (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                >
-                  <EmpreendimentoGenesisCard item={item} isAdmin={isAdmin} onEdit={onEdit} />
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[960px] text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 font-medium">Logo</th>
-                    <th className="text-left py-3 px-4 font-medium">Nome</th>
-                    <th className="text-left py-3 px-4 font-medium">Status</th>
-                    <th className="text-right py-3 px-4 font-medium">Aliases</th>
-                    <th className="text-right py-3 px-4 font-medium">Leads</th>
-                    <th className="text-right py-3 px-4 font-medium">Do total</th>
-                    <th className="text-right py-3 px-4 font-medium">Qualificados</th>
-                    <th className="text-right py-3 px-4 font-medium">Reservas</th>
-                    <th className="text-right py-3 px-4 font-medium">Andamento</th>
-                    <th className="text-right py-3 px-4 font-medium">Vendas</th>
-                    {isAdmin ? <th className="text-right py-3 px-4 font-medium">Ações</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="border-b border-border/50 hover:bg-muted/30 transition-colors"
-                    >
-                      <td className="py-2 px-4">
-                        <EmpreendimentoGenesisLogo item={item} size="sm" />
-                      </td>
-                      <td className="py-2 px-4 font-medium">{item.nome}</td>
-                      <td className="py-2 px-4">
-                        <EmpreendimentoStatusBadge ativo={item.ativo} />
-                      </td>
-                      <td className="py-2 px-4">
-                        <div className="flex justify-end">
-                          <EmpreendimentoAliasesBadge count={item.aliases_count} />
-                        </div>
-                      </td>
-                      <td className="py-2 px-4 text-right tabular-nums font-medium">
-                        {formatEmpreendimentoCount(item.leads_count)}
-                      </td>
-                      <td className="py-2 px-4 text-right tabular-nums">
-                        {formatEmpreendimentoPct(item.percentual_do_total ?? 0)}
-                      </td>
-                      <td className="py-2 px-4 text-right tabular-nums">
-                        {formatEmpreendimentoPct(item.taxa_qualificacao ?? 0)}
-                      </td>
-                      <td className="py-2 px-4 text-right tabular-nums">
-                        {formatEmpreendimentoCount(item.reservas_count ?? 0)}
-                      </td>
-                      <td className="py-2 px-4 text-right tabular-nums">
-                        {formatEmpreendimentoCount(item.v_andamento_count ?? 0)}
-                      </td>
-                      <td className="py-2 px-4 text-right tabular-nums font-medium">
-                        {formatEmpreendimentoCount(item.vendas_count ?? 0)}
-                      </td>
-                      {isAdmin && onEdit ? (
-                        <td className="py-2 px-4 text-right">
-                          <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
-                            <Pencil className="w-4 h-4 mr-1" />
-                            Editar
-                          </Button>
-                        </td>
-                      ) : null}
+        {isLista ? (
+          <AdminBigBox>
+            {loading ? (
+              <LoadingGifScreen className="h-64" />
+            ) : filtered.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground">
+                <Building2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>{emptyMessage}</p>
+              </div>
+            ) : viewMode === 'cards' ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {filtered.map((item, index) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                  >
+                    <EmpreendimentoGenesisCard item={item} isAdmin={isAdmin} onEdit={onEdit} />
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[960px] text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-medium">Logo</th>
+                      <th className="text-left py-3 px-4 font-medium">Nome</th>
+                      <th className="text-left py-3 px-4 font-medium">Status</th>
+                      <th className="text-right py-3 px-4 font-medium">Aliases</th>
+                      <th className="text-right py-3 px-4 font-medium">Pessoas</th>
+                      <th className="text-right py-3 px-4 font-medium">Do total</th>
+                      <th className="text-right py-3 px-4 font-medium">Qualificados</th>
+                      <th className="text-right py-3 px-4 font-medium">Reservas</th>
+                      <th className="text-right py-3 px-4 font-medium">Andamento</th>
+                      <th className="text-right py-3 px-4 font-medium">Vendas</th>
+                      {isAdmin ? <th className="text-right py-3 px-4 font-medium">Ações</th> : null}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </AdminBigBox>
+                  </thead>
+                  <tbody>
+                    {filtered.map((item) => (
+                      <tr
+                        key={item.id}
+                        className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                      >
+                        <td className="py-2 px-4">
+                          <EmpreendimentoGenesisLogo item={item} size="sm" />
+                        </td>
+                        <td className="py-2 px-4 font-medium">{item.nome}</td>
+                        <td className="py-2 px-4">
+                          <EmpreendimentoStatusBadge ativo={item.ativo} />
+                        </td>
+                        <td className="py-2 px-4">
+                          <div className="flex justify-end">
+                            <EmpreendimentoAliasesBadge count={item.aliases_count} />
+                          </div>
+                        </td>
+                        <td className="py-2 px-4 text-right tabular-nums font-medium">
+                          {formatEmpreendimentoCount(item.pessoas_unicas_count ?? item.leads_count)}
+                        </td>
+                        <td className="py-2 px-4 text-right tabular-nums">
+                          {formatEmpreendimentoPct(item.percentual_do_total ?? 0)}
+                        </td>
+                        <td className="py-2 px-4 text-right tabular-nums">
+                          {formatEmpreendimentoPct(item.taxa_qualificacao ?? 0)}
+                        </td>
+                        <td className="py-2 px-4 text-right tabular-nums">
+                          {formatEmpreendimentoCount(item.reservas_count ?? 0)}
+                        </td>
+                        <td className="py-2 px-4 text-right tabular-nums">
+                          {formatEmpreendimentoCount(item.v_andamento_count ?? 0)}
+                        </td>
+                        <td className="py-2 px-4 text-right tabular-nums font-medium">
+                          {formatEmpreendimentoCount(item.vendas_count ?? 0)}
+                        </td>
+                        {isAdmin && onEdit ? (
+                          <td className="py-2 px-4 text-right">
+                            <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
+                              <Pencil className="w-4 h-4 mr-1" />
+                              Editar
+                            </Button>
+                          </td>
+                        ) : null}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </AdminBigBox>
+        ) : (
+          <EmpreendimentosAnalyticsView
+            isAdmin={isAdmin}
+            kindFilter={kindFilter}
+            empreendimentos={empreendimentos}
+          />
+        )}
       </div>
+
+      {isAdmin ? (
+        <EmpreendimentoAliasesListDialog
+          open={aliasesDialogOpen}
+          onOpenChange={setAliasesDialogOpen}
+          pendingCount={pendingAliases}
+        />
+      ) : null}
     </MainViewFluidShell>
   );
 }

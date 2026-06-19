@@ -24,6 +24,12 @@ function parseQualificacao(value: unknown): LeadsQualificacaoStatus {
   return QUALIFICACOES.has(q) ? q : 'Indefinida';
 }
 
+function materializeEmpreendimentoInteresse(value: unknown): string {
+  if (value == null) return 'Null';
+  const t = String(value).trim();
+  return t || 'Null';
+}
+
 /** Normaliza payload novo ou legado de /api/leads/list. */
 export function normalizeLeadsListRow(raw: Record<string, unknown>): LeadsListRow {
   const personId = String(raw.person_id ?? raw.id ?? '');
@@ -48,7 +54,9 @@ export function normalizeLeadsListRow(raw: Record<string, unknown>): LeadsListRo
     nome: str(raw.nome, 'Sem nome'),
     email,
     telefone,
-    empreendimento_interesse: strOrNull(raw.empreendimento_interesse ?? raw.empreendimento),
+    empreendimento_interesse: materializeEmpreendimentoInteresse(
+      raw.empreendimento_interesse ?? raw.empreendimento,
+    ),
     canal_bucket: canalBucket,
     canal_raw: canalRaw,
     parameter: strOrNull(raw.parameter ?? raw.parametro),

@@ -29,6 +29,8 @@ export type LeadsBignumbersData = {
   viraram_venda: LeadsMetricBlock;
   reservas_marketing: LeadsMetricBlock;
   reservas_externas: LeadsMetricBlock;
+  com_interesse_genuino: LeadsMetricBlock;
+  sem_interesse: LeadsMetricBlock;
 };
 
 export type LeadsOverviewResponse = {

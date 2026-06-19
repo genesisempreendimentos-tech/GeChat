@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Info } from 'lucide-react';
+import { Globe, Info, Layers, Megaphone } from 'lucide-react';
 import type { VendasFluxoCrosstab, VendasTotais } from '@/types/vendas';
 import { buildVendasSankeyData } from '@/lib/vendasSankey';
 import { layoutVendasSankey } from '@/lib/vendasSankeyLayout';
@@ -10,7 +10,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { INFOBOX_TOOLTIP_CONTENT_CLASS } from '@/components/ui/infoboxes';
+import { TabButton, type TabButtonItem } from '@/components/ui/tab-buttons';
 import { useThemeStore } from '@/store/themeStore';
+
+type SankeyFonteFilter = 'total' | 'marketing' | 'externo';
+
+const SANKEY_FONTE_TAB_ITEMS: ReadonlyArray<TabButtonItem<SankeyFonteFilter>> = [
+  { value: 'total', label: 'Total', Icon: Layers },
+  { value: 'marketing', label: 'Marketing', Icon: Megaphone },
+  { value: 'externo', label: 'Externo', Icon: Globe },
+];
 
 type VendasSankeyChartProps = {
   totais: VendasTotais | null;
@@ -111,6 +120,7 @@ export function VendasSankeyChart({ totais, fluxoCrosstab, loading }: VendasSank
   const isDark = theme === 'dark' || theme === 'full-dark';
   const [hoverTip, setHoverTip] = useState<HoverTip | null>(null);
   const [hoveredLink, setHoveredLink] = useState<number | null>(null);
+  const [fonteFilter, setFonteFilter] = useState<SankeyFonteFilter>('total');
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 960, height: 520 });
 
@@ -158,12 +168,15 @@ export function VendasSankeyChart({ totais, fluxoCrosstab, loading }: VendasSank
 
   return (
     <Card>
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-base">Fluxo de reservas</CardTitle>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          Quatro níveis: total → ramo → balde → status real do CV. Use ℹ️ nas folhas para ver o
-          nome original.
-        </p>
+      <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <CardTitle className="text-base">Fluxo de reservas</CardTitle>
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Quatro níveis: total → ramo → balde → status real do CV. Use ℹ️ nas folhas para ver o
+            nome original.
+          </p>
+        </div>
+        <TabButton value={fonteFilter} items={SANKEY_FONTE_TAB_ITEMS} onChange={setFonteFilter} />
       </CardHeader>
       <CardContent>
         {loading ? (

@@ -4,6 +4,10 @@ import {
   resolveFonteFromBucket,
 } from '../lib/leadsCanalMap.mjs';
 import { ensureGeleadsIdSchema, createGeleadsIdResolver, reconcileGeleadsRegistryActive } from '../lib/geleadsIdRegistry.mjs';
+import { rebuildLeadEmpreendimentoInteresse } from './leadEmpreendimentoInteresseProjection.mjs';
+import {
+  materializeEmpreendimentoInteresse,
+} from '../lib/empreendimentoInteresseNull.mjs';
 import {
   normalizePersonCvcrmLeadId,
   normalizePersonEmail,
@@ -378,7 +382,9 @@ export function aggregatePersonCluster(rows, soldReservasByIdlead = new Map(), r
     name: uniqueStrings(rows.map((row) => row.name)),
     email: uniqueStrings(rows.map((row) => row.email)),
     phone: uniqueStrings(rows.map((row) => row.phone)),
-    empreendimento_interesse: uniqueStrings(rows.map((row) => row.empreendimento_interesse)),
+    empreendimento_interesse: uniqueStrings(
+      rows.map((row) => materializeEmpreendimentoInteresse(row.empreendimento_interesse)),
+    ),
     canal: uniqueStrings(rows.map((row) => row.canal)),
     source_table: uniqueStrings(rows.map((row) => row.source_table)),
     parameter: collectParameterArray(rows),
@@ -526,6 +532,8 @@ export async function rebuildAllLeadsUnique(client) {
   console.log(
     `[leads/unique] ${persons.length} pessoa(s) ← ${rows.length} signup(s) (${merged} merge(s))`,
   );
+
+  await rebuildLeadEmpreendimentoInteresse(client);
 
   return {
     all_leads: rows.length,

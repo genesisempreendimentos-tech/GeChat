@@ -8,12 +8,15 @@ import {
   SQL_RESOLVE_BUCKET_FROM_ALL_LEADS,
 } from '../lib/leadsCanalMap.mjs';
 import {
-  aggregateGenesisEmpreendimentoLabels,
   loadEmpreendimentoResolver,
   orderGenesisEmpreendimentoSeries,
   resolveEmpreendimentoInteresseGenesis,
+  resolveEmpreendimentoPartGenesis,
   resolveGenesisEmpreendimentoColor,
 } from './empreendimentoResolver.mjs';
+import { collectInteresseNormsForCadastro } from '../lib/leadEmpreendimentoInteresse.mjs';
+import { aggregateInteresseByGenesisName, countTrojanInteresseMetrics } from './leadEmpreendimentoInteresseMetrics.mjs';
+import { materializeEmpreendimentoInteresse } from '../lib/empreendimentoInteresseNull.mjs';
 import { toTitleCasePtBr } from '../lib/toTitleCasePtBr.mjs';
 
 function nullableString(value) {
@@ -43,15 +46,23 @@ function resolveGenesisInteresseDisplay(rawValues) {
     ? rawValues
     : rawValues != null
       ? [rawValues]
-      : [];
+      : [null];
   const labels = [];
   const seen = new Set();
   for (const item of items) {
-    for (const label of resolveEmpreendimentoInteresseGenesis(item)) {
-      if (!label || seen.has(label)) continue;
-      seen.add(label);
-      labels.push(label);
+    const materialized = materializeEmpreendimentoInteresse(item);
+    const resolved = resolveEmpreendimentoInteresseGenesis(materialized);
+    if (resolved.length) {
+      for (const label of resolved) {
+        if (!label || seen.has(label)) continue;
+        seen.add(label);
+        labels.push(label);
+      }
+      continue;
     }
+    if (seen.has(materialized)) continue;
+    seen.add(materialized);
+    labels.push(materialized);
   }
   return labels.length ? labels.join('; ') : null;
 }
@@ -204,6 +215,15 @@ async function fetchBignumbers(client, filters) {
   const reservasMarketing = uniRow?.reservas_marketing ?? 0;
   const reservasExternas = uniRow?.reservas_externas ?? 0;
 
+  const { rows: filteredPeople } = await client.query(
+    `SELECT geleads_id FROM all_leads_unique u WHERE ${uni.whereSql} AND geleads_id IS NOT NULL`,
+    uni.params,
+  );
+  const geleadsIdFilter = new Set(filteredPeople.map((row) => row.geleads_id));
+  const trojanMetrics = await countTrojanInteresseMetrics(client, { geleadsIdFilter });
+  const semInteresse = trojanMetrics.semInteresse.size;
+  const comInteresseGenuino = trojanMetrics.comInteresseGenuino.size;
+
   return {
     leads_totais: metric(leadsTotais, leadsTotais),
     leads_unicos: metric(leadsUnicos, leadsTotais),
@@ -213,6 +233,8 @@ async function fetchBignumbers(client, filters) {
     viraram_venda: metric(uniRow?.viraram_venda ?? 0, leadsUnicos),
     reservas_marketing: metric(reservasMarketing, leadsUnicos),
     reservas_externas: metric(reservasExternas, leadsUnicos),
+    com_interesse_genuino: metric(comInteresseGenuino, leadsUnicos),
+    sem_interesse: metric(semInteresse, leadsUnicos),
   };
 }
 
@@ -283,30 +305,42 @@ async function fetchDistribuicao(client, filters) {
 
   await loadEmpreendimentoResolver(client);
 
-  const { rows: empCadRows } = await client.query(
-    `SELECT al.empreendimento_interesse FROM all_leads al WHERE ${cad.whereSql}`,
-    cad.params,
-  );
-  const { rows: empPessoasRows } = await client.query(
-    `SELECT u.empreendimento_interesse FROM all_leads_unique u WHERE ${uni.whereSql}`,
+  const { rows: filteredPeople } = await client.query(
+    `SELECT geleads_id FROM all_leads_unique u WHERE ${uni.whereSql} AND geleads_id IS NOT NULL`,
     uni.params,
   );
+  const geleadsIdFilter = new Set(filteredPeople.map((row) => row.geleads_id));
+  const pessoasEmpMap = await aggregateInteresseByGenesisName(client, { geleadsIdFilter });
 
-  const cadEmpMap = aggregateGenesisEmpreendimentoLabels(
-    empCadRows.map((row) => row.empreendimento_interesse),
+  const { rows: cadInteresseRows } = await client.query(
+    `SELECT al.empreendimento_interesse, al.source_table, al.cvcrm_payload
+     FROM all_leads al WHERE ${cad.whereSql}`,
+    cad.params,
   );
-  const pessoasEmpMap = aggregateGenesisEmpreendimentoLabels(
-    empPessoasRows.map((row) => row.empreendimento_interesse),
-  );
+  const cadEmpMap = new Map();
+  for (const row of cadInteresseRows) {
+    const labels = new Set();
+    for (const norm of collectInteresseNormsForCadastro(row)) {
+      const label = resolveEmpreendimentoPartGenesis(norm);
+      if (label) labels.add(label);
+    }
+    for (const label of labels) {
+      cadEmpMap.set(label, (cadEmpMap.get(label) ?? 0) + 1);
+    }
+  }
 
   const empKeys = new Set([...cadEmpMap.keys(), ...pessoasEmpMap.keys()]);
   const porEmpreendimento = [...empKeys]
-    .map((empreendimento) => ({
-      empreendimento,
-      cadastros: cadEmpMap.get(empreendimento) ?? 0,
-      pessoas: pessoasEmpMap.get(empreendimento) ?? 0,
-    }))
-    .sort((a, b) => b.cadastros - a.cadastros);
+    .map((empreendimento) => {
+      const bucket = pessoasEmpMap.get(empreendimento);
+      return {
+        empreendimento,
+        cadastros: cadEmpMap.get(empreendimento) ?? 0,
+        pessoas: bucket?.pessoas ?? 0,
+        total_interesses: bucket?.interesses ?? 0,
+      };
+    })
+    .sort((a, b) => b.pessoas - a.pessoas || b.cadastros - a.cadastros);
 
   return {
     por_canal: [...canalMap.values()].sort((a, b) => b.cadastros - a.cadastros),
@@ -342,7 +376,7 @@ async function buildTimeline(client, filters, cad, uni) {
       CROSS JOIN LATERAL unnest(
         CASE
           WHEN cardinality(u.empreendimento_interesse) > 0 THEN u.empreendimento_interesse
-          ELSE ARRAY[NULL::text]
+          ELSE ARRAY['Null'::text]
         END
       ) AS emp
       WHERE ${uni.whereSql}

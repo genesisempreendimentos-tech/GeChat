@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Building2, Upload, X } from 'lucide-react';
+import { AlertCircle, Building2, ChessKnight, Info, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import {
 import { LoadingGif } from '@/components/LoadingGif';
 import {
   DEFAULT_EMPREENDIMENTO_COLOR,
+  buildUsedEmpreendimentoColorMap,
   empreendimentoColorHex,
   normalizeEmpreendimentoColorToken,
   type EmpreendimentoColorToken,
@@ -29,11 +31,13 @@ import {
   uploadEmpreendimentoLogo,
 } from '@/services/empreendimentosService';
 import type { EmpreendimentoAlias, EmpreendimentoAliasCluster, EmpreendimentoGenesis } from '@/types/empreendimentos';
+import { TROIA_INFO_TOOLTIP } from '@/lib/empreendimentosTroia';
 
 type EmpreendimentoFormModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: EmpreendimentoGenesis | null;
+  allEmpreendimentos?: EmpreendimentoGenesis[];
   onSaved: () => void;
 };
 
@@ -41,7 +45,9 @@ function flattenAClassificar(clusters: EmpreendimentoAliasCluster[]): Empreendim
   const map = new Map<number, EmpreendimentoAlias>();
   for (const cluster of clusters) {
     for (const alias of cluster.aliases) {
-      if (alias.status === 'a_classificar') map.set(alias.id, alias);
+      if (alias.status === 'a_classificar' || alias.status === 'nao_informado') {
+        map.set(alias.id, alias);
+      }
     }
   }
   return [...map.values()].sort((a, b) => b.ocorrencias - a.ocorrencias);
@@ -59,10 +65,12 @@ export function EmpreendimentoFormModal({
   open,
   onOpenChange,
   editing,
+  allEmpreendimentos = [],
   onSaved,
 }: EmpreendimentoFormModalProps) {
   const [nome, setNome] = useState('');
   const [cor, setCor] = useState<EmpreendimentoColorToken>(DEFAULT_EMPREENDIMENTO_COLOR);
+  const [isTrojan, setIsTrojan] = useState(false);
   const [logoUrl, setLogoUrl] = useState('');
   const [logoUploading, setLogoUploading] = useState(false);
   const [clusters, setClusters] = useState<EmpreendimentoAliasCluster[]>([]);
@@ -98,6 +106,11 @@ export function EmpreendimentoFormModal({
       .filter((alias): alias is EmpreendimentoAlias => Boolean(alias));
   }, [selectedNewIds, selectedMappedIds, aliasById]);
 
+  const usedColorBy = useMemo(
+    () => buildUsedEmpreendimentoColorMap(allEmpreendimentos, editing?.id ?? null),
+    [allEmpreendimentos, editing?.id],
+  );
+
   const loadModalData = useCallback(async () => {
     setLoading(true);
     setFormError('');
@@ -115,6 +128,7 @@ export function EmpreendimentoFormModal({
     if (editing && detailResult.data) {
       setNome(detailResult.data.nome);
       setCor(normalizeEmpreendimentoColorToken(detailResult.data.cor));
+      setIsTrojan(Boolean(detailResult.data.is_trojan));
       setLogoUrl(detailResult.data.logo_url ?? '');
       setMappedAliases(detailResult.data.aliases ?? []);
       setSelectedMappedIds(new Set((detailResult.data.aliases ?? []).map((a) => a.id)));
@@ -122,6 +136,7 @@ export function EmpreendimentoFormModal({
     } else {
       setNome('');
       setCor(DEFAULT_EMPREENDIMENTO_COLOR);
+      setIsTrojan(false);
       setLogoUrl('');
       setMappedAliases([]);
       setSelectedMappedIds(new Set());
@@ -199,6 +214,7 @@ export function EmpreendimentoFormModal({
       nome: nome.trim(),
       cor,
       logo_url: logoUrl.trim() || null,
+      is_trojan: isTrojan,
       alias_ids: aliasIds,
       remove_alias_ids: removeAliasIds,
     };
@@ -298,32 +314,30 @@ export function EmpreendimentoFormModal({
                       className="h-12 w-12 rounded-lg border object-cover bg-background"
                     />
                   ) : (
-                    <div className="h-12 w-12 rounded-lg border flex items-center justify-center bg-muted/40">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted/40">
                       <Building2 className="w-5 h-5 text-muted-foreground" />
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  Armazenado via API · bucket GeImage / empreendimentos
-                </p>
               </div>
 
               <div>
+                <label className="text-sm font-medium mb-2 block">Aliases do empreendimentos</label>
                 <Button
                   type="button"
                   variant="outline"
                   className="w-full sm:w-auto"
                   onClick={() => setAliasPickerOpen(true)}
                 >
-                  Selecionar empreendimentos
+                  Selecionar aliases
                 </Button>
                 {selectedBadges.length > 0 ? (
-                  <div className="flex flex-wrap gap-2 mt-3">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {selectedBadges.map((alias) => (
                       <Badge
                         key={alias.id}
                         variant="secondary"
-                        className="pl-2.5 pr-1 py-1 gap-1 rounded-lg max-w-full"
+                        className="max-w-full gap-1 rounded-lg py-1 pl-2.5 pr-1"
                       >
                         <span className="truncate">{aliasLabel(alias)}</span>
                         <button
@@ -338,6 +352,33 @@ export function EmpreendimentoFormModal({
                     ))}
                   </div>
                 ) : null}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-lg border border-border/50 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-border"
+                    checked={isTrojan}
+                    onChange={(e) => setIsTrojan(e.target.checked)}
+                  />
+                  <ChessKnight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="text-sm font-medium">Troia</span>
+                </label>
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                      aria-label="O que é Troia"
+                    >
+                      <Info className="size-3.5" strokeWidth={2.25} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs text-sm">
+                    {TROIA_INFO_TOOLTIP}
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           )}
@@ -363,6 +404,7 @@ export function EmpreendimentoFormModal({
         onOpenChange={setColorPickerOpen}
         value={cor}
         onSelect={setCor}
+        usedBy={usedColorBy}
       />
 
       <EmpreendimentoAliasPickerDialog

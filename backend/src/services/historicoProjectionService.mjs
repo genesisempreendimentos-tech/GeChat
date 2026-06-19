@@ -3,6 +3,7 @@ import {
   normalizeFonteLabel,
   resolveFonteFromBucket,
 } from '../lib/leadsCanalMap.mjs';
+import { buildGeleadsLookup, resolveGeleadsIdFromCvcrmLeadId, resolveGeleadsIdFromLeadRow } from '../lib/geleadsLookup.mjs';
 import { ensureHistoricoSchema } from '../lib/historicoSchema.mjs';
 import {
   resolveHistoricoEmpreendimentoCru,
@@ -105,45 +106,11 @@ async function insertHistoricoEvent(client, event) {
   return insertHistoricoEvents(client, [event]);
 }
 
-async function buildGeleadsLookup(client) {
-  const cvcrmMap = new Map();
-  const emailMap = new Map();
-  const phoneMap = new Map();
-
-  const { rows: uniqueRows } = await client.query(`
-    SELECT geleads_id, cvcrm_lead_id, email, phone
-    FROM all_leads_unique
-    WHERE geleads_id IS NOT NULL
-  `);
-
-  for (const row of uniqueRows) {
-    const gid = toSafeString(row.geleads_id);
-    if (!gid) continue;
-    const cvcrm = toSafeString(row.cvcrm_lead_id);
-    if (cvcrm) cvcrmMap.set(cvcrm, gid);
-    for (const e of row.email ?? []) {
-      const norm = toSafeString(e).toLowerCase();
-      if (norm) emailMap.set(norm, gid);
-    }
-    for (const p of row.phone ?? []) {
-      const norm = toSafeString(p).replace(/\D/g, '');
-      if (norm) phoneMap.set(norm, gid);
-    }
+function resolveGeleadsIdFromReservaIdlead(idleadStr, lookup) {
+  for (const part of toSafeString(idleadStr).split(',')) {
+    const gid = resolveGeleadsIdFromCvcrmLeadId(part, lookup);
+    if (gid) return gid;
   }
-
-  return { cvcrmMap, emailMap, phoneMap };
-}
-
-function resolveGeleadsIdFromLeadRow(row, lookup) {
-  const cvcrm = toSafeString(row.cvcrm_lead_id);
-  if (cvcrm && lookup.cvcrmMap.has(cvcrm)) return lookup.cvcrmMap.get(cvcrm);
-
-  const email = toSafeString(row.email).toLowerCase();
-  if (email && lookup.emailMap.has(email)) return lookup.emailMap.get(email);
-
-  const phone = toSafeString(row.phone).replace(/\D/g, '');
-  if (phone && lookup.phoneMap.has(phone)) return lookup.phoneMap.get(phone);
-
   return null;
 }
 
@@ -283,7 +250,7 @@ export async function projectLeadMudouSituacao(client, lookup, { incremental = f
       if (!change || typeof change !== 'object') continue;
 
       const cvcrmId = toLeadIdBigint(row.idlead ?? row.cvcrm_lead_id);
-      const geleadsId = cvcrmId != null ? lookup.cvcrmMap.get(String(cvcrmId)) ?? null : null;
+      const geleadsId = cvcrmId != null ? resolveGeleadsIdFromCvcrmLeadId(cvcrmId, lookup) : null;
       const ocorridoEm =
         row.synced_at instanceof Date ? row.synced_at.toISOString() : String(row.synced_at);
 
@@ -361,14 +328,7 @@ export async function projectReservaCriada(client, lookup, { incremental = false
       const ocorridoEm = resolveReservaCreatedAt(row);
       const empCru = resolveHistoricoEmpreendimentoCru(row.empreendimento);
       const idleadStr = toSafeString(row.idlead);
-      let geleadsId = null;
-      for (const part of idleadStr.split(',')) {
-        const id = part.trim();
-        if (lookup.cvcrmMap.has(id)) {
-          geleadsId = lookup.cvcrmMap.get(id);
-          break;
-        }
-      }
+      const geleadsId = resolveGeleadsIdFromReservaIdlead(idleadStr, lookup);
 
       inserted += await insertHistoricoEvent(client, {
         tipo: TIPO.RESERVA_CRIADA,
@@ -439,14 +399,7 @@ export async function projectReservaMudouSituacao(client, lookup, { incremental 
       const ocorridoEm =
         row.changed_at instanceof Date ? row.changed_at.toISOString() : String(row.changed_at);
       const idleadStr = toSafeString(row.idlead);
-      let geleadsId = null;
-      for (const part of idleadStr.split(',')) {
-        const id = part.trim();
-        if (lookup.cvcrmMap.has(id)) {
-          geleadsId = lookup.cvcrmMap.get(id);
-          break;
-        }
-      }
+      const geleadsId = resolveGeleadsIdFromReservaIdlead(idleadStr, lookup);
 
       inserted += await insertHistoricoEvent(client, {
         tipo: TIPO.RESERVA_MUDOU,

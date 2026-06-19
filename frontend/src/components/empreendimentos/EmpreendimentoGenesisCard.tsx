@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EmpreendimentoGenesisLogo } from '@/components/empreendimentos/EmpreendimentoGenesisLogo';
+import { DEFAULT_EMPREENDIMENTO_COLOR, empreendimentoColorHex } from '@/lib/brandColors';
 import { cn } from '@/lib/utils';
 import type { EmpreendimentoGenesis } from '@/types/empreendimentos';
 type EmpreendimentoGenesisCardProps = {
@@ -59,7 +60,7 @@ export function EmpreendimentoGenesisCard({
               <p className="truncate font-semibold text-foreground" title={item.nome}>
                 {item.nome}
               </p>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex w-full flex-wrap items-center gap-2">
                 <span
                   className={cn(
                     'inline-flex rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap',
@@ -71,6 +72,16 @@ export function EmpreendimentoGenesisCard({
                   {item.ativo ? 'Ativo' : 'Inativo'}
                 </span>
                 <EmpreendimentoAliasesBadge count={item.aliases_count} />
+                <span
+                  className="ml-auto h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-border/70"
+                  style={{
+                    backgroundColor: empreendimentoColorHex(
+                      item.cor ?? DEFAULT_EMPREENDIMENTO_COLOR,
+                    ),
+                  }}
+                  title={`Cor: ${item.nome}`}
+                  aria-hidden
+                />
               </div>
             </div>
           </div>
@@ -96,7 +107,10 @@ export function EmpreendimentoGenesisCard({
         </div>
 
         <div className="mt-auto grid grid-cols-3 gap-x-3 gap-y-4 border-t border-border/50 pt-3 text-sm">
-          <MetricCell label="Leads" value={formatEmpreendimentoCount(item.leads_count)} />
+          <MetricCell
+            label="Pessoas"
+            value={formatEmpreendimentoCount(item.pessoas_unicas_count ?? item.leads_count)}
+          />
           <MetricCell label="Do total" value={formatEmpreendimentoPct(percentualDoTotal)} />
           <MetricCell label="Qualificados" value={formatEmpreendimentoPct(taxaQualificacao)} />
           <MetricCell label="Reservas" value={formatEmpreendimentoCount(item.reservas_count ?? 0)} />

@@ -31,6 +31,7 @@ export function TabButtons<T extends string>({
         'inline-flex w-fit flex-wrap rounded-xl border border-border/60 p-1 bg-muted/30 shadow-sm transition-colors hover:border-border/80',
         className
       )}
+      role="group"
     >
       {items.map(({ value: itemValue, label, Icon }) => {
         const isActive = value === itemValue;
@@ -48,6 +49,7 @@ export function TabButtons<T extends string>({
             )}
             onClick={() => onChange(itemValue)}
             aria-pressed={isActive}
+            aria-label={label}
           >
             <Icon className="w-4 h-4 shrink-0" />
             <AnimatePresence initial={false}>
@@ -69,3 +71,6 @@ export function TabButtons<T extends string>({
     </div>
   );
 }
+
+/** Alias canônico — use `TabButton` quando pedir tab button no produto. */
+export const TabButton = TabButtons;

@@ -7,6 +7,8 @@ import {
   normalizeEmpreendimento,
 } from '../lib/normalizeEmpreendimento.mjs';
 import { invalidateEmpreendimentoResolver } from './empreendimentoResolver.mjs';
+import { aggregateInteresseMetrics, countTrojanInteresseMetrics, sumPessoasEmpreendimentosVsTroia } from './leadEmpreendimentoInteresseMetrics.mjs';
+import { refreshEmpreendimentoAliasesFromAllLeads } from './refreshEmpreendimentoAliasesFromAllLeads.mjs';
 
 const SIMILARITY_THRESHOLD = 0.45;
 
@@ -46,7 +48,8 @@ async function clusterAClassificar(client, aliases) {
     const { rows: similar } = await client.query(
       `SELECT id, valor_norm, exemplos_crus, ocorrencias, empreendimento_id, status
        FROM empreendimento_aliases
-       WHERE status = 'a_classificar'
+       WHERE status IN ('a_classificar', 'nao_informado')
+         AND ocorrencias > 0
          AND similarity(valor_norm, $1) > $2
        ORDER BY ocorrencias DESC, valor_norm`,
       [seed.valor_norm, SIMILARITY_THRESHOLD],
@@ -87,12 +90,15 @@ function singletonClusters(aliases) {
 
 export async function listAliasClusters(client, { statusFilter = null } = {}) {
   await ensureEmpreendimentosSchema(client);
+  await refreshEmpreendimentoAliasesFromAllLeads(client, { invalidateResolver: false });
 
-  let whereSql = '1=1';
+  let whereSql = 'ocorrencias > 0';
   const params = [];
-  if (statusFilter) {
+  if (statusFilter === 'a_classificar') {
+    whereSql = `status IN ('a_classificar', 'nao_informado') AND ocorrencias > 0`;
+  } else if (statusFilter) {
     params.push(statusFilter);
-    whereSql = `status = $${params.length}`;
+    whereSql = `status = $${params.length} AND ocorrencias > 0`;
   }
 
   const { rows } = await client.query(
@@ -103,12 +109,16 @@ export async function listAliasClusters(client, { statusFilter = null } = {}) {
     params,
   );
 
-  const aClassificar = rows.filter((row) => row.status === 'a_classificar');
-  const others = rows.filter((row) => row.status !== 'a_classificar');
+  const selectable = rows.filter(
+    (row) => row.status === 'a_classificar' || row.status === 'nao_informado',
+  );
+  const others = rows.filter(
+    (row) => row.status !== 'a_classificar' && row.status !== 'nao_informado',
+  );
 
   const suggested = statusFilter === 'mapeado' || statusFilter === 'nao_informado'
     ? []
-    : await clusterAClassificar(client, aClassificar);
+    : await clusterAClassificar(client, selectable);
 
   const singletons = statusFilter === 'a_classificar'
     ? []
@@ -119,6 +129,36 @@ export async function listAliasClusters(client, { statusFilter = null } = {}) {
   return {
     clusters: [...suggested, ...singletons],
     unclustered: [],
+    stats,
+  };
+}
+
+export async function listAllAliases(client) {
+  await ensureEmpreendimentosSchema(client);
+  await refreshEmpreendimentoAliasesFromAllLeads(client, { invalidateResolver: false });
+
+  const { rows } = await client.query(`
+    SELECT
+      a.id,
+      a.valor_norm,
+      a.exemplos_crus,
+      a.ocorrencias,
+      a.empreendimento_id,
+      a.status,
+      g.nome AS empreendimento_nome
+    FROM empreendimento_aliases a
+    LEFT JOIN empreendimentos_genesis g ON g.id = a.empreendimento_id
+    WHERE a.ocorrencias > 0
+    ORDER BY a.ocorrencias DESC, a.valor_norm
+  `);
+
+  const stats = await fetchAliasStats(client);
+
+  return {
+    aliases: rows.map((row) => ({
+      ...toAliasDto(row),
+      empreendimento_nome: row.empreendimento_nome ?? null,
+    })),
     stats,
   };
 }
@@ -194,9 +234,10 @@ async function loadAliasNormsByEmpreendimento(client) {
 
   const normsByEmp = new Map();
   for (const row of aliasRows) {
-    const set = normsByEmp.get(row.empreendimento_id) ?? new Set();
+    const empId = Number(row.empreendimento_id);
+    const set = normsByEmp.get(empId) ?? new Set();
     set.add(row.valor_norm);
-    normsByEmp.set(row.empreendimento_id, set);
+    normsByEmp.set(empId, set);
   }
   return normsByEmp;
 }
@@ -277,6 +318,10 @@ async function computeGenesisEmpreendimentoStats(client) {
 
 export async function listEmpreendimentosGenesis(client) {
   await ensureEmpreendimentosSchema(client);
+  await refreshEmpreendimentoAliasesFromAllLeads(client);
+
+  const interesseMetrics = await aggregateInteresseMetrics(client);
+
   const { rows } = await client.query(`
     SELECT
       g.id,
@@ -284,6 +329,7 @@ export async function listEmpreendimentosGenesis(client) {
       g.cor,
       g.logo_url,
       g.ativo,
+      g.is_trojan,
       g.created_at,
       COUNT(a.id) FILTER (WHERE a.status = 'mapeado')::int AS aliases_count,
       COALESCE(SUM(a.ocorrencias) FILTER (WHERE a.status = 'mapeado'), 0)::int AS leads_count
@@ -295,12 +341,16 @@ export async function listEmpreendimentosGenesis(client) {
 
   const { stats, totalAllLeads } = await computeGenesisEmpreendimentoStats(client);
   return rows.map((row) => {
-    const bucket = stats.get(row.id) ?? emptyEmpreendimentoStats();
+    const empId = Number(row.id);
+    const bucket = stats.get(empId) ?? emptyEmpreendimentoStats();
     const leadsCount = Number(row.leads_count) || 0;
+    const interessesCount = interesseMetrics.interessesByEmp.get(empId) ?? 0;
     const taxaQualificacao = leadsCount > 0 ? (bucket.qualificados / leadsCount) * 100 : 0;
     const percentualDoTotal = totalAllLeads > 0 ? (leadsCount / totalAllLeads) * 100 : 0;
     return {
       ...row,
+      interesses_count: interessesCount,
+      pessoas_unicas_count: interesseMetrics.pessoasByEmp.get(empId) ?? 0,
       qualificados_count: bucket.qualificados,
       taxa_qualificacao: taxaQualificacao,
       percentual_do_total: percentualDoTotal,
@@ -314,11 +364,12 @@ export async function listEmpreendimentosGenesis(client) {
 
 export async function getEmpreendimentoGenesis(client, id) {
   await ensureEmpreendimentosSchema(client);
+  await refreshEmpreendimentoAliasesFromAllLeads(client, { invalidateResolver: false });
   const empId = Number(id);
   if (!empId) throw Object.assign(new Error('ID inválido.'), { statusCode: 400 });
 
   const { rows: empRows } = await client.query(
-    `SELECT id, nome, cor, logo_url, ativo, created_at FROM empreendimentos_genesis WHERE id = $1`,
+    `SELECT id, nome, cor, logo_url, ativo, is_trojan, created_at FROM empreendimentos_genesis WHERE id = $1`,
     [empId],
   );
   if (!empRows.length) throw Object.assign(new Error('Empreendimento não encontrado.'), { statusCode: 404 });
@@ -334,6 +385,16 @@ export async function getEmpreendimentoGenesis(client, id) {
   const stats = await fetchAliasStats(client);
 
   return { ...empRows[0], aliases: aliasRows.map(toAliasDto), pending_aliases: stats.a_classificar };
+}
+
+async function assertEmpreendimentoColorAvailable(client, cor, excludeId = null) {
+  const { rows } = await client.query(`SELECT id, nome, cor FROM empreendimentos_genesis`);
+  for (const row of rows) {
+    if (excludeId != null && Number(row.id) === Number(excludeId)) continue;
+    if (normalizeEmpreendimentoColorToken(row.cor) === cor) {
+      throw Object.assign(new Error(`A cor já está em uso por "${row.nome}".`), { statusCode: 409 });
+    }
+  }
 }
 
 async function unassignAliases(client, aliasIds) {
@@ -356,8 +417,11 @@ export async function saveEmpreendimentoGenesis(client, payload, { id = null } =
 
   const cor = normalizeEmpreendimentoColorToken(payload?.cor ?? payload?.color);
   const logoUrl = payload?.logo_url != null ? String(payload.logo_url).trim() || null : null;
+  const isTrojan = Boolean(payload?.is_trojan);
   const aliasIds = normalizeAliasIds(payload?.alias_ids);
   const removeAliasIds = normalizeAliasIds(payload?.remove_alias_ids);
+
+  await assertEmpreendimentoColorAvailable(client, cor, id);
 
   await client.query('BEGIN');
   try {
@@ -366,10 +430,10 @@ export async function saveEmpreendimentoGenesis(client, payload, { id = null } =
       const empId = Number(id);
       const { rows } = await client.query(
         `UPDATE empreendimentos_genesis
-         SET nome = $2, cor = $3, logo_url = $4
+         SET nome = $2, cor = $3, logo_url = $4, is_trojan = $5
          WHERE id = $1
-         RETURNING id, nome, cor, logo_url, ativo, created_at`,
-        [empId, nome, cor, logoUrl],
+         RETURNING id, nome, cor, logo_url, ativo, is_trojan, created_at`,
+        [empId, nome, cor, logoUrl, isTrojan],
       );
       if (!rows.length) throw Object.assign(new Error('Empreendimento não encontrado.'), { statusCode: 404 });
       emp = rows[0];
@@ -377,10 +441,10 @@ export async function saveEmpreendimentoGenesis(client, payload, { id = null } =
       if (aliasIds.length) await assignAliasesToEmpreendimento(client, aliasIds, empId);
     } else {
       const { rows } = await client.query(
-        `INSERT INTO empreendimentos_genesis (nome, cor, logo_url)
-         VALUES ($1, $2, $3)
-         RETURNING id, nome, cor, logo_url, ativo, created_at`,
-        [nome, cor, logoUrl],
+        `INSERT INTO empreendimentos_genesis (nome, cor, logo_url, is_trojan)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, nome, cor, logo_url, ativo, is_trojan, created_at`,
+        [nome, cor, logoUrl, isTrojan],
       );
       emp = rows[0];
       if (aliasIds.length) await assignAliasesToEmpreendimento(client, aliasIds, emp.id);
@@ -417,6 +481,123 @@ export async function assignAliasesToEmpreendimento(client, aliasIds, empreendim
   );
 
   return { updated: rowCount ?? 0 };
+}
+
+export async function getEmpreendimentosAnalytics(client) {
+  await ensureEmpreendimentosSchema(client);
+
+  const interesseMetrics = await aggregateInteresseMetrics(client);
+  const trojanMetrics = await countTrojanInteresseMetrics(client);
+
+  const { rows: genesisRows } = await client.query(`
+    SELECT id, nome, cor, ativo, is_trojan
+    FROM empreendimentos_genesis
+    ORDER BY nome
+  `);
+  const genesisById = new Map(genesisRows.map((row) => [Number(row.id), row]));
+  const trojanEmpIds = new Set(
+    genesisRows.filter((row) => row.is_trojan).map((row) => Number(row.id)),
+  );
+  const { pessoasEmpreendimentos, pessoasTroia } = sumPessoasEmpreendimentosVsTroia(
+    interesseMetrics.pessoasByEmp,
+    trojanEmpIds,
+  );
+  const interesseEmpTroiaTotal = pessoasEmpreendimentos + pessoasTroia;
+
+  const { rows: [cadastroRow] } = await client.query(
+    `SELECT COUNT(*)::int AS total FROM all_leads`,
+  );
+  const totalCadastros = cadastroRow?.total ?? 0;
+
+  const { rows: [personRow] } = await client.query(
+    `SELECT COUNT(*)::int AS total FROM all_leads_unique`,
+  );
+  const totalPessoas = personRow?.total ?? 0;
+
+  const comInteresseGenuino = trojanMetrics.comInteresseGenuino.size;
+  const semInteresseTrojanOnly = trojanMetrics.semInteresse.size;
+  const semEmpreendimento = Math.max(0, totalPessoas - comInteresseGenuino - semInteresseTrojanOnly);
+  const totalInteresses = interesseMetrics.totalInteresses;
+
+  const { rows: aliasStatsRows } = await client.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE status = 'mapeado')::int AS mapeados,
+      COUNT(*) FILTER (WHERE status = 'a_classificar')::int AS a_classificar
+    FROM empreendimento_aliases
+  `);
+  const aliasesMapeados = aliasStatsRows[0]?.mapeados ?? 0;
+  const aliasesAClassificar = aliasStatsRows[0]?.a_classificar ?? 0;
+
+  const pct = (n, total) => (total > 0 ? Math.round((n / total) * 1000) / 10 : 0);
+
+  const porEmpreendimento = [...interesseMetrics.pessoasByEmp.entries()]
+    .map(([empId, pessoasUnicas]) => {
+      const meta = genesisById.get(empId);
+      const totalInteressesEmp = interesseMetrics.interessesByEmp.get(empId) ?? 0;
+      return {
+        id: empId,
+        nome: meta?.nome ?? `Empreendimento #${empId}`,
+        cor: meta?.cor ?? null,
+        pessoas_unicas: pessoasUnicas,
+        total_interesses: totalInteressesEmp,
+        count: pessoasUnicas,
+        percent: 0,
+      };
+    })
+    .filter((row) => row.pessoas_unicas > 0)
+    .sort((a, b) => b.pessoas_unicas - a.pessoas_unicas);
+
+  const totalPessoasComEmp = porEmpreendimento.reduce((sum, row) => sum + row.pessoas_unicas, 0);
+  for (const row of porEmpreendimento) {
+    row.percent = pct(row.pessoas_unicas, totalPessoasComEmp);
+  }
+
+  const empreendimentosAtivos = genesisRows.filter((row) => row.ativo).length;
+
+  return {
+    bignumbers: {
+      total_pessoas: { count: totalPessoas, percent: 100 },
+      total_cadastros: { count: totalCadastros, percent: 100 },
+      com_empreendimento: {
+        count: pessoasEmpreendimentos,
+        percent: pct(pessoasEmpreendimentos, interesseEmpTroiaTotal || 1),
+      },
+      sem_interesse: {
+        count: pessoasTroia,
+        percent: pct(pessoasTroia, interesseEmpTroiaTotal || 1),
+      },
+      sem_empreendimento: {
+        count: semEmpreendimento,
+        percent: pct(semEmpreendimento, totalPessoas),
+      },
+      total_interesses: {
+        count: totalInteresses,
+        percent: pct(totalInteresses, totalInteresses || 1),
+      },
+      empreendimentos_ativos: {
+        count: empreendimentosAtivos,
+        percent: pct(empreendimentosAtivos, genesisRows.length || 1),
+      },
+      aliases_mapeados: {
+        count: aliasesMapeados,
+        percent: pct(
+          aliasesMapeados,
+          aliasesMapeados + aliasesAClassificar || 1,
+        ),
+      },
+    },
+    interesse_coverage: {
+      pessoas_empreendimentos: pessoasEmpreendimentos,
+      pessoas_troia: pessoasTroia,
+      total: interesseEmpTroiaTotal,
+      com_interesse_genuino: comInteresseGenuino,
+      sem_interesse_trojan_only: semInteresseTrojanOnly,
+      sem_empreendimento: semEmpreendimento,
+      total_pessoas: totalPessoas,
+      total_interesses: totalInteresses,
+    },
+    por_empreendimento: porEmpreendimento,
+  };
 }
 
 export async function markAliasesNaoInformado(client, aliasIds) {

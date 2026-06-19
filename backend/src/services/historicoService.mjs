@@ -1,6 +1,7 @@
 import pg from 'pg';
 import { getNeonLeadsUrl } from '../lib/neonLeads.mjs';
 import { ensureHistoricoSchema } from '../lib/historicoSchema.mjs';
+import { enrichHistoricoGeleadsIds } from '../lib/geleadsLookup.mjs';
 import { loadEmpreendimentoResolver } from './empreendimentoResolver.mjs';
 
 const VALID_TIPOS = new Set([
@@ -136,8 +137,10 @@ export async function listHistoricoMovimentacoes(filters = {}) {
       params,
     );
 
+    const enriched = await enrichHistoricoGeleadsIds(client, rows);
+
     return {
-      rows: rows.map(mapHistoricoRow),
+      rows: enriched.map(mapHistoricoRow),
       total,
       page,
       limit,

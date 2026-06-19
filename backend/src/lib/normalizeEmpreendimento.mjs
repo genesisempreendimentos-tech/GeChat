@@ -2,15 +2,11 @@
  * Normalização de empreendimento_interesse para valor_norm (ingest + resolução read-time).
  */
 
+/** Valores sem empreendimento identificável — não entram como alias selecionável. */
 const NAO_INFORMADO_EXACT = new Set([
-  'nao sei',
-  'nao sei quero ajuda para escolher',
-  'outros',
-  'outro',
   'nao informado',
   'n a',
   'na',
-  'não sei',
   'não informado',
 ]);
 

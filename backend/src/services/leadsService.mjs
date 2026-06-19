@@ -2,6 +2,7 @@ import pg from 'pg';
 import { resolveEmpreendimentoPage } from '../leadEmpreendimento.mjs';
 import { isIgnoredLeadSource } from '../ignoredLeadSources.mjs';
 import { syncLeadsFromSources } from './leadSourceSync.mjs';
+import { materializeEmpreendimentoInteresse } from '../lib/empreendimentoInteresseNull.mjs';
 
 const LEAD_STATUSES = ['novo', 'contato', 'qualificado', 'negociacao', 'ganho', 'perdido'];
 
@@ -69,7 +70,7 @@ function mapNeonRowToLead(row) {
   const createdAt = toIso(row.created_at);
   const updatedAt = toIso(row.updated_at ?? row.created_at);
   const name = String(row.name ?? '').trim() || 'Lead';
-  const empreendimento = String(row.empreendimento_interesse ?? '').trim();
+  const empreendimento = materializeEmpreendimentoInteresse(row.empreendimento_interesse);
   const childrenStatus = String(row.children_status ?? '').trim();
   const parameter = formatParameter(row.parameter);
 

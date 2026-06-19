@@ -57,6 +57,10 @@ export const LEAD_SOURCE_TABLES = ALL_SOURCE_TABLES.map((table) => ({
 }));
 
 import { IGNORED_NEON_LEAD_SOURCE_TABLES } from '../ignoredLeadSources.mjs';
+import {
+  materializeEmpreendimentoInteresse,
+  sqlCoalesceEmpreendimentoInteresse,
+} from '../lib/empreendimentoInteresseNull.mjs';
 
 export { IGNORED_NEON_LEAD_SOURCE_TABLES };
 
@@ -226,7 +230,7 @@ export function mapCanonicalLeadRow(row, sourceTable) {
     profile_completed: Boolean(row.profile_completed),
     whatsapp_clicked: Boolean(row.whatsapp_clicked),
     canal: toNullableString(row.canal),
-    empreendimento_interesse: toNullableString(row.empreendimento_interesse),
+    empreendimento_interesse: materializeEmpreendimentoInteresse(row.empreendimento_interesse),
     parameter: Array.isArray(row.parameter) ? row.parameter : row.parameter ?? null,
     children_status: toNullableString(row.children_status),
     codigo: mapLeadCodigo(row),
@@ -305,6 +309,11 @@ function srcTextTrim(alias, col, cols) {
   return `NULLIF(TRIM(${alias}.${col}), '')`;
 }
 
+function srcEmpreendimentoInteresse(alias, cols) {
+  if (!cols.has('empreendimento_interesse')) return `'Null'::text`;
+  return sqlCoalesceEmpreendimentoInteresse(`${alias}.empreendimento_interesse`);
+}
+
 /** Expressões canônicas (iguais no INSERT e na assinatura). */
 function buildCanonicalSelectExprs(cols, alias) {
   const s = alias;
@@ -324,7 +333,7 @@ function buildCanonicalSelectExprs(cols, alias) {
     cols.has('profile_completed') ? `COALESCE(${s}.profile_completed, false)` : 'false',
     cols.has('whatsapp_clicked') ? `COALESCE(${s}.whatsapp_clicked, false)` : 'false',
     srcTextTrim(s, 'canal', cols),
-    srcTextTrim(s, 'empreendimento_interesse', cols),
+    srcEmpreendimentoInteresse(s, cols),
     cols.has('parameter') ? `${s}.parameter` : 'NULL::text[]',
     srcTextTrim(s, 'children_status', cols),
     srcTextTrim(s, 'codigo', cols),

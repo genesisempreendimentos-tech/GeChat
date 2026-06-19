@@ -8,9 +8,12 @@ import { LeadsBigNumbers } from '@/components/leads/panel/LeadsBigNumbers';
 import { LeadsTimelineChart } from '@/components/leads/panel/LeadsTimelineChart';
 import { LeadsDistribuicaoSection } from '@/components/leads/panel/LeadsDistribuicaoSection';
 import { LeadsPeopleTable } from '@/components/leads/panel/LeadsPeopleTable';
+import { VendasSankeyChart } from '@/components/vendas/VendasSankeyChart';
 import { useLeadsOverview } from '@/hooks/useLeadsOverview';
 import { useLeadsList } from '@/hooks/useLeadsList';
+import { useVendas } from '@/hooks/useVendas';
 import type { LeadsPanelFilters, LeadsTimelineGrain } from '@/types/leadsOverview';
+import type { VendasFilters } from '@/types/vendas';
 import { MotionReveal } from '@/components/motion/AppMotion';
 
 const DEFAULT_FILTERS: LeadsPanelFilters = {
@@ -20,6 +23,12 @@ const DEFAULT_FILTERS: LeadsPanelFilters = {
   empreendimento: '',
   situacao_cv: '',
   busca: '',
+};
+
+const VENDAS_SANKEY_FILTERS: VendasFilters = {
+  periodo: 'todos',
+  empreendimento: '',
+  imobiliaria: '',
 };
 
 const LIST_PAGE_SIZE = 25;
@@ -46,6 +55,8 @@ export default function UserLeadsPage() {
     error: listError,
     refetch: refetchList,
   } = useLeadsList(filters, listPage, LIST_PAGE_SIZE);
+
+  const { data: vendasSankeyData, loading: vendasSankeyLoading } = useVendas(VENDAS_SANKEY_FILTERS);
 
   useEffect(() => {
     setListPage(1);
@@ -127,6 +138,16 @@ export default function UserLeadsPage() {
 
         {!error && !isEmpty ? (
           <MotionReveal index={3}>
+            <VendasSankeyChart
+              totais={vendasSankeyData?.totais ?? null}
+              fluxoCrosstab={vendasSankeyData?.fluxo_crosstab ?? null}
+              loading={vendasSankeyLoading && !vendasSankeyData}
+            />
+          </MotionReveal>
+        ) : null}
+
+        {!error && !isEmpty ? (
+          <MotionReveal index={4}>
             {listError ? (
               <PageErrorState
                 title="Não conseguimos carregar a lista"

@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { useThemeStore } from '@/store/themeStore';
 import {
   chartTooltipPanelStyle,
+  chartTooltipShellStyle,
   lineChartTooltipCursor,
   useChartPrimaryRaw,
 } from '@/lib/chartTheme';
@@ -169,12 +170,95 @@ export function VisitorsSitesLineChart({
     ],
   );
 
+  const renderTooltip = useCallback(
+    ({
+      active,
+      payload,
+      label,
+    }: {
+      active?: boolean;
+      payload?: ReadonlyArray<{
+        dataKey?: string | number;
+        value?: string | number;
+        name?: string;
+        color?: string;
+      }>;
+      label?: string | number;
+    }) => {
+      if (!active || !payload?.length) return null;
+
+      const items = payload
+        .map((entry) => {
+          const dataKey = String(entry.dataKey ?? entry.name ?? '');
+          const numeric = typeof entry.value === 'number' ? entry.value : Number(entry.value ?? 0);
+          if (!Number.isFinite(numeric) || numeric === 0) return null;
+
+          const displayName =
+            dataKey === MERGED_KEY
+              ? mergeLineName
+              : dataKey === AVERAGE_KEY
+                ? averageLineName
+                : series.find((s) => s.dataKey === dataKey)?.name ?? String(entry.name ?? dataKey);
+
+          return {
+            dataKey,
+            numeric,
+            displayName,
+            color: entry.color ?? series.find((s) => s.dataKey === dataKey)?.color ?? '#14b8a6',
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null)
+        .sort((a, b) => b.numeric - a.numeric);
+
+      if (!items.length) return null;
+
+      const title = formatTooltipLabel?.(label) ?? String(label ?? '');
+
+      return (
+        <div className="rounded-lg border px-3 py-2 text-xs shadow-lg" style={chartTooltipPanelStyle(isDark)}>
+          <p className="mb-1.5 font-medium" style={{ color: isDark ? '#f3f4f6' : '#111827' }}>
+            {title}
+          </p>
+          <ul className="space-y-1">
+            {items.map((item) => (
+              <li key={item.dataKey} className="flex items-center justify-between gap-4">
+                <span className="inline-flex min-w-0 items-center gap-1.5">
+                  <span
+                    className="inline-block h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="truncate" style={{ color: isDark ? '#e5e7eb' : '#374151' }}>
+                    {item.displayName}
+                  </span>
+                </span>
+                <span
+                  className="shrink-0 tabular-nums font-medium"
+                  style={{ color: isDark ? '#f3f4f6' : '#111827' }}
+                >
+                  {tooltipValueFormatter(item.numeric)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    },
+    [
+      averageLineName,
+      formatTooltipLabel,
+      isDark,
+      mergeLineName,
+      series,
+      tooltipValueFormatter,
+    ],
+  );
+
   if (!data.length) return null;
 
   const activeCount = mergeAsGesite ? 1 : visibleSeries.length;
 
   return (
-    <div className="relative">
+    <div className="relative [&_.recharts-legend-wrapper]:relative [&_.recharts-legend-wrapper]:z-0 [&_.recharts-tooltip-wrapper]:!z-[100]">
       <ResponsiveContainer
         width="100%"
         height={280}
@@ -197,21 +281,11 @@ export function VisitorsSitesLineChart({
           />
           <Tooltip
             cursor={lineChartTooltipCursor(isDark, primaryRaw)}
-            contentStyle={chartTooltipPanelStyle(isDark)}
-            labelStyle={{ color: isDark ? '#f3f4f6' : '#111827' }}
-            labelFormatter={(label) => formatTooltipLabel?.(label) ?? String(label)}
-            formatter={(value, name) => {
-              const numeric = typeof value === 'number' ? value : Number(value ?? 0);
-              const label =
-                name === MERGED_KEY
-                  ? mergeLineName
-                  : name === AVERAGE_KEY
-                    ? averageLineName
-                    : series.find((s) => s.dataKey === name)?.name ?? String(name);
-              return [tooltipValueFormatter(Number.isFinite(numeric) ? numeric : 0), label];
-            }}
+            wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
+            contentStyle={chartTooltipShellStyle()}
+            content={renderTooltip}
           />
-          <Legend content={renderLegend} />
+          <Legend content={renderLegend} wrapperStyle={{ zIndex: 0 }} />
 
           {mergeAsGesite ? (
             <Line

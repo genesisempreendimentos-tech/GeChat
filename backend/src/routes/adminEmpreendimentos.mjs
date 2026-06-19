@@ -4,7 +4,9 @@ import { requireAdmin } from '../middleware/requireAdmin.mjs';
 import {
   assignAliasesToEmpreendimento,
   getEmpreendimentoGenesis,
+  getEmpreendimentosAnalytics,
   listAliasClusters,
+  listAllAliases,
   listEmpreendimentosGenesis,
   markAliasesNaoInformado,
   saveEmpreendimentoGenesis,
@@ -49,6 +51,26 @@ export function createAdminEmpreendimentosRouter() {
         listAliasClusters(client, { statusFilter: null }).then((r) => r.stats),
       );
       res.json({ empreendimentos: rows, stats });
+    } catch (err) {
+      return handleServiceError(res, err);
+    }
+  });
+
+  router.get('/analytics', async (_req, res) => {
+    try {
+      const analytics = await withEmpreendimentosClient((client) =>
+        getEmpreendimentosAnalytics(client),
+      );
+      res.json(analytics);
+    } catch (err) {
+      return handleServiceError(res, err);
+    }
+  });
+
+  router.get('/aliases/all', async (_req, res) => {
+    try {
+      const data = await withEmpreendimentosClient((client) => listAllAliases(client));
+      res.json(data);
     } catch (err) {
       return handleServiceError(res, err);
     }

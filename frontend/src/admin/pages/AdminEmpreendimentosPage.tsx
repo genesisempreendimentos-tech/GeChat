@@ -46,6 +46,7 @@ export default function AdminEmpreendimentosPage() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         editing={editing}
+        allEmpreendimentos={empreendimentos}
         onSaved={loadData}
       />
     </>
