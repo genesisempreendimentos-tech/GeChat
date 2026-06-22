@@ -12,6 +12,198 @@ import { refreshEmpreendimentoAliasesFromAllLeads } from './refreshEmpreendiment
 
 const SIMILARITY_THRESHOLD = 0.45;
 
+/** @typedef {{ from: string|null, to: string|null }} EmpreendimentosDateFilter */
+
+export function parseEmpreendimentosDateFilter(query = {}) {
+  const from = String(query.from ?? query.created_de ?? '').trim();
+  const to = String(query.to ?? query.created_ate ?? '').trim();
+  if (!from && !to) return null;
+  return { from: from || null, to: to || null };
+}
+
+function buildRangeWhere(dateFilter, columnExpr, params, baseParts = ['1=1']) {
+  const parts = [...baseParts];
+  if (!dateFilter) return { whereSql: parts.join(' AND '), params };
+  if (dateFilter.from) {
+    params.push(dateFilter.from);
+    parts.push(`${columnExpr} >= $${params.length}::date`);
+  }
+  if (dateFilter.to) {
+    params.push(dateFilter.to);
+    parts.push(`${columnExpr} < ($${params.length}::date + interval '1 day')`);
+  }
+  return { whereSql: parts.join(' AND '), params };
+}
+
+/** Pessoas (geleads_id) com ≥1 cadastro em all_leads no período. */
+async function loadGeleadsIdsFromLeadsInRange(client, dateFilter) {
+  if (!dateFilter) return null;
+  const params = [];
+  const { whereSql } = buildRangeWhere(dateFilter, 'al.created_at', params);
+  const ids = new Set();
+
+  const { rows: cvRows } = await client.query(
+    `SELECT DISTINCT u.geleads_id
+     FROM all_leads al
+     INNER JOIN all_leads_unique u
+       ON al.cvcrm_lead_id IS NOT NULL
+      AND u.cvcrm_lead_id IS NOT NULL
+      AND al.cvcrm_lead_id = u.cvcrm_lead_id
+     WHERE ${whereSql}
+       AND u.geleads_id IS NOT NULL`,
+    params,
+  );
+  for (const row of cvRows) ids.add(row.geleads_id);
+
+  const emailParams = [...params];
+  const { rows: emailRows } = await client.query(
+    `SELECT DISTINCT u.geleads_id
+     FROM all_leads al
+     INNER JOIN all_leads_unique u
+       ON al.email IS NOT NULL
+      AND al.email = ANY(u.email)
+     WHERE ${whereSql}
+       AND u.geleads_id IS NOT NULL
+       AND (al.cvcrm_lead_id IS NULL OR NOT EXISTS (
+         SELECT 1 FROM all_leads_unique u2
+         WHERE u2.cvcrm_lead_id IS NOT NULL
+           AND al.cvcrm_lead_id = u2.cvcrm_lead_id
+           AND u2.geleads_id IS NOT NULL
+       ))`,
+    emailParams,
+  );
+  for (const row of emailRows) ids.add(row.geleads_id);
+
+  const phoneParams = [...params];
+  const { rows: phoneRows } = await client.query(
+    `SELECT DISTINCT u.geleads_id
+     FROM all_leads al
+     INNER JOIN all_leads_unique u
+       ON al.phone IS NOT NULL
+      AND al.phone = ANY(u.phone)
+     WHERE ${whereSql}
+       AND u.geleads_id IS NOT NULL
+       AND al.cvcrm_lead_id IS NULL
+       AND (al.email IS NULL OR NOT EXISTS (
+         SELECT 1 FROM all_leads_unique u3
+         WHERE al.email = ANY(u3.email) AND u3.geleads_id IS NOT NULL
+       ))`,
+    phoneParams,
+  );
+  for (const row of phoneRows) ids.add(row.geleads_id);
+
+  return ids;
+}
+
+async function countCadastrosByEmpInRange(client, normsByEmp, dateFilter) {
+  const counts = new Map();
+  if (!dateFilter || !normsByEmp.size) return counts;
+
+  const params = [];
+  const { whereSql } = buildRangeWhere(dateFilter, 'al.created_at', params, [
+    `NULLIF(TRIM(al.empreendimento_interesse), '') IS NOT NULL`,
+  ]);
+  const { rows } = await client.query(
+    `SELECT al.empreendimento_interesse FROM all_leads al WHERE ${whereSql}`,
+    params,
+  );
+
+  for (const lead of rows) {
+    for (const empId of matchEmpreendimentoIdsFromRaw(lead.empreendimento_interesse, normsByEmp)) {
+      counts.set(empId, (counts.get(empId) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+async function countVendasByEmpInRange(client, normsByEmp, dateFilter) {
+  const counts = new Map();
+  if (!dateFilter || !normsByEmp.size) return counts;
+
+  const params = [];
+  const parts = ['cr.data_venda IS NOT NULL', 'al.geleads_id IS NOT NULL'];
+  if (dateFilter.from) {
+    params.push(dateFilter.from);
+    parts.push(`cr.data_venda >= $${params.length}::date`);
+  }
+  if (dateFilter.to) {
+    params.push(dateFilter.to);
+    parts.push(`cr.data_venda < ($${params.length}::date + interval '1 day')`);
+  }
+
+  try {
+    const { rows } = await client.query(
+      `SELECT DISTINCT al.geleads_id, cr.empreendimento
+       FROM cvcrm_reservas cr
+       INNER JOIN all_leads_unique al ON al.cvcrm_lead_id::text = cr.idlead::text
+       WHERE ${parts.join(' AND ')}`,
+      params,
+    );
+
+    const geleadsByEmp = new Map();
+    for (const row of rows) {
+      const matched = new Set();
+      const normFromReserva = normalizeEmpreendimento(row.empreendimento);
+      for (const empId of matchEmpreendimentoIds(normFromReserva, normsByEmp)) {
+        matched.add(empId);
+      }
+      for (const empId of matchEmpreendimentoIdsFromRaw(row.empreendimento, normsByEmp)) {
+        matched.add(empId);
+      }
+      for (const empId of matched) {
+        const set = geleadsByEmp.get(empId) ?? new Set();
+        set.add(row.geleads_id);
+        geleadsByEmp.set(empId, set);
+      }
+    }
+    for (const [empId, geleadsSet] of geleadsByEmp) {
+      counts.set(empId, geleadsSet.size);
+    }
+  } catch (err) {
+    if (err?.code !== '42P01') throw err;
+  }
+  return counts;
+}
+
+function matchReservaToEmpIds(reserva, normsByEmp, leadInterestByIdlead) {
+  const matched = new Set();
+  const normFromReserva = normalizeEmpreendimento(reserva.empreendimento);
+  for (const empId of matchEmpreendimentoIds(normFromReserva, normsByEmp)) {
+    matched.add(empId);
+  }
+  if (!matched.size) {
+    for (const idlead of splitIdleadIds(reserva.idlead)) {
+      const interesse = leadInterestByIdlead.get(idlead);
+      if (!interesse) continue;
+      for (const empId of matchEmpreendimentoIdsFromRaw(interesse, normsByEmp)) {
+        matched.add(empId);
+      }
+    }
+  }
+  return matched;
+}
+
+async function loadLeadInterestByIdlead(client, dateFilter) {
+  const params = [];
+  const base = [`NULLIF(TRIM(al.cvcrm_lead_id), '') IS NOT NULL`];
+  const { whereSql } = dateFilter
+    ? buildRangeWhere(dateFilter, 'al.created_at', params, base)
+    : { whereSql: base.join(' AND '), params };
+  const { rows } = await client.query(
+    `SELECT cvcrm_lead_id, empreendimento_interesse
+     FROM all_leads al
+     WHERE ${whereSql}`,
+    params,
+  );
+  const map = new Map();
+  for (const lead of rows) {
+    for (const idlead of splitIdleadIds(lead.cvcrm_lead_id)) {
+      if (!map.has(idlead)) map.set(idlead, lead.empreendimento_interesse);
+    }
+  }
+  return map;
+}
+
 function toAliasDto(row) {
   return {
     id: row.id,
@@ -20,6 +212,18 @@ function toAliasDto(row) {
     ocorrencias: row.ocorrencias,
     empreendimento_id: row.empreendimento_id,
     status: row.status,
+  };
+}
+
+/** Unidades cadastradas, restantes (unidades − vendas) e conversão (vendas / leads × 100). */
+function computeEmpreendimentoUnitMetrics({ unidades, vendas, leads }) {
+  const unidadesCount = Number(unidades) || 0;
+  const vendasCount = Number(vendas) || 0;
+  const leadsCount = Number(leads) || 0;
+  return {
+    unidades_count: unidadesCount,
+    restantes_count: unidadesCount - vendasCount,
+    conversao: leadsCount > 0 ? (vendasCount / leadsCount) * 100 : 0,
   };
 }
 
@@ -242,85 +446,130 @@ async function loadAliasNormsByEmpreendimento(client) {
   return normsByEmp;
 }
 
-async function computeGenesisEmpreendimentoStats(client) {
+async function loadIdleadToGeleadsId(client) {
+  const { rows } = await client.query(`
+    SELECT cvcrm_lead_id, geleads_id
+    FROM all_leads_unique
+    WHERE cvcrm_lead_id IS NOT NULL AND geleads_id IS NOT NULL
+  `);
+  const map = new Map();
+  for (const row of rows) {
+    for (const idlead of splitIdleadIds(row.cvcrm_lead_id)) {
+      if (!map.has(idlead)) map.set(idlead, row.geleads_id);
+    }
+  }
+  return map;
+}
+
+async function computeGenesisEmpreendimentoStats(client, dateFilter = null) {
   const normsByEmp = await loadAliasNormsByEmpreendimento(client);
   const stats = new Map();
 
-  const { rows: totalRows } = await client.query(`SELECT COUNT(*)::int AS total FROM all_leads`);
+  const totalParams = [];
+  const { whereSql: totalWhere } = buildRangeWhere(dateFilter, 'al.created_at', totalParams);
+  const { rows: totalRows } = await client.query(
+    `SELECT COUNT(*)::int AS total FROM all_leads al WHERE ${totalWhere}`,
+    totalParams,
+  );
   const totalAllLeads = totalRows[0]?.total ?? 0;
 
-  if (normsByEmp.size) {
-    const { rows: leads } = await client.query(`
-      SELECT empreendimento_interesse, profile_completed, cvcrm_is_sold
-      FROM all_leads
-      WHERE NULLIF(TRIM(empreendimento_interesse), '') IS NOT NULL
-    `);
+  if (!normsByEmp.size) return { stats, totalAllLeads };
 
-    for (const lead of leads) {
-      const matched = matchEmpreendimentoIdsFromRaw(lead.empreendimento_interesse, normsByEmp);
-      for (const empId of matched) {
-        const bucket = ensureEmpreendimentoStats(stats, empId);
+  const leadParams = [];
+  const { whereSql: leadWhere } = buildRangeWhere(dateFilter, 'al.created_at', leadParams, [
+    `NULLIF(TRIM(al.empreendimento_interesse), '') IS NOT NULL`,
+  ]);
+  const { rows: leads } = await client.query(
+    `SELECT empreendimento_interesse, email, phone, relationship_status, monthly_investment,
+            current_city, birth_date, profile_type, profile_completed, cvcrm_is_sold
+     FROM all_leads al
+     WHERE ${leadWhere}`,
+    leadParams,
+  );
+
+  for (const lead of leads) {
+    const matched = matchEmpreendimentoIdsFromRaw(lead.empreendimento_interesse, normsByEmp);
+    for (const empId of matched) {
+      const bucket = ensureEmpreendimentoStats(stats, empId);
+      if (dateFilter) {
+        if (isLeadQualificadoAltaMedia(lead)) bucket.qualificados += 1;
+      } else {
         if (lead.profile_completed) bucket.qualificados += 1;
         if (lead.cvcrm_is_sold) bucket.vendas += 1;
       }
     }
+  }
 
-    const leadInterestByIdlead = new Map();
-    const { rows: leadsWithCvcrm } = await client.query(`
-      SELECT cvcrm_lead_id, empreendimento_interesse
-      FROM all_leads
-      WHERE NULLIF(TRIM(cvcrm_lead_id), '') IS NOT NULL
+  const leadInterestByIdlead = await loadLeadInterestByIdlead(client, null);
+
+  try {
+    const { rows: reservas } = await client.query(`
+      SELECT idreserva, idlead, empreendimento, situacao, data_venda,
+             payload->>'data_venda' AS payload_data_venda,
+             data_contrato, data_aprovacao, last_synced_at
+      FROM cvcrm_reservas
     `);
-    for (const lead of leadsWithCvcrm) {
-      for (const idlead of splitIdleadIds(lead.cvcrm_lead_id)) {
-        if (!leadInterestByIdlead.has(idlead)) {
-          leadInterestByIdlead.set(idlead, lead.empreendimento_interesse);
-        }
-      }
-    }
 
-    try {
-      const { rows: reservas } = await client.query(`
-        SELECT idlead, empreendimento, situacao, data_venda, payload->>'data_venda' AS payload_data_venda
-        FROM cvcrm_reservas
-      `);
+    const vendasGeleadsByEmp = dateFilter ? new Map() : null;
+    const idleadToGeleads = dateFilter ? await loadIdleadToGeleadsId(client) : null;
 
-      for (const reserva of reservas) {
-        const matched = new Set();
-        const normFromReserva = normalizeEmpreendimento(reserva.empreendimento);
-        for (const empId of matchEmpreendimentoIds(normFromReserva, normsByEmp)) {
-          matched.add(empId);
-        }
+    for (const reserva of reservas) {
+      const matched = matchReservaToEmpIds(reserva, normsByEmp, leadInterestByIdlead);
 
-        if (!matched.size) {
-          for (const idlead of splitIdleadIds(reserva.idlead)) {
-            const interesse = leadInterestByIdlead.get(idlead);
-            if (!interesse) continue;
-            for (const empId of matchEmpreendimentoIdsFromRaw(interesse, normsByEmp)) {
-              matched.add(empId);
-            }
+      if (dateFilter) {
+        if (reservaCreatedInRange(reserva, dateFilter)) {
+          for (const empId of matched) {
+            ensureEmpreendimentoStats(stats, empId).reservas += 1;
           }
         }
-
-        for (const empId of matched) {
-          const bucket = ensureEmpreendimentoStats(stats, empId);
-          bucket.reservas += 1;
-          if (isReservaVendaAndamento(reserva)) bucket.v_andamento += 1;
+        if (reservaHasSaleInRange(reserva, dateFilter)) {
+          for (const empId of matched) {
+            const geleadsKey = resolveReservaGeleadsKey(reserva, idleadToGeleads);
+            if (!geleadsKey) continue;
+            const set = vendasGeleadsByEmp.get(empId) ?? new Set();
+            set.add(geleadsKey);
+            vendasGeleadsByEmp.set(empId, set);
+          }
         }
+        continue;
       }
-    } catch (err) {
-      if (err?.code !== '42P01') throw err;
+
+      for (const empId of matched) {
+        const bucket = ensureEmpreendimentoStats(stats, empId);
+        bucket.reservas += 1;
+        if (isReservaVendaAndamento(reserva)) bucket.v_andamento += 1;
+      }
     }
+
+    if (dateFilter && vendasGeleadsByEmp) {
+      for (const [empId, geleadsSet] of vendasGeleadsByEmp) {
+        ensureEmpreendimentoStats(stats, empId).vendas = geleadsSet.size;
+      }
+    }
+  } catch (err) {
+    if (err?.code !== '42P01') throw err;
   }
 
   return { stats, totalAllLeads };
 }
 
-export async function listEmpreendimentosGenesis(client) {
+function resolveReservaGeleadsKey(reserva, idleadToGeleads) {
+  for (const idlead of splitIdleadIds(reserva.idlead)) {
+    const geleadsId = idleadToGeleads?.get(idlead);
+    if (geleadsId) return geleadsId;
+  }
+  const fallbackIdlead = splitIdleadIds(reserva.idlead)[0];
+  return fallbackIdlead || null;
+}
+
+export async function listEmpreendimentosGenesis(client, dateFilter = null) {
   await ensureEmpreendimentosSchema(client);
   await refreshEmpreendimentoAliasesFromAllLeads(client);
 
-  const interesseMetrics = await aggregateInteresseMetrics(client);
+  const geleadsIdFilter = await loadGeleadsIdsFromLeadsInRange(client, dateFilter);
+  const interesseMetrics = await aggregateInteresseMetrics(client, { geleadsIdFilter });
+  const normsByEmp = await loadAliasNormsByEmpreendimento(client);
+  const leadsInRange = dateFilter ? await countCadastrosByEmpInRange(client, normsByEmp, dateFilter) : null;
 
   const { rows } = await client.query(`
     SELECT
@@ -331,6 +580,7 @@ export async function listEmpreendimentosGenesis(client) {
       g.ativo,
       g.is_trojan,
       g.created_at,
+      g.unidades,
       COUNT(a.id) FILTER (WHERE a.status = 'mapeado')::int AS aliases_count,
       COALESCE(SUM(a.ocorrencias) FILTER (WHERE a.status = 'mapeado'), 0)::int AS leads_count
     FROM empreendimentos_genesis g
@@ -339,18 +589,26 @@ export async function listEmpreendimentosGenesis(client) {
     ORDER BY g.nome
   `);
 
-  const { stats, totalAllLeads } = await computeGenesisEmpreendimentoStats(client);
+  const { stats, totalAllLeads } = await computeGenesisEmpreendimentoStats(client, dateFilter);
   return rows.map((row) => {
     const empId = Number(row.id);
     const bucket = stats.get(empId) ?? emptyEmpreendimentoStats();
-    const leadsCount = Number(row.leads_count) || 0;
+    const leadsCount = leadsInRange
+      ? (leadsInRange.get(empId) ?? 0)
+      : Number(row.leads_count) || 0;
     const interessesCount = interesseMetrics.interessesByEmp.get(empId) ?? 0;
     const taxaQualificacao = leadsCount > 0 ? (bucket.qualificados / leadsCount) * 100 : 0;
     const percentualDoTotal = totalAllLeads > 0 ? (leadsCount / totalAllLeads) * 100 : 0;
+    const unitMetrics = computeEmpreendimentoUnitMetrics({
+      unidades: row.unidades,
+      vendas: bucket.vendas,
+      leads: leadsCount,
+    });
     return {
       ...row,
       interesses_count: interessesCount,
       pessoas_unicas_count: interesseMetrics.pessoasByEmp.get(empId) ?? 0,
+      ...unitMetrics,
       qualificados_count: bucket.qualificados,
       taxa_qualificacao: taxaQualificacao,
       percentual_do_total: percentualDoTotal,
@@ -369,7 +627,7 @@ export async function getEmpreendimentoGenesis(client, id) {
   if (!empId) throw Object.assign(new Error('ID inválido.'), { statusCode: 400 });
 
   const { rows: empRows } = await client.query(
-    `SELECT id, nome, cor, logo_url, ativo, is_trojan, created_at FROM empreendimentos_genesis WHERE id = $1`,
+    `SELECT id, nome, cor, logo_url, ativo, is_trojan, unidades, created_at FROM empreendimentos_genesis WHERE id = $1`,
     [empId],
   );
   if (!empRows.length) throw Object.assign(new Error('Empreendimento não encontrado.'), { statusCode: 404 });
@@ -384,7 +642,7 @@ export async function getEmpreendimentoGenesis(client, id) {
 
   const stats = await fetchAliasStats(client);
 
-  return { ...empRows[0], aliases: aliasRows.map(toAliasDto), pending_aliases: stats.a_classificar };
+  return { ...empRows[0], unidades_count: Number(empRows[0].unidades) || 0, aliases: aliasRows.map(toAliasDto), pending_aliases: stats.a_classificar };
 }
 
 async function assertEmpreendimentoColorAvailable(client, cor, excludeId = null) {
@@ -418,6 +676,7 @@ export async function saveEmpreendimentoGenesis(client, payload, { id = null } =
   const cor = normalizeEmpreendimentoColorToken(payload?.cor ?? payload?.color);
   const logoUrl = payload?.logo_url != null ? String(payload.logo_url).trim() || null : null;
   const isTrojan = Boolean(payload?.is_trojan);
+  const unidades = Math.max(0, Math.floor(Number(payload?.unidades ?? payload?.unidades_count ?? 0) || 0));
   const aliasIds = normalizeAliasIds(payload?.alias_ids);
   const removeAliasIds = normalizeAliasIds(payload?.remove_alias_ids);
 
@@ -430,10 +689,10 @@ export async function saveEmpreendimentoGenesis(client, payload, { id = null } =
       const empId = Number(id);
       const { rows } = await client.query(
         `UPDATE empreendimentos_genesis
-         SET nome = $2, cor = $3, logo_url = $4, is_trojan = $5
+         SET nome = $2, cor = $3, logo_url = $4, is_trojan = $5, unidades = $6
          WHERE id = $1
-         RETURNING id, nome, cor, logo_url, ativo, is_trojan, created_at`,
-        [empId, nome, cor, logoUrl, isTrojan],
+         RETURNING id, nome, cor, logo_url, ativo, is_trojan, unidades, created_at`,
+        [empId, nome, cor, logoUrl, isTrojan, unidades],
       );
       if (!rows.length) throw Object.assign(new Error('Empreendimento não encontrado.'), { statusCode: 404 });
       emp = rows[0];
@@ -441,10 +700,10 @@ export async function saveEmpreendimentoGenesis(client, payload, { id = null } =
       if (aliasIds.length) await assignAliasesToEmpreendimento(client, aliasIds, empId);
     } else {
       const { rows } = await client.query(
-        `INSERT INTO empreendimentos_genesis (nome, cor, logo_url, is_trojan)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, nome, cor, logo_url, ativo, is_trojan, created_at`,
-        [nome, cor, logoUrl, isTrojan],
+        `INSERT INTO empreendimentos_genesis (nome, cor, logo_url, is_trojan, unidades)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, nome, cor, logo_url, ativo, is_trojan, unidades, created_at`,
+        [nome, cor, logoUrl, isTrojan, unidades],
       );
       emp = rows[0];
       if (aliasIds.length) await assignAliasesToEmpreendimento(client, aliasIds, emp.id);
@@ -483,11 +742,12 @@ export async function assignAliasesToEmpreendimento(client, aliasIds, empreendim
   return { updated: rowCount ?? 0 };
 }
 
-export async function getEmpreendimentosAnalytics(client) {
+export async function getEmpreendimentosAnalytics(client, dateFilter = null) {
   await ensureEmpreendimentosSchema(client);
 
-  const interesseMetrics = await aggregateInteresseMetrics(client);
-  const trojanMetrics = await countTrojanInteresseMetrics(client);
+  const geleadsIdFilter = await loadGeleadsIdsFromLeadsInRange(client, dateFilter);
+  const interesseMetrics = await aggregateInteresseMetrics(client, { geleadsIdFilter });
+  const trojanMetrics = await countTrojanInteresseMetrics(client, { geleadsIdFilter });
 
   const { rows: genesisRows } = await client.query(`
     SELECT id, nome, cor, ativo, is_trojan
@@ -504,15 +764,24 @@ export async function getEmpreendimentosAnalytics(client) {
   );
   const interesseEmpTroiaTotal = pessoasEmpreendimentos + pessoasTroia;
 
+  const cadParams = [];
+  const { whereSql: cadWhere } = buildRangeWhere(dateFilter, 'al.created_at', cadParams);
   const { rows: [cadastroRow] } = await client.query(
-    `SELECT COUNT(*)::int AS total FROM all_leads`,
+    `SELECT COUNT(*)::int AS total FROM all_leads al WHERE ${cadWhere}`,
+    cadParams,
   );
   const totalCadastros = cadastroRow?.total ?? 0;
 
-  const { rows: [personRow] } = await client.query(
-    `SELECT COUNT(*)::int AS total FROM all_leads_unique`,
-  );
-  const totalPessoas = personRow?.total ?? 0;
+  let totalPessoas;
+  if (dateFilter) {
+    const geleadsInRange = await loadGeleadsIdsFromLeadsInRange(client, dateFilter);
+    totalPessoas = geleadsInRange?.size ?? 0;
+  } else {
+    const { rows: [personRow] } = await client.query(
+      `SELECT COUNT(*)::int AS total FROM all_leads_unique WHERE geleads_id IS NOT NULL`,
+    );
+    totalPessoas = personRow?.total ?? 0;
+  }
 
   const comInteresseGenuino = trojanMetrics.comInteresseGenuino.size;
   const semInteresseTrojanOnly = trojanMetrics.semInteresse.size;

@@ -5,8 +5,31 @@ import type {
   EmpreendimentoGenesis,
   EmpreendimentoGenesisDetail,
   EmpreendimentosAnalyticsData,
+  EmpreendimentosDateRange,
   EmpreendimentoSavePayload,
 } from '@/types/empreendimentos';
+
+export type EmpreendimentosApiDateQuery = {
+  from?: string;
+  to?: string;
+};
+
+function empreendimentosDateQuery(dateRange?: EmpreendimentosDateRange): EmpreendimentosApiDateQuery {
+  if (!dateRange?.from?.trim() || !dateRange?.to?.trim()) return {};
+  return {
+    from: dateRange.from.trim(),
+    to: dateRange.to.trim(),
+  };
+}
+
+function buildEmpreendimentosUrl(path: string, dateRange?: EmpreendimentosDateRange): string {
+  const params = new URLSearchParams();
+  const dateQuery = empreendimentosDateQuery(dateRange);
+  if (dateQuery.from) params.set('from', dateQuery.from);
+  if (dateQuery.to) params.set('to', dateQuery.to);
+  const qs = params.toString();
+  return qs ? `${path}?${qs}` : path;
+}
 
 async function apiFetch<T>(
   path: string,
@@ -34,23 +57,48 @@ async function apiFetch<T>(
   }
 }
 
-export async function fetchUserEmpreendimentos() {
-  return apiFetch<{ empreendimentos: EmpreendimentoGenesis[] }>('/api/empreendimentos');
+export async function fetchUserEmpreendimentos(dateRange?: EmpreendimentosDateRange) {
+  return apiFetch<{ empreendimentos: EmpreendimentoGenesis[] }>(
+    buildEmpreendimentosUrl('/api/empreendimentos', dateRange),
+  );
 }
 
-export async function fetchEmpreendimentosAnalytics(isAdmin = false) {
-  const path = isAdmin ? '/api/admin/empreendimentos/analytics' : '/api/empreendimentos/analytics';
-  return apiFetch<EmpreendimentosAnalyticsData>(path);
+export async function fetchEmpreendimentosAnalytics(
+  isAdmin = false,
+  dateRange?: EmpreendimentosDateRange,
+) {
+  const base = isAdmin ? '/api/admin/empreendimentos/analytics' : '/api/empreendimentos/analytics';
+  return apiFetch<EmpreendimentosAnalyticsData>(buildEmpreendimentosUrl(base, dateRange));
 }
 
-export async function fetchAdminEmpreendimentos() {
+export async function fetchAdminEmpreendimentos(dateRange?: EmpreendimentosDateRange) {
   return apiFetch<{ empreendimentos: EmpreendimentoGenesis[]; stats: EmpreendimentoAliasStats }>(
-    '/api/admin/empreendimentos',
+    buildEmpreendimentosUrl('/api/admin/empreendimentos', dateRange),
   );
 }
 
 export async function fetchAdminEmpreendimentoDetail(id: number) {
   return apiFetch<EmpreendimentoGenesisDetail>(`/api/admin/empreendimentos/${id}`);
+}
+
+export async function fetchEmpreendimentoMappedAliases(id: number, isAdmin = false) {
+  if (isAdmin) {
+    const result = await fetchAdminEmpreendimentoDetail(id);
+    if (result.error || !result.data) {
+      return { data: null, error: result.error };
+    }
+    return {
+      data: {
+        id: result.data.id,
+        nome: result.data.nome,
+        aliases: result.data.aliases,
+      },
+      error: null,
+    };
+  }
+  return apiFetch<{ id: number; nome: string; aliases: EmpreendimentoGenesisDetail['aliases'] }>(
+    `/api/empreendimentos/${id}/aliases`,
+  );
 }
 
 export async function fetchAdminAliasClusters(status: 'a_classificar' = 'a_classificar') {

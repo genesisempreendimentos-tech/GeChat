@@ -16,6 +16,8 @@ let aliasMap = new Map();
 let genesisNameSet = new Set();
 /** @type {Map<string, string>} nome canônico → classe Tailwind (bg-*-500) */
 let genesisColorByName = new Map();
+/** @type {Set<string>} */
+let genesisTrojanNameSet = new Set();
 let loadedAt = 0;
 const CACHE_TTL_MS = 60_000;
 
@@ -23,6 +25,7 @@ export function invalidateEmpreendimentoResolver() {
   aliasMap = new Map();
   genesisNameSet = new Set();
   genesisColorByName = new Map();
+  genesisTrojanNameSet = new Set();
   loadedAt = 0;
 }
 
@@ -54,14 +57,17 @@ export async function loadEmpreendimentoResolver(client, { force = false } = {})
   let genesisColors = new Map();
   try {
     const { rows: genesisRows } = await client.query(`
-      SELECT nome, cor FROM empreendimentos_genesis ORDER BY nome
+      SELECT nome, cor, is_trojan FROM empreendimentos_genesis ORDER BY nome
     `);
+    const trojanNames = new Set();
     for (const row of genesisRows) {
       const name = String(row.nome ?? '').trim();
       if (!name) continue;
       genesisNames.add(name);
       genesisColors.set(name, normalizeEmpreendimentoTailwindColor(row.cor));
+      if (row.is_trojan) trojanNames.add(name);
     }
+    genesisTrojanNameSet = trojanNames;
   } catch (err) {
     if (err?.code !== '42P01') throw err;
   }
@@ -201,4 +207,9 @@ export function orderGenesisEmpreendimentoSeries(totalsByLabel) {
 /** Classe Tailwind da cor de marca (ex.: bg-teal-500). */
 export function resolveGenesisEmpreendimentoColor(nome) {
   return genesisColorByName.get(nome) ?? 'bg-teal-500';
+}
+
+/** Empreendimento canônico marcado como Tróia (is_trojan). */
+export function isGenesisEmpreendimentoTrojan(nome) {
+  return genesisTrojanNameSet.has(String(nome ?? '').trim());
 }

@@ -91,7 +91,7 @@ export function EmpreendimentosBigNumbers({ bignumbers, loading }: Empreendiment
       icon: <UserCheck className="h-5 w-5" />,
     },
     {
-      title: 'Troia',
+      title: 'Tróia',
       value: fmt(bignumbers?.sem_interesse),
       icon: <UserMinus className="h-5 w-5" />,
     },

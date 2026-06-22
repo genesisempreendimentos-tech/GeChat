@@ -16,6 +16,7 @@ export type LeadsTimelineSeries = {
   dataKey: string;
   name: string;
   color: string;
+  is_trojan?: boolean;
 };
 
 export type LeadsDayRange = {
@@ -70,6 +71,7 @@ export function normalizeTimelineSeries(
       dataKey: item.dataKey,
       name: item.name,
       color,
+      is_trojan: item.is_trojan,
     };
   });
 }
@@ -285,11 +287,20 @@ export function applyCumulativeBySeries(
   });
 }
 
+/** Tróia inativo: oculta séries Tróia; ativo: inclui Tróia junto às demais. */
+export function filterTimelineSeriesByTroia(
+  series: LeadsTimelineSeries[],
+  showTroia: boolean,
+): LeadsTimelineSeries[] {
+  if (showTroia) return series;
+  return series.filter((serie) => !serie.is_trojan);
+}
+
 export function resolveLeadsTimelineSlice(
   timeline: ApiTimeline | null,
   viewMode: LeadsTimelineViewMode,
   stacked: boolean,
-  options: { dayRange?: LeadsDayRange | null; periodo?: LeadsPeriodoPreset },
+  options: { dayRange?: LeadsDayRange | null; periodo?: LeadsPeriodoPreset; showTroia?: boolean },
 ): LeadsTimelineSlice {
   const empty: LeadsTimelineSlice = {
     data: [],
@@ -307,7 +318,10 @@ export function resolveLeadsTimelineSlice(
   const legacySeries = (timeline.series ?? []).map((item) =>
     typeof item === 'string' ? item : item.name,
   );
-  const series = normalizeTimelineSeries(timeline.series ?? []);
+  const series = filterTimelineSeriesByTroia(
+    normalizeTimelineSeries(timeline.series ?? []),
+    options.showTroia ?? false,
+  );
   const remapped = remapTimelinePoints(timeline.points, series, legacySeries);
 
   const dayRange =

@@ -11,6 +11,7 @@ import { fetchEmpreendimentosAnalytics } from '@/services/empreendimentosService
 import type {
   EmpreendimentoGenesis,
   EmpreendimentosAnalyticsData,
+  EmpreendimentosDateRange,
   EmpreendimentosKindFilter,
 } from '@/types/empreendimentos';
 
@@ -23,12 +24,14 @@ type EmpreendimentosAnalyticsViewProps = {
   isAdmin?: boolean;
   kindFilter?: EmpreendimentosKindFilter;
   empreendimentos?: EmpreendimentoGenesis[];
+  dateRange?: EmpreendimentosDateRange;
 };
 
 export function EmpreendimentosAnalyticsView({
   isAdmin = false,
   kindFilter = 'empreendimentos',
   empreendimentos = [],
+  dateRange = { from: '', to: '' },
 }: EmpreendimentosAnalyticsViewProps) {
   const [data, setData] = useState<EmpreendimentosAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +41,7 @@ export function EmpreendimentosAnalyticsView({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void fetchEmpreendimentosAnalytics(isAdmin).then(({ data: payload, error: fetchError }) => {
+    void fetchEmpreendimentosAnalytics(isAdmin, dateRange).then(({ data: payload, error: fetchError }) => {
       if (cancelled) return;
       if (fetchError) {
         setError(fetchError);
@@ -51,7 +54,7 @@ export function EmpreendimentosAnalyticsView({
     return () => {
       cancelled = true;
     };
-  }, [isAdmin]);
+  }, [isAdmin, dateRange.from, dateRange.to]);
 
   const coverageSlices = useMemo((): EmpreendimentosDonutSlice[] => {
     if (!data) return [];
@@ -114,8 +117,8 @@ export function EmpreendimentosAnalyticsView({
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           <EmpreendimentosDonutCard
-            title="Interessados para Indefinidos"
-            infoTooltip="Soma de pessoas únicas por empreendimento canônico: fatia Interessados (empreendimentos reais) e fatia Indefinidos (Troia). Uma pessoa pode contar nas duas se tiver interesse nos dois tipos."
+            title="Interessados x Indefinidos"
+            infoTooltip="Soma de pessoas únicas por empreendimento canônico: fatia Interessados (empreendimentos reais) e fatia Indefinidos (Tróia). Uma pessoa pode contar nas duas se tiver interesse nos dois tipos."
             centerLabel="pessoas"
             slices={coverageSlices}
             total={coverageTotal}
@@ -124,12 +127,12 @@ export function EmpreendimentosAnalyticsView({
           <EmpreendimentosDonutCard
             title={
               kindFilter === 'troia'
-                ? 'Percentual por Troia'
+                ? 'Percentual por Tróia'
                 : 'Percentual por empreendimento'
             }
             infoTooltip={
               kindFilter === 'troia'
-                ? 'Pessoas únicas com interesse mapeado em empreendimentos Troia.'
+                ? 'Pessoas únicas com interesse mapeado em empreendimentos Tróia.'
                 : 'Pessoas únicas por empreendimento canônico (quantos leads do Oasis?). Uma pessoa pode aparecer em mais de um empreendimento.'
             }
             centerLabel="pessoas"
@@ -138,7 +141,7 @@ export function EmpreendimentosAnalyticsView({
             loading={loading}
             emptyMessage={
               kindFilter === 'troia'
-                ? 'Nenhum Troia mapeado com leads no período.'
+                ? 'Nenhum Tróia mapeado com leads no período.'
                 : 'Nenhum empreendimento mapeado com leads no período.'
             }
           />

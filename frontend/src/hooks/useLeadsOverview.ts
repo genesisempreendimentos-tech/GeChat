@@ -64,6 +64,8 @@ export function useLeadsOverview(
       }) satisfies LeadsOverviewQuery,
     [
       filters.periodo,
+      filters.created_de,
+      filters.created_ate,
       filters.canal,
       filters.fonte,
       filters.situacao_cv,
@@ -147,4 +149,4 @@ export function useLeadsOverview(
 }
 
 export { filtersToLeadsQuery };
-
+

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Building2, ChessKnight, Info, List, Pencil, Plus, Search } from 'lucide-react';
+import { BarChart3, Building2, ChessKnight, List, Pencil, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DateRangeInput } from '@/components/ui/date-range-input';
 import { Iris } from '@/components/ui/Iris';
 import { TabButtons } from '@/components/ui/tab-buttons';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { MainViewHeader } from '@/components/layout/header';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
 import { AdminControlLine, type ViewMode } from '@/admin/components/AdminControlLine';
@@ -13,6 +13,7 @@ import { AdminBigBox } from '@/admin/components/AdminBigBox';
 import { LoadingGifScreen } from '@/components/LoadingGif';
 import { EmpreendimentosAnalyticsView } from '@/components/empreendimentos/EmpreendimentosAnalyticsView';
 import { EmpreendimentoAliasesListDialog } from '@/components/empreendimentos/EmpreendimentoAliasesListDialog';
+import { EmpreendimentoMappedAliasesDialog } from '@/components/empreendimentos/EmpreendimentoMappedAliasesDialog';
 import {
   EmpreendimentoGenesisCard,
   EmpreendimentoAliasesBadge,
@@ -21,7 +22,11 @@ import {
 } from '@/components/empreendimentos/EmpreendimentoGenesisCard';
 import { EmpreendimentoGenesisLogo } from '@/components/empreendimentos/EmpreendimentoGenesisLogo';
 import { cn } from '@/lib/utils';
-import type { EmpreendimentoGenesis, EmpreendimentosKindFilter } from '@/types/empreendimentos';
+import type {
+  EmpreendimentoGenesis,
+  EmpreendimentosDateRange,
+  EmpreendimentosKindFilter,
+} from '@/types/empreendimentos';
 import { TROIA_INFO_TOOLTIP } from '@/lib/empreendimentosTroia';
 
 type EmpreendimentosPanelTab = 'lista' | 'analytics';
@@ -34,6 +39,8 @@ type EmpreendimentosPanelViewProps = {
   onAdd?: () => void;
   onEdit?: (item: EmpreendimentoGenesis) => void;
   onRefresh?: () => void;
+  dateRange?: EmpreendimentosDateRange;
+  onDateRangeChange?: (range: EmpreendimentosDateRange) => void;
 };
 
 function filterByKind(items: EmpreendimentoGenesis[], kind: EmpreendimentosKindFilter) {
@@ -90,16 +97,30 @@ export function EmpreendimentosPanelView({
   pendingAliases = 0,
   onAdd,
   onEdit,
+  dateRange = { from: '', to: '' },
+  onDateRangeChange,
 }: EmpreendimentosPanelViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [panelTab, setPanelTab] = useState<EmpreendimentosPanelTab>('lista');
   const [kindFilter, setKindFilter] = useState<EmpreendimentosKindFilter>('empreendimentos');
   const [searchQuery, setSearchQuery] = useState('');
   const [aliasesDialogOpen, setAliasesDialogOpen] = useState(false);
+  const [mappedAliasesEmp, setMappedAliasesEmp] = useState<EmpreendimentoGenesis | null>(null);
+  const [mappedAliasesOpen, setMappedAliasesOpen] = useState(false);
 
   const isAdmin = mode === 'admin';
-  const isLista = isAdmin || panelTab === 'lista';
-  const showListaAnalyticsTabs = !isAdmin;
+  const isLista = isAdmin || panelTab === 'lista' || kindFilter === 'troia';
+  const showListaAnalyticsTabs = !isAdmin && kindFilter !== 'troia';
+
+  const handleKindFilterChange = (kind: EmpreendimentosKindFilter) => {
+    setKindFilter(kind);
+    if (kind === 'troia') setPanelTab('lista');
+  };
+
+  const openMappedAliases = (item: EmpreendimentoGenesis) => {
+    setMappedAliasesEmp(item);
+    setMappedAliasesOpen(true);
+  };
 
   const filtered = useMemo(() => {
     const byKind = filterByKind(empreendimentos, kindFilter);
@@ -110,7 +131,7 @@ export function EmpreendimentosPanelView({
 
   const emptyMessage =
     kindFilter === 'troia'
-      ? 'Nenhum empreendimento Troia encontrado.'
+      ? 'Nenhum empreendimento Tróia encontrado.'
       : 'Nenhum empreendimento encontrado.';
 
   return (
@@ -142,30 +163,26 @@ export function EmpreendimentosPanelView({
           onViewModeChange={setViewMode}
           leftContent={
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <TabButtons
-                  value={kindFilter}
-                  items={[
-                    { value: 'empreendimentos', label: 'Empreendimentos', Icon: Building2 },
-                    { value: 'troia', label: 'Troia', Icon: ChessKnight },
-                  ]}
-                  onChange={setKindFilter}
-                />
-                <Tooltip delayDuration={200}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                      aria-label="O que é Troia"
-                    >
-                      <Info className="size-3.5" strokeWidth={2.25} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs text-sm">
-                    {TROIA_INFO_TOOLTIP}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+              <DateRangeInput
+                id="empreendimentos-periodo"
+                value={dateRange}
+                onChange={(range) => onDateRangeChange?.(range)}
+                placeholder="Todo o período"
+                className="h-9 w-[min(100%,20rem)] rounded-xl border-border/60 bg-muted/50 text-sm shadow-sm"
+              />
+              <TabButtons
+                value={kindFilter}
+                items={[
+                  { value: 'empreendimentos', label: 'Empreendimentos', Icon: Building2 },
+                  {
+                    value: 'troia',
+                    label: 'Tróia',
+                    Icon: ChessKnight,
+                    tooltip: TROIA_INFO_TOOLTIP,
+                  },
+                ]}
+                onChange={handleKindFilterChange}
+              />
 
               {showListaAnalyticsTabs ? (
                 <TabButtons
@@ -186,7 +203,7 @@ export function EmpreendimentosPanelView({
                 <Input
                   placeholder={
                     kindFilter === 'troia'
-                      ? 'Buscar Troia...'
+                      ? 'Buscar Tróia...'
                       : 'Buscar empreendimentos...'
                   }
                   className="pl-8 w-full min-w-0 h-9 rounded-xl border-border/60 bg-muted/50 shadow-sm transition-all duration-200 hover:border-border hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/40 focus-visible:bg-background placeholder:text-muted-foreground/50 text-sm"
@@ -225,7 +242,12 @@ export function EmpreendimentosPanelView({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.03 }}
                   >
-                    <EmpreendimentoGenesisCard item={item} isAdmin={isAdmin} onEdit={onEdit} />
+                    <EmpreendimentoGenesisCard
+                      item={item}
+                      isAdmin={isAdmin}
+                      onEdit={onEdit}
+                      onAliasesClick={openMappedAliases}
+                    />
                   </motion.div>
                 ))}
               </div>
@@ -238,7 +260,7 @@ export function EmpreendimentosPanelView({
                       <th className="text-left py-3 px-4 font-medium">Nome</th>
                       <th className="text-left py-3 px-4 font-medium">Status</th>
                       <th className="text-right py-3 px-4 font-medium">Aliases</th>
-                      <th className="text-right py-3 px-4 font-medium">Pessoas</th>
+                      <th className="text-right py-3 px-4 font-medium">Leads</th>
                       <th className="text-right py-3 px-4 font-medium">Do total</th>
                       <th className="text-right py-3 px-4 font-medium">Qualificados</th>
                       <th className="text-right py-3 px-4 font-medium">Reservas</th>
@@ -262,11 +284,14 @@ export function EmpreendimentosPanelView({
                         </td>
                         <td className="py-2 px-4">
                           <div className="flex justify-end">
-                            <EmpreendimentoAliasesBadge count={item.aliases_count} />
+                            <EmpreendimentoAliasesBadge
+                              count={item.aliases_count}
+                              onClick={() => openMappedAliases(item)}
+                            />
                           </div>
                         </td>
                         <td className="py-2 px-4 text-right tabular-nums font-medium">
-                          {formatEmpreendimentoCount(item.pessoas_unicas_count ?? item.leads_count)}
+                          {formatEmpreendimentoCount(item.leads_count)}
                         </td>
                         <td className="py-2 px-4 text-right tabular-nums">
                           {formatEmpreendimentoPct(item.percentual_do_total ?? 0)}
@@ -303,6 +328,7 @@ export function EmpreendimentosPanelView({
             isAdmin={isAdmin}
             kindFilter={kindFilter}
             empreendimentos={empreendimentos}
+            dateRange={dateRange}
           />
         )}
       </div>
@@ -314,6 +340,16 @@ export function EmpreendimentosPanelView({
           pendingCount={pendingAliases}
         />
       ) : null}
+
+      <EmpreendimentoMappedAliasesDialog
+        empreendimento={mappedAliasesEmp}
+        open={mappedAliasesOpen}
+        onOpenChange={(open) => {
+          setMappedAliasesOpen(open);
+          if (!open) setMappedAliasesEmp(null);
+        }}
+        isAdmin={isAdmin}
+      />
     </MainViewFluidShell>
   );
 }

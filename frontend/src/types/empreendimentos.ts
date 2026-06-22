@@ -1,3 +1,8 @@
+export type EmpreendimentosDateRange = {
+  from: string;
+  to: string;
+};
+
 export type EmpreendimentosKindFilter = 'empreendimentos' | 'troia';
 
 export type EmpreendimentoAlias = {
@@ -47,6 +52,12 @@ export type EmpreendimentoGenesis = {
   v_andamento_count: number;
   vendas_count: number;
   total_all_leads?: number;
+  /** Unidades do empreendimento — fonte a definir. */
+  unidades_count?: number;
+  /** Unidades restantes (unidades − vendas). */
+  restantes_count?: number;
+  /** Taxa de conversão: vendas / leads × 100. */
+  conversao?: number;
 };
 
 export type EmpreendimentoGenesisDetail = EmpreendimentoGenesis & {
@@ -59,6 +70,7 @@ export type EmpreendimentoSavePayload = {
   cor?: string | null;
   logo_url?: string | null;
   is_trojan?: boolean;
+  unidades?: number;
   alias_ids?: number[];
   remove_alias_ids?: number[];
 };

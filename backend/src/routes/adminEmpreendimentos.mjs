@@ -9,6 +9,7 @@ import {
   listAllAliases,
   listEmpreendimentosGenesis,
   markAliasesNaoInformado,
+  parseEmpreendimentosDateFilter,
   saveEmpreendimentoGenesis,
   withEmpreendimentosClient,
 } from '../services/empreendimentosAdminService.mjs';
@@ -44,9 +45,12 @@ export function createAdminEmpreendimentosRouter() {
   const router = express.Router();
   router.use(requireAdmin);
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
     try {
-      const rows = await withEmpreendimentosClient((client) => listEmpreendimentosGenesis(client));
+      const dateFilter = parseEmpreendimentosDateFilter(req.query);
+      const rows = await withEmpreendimentosClient((client) =>
+        listEmpreendimentosGenesis(client, dateFilter),
+      );
       const stats = await withEmpreendimentosClient((client) =>
         listAliasClusters(client, { statusFilter: null }).then((r) => r.stats),
       );
@@ -56,10 +60,11 @@ export function createAdminEmpreendimentosRouter() {
     }
   });
 
-  router.get('/analytics', async (_req, res) => {
+  router.get('/analytics', async (req, res) => {
     try {
+      const dateFilter = parseEmpreendimentosDateFilter(req.query);
       const analytics = await withEmpreendimentosClient((client) =>
-        getEmpreendimentosAnalytics(client),
+        getEmpreendimentosAnalytics(client, dateFilter),
       );
       res.json(analytics);
     } catch (err) {

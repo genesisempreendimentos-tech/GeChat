@@ -8,6 +8,9 @@ export type LeadsDistribuicaoGrain = 'cadastros' | 'pessoas';
 
 export type LeadsPanelFilters = {
   periodo: LeadsPeriodoPreset;
+  /** Intervalo customizado (yyyy-MM-dd). Tem prioridade sobre `periodo` quando ambos preenchidos. */
+  created_de?: string;
+  created_ate?: string;
   canal: string;
   fonte: LeadsFonteFilter;
   empreendimento: string;
@@ -41,7 +44,7 @@ export type LeadsOverviewResponse = {
     por_empreendimento: { empreendimento: string; cadastros: number; pessoas: number }[];
   };
   timeline: {
-    series: string[] | { dataKey: string; name: string; color?: string }[];
+    series: string[] | { dataKey: string; name: string; color?: string; is_trojan?: boolean }[];
     points: Record<string, string | number>[];
     grain: LeadsTimelineGrain;
   };

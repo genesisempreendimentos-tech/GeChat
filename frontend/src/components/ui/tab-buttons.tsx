@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppMotion } from '@/hooks/useAppMotion';
 import { cn } from '@/lib/utils';
 
@@ -8,6 +9,7 @@ export interface TabButtonItem<T extends string> {
   value: T;
   label: string;
   Icon: LucideIcon;
+  tooltip?: string;
 }
 
 interface TabButtonsProps<T extends string> {
@@ -33,11 +35,10 @@ export function TabButtons<T extends string>({
       )}
       role="group"
     >
-      {items.map(({ value: itemValue, label, Icon }) => {
+      {items.map(({ value: itemValue, label, Icon, tooltip }) => {
         const isActive = value === itemValue;
-        return (
+        const button = (
           <Button
-            key={itemValue}
             type="button"
             variant="ghost"
             size="sm"
@@ -45,7 +46,7 @@ export function TabButtons<T extends string>({
               'h-8 rounded-lg text-sm font-medium transition-all duration-300 flex items-center',
               isActive
                 ? 'bg-primary text-primary-foreground shadow-md px-3'
-                : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                : 'px-2 text-muted-foreground hover:text-foreground hover:bg-muted/60',
             )}
             onClick={() => onChange(itemValue)}
             aria-pressed={isActive}
@@ -66,6 +67,17 @@ export function TabButtons<T extends string>({
               )}
             </AnimatePresence>
           </Button>
+        );
+
+        if (!tooltip) return <span key={itemValue}>{button}</span>;
+
+        return (
+          <Tooltip key={itemValue} delayDuration={200}>
+            <TooltipTrigger asChild>{button}</TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-sm">
+              {tooltip}
+            </TooltipContent>
+          </Tooltip>
         );
       })}
     </div>

@@ -13,6 +13,7 @@ import {
   resolveEmpreendimentoInteresseGenesis,
   resolveEmpreendimentoPartGenesis,
   resolveGenesisEmpreendimentoColor,
+  isGenesisEmpreendimentoTrojan,
 } from './empreendimentoResolver.mjs';
 import { collectInteresseNormsForCadastro } from '../lib/leadEmpreendimentoInteresse.mjs';
 import { aggregateInteresseByGenesisName, countTrojanInteresseMetrics } from './leadEmpreendimentoInteresseMetrics.mjs';
@@ -423,6 +424,7 @@ async function buildTimeline(client, filters, cad, uni) {
     dataKey: slugEmpreendimentoKey(name),
     name,
     color: resolveGenesisEmpreendimentoColor(name),
+    is_trojan: isGenesisEmpreendimentoTrojan(name),
   }));
 
   const pointsWithKeys = points.map((point) => {

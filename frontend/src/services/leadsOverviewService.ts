@@ -49,9 +49,15 @@ export function filtersToLeadsQuery(
   extra?: Partial<LeadsApiQueryParams>,
 ): LeadsApiQueryParams {
   const params: LeadsApiQueryParams = {
-    ...resolvePeriodDates(filters.periodo),
     ...extra,
   };
+
+  if (filters.created_de?.trim() && filters.created_ate?.trim()) {
+    params.created_de = filters.created_de.trim();
+    params.created_ate = filters.created_ate.trim();
+  } else {
+    Object.assign(params, resolvePeriodDates(filters.periodo));
+  }
   if (filters.canal?.trim()) params.canal = filters.canal.trim();
   if (filters.fonte && filters.fonte !== 'todos') params.fonte = filters.fonte;
   if (filters.empreendimento?.trim()) params.empreendimento = filters.empreendimento.trim();

@@ -5,6 +5,7 @@ import { MainViewHeader } from '@/components/layout/header';
 import { AsyncSection } from '@/components/common/AsyncSection';
 import { PageEmptyState, PageErrorState } from '@/components/common/PageStates';
 import { LeadsBigNumbers } from '@/components/leads/panel/LeadsBigNumbers';
+import { LeadsControlLine } from '@/components/leads/panel/LeadsControlLine';
 import { LeadsTimelineChart } from '@/components/leads/panel/LeadsTimelineChart';
 import { LeadsDistribuicaoSection } from '@/components/leads/panel/LeadsDistribuicaoSection';
 import { LeadsPeopleTable } from '@/components/leads/panel/LeadsPeopleTable';
@@ -12,7 +13,7 @@ import { VendasSankeyChart } from '@/components/vendas/VendasSankeyChart';
 import { useLeadsOverview } from '@/hooks/useLeadsOverview';
 import { useLeadsList } from '@/hooks/useLeadsList';
 import { useVendas } from '@/hooks/useVendas';
-import type { LeadsPanelFilters, LeadsTimelineGrain } from '@/types/leadsOverview';
+import type { LeadsPanelFilters } from '@/types/leadsOverview';
 import type { VendasFilters } from '@/types/vendas';
 import { MotionReveal } from '@/components/motion/AppMotion';
 
@@ -35,7 +36,6 @@ const LIST_PAGE_SIZE = 25;
 
 export default function UserLeadsPage() {
   const [filters, setFilters] = useState<LeadsPanelFilters>(DEFAULT_FILTERS);
-  const [timelineGrain, setTimelineGrain] = useState<LeadsTimelineGrain>('cadastros');
   const [listPage, setListPage] = useState(1);
 
   const {
@@ -47,7 +47,7 @@ export default function UserLeadsPage() {
     chartsError,
     refetch,
     isEmpty,
-  } = useLeadsOverview(filters, { timelineGrain });
+  } = useLeadsOverview(filters);
 
   const {
     data: listData,
@@ -62,6 +62,8 @@ export default function UserLeadsPage() {
     setListPage(1);
   }, [
     filters.periodo,
+    filters.created_de,
+    filters.created_ate,
     filters.canal,
     filters.fonte,
     filters.empreendimento,
@@ -78,6 +80,8 @@ export default function UserLeadsPage() {
         title="Leads"
         description="Diagnóstico da carteira com cadastros e pessoas únicas."
       />
+
+      <LeadsControlLine filters={filters} onFiltersChange={setFilters} />
 
       <div className="mt-8 flex flex-col gap-8">
         <AsyncSection
@@ -120,9 +124,12 @@ export default function UserLeadsPage() {
             <MotionReveal index={1}>
               <LeadsTimelineChart
                 timeline={charts?.timeline ?? null}
-                grain={timelineGrain}
-                onGrainChange={setTimelineGrain}
                 periodo={filters.periodo}
+                dayRange={
+                  filters.created_de && filters.created_ate
+                    ? { first: filters.created_de, last: filters.created_ate }
+                    : undefined
+                }
                 loading={loadingCharts}
               />
             </MotionReveal>

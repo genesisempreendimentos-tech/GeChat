@@ -72,6 +72,7 @@ export function EmpreendimentoFormModal({
   const [cor, setCor] = useState<EmpreendimentoColorToken>(DEFAULT_EMPREENDIMENTO_COLOR);
   const [isTrojan, setIsTrojan] = useState(false);
   const [logoUrl, setLogoUrl] = useState('');
+  const [unidades, setUnidades] = useState('');
   const [logoUploading, setLogoUploading] = useState(false);
   const [clusters, setClusters] = useState<EmpreendimentoAliasCluster[]>([]);
   const [mappedAliases, setMappedAliases] = useState<EmpreendimentoAlias[]>([]);
@@ -130,6 +131,7 @@ export function EmpreendimentoFormModal({
       setCor(normalizeEmpreendimentoColorToken(detailResult.data.cor));
       setIsTrojan(Boolean(detailResult.data.is_trojan));
       setLogoUrl(detailResult.data.logo_url ?? '');
+      setUnidades(String(detailResult.data.unidades_count ?? 0));
       setMappedAliases(detailResult.data.aliases ?? []);
       setSelectedMappedIds(new Set((detailResult.data.aliases ?? []).map((a) => a.id)));
       setSelectedNewIds(new Set());
@@ -138,6 +140,7 @@ export function EmpreendimentoFormModal({
       setCor(DEFAULT_EMPREENDIMENTO_COLOR);
       setIsTrojan(false);
       setLogoUrl('');
+      setUnidades('');
       setMappedAliases([]);
       setSelectedMappedIds(new Set());
       setSelectedNewIds(new Set());
@@ -215,6 +218,7 @@ export function EmpreendimentoFormModal({
       cor,
       logo_url: logoUrl.trim() || null,
       is_trojan: isTrojan,
+      unidades: unidades === '' ? 0 : Number(unidades),
       alias_ids: aliasIds,
       remove_alias_ids: removeAliasIds,
     };
@@ -286,38 +290,54 @@ export function EmpreendimentoFormModal({
                 </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium mb-2 block">Logo do empreendimento</label>
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={(e) => void handleLogoChange(e.target.files?.[0] ?? null)}
-                    />
-                    <Button type="button" variant="outline" disabled={logoUploading} asChild>
-                      <span>
-                        {logoUploading ? (
-                          <LoadingGif size="sm" className="mr-2" />
-                        ) : (
-                          <Upload className="w-4 h-4 mr-2" />
-                        )}
-                        Enviar logo
-                      </span>
-                    </Button>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Logo do empreendimento</label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={(e) => void handleLogoChange(e.target.files?.[0] ?? null)}
+                      />
+                      <Button type="button" variant="outline" disabled={logoUploading} asChild>
+                        <span>
+                          {logoUploading ? (
+                            <LoadingGif size="sm" className="mr-2" />
+                          ) : (
+                            <Upload className="w-4 h-4 mr-2" />
+                          )}
+                          Enviar logo
+                        </span>
+                      </Button>
+                    </label>
+                    {logoUrl ? (
+                      <img
+                        src={logoUrl}
+                        alt="Logo"
+                        className="h-12 w-12 rounded-lg border object-cover bg-background"
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted/40">
+                        <Building2 className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block" htmlFor="empreendimento-unidades">
+                    Unidades do empreendimento
                   </label>
-                  {logoUrl ? (
-                    <img
-                      src={logoUrl}
-                      alt="Logo"
-                      className="h-12 w-12 rounded-lg border object-cover bg-background"
-                    />
-                  ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-muted/40">
-                      <Building2 className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                  )}
+                  <Input
+                    id="empreendimento-unidades"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="0"
+                    value={unidades}
+                    onChange={(e) => setUnidades(e.target.value.replace(/\D/g, ''))}
+                  />
                 </div>
               </div>
 
@@ -363,14 +383,14 @@ export function EmpreendimentoFormModal({
                     onChange={(e) => setIsTrojan(e.target.checked)}
                   />
                   <ChessKnight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="text-sm font-medium">Troia</span>
+                  <span className="text-sm font-medium">Tróia</span>
                 </label>
                 <Tooltip delayDuration={200}>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                      aria-label="O que é Troia"
+                      aria-label="O que é Tróia"
                     >
                       <Info className="size-3.5" strokeWidth={2.25} />
                     </button>

@@ -1,37 +1,30 @@
-import { TabButtons, type TabButtonItem } from '@/components/ui/tab-buttons';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { LeadsTimelineViewMode } from '@/lib/leadsTimelineChart';
-import type { LeadsTimelineGrain } from '@/types/leadsOverview';
+import { TROIA_INFO_TOOLTIP } from '@/lib/empreendimentosTroia';
 import {
   AudioWaveform,
   Axis3d,
+  ChessKnight,
   Eye,
   EyeOff,
   GitFork,
-  Hash,
   LayersPlus,
   SquaresUnite,
-  Users,
 } from 'lucide-react';
-
-const GRAIN_TAB_ITEMS: ReadonlyArray<TabButtonItem<LeadsTimelineGrain>> = [
-  { value: 'cadastros', label: 'Cadastros', Icon: Hash },
-  { value: 'pessoas', label: 'Pessoas', Icon: Users },
-];
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
 type LeadsTimelineChartHeaderActionsProps = {
-  grain: LeadsTimelineGrain;
-  onGrainChange: (grain: LeadsTimelineGrain) => void;
   viewMode: LeadsTimelineViewMode;
   onViewModeChange: (mode: LeadsTimelineViewMode) => void;
   isStacked: boolean;
   onStackedChange: (value: boolean) => void;
   isMerged: boolean;
   onMergedChange: (value: boolean) => void;
+  isTroiaEnabled: boolean;
+  onTroiaEnabledChange: (value: boolean) => void;
   isAverageEnabled: boolean;
   onAverageEnabledChange: (value: boolean) => void;
   allSeriesSelected: boolean;
@@ -41,14 +34,14 @@ type LeadsTimelineChartHeaderActionsProps = {
 
 /** TabButtons de grain + alternador compacto/detalhado e toggles com ícones (padrão GêSite). */
 export function LeadsTimelineChartHeaderActions({
-  grain,
-  onGrainChange,
   viewMode,
   onViewModeChange,
   isStacked,
   onStackedChange,
   isMerged,
   onMergedChange,
+  isTroiaEnabled,
+  onTroiaEnabledChange,
   isAverageEnabled,
   onAverageEnabledChange,
   allSeriesSelected,
@@ -57,8 +50,6 @@ export function LeadsTimelineChartHeaderActions({
 }: LeadsTimelineChartHeaderActionsProps) {
   return (
     <div className={cn('flex flex-wrap items-center justify-end gap-2', className)}>
-      <TabButtons value={grain} items={GRAIN_TAB_ITEMS} onChange={onGrainChange} />
-
       <div
         role="group"
         aria-label="Alternar visualização entre compacto e detalhado"
@@ -174,6 +165,29 @@ export function LeadsTimelineChartHeaderActions({
         </TooltipTrigger>
         <TooltipContent side="bottom" align="end" className="text-xs">
           Copilado
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Tróia"
+            aria-pressed={isTroiaEnabled}
+            onClick={() => onTroiaEnabledChange(!isTroiaEnabled)}
+            className={cn(
+              'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-input bg-background/80 shadow-sm transition-colors',
+              isTroiaEnabled
+                ? 'border-primary/70 bg-primary/15 text-primary'
+                : 'text-foreground hover:bg-accent hover:text-foreground',
+              FOCUS_RING,
+            )}
+          >
+            <ChessKnight className="size-4 shrink-0" strokeWidth={2} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="end" className="max-w-xs text-xs">
+          {TROIA_INFO_TOOLTIP}
         </TooltipContent>
       </Tooltip>
 

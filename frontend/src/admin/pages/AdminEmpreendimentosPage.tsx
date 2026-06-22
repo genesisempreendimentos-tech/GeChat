@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { EmpreendimentoFormModal } from '@/components/empreendimentos/EmpreendimentoFormModal';
 import { EmpreendimentosPanelView } from '@/components/empreendimentos/EmpreendimentosPanelView';
 import { fetchAdminEmpreendimentos } from '@/services/empreendimentosService';
-import type { EmpreendimentoGenesis } from '@/types/empreendimentos';
+import type { EmpreendimentoGenesis, EmpreendimentosDateRange } from '@/types/empreendimentos';
 
 export default function AdminEmpreendimentosPage() {
   const [empreendimentos, setEmpreendimentos] = useState<EmpreendimentoGenesis[]>([]);
@@ -10,16 +10,17 @@ export default function AdminEmpreendimentosPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<EmpreendimentoGenesis | null>(null);
+  const [dateRange, setDateRange] = useState<EmpreendimentosDateRange>({ from: '', to: '' });
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await fetchAdminEmpreendimentos();
+    const { data, error } = await fetchAdminEmpreendimentos(dateRange);
     if (!error && data) {
       setEmpreendimentos(data.empreendimentos ?? []);
       setPendingAliases(data.stats?.a_classificar ?? 0);
     }
     setLoading(false);
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     void loadData();
@@ -41,6 +42,8 @@ export default function AdminEmpreendimentosPage() {
           setModalOpen(true);
         }}
         onRefresh={loadData}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
       />
       <EmpreendimentoFormModal
         open={modalOpen}

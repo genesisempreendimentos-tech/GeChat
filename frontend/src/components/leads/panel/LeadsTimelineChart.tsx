@@ -32,11 +32,11 @@ type LeadsTimelineChartProps = {
 
   timeline: LeadsOverviewResponse['timeline'] | null;
 
-  grain: LeadsTimelineGrain;
-
-  onGrainChange: (grain: LeadsTimelineGrain) => void;
+  grain?: LeadsTimelineGrain;
 
   periodo?: LeadsPanelFilters['periodo'];
+
+  dayRange?: { first: string; last: string };
 
   loading?: boolean;
 
@@ -45,17 +45,11 @@ type LeadsTimelineChartProps = {
 
 
 export function LeadsTimelineChart({
-
   timeline,
-
-  grain,
-
-  onGrainChange,
-
+  grain = 'cadastros',
   periodo = 'todos',
-
+  dayRange,
   loading,
-
 }: LeadsTimelineChartProps) {
 
   const [viewMode, setViewMode] = useState<LeadsTimelineViewMode>('compacto');
@@ -63,7 +57,7 @@ export function LeadsTimelineChart({
   const [stacked, setStacked] = useState(false);
 
   const [merged, setMerged] = useState(false);
-
+  const [troiaEnabled, setTroiaEnabled] = useState(false);
   const [averageEnabled, setAverageEnabled] = useState(false);
 
   const [allSeriesSelected, setAllSeriesSelected] = useState(true);
@@ -75,12 +69,12 @@ export function LeadsTimelineChart({
     () =>
 
       resolveLeadsTimelineSlice(timeline, viewMode, stacked, {
-
         periodo,
-
+        dayRange: dayRange ?? undefined,
+        showTroia: troiaEnabled,
       }),
 
-    [timeline, viewMode, stacked, periodo],
+    [timeline, viewMode, stacked, periodo, dayRange, troiaEnabled],
 
   );
 
@@ -121,11 +115,6 @@ export function LeadsTimelineChart({
         </div>
 
         <LeadsTimelineChartHeaderActions
-
-          grain={grain}
-
-          onGrainChange={onGrainChange}
-
           viewMode={viewMode}
 
           onViewModeChange={setViewMode}
@@ -137,6 +126,10 @@ export function LeadsTimelineChart({
           isMerged={merged}
 
           onMergedChange={setMerged}
+
+          isTroiaEnabled={troiaEnabled}
+
+          onTroiaEnabledChange={setTroiaEnabled}
 
           isAverageEnabled={averageEnabled}
 
