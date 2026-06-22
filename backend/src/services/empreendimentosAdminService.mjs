@@ -11,6 +11,11 @@ import { aggregateInteresseMetrics, countTrojanInteresseMetrics, sumPessoasEmpre
 import { refreshEmpreendimentoAliasesFromAllLeads } from './refreshEmpreendimentoAliasesFromAllLeads.mjs';
 
 const SIMILARITY_THRESHOLD = 0.45;
+const VENDA_SITUACOES_ATIVAS = [
+  'Vendida',
+  'Contrato de Compra e Venda Gerado',
+  'Envio Sienge',
+];
 
 /** @typedef {{ from: string|null, to: string|null }} EmpreendimentosDateFilter */
 
@@ -121,7 +126,11 @@ async function countVendasByEmpInRange(client, normsByEmp, dateFilter) {
   if (!dateFilter || !normsByEmp.size) return counts;
 
   const params = [];
-  const parts = ['cr.data_venda IS NOT NULL', 'al.geleads_id IS NOT NULL'];
+  const parts = [
+    'cr.data_venda IS NOT NULL',
+    'al.geleads_id IS NOT NULL',
+    `TRIM(cr.situacao) IN (${VENDA_SITUACOES_ATIVAS.map((s) => `'${s}'`).join(', ')})`,
+  ];
   if (dateFilter.from) {
     params.push(dateFilter.from);
     parts.push(`cr.data_venda >= $${params.length}::date`);
@@ -475,29 +484,35 @@ async function computeGenesisEmpreendimentoStats(client, dateFilter = null) {
 
   if (!normsByEmp.size) return { stats, totalAllLeads };
 
-  const leadParams = [];
-  const { whereSql: leadWhere } = buildRangeWhere(dateFilter, 'al.created_at', leadParams, [
-    `NULLIF(TRIM(al.empreendimento_interesse), '') IS NOT NULL`,
-  ]);
-  const { rows: leads } = await client.query(
-    `SELECT empreendimento_interesse, email, phone, relationship_status, monthly_investment,
-            current_city, birth_date, profile_type, profile_completed, cvcrm_is_sold
-     FROM all_leads al
-     WHERE ${leadWhere}`,
-    leadParams,
-  );
+  if (!dateFilter) {
+    const leadParams = [];
+    const { whereSql: leadWhere } = buildRangeWhere(dateFilter, 'al.created_at', leadParams, [
+      `NULLIF(TRIM(al.empreendimento_interesse), '') IS NOT NULL`,
+    ]);
+    const { rows: leads } = await client.query(
+      `SELECT empreendimento_interesse, email, phone, relationship_status, monthly_investment,
+              current_city, birth_date, profile_type, profile_completed, cvcrm_is_sold
+       FROM all_leads al
+       WHERE ${leadWhere}`,
+      leadParams,
+    );
 
-  for (const lead of leads) {
-    const matched = matchEmpreendimentoIdsFromRaw(lead.empreendimento_interesse, normsByEmp);
-    for (const empId of matched) {
-      const bucket = ensureEmpreendimentoStats(stats, empId);
-      if (dateFilter) {
-        if (isLeadQualificadoAltaMedia(lead)) bucket.qualificados += 1;
-      } else {
+    for (const lead of leads) {
+      const matched = matchEmpreendimentoIdsFromRaw(lead.empreendimento_interesse, normsByEmp);
+      for (const empId of matched) {
+        const bucket = ensureEmpreendimentoStats(stats, empId);
         if (lead.profile_completed) bucket.qualificados += 1;
         if (lead.cvcrm_is_sold) bucket.vendas += 1;
       }
     }
+  }
+
+  if (dateFilter) {
+    const vendasByEmp = await countVendasByEmpInRange(client, normsByEmp, dateFilter);
+    for (const [empId, count] of vendasByEmp) {
+      ensureEmpreendimentoStats(stats, empId).vendas = count;
+    }
+    return { stats, totalAllLeads };
   }
 
   const leadInterestByIdlead = await loadLeadInterestByIdlead(client, null);
@@ -510,40 +525,12 @@ async function computeGenesisEmpreendimentoStats(client, dateFilter = null) {
       FROM cvcrm_reservas
     `);
 
-    const vendasGeleadsByEmp = dateFilter ? new Map() : null;
-    const idleadToGeleads = dateFilter ? await loadIdleadToGeleadsId(client) : null;
-
     for (const reserva of reservas) {
       const matched = matchReservaToEmpIds(reserva, normsByEmp, leadInterestByIdlead);
-
-      if (dateFilter) {
-        if (reservaCreatedInRange(reserva, dateFilter)) {
-          for (const empId of matched) {
-            ensureEmpreendimentoStats(stats, empId).reservas += 1;
-          }
-        }
-        if (reservaHasSaleInRange(reserva, dateFilter)) {
-          for (const empId of matched) {
-            const geleadsKey = resolveReservaGeleadsKey(reserva, idleadToGeleads);
-            if (!geleadsKey) continue;
-            const set = vendasGeleadsByEmp.get(empId) ?? new Set();
-            set.add(geleadsKey);
-            vendasGeleadsByEmp.set(empId, set);
-          }
-        }
-        continue;
-      }
-
       for (const empId of matched) {
         const bucket = ensureEmpreendimentoStats(stats, empId);
         bucket.reservas += 1;
         if (isReservaVendaAndamento(reserva)) bucket.v_andamento += 1;
-      }
-    }
-
-    if (dateFilter && vendasGeleadsByEmp) {
-      for (const [empId, geleadsSet] of vendasGeleadsByEmp) {
-        ensureEmpreendimentoStats(stats, empId).vendas = geleadsSet.size;
       }
     }
   } catch (err) {

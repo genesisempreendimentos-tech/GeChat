@@ -1,8 +1,16 @@
 import express from 'express';
 import {
+  authUserToProfile,
   createSupabaseAnonClient,
   loadProfileForAuthUser,
 } from '../services/supabaseServer.mjs';
+
+function authHttpStatus(error) {
+  const status = Number(error?.status ?? error?.statusCode ?? 0);
+  if (status >= 500) return 503;
+  if (status === 429) return 429;
+  return 401;
+}
 
 const ACCESS_COOKIE = 'geleads_sb_access';
 const REFRESH_COOKIE = 'geleads_sb_refresh';
@@ -96,7 +104,9 @@ export function createAuthRouter() {
       const supabase = createSupabaseAnonClient(supabaseUrl, supabaseAnonKey);
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error || !data?.session || !data?.user) {
-        return res.status(401).json({ error: error?.message ?? 'Credenciais inválidas.' });
+        return res.status(authHttpStatus(error)).json({
+          error: error?.message ?? 'Credenciais inválidas.',
+        });
       }
 
       setAuthCookies(req, res, data.session);
@@ -106,7 +116,7 @@ export function createAuthRouter() {
         data.session.access_token,
         data.user,
       );
-      return res.json({ user: profile });
+      return res.json({ user: profile ?? authUserToProfile(data.user) });
     } catch (err) {
       console.error('[auth/login]', err);
       return res.status(500).json({ error: 'Erro ao autenticar.' });

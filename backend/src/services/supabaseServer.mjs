@@ -60,23 +60,27 @@ export function authUserToProfile(authUser) {
 }
 
 export async function loadProfileForAuthUser(supabaseUrl, supabaseAnonKey, accessToken, authUser) {
-  const supabase = createSupabaseAnonClient(supabaseUrl, supabaseAnonKey, accessToken);
-  for (const key of ['user_id', 'id']) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq(key, authUser.id)
-      .maybeSingle();
-    if (data) return profileRecordToUser(data, authUser);
-    if (error && error.code !== '42703' && error.code !== 'PGRST116') break;
-  }
-  if (authUser.email) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .ilike('email', authUser.email)
-      .maybeSingle();
-    if (data) return profileRecordToUser(data, authUser);
+  try {
+    const supabase = createSupabaseAnonClient(supabaseUrl, supabaseAnonKey, accessToken);
+    for (const key of ['user_id', 'id']) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq(key, authUser.id)
+        .maybeSingle();
+      if (data) return profileRecordToUser(data, authUser);
+      if (error && error.code !== '42703' && error.code !== 'PGRST116') break;
+    }
+    if (authUser.email) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('email', authUser.email)
+        .maybeSingle();
+      if (data) return profileRecordToUser(data, authUser);
+    }
+  } catch (err) {
+    console.error('[supabaseServer] loadProfileForAuthUser:', err?.message ?? err);
   }
   return authUserToProfile(authUser);
 }

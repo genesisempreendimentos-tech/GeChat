@@ -35,6 +35,12 @@ dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true });
 const app = express();
 const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.json());
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: 'Corpo da requisição JSON inválido.' });
+  }
+  next(err);
+});
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin) {
