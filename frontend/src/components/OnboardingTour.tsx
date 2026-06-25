@@ -18,42 +18,25 @@ interface OnboardingStep {
 const onboardingSteps: OnboardingStep[] = [
   {
     title: 'Menu principal',
-    description: 'Navegue entre Dashboard, Análise, Leads e Relatórios pelo menu lateral.',
-    route: vitrinePath('/dashboard'),
+    description: 'Navegue entre os itens do menu lateral da Vitrine.',
+    route: vitrinePath('/item-1'),
     targetSelector: '[data-tour="sidebar"]',
     placement: 'right',
   },
   {
-    title: 'Dashboard',
-    description: 'Visão geral do workspace — KPIs, gráficos e atalhos rápidos.',
-    route: vitrinePath('/dashboard'),
-    targetSelector: '[data-tour="menu-dashboard"]',
+    title: 'Item 1',
+    description: 'Primeira seção do protótipo — personalize conforme seu produto.',
+    route: vitrinePath('/item-1'),
     placement: 'right',
   },
   {
-    title: 'Análise',
-    description: 'Métricas, gráficos e filtros analíticos do GêLeads.',
-    route: vitrinePath('/dados'),
-    targetSelector: '[data-tour="menu-dados"]',
-    placement: 'right',
-  },
-  {
-    title: 'Leads',
-    description: 'Gestão operacional — busca, planilha, cards e resumo por lead.',
-    route: vitrinePath('/leads'),
-    targetSelector: '[data-tour="menu-leads"]',
-    placement: 'right',
-  },
-  {
-    title: 'Relatórios',
-    description: 'Exportações, resumos periódicos e documentos consolidados.',
-    route: vitrinePath('/relatorios'),
-    targetSelector: '[data-tour="menu-relatorios"]',
+    title: 'Configurações',
+    description: 'Ajuste tema, tipografia e preferências visuais do GêNovo.',
+    route: vitrinePath('/settings'),
     placement: 'right',
   },
 ];
 
-// Quanto esperar pelo shell (sidebar) antes de desistir de abrir o tour.
 const SHELL_WAIT_TIMEOUT_MS = 15000;
 const SHELL_POLL_INTERVAL_MS = 250;
 const SHELL_INITIAL_DELAY_MS = 800;
@@ -80,8 +63,6 @@ export function OnboardingTour() {
 
   const step = onboardingSteps[stepIndex];
 
-  // Abre o tour só depois que o shell do app (sidebar) existe no DOM —
-  // no primeiro carregamento a tela ainda está montando quando o timer dispara.
   useEffect(() => {
     if (visible || hasSeenOnboarding || location.pathname.startsWith('/login')) return;
     let cancelled = false;
@@ -106,16 +87,12 @@ export function OnboardingTour() {
     };
   }, [visible, hasSeenOnboarding, location.pathname]);
 
-  // Cada passo leva para a rota correspondente (sem renavegar se já está nela).
   useEffect(() => {
     if (!visible || !step?.route) return;
     if (location.pathname !== step.route) navigate(step.route);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, stepIndex]);
 
-  // Segue o alvo em tempo real: a sidebar anima de largura, a rota troca e o
-  // elemento pode demorar a montar — medir uma única vez deixava o anel
-  // ausente ou no lugar errado.
   useEffect(() => {
     if (!visible || !step?.targetSelector) {
       setRect(null);
@@ -159,7 +136,6 @@ export function OnboardingTour() {
         className="fixed inset-0 z-[100]"
       >
         {rect ? (
-          // Spotlight: escurece tudo menos o alvo (a sombra gigante faz o recorte).
           <div
             className="absolute rounded-lg ring-2 ring-primary pointer-events-none"
             style={{

@@ -25,12 +25,10 @@ function openSupportForm() {
   a.click();
 }
 
-/** Modal de ajuda / intranet — formulário de suporte em nova guia. */
 export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
   const { resetOnboarding } = useOnboardingStore();
 
   const handleReplayTour = () => {
-    // hasSeenOnboarding=false faz o OnboardingTour reabrir no passo 1.
     resetOnboarding();
     onOpenChange(false);
   };
@@ -44,7 +42,7 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             Ajuda
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Informações sobre o GêLeads, dicas de uso e contato com o suporte.
+            Informações sobre o GêNovo, dicas de uso e contato com o suporte.
           </DialogDescription>
         </DialogHeader>
 
@@ -52,11 +50,11 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
           <section className="space-y-2 rounded-xl border border-border/50 bg-card/40 p-4">
             <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              Sobre o GêLeads
+              Sobre o GêNovo
             </h3>
             <p>
-              O GêLeads é a plataforma de acompanhamento de leads. Cadastre, acompanhe o pipeline
-              e gerencie oportunidades em um só lugar.
+              O GêNovo é um template SaaS reutilizável com design system completo, autenticação
+              Supabase e painéis modulares para você construir seu produto.
             </p>
           </section>
 
@@ -64,29 +62,20 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             <h3 className="text-base font-semibold text-foreground">Como usar</h3>
             <ul className="list-disc pl-5 space-y-2 marker:text-primary/70">
               <li>
-                <strong className="text-foreground font-semibold">Dashboard:</strong>{' '}
-                acompanhe métricas e o pipeline de leads.
+                <strong className="text-foreground font-semibold">Painel User:</strong>{' '}
+                área principal do seu aplicativo.
               </li>
               <li>
-                <strong className="text-foreground font-semibold">Leads:</strong>{' '}
-                cadastre, edite e acompanhe o status de cada lead.
+                <strong className="text-foreground font-semibold">Vitrine:</strong>{' '}
+                protótipo de referência com itens genéricos.
               </li>
               <li>
-                <strong className="text-foreground font-semibold">Perfil:</strong>{' '}
-                gerencie seus dados pessoais no{' '}
-                <a
-                  href="https://geapps.genesisapps.com.br/profile"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-primary underline-offset-2 hover:underline"
-                >
-                  GêApps
-                </a>
-                .
+                <strong className="text-foreground font-semibold">Admin:</strong>{' '}
+                gestão administrativa do workspace.
               </li>
               <li>
                 <strong className="text-foreground font-semibold">Configurações:</strong>{' '}
-                configure suas preferências de usabilidade do app.
+                personalize tema, tipografia e preferências visuais.
               </li>
             </ul>
           </section>
@@ -94,8 +83,7 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
           <section className="space-y-2 rounded-xl border border-border/50 bg-card/40 p-4">
             <h3 className="text-base font-semibold text-foreground">Precisa de ajuda?</h3>
             <p>
-              Se tiver alguma dúvida, é só entrar em contato com o suporte pelo formulário abaixo,
-              que nosso time entrará em contato.
+              Se tiver alguma dúvida, entre em contato com o suporte pelo formulário abaixo.
             </p>
           </section>
         </div>

@@ -8,8 +8,8 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { LayoutDashboard, BarChart3, FileBarChart, Users, UserCircle, Settings, ExternalLink, Award } from 'lucide-react';
-import { BRAND_LOGO_SRC, GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
+import { LayoutGrid, Settings } from 'lucide-react';
+import { BRAND_LOGO_SRC } from '@/lib/brandAssets';
 import { vitrinePath } from '@/lib/panels';
 
 export function CommandPalette() {
@@ -32,48 +32,29 @@ export function CommandPalette() {
     command();
   }, []);
 
+  const items = Array.from({ length: 6 }, (_, i) => ({
+    label: `Item ${i + 1}`,
+    path: vitrinePath(`/item-${i + 1}`),
+  }));
+
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-4 py-3 pr-14 min-h-[52px]">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
           <img src={BRAND_LOGO_SRC} alt="" className="h-4 w-4 object-contain" />
         </div>
-        <span className="font-semibold text-foreground text-sm">GêLeads</span>
+        <span className="font-semibold text-foreground text-sm">GêNovo</span>
       </div>
       <CommandInput placeholder="Buscar páginas..." />
       <CommandList>
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
         <CommandGroup heading="Navegação">
-          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/dashboard')))}>
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            <span>Dashboard</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/dados')))}>
-            <BarChart3 className="mr-2 h-4 w-4" />
-            <span>Análise</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/dados/qualidade')))}>
-            <Award className="mr-2 h-4 w-4" />
-            <span>Qualidade</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/leads')))}>
-            <Users className="mr-2 h-4 w-4" />
-            <span>Leads</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/relatorios')))}>
-            <FileBarChart className="mr-2 h-4 w-4" />
-            <span>Relatórios</span>
-          </CommandItem>
-          <CommandItem
-            onSelect={() => runCommand(() => { window.location.href = GEAPPS_PROFILE_URL; })}
-            className="justify-between gap-2"
-          >
-            <span className="flex items-center">
-              <UserCircle className="mr-2 h-4 w-4 shrink-0" />
-              Perfil
-            </span>
-            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          </CommandItem>
+          {items.map((item) => (
+            <CommandItem key={item.path} onSelect={() => runCommand(() => navigate(item.path))}>
+              <LayoutGrid className="mr-2 h-4 w-4" />
+              <span>{item.label}</span>
+            </CommandItem>
+          ))}
           <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/settings')))}>
             <Settings className="mr-2 h-4 w-4" />
             <span>Configurações</span>

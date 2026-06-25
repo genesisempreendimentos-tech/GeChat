@@ -1,36 +1,29 @@
 #!/usr/bin/env bash
-# Atualização na VPS (git pull + rebuild + restart).
-# Uso: bash deploy/deploy.sh
+# Deploy na VPS — pull, build, restart PM2
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "${ROOT}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
 
-REMOTE="${GELEADS_REMOTE:-geleads}"
-BRANCH="${GELEADS_BRANCH:-main}"
+REMOTE="${GENOVO_REMOTE:-origin}"
+BRANCH="${GENOVO_BRANCH:-main}"
 
-echo "==> git pull ${REMOTE} ${BRANCH}"
+echo "==> git fetch ${REMOTE} ${BRANCH}"
+git fetch "${REMOTE}" "${BRANCH}"
+git checkout "${BRANCH}"
 git pull "${REMOTE}" "${BRANCH}"
-
-DEPLOY_USER="$(whoami)"
-if [[ "${DEPLOY_USER}" != "root" && -w "${ROOT}" ]]; then
-  :
-elif [[ -n "${SUDO_USER:-}" ]]; then
-  sudo chown -R "${SUDO_USER}:${SUDO_USER}" "${ROOT}"
-fi
 
 echo "==> npm install"
 npm install
 
-echo "==> Build"
-bash deploy/build-prod.sh
+echo "==> build produção"
+npm run build:prod
 
-echo "==> PM2 restart"
-if pm2 describe geleads >/dev/null 2>&1; then
-  pm2 restart geleads
+if pm2 describe genovo >/dev/null 2>&1; then
+  pm2 restart genovo
 else
   pm2 start deploy/ecosystem.config.cjs
 fi
 
 pm2 save
-echo "==> Deploy concluído."
+echo "==> Deploy concluído"

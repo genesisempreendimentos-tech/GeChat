@@ -9,11 +9,10 @@ import {
   type Location as RouterLocation,
 } from 'react-router-dom';
 import { useEffect } from 'react';
-import { initGeLeadsAudit } from '@/assets/audit-log';
+import { initGeNovoAudit } from '@/assets/audit-log';
 import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
-import { GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
 import { vitrinePath } from '@/lib/panels';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAdminShortcut } from '@/hooks/useAdminShortcut';
@@ -30,39 +29,19 @@ import AuthLayout from '@/layouts/AuthLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AdminRoute from '@/components/AdminRoute';
 import AdminLayout from '@/admin/AdminLayout';
-import { UserLayout, UserHomePage, VendasPage, UserLeadsPage, UserEmpreendimentosPage, UserHistoricoPage } from '@/panels/user';
+import { UserLayout, UserHomePage, UserItemPage } from '@/panels/user';
 import { VitrineLayout, vitrineLegacyRedirectRoutes } from '@/panels/vitrine';
+import VitrineItemPage from '@/panels/vitrine/pages/VitrineItemPage';
 
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import AccessDeniedPage from '@/pages/AccessDeniedPage';
-import DashboardPage from '@/pages/DashboardPage';
-import DadosPage from '@/pages/DadosPage';
-import MaturacaoPage from '@/pages/MaturacaoPage';
-import EmpreendimentosPage from '@/pages/EmpreendimentosPage';
-import QualidadePage from '@/pages/QualidadePage';
-import LeadsPage from '@/pages/LeadsPage';
-import RelatoriosPage from '@/pages/RelatoriosPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
 import AdminMembersPage from '@/admin/pages/AdminMembersPage';
 import AdminCategoriesPage from '@/admin/pages/AdminCategoriesPage';
-import AdminReviewsPage from '@/admin/pages/AdminReviewsPage';
-import AdminAdministratorsPage from '@/admin/pages/AdminAdministratorsPage';
-import AdminEmpreendimentosPage from '@/admin/pages/AdminEmpreendimentosPage';
-
-function GeAppsProfileRedirect() {
-  useEffect(() => {
-    window.location.replace(GEAPPS_PROFILE_URL);
-  }, []);
-  return (
-    <div className="flex min-h-[50vh] items-center justify-center">
-      <LoadingGif size="xl" className="h-24 w-24 sm:h-28 sm:w-28" />
-    </div>
-  );
-}
 
 function LoginRoute() {
   const { isAuthenticated, loading } = useAuthStore();
@@ -136,7 +115,7 @@ function AppRoutes() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    const cleanup = initGeLeadsAudit();
+    const cleanup = initGeNovoAudit();
     return () => {
       cleanup?.();
     };
@@ -163,25 +142,22 @@ function AppRoutes() {
 
           <Route element={<UserLayout />}>
             <Route index element={<UserHomePage />} />
-            <Route path="/vendas" element={<VendasPage />} />
-            <Route path="/leads" element={<UserLeadsPage />} />
-            <Route path="/empreendimentos" element={<UserEmpreendimentosPage />} />
-            <Route path="/historico" element={<UserHistoricoPage />} />
+            <Route path="/item-1" element={<UserItemPage itemNumber={1} />} />
+            <Route path="/item-2" element={<UserItemPage itemNumber={2} />} />
+            <Route path="/item-3" element={<UserItemPage itemNumber={3} />} />
+            <Route path="/item-4" element={<UserItemPage itemNumber={4} />} />
           </Route>
 
           <Route path="/vitrine" element={<VitrineLayout />}>
-            <Route index element={<Navigate to={vitrinePath('/dashboard')} replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="dados" element={<DadosPage />} />
-            <Route path="dados/qualidade" element={<QualidadePage />} />
-            <Route path="maturacao" element={<MaturacaoPage />} />
-            <Route path="empreendimentos" element={<EmpreendimentosPage />} />
-            <Route path="relatorios" element={<RelatoriosPage />} />
-            <Route path="leads" element={<LeadsPage />} />
+            <Route index element={<Navigate to={vitrinePath('/item-1')} replace />} />
+            <Route path="item-1" element={<VitrineItemPage itemNumber={1} />} />
+            <Route path="item-2" element={<VitrineItemPage itemNumber={2} />} />
+            <Route path="item-3" element={<VitrineItemPage itemNumber={3} />} />
+            <Route path="item-4" element={<VitrineItemPage itemNumber={4} />} />
+            <Route path="item-5" element={<VitrineItemPage itemNumber={5} />} />
+            <Route path="item-6" element={<VitrineItemPage itemNumber={6} />} />
             <Route path="notifications" element={<NotificationsPage />} />
-            <Route path="profile" element={<GeAppsProfileRedirect />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="chat" element={<Navigate to={vitrinePath('/leads')} replace />} />
           </Route>
         </Route>
 
@@ -196,11 +172,7 @@ function AppRoutes() {
           <Route index element={<Navigate to="/admin/home" replace />} />
           <Route path="home" element={<AdminDashboardPage />} />
           <Route path="members" element={<AdminMembersPage />} />
-          <Route path="profile" element={<GeAppsProfileRedirect />} />
           <Route path="categories" element={<AdminCategoriesPage />} />
-          <Route path="reviews" element={<AdminReviewsPage />} />
-          <Route path="administrators" element={<AdminAdministratorsPage />} />
-          <Route path="empreendimentos" element={<AdminEmpreendimentosPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

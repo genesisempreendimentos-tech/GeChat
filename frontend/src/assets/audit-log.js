@@ -99,7 +99,7 @@ Implementa de ponta a ponta seguindo o ficheiro em contexto, apenas adaptando im
 import { supabase, databaseService } from '@/services/supabase';
 
 function auditSlug() {
-  return (import.meta.env.VITE_GELEADS_AUDIT_SLUG ?? import.meta.env.VITE_GEADS_AUDIT_SLUG ?? 'geleads').toString().trim().toLowerCase() || 'geleads';
+  return (import.meta.env.VITE_GENOVO_AUDIT_SLUG ?? import.meta.env.VITE_GELEADS_AUDIT_SLUG ?? import.meta.env.VITE_GEADS_AUDIT_SLUG ?? 'genovo').toString().trim().toLowerCase() || 'genovo';
 }
 
 function pageContext() {
@@ -199,7 +199,7 @@ async function resolveAppId() {
 /**
  * Login com palavra-passe conclu?do (n?o chamar em checkAuth / sess?o restaurada).
  */
-export async function emitGeLeadsAuditAppLogin(userId, email) {
+export async function emitGeNovoAuditAppLogin(userId, email) {
   const appId = await resolveAppId();
   if (!appId || !userId) return;
   await insertAuditEvent({
@@ -210,8 +210,10 @@ export async function emitGeLeadsAuditAppLogin(userId, email) {
   });
 }
 
-/** @deprecated use emitGeLeadsAuditAppLogin */
-export const emitGeAdsAuditAppLogin = emitGeLeadsAuditAppLogin;
+/** @deprecated use emitGeNovoAuditAppLogin */
+export const emitGeLeadsAuditAppLogin = emitGeNovoAuditAppLogin;
+/** @deprecated use emitGeNovoAuditAppLogin */
+export const emitGeAdsAuditAppLogin = emitGeNovoAuditAppLogin;
 
 function todayLocalDateKey() {
   const d = new Date();
@@ -231,7 +233,7 @@ function getLocalDayBounds() {
 }
 
 function appAccessDailyStorageKey(userId, appId) {
-  return `geleads_audit_app_access_daily_${userId}_${appId}_${todayLocalDateKey()}`;
+  return `genovo_audit_app_access_daily_${userId}_${appId}_${todayLocalDateKey()}`;
 }
 
 /**
@@ -303,7 +305,7 @@ let cleanupRef = null;
 /**
  * Inicializa auditoria ap?s autentica??o: app_access_daily (se ainda n?o existir hoje na BD), tempos de ecr?.
  */
-export function initGeLeadsAudit() {
+export function initGeNovoAudit() {
   if (cleanupRef) {
     cleanupRef();
     cleanupRef = null;
@@ -450,5 +452,7 @@ export function initGeLeadsAudit() {
   return cleanup;
 }
 
-/** @deprecated use initGeLeadsAudit */
-export const initGeAdsAudit = initGeLeadsAudit;
+/** @deprecated use initGeNovoAudit */
+export const initGeLeadsAudit = initGeNovoAudit;
+/** @deprecated use initGeNovoAudit */
+export const initGeAdsAudit = initGeNovoAudit;

@@ -365,28 +365,28 @@ export const storageService = {
     return { error: null };
   },
   async uploadSystemImage(file: File) {
-    const path = `GêLeads/systems/${Date.now()}-${file.name}`;
+    const path = `GeNovo/systems/${Date.now()}-${file.name}`;
     const { data, error } = await supabase.storage.from('GeImage').upload(path, file);
     if (error) return { url: null, error };
     const { data: urlData } = supabase.storage.from('GeImage').getPublicUrl(data?.path ?? path);
     return { url: urlData.publicUrl, error: null };
   },
   async uploadRequestChannelIcon(file: File) {
-    const path = `GêLeads/channels/${Date.now()}-${file.name}`;
+    const path = `GeNovo/channels/${Date.now()}-${file.name}`;
     const { data, error } = await supabase.storage.from('GeImage').upload(path, file);
     if (error) return { url: null, error };
     const { data: urlData } = supabase.storage.from('GeImage').getPublicUrl(data?.path ?? path);
     return { url: urlData.publicUrl, error: null };
   },
   async uploadSystemAnchorPdf(file: File) {
-    const path = `GêLeads/anchor/${Date.now()}-${file.name}`;
+    const path = `GeNovo/anchor/${Date.now()}-${file.name}`;
     const { data, error } = await supabase.storage.from('Files').upload(path, file);
     if (error) return { url: null, error };
     const { data: urlData } = supabase.storage.from('Files').getPublicUrl(data?.path ?? path);
     return { url: urlData.publicUrl, error: null };
   },
   async uploadComunicadoImage(file: File, userId?: string) {
-    const path = `GêLeads/comunicados/${userId ?? 'anon'}/${Date.now()}-${file.name}`;
+    const path = `GeNovo/comunicados/${userId ?? 'anon'}/${Date.now()}-${file.name}`;
     const { data, error } = await supabase.storage.from('GeImage').upload(path, file);
     if (error) return { url: null, error };
     const { data: urlData } = supabase.storage.from('GeImage').getPublicUrl(data?.path ?? path);
@@ -476,7 +476,7 @@ export const databaseService = {
   async getUserForegroundScreenTimeMsForGeAds(userId: string) {
     const client = await getSupabaseClient();
     if (!client) return 0;
-    const slug = (import.meta.env.VITE_GELEADS_AUDIT_SLUG ?? import.meta.env.VITE_GEADS_AUDIT_SLUG ?? 'geleads').toLowerCase();
+    const slug = (import.meta.env.VITE_GENOVO_AUDIT_SLUG ?? import.meta.env.VITE_GELEADS_AUDIT_SLUG ?? import.meta.env.VITE_GEADS_AUDIT_SLUG ?? 'genovo').toLowerCase();
     const { data: app } = await client.from('apps').select('id').eq('slug', slug).maybeSingle();
     if (!app?.id) return 0;
     const { data } = await client.from('audit_logs').select('screen_time_ms').eq('actor_user_id', userId).eq('app_id', app.id).eq('action', 'screen_time_active');

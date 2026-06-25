@@ -32,9 +32,9 @@ const serverPort = Number(fileEnv.SERVER_PORT) || 3001;
 module.exports = {
   apps: [
     {
-      name: 'geleads',
+      name: 'genovo',
       cwd: path.join(ROOT, 'backend'),
-      script: 'src/server.js',
+      script: 'src/index.mjs',
       instances: 1,
       autorestart: true,
       max_memory_restart: '512M',

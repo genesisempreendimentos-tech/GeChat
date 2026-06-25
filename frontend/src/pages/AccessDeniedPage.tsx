@@ -62,7 +62,7 @@ export default function AccessDeniedPage() {
             <div className="flex justify-center mb-6">
               <img
                 src={BRAND_LOGO_SRC}
-                alt="GêLeads"
+                alt="GêNovo"
                 className="w-16 h-16 object-contain"
               />
             </div>

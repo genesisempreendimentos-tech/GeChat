@@ -27,7 +27,7 @@ export function BrandMark({ className }: { className?: string }) {
         <img src={BRAND_LOGO_SRC} alt="" className="h-full w-full object-contain p-0.5" />
       </div>
       <span className="whitespace-nowrap bg-gradient-to-r from-foreground to-primary bg-clip-text text-sm font-bold text-transparent">
-        GêLeads
+        GêNovo
       </span>
     </div>
   );
@@ -84,7 +84,7 @@ export function AppBrandControl({ className }: { className?: string }) {
 
   if (!isAuthenticated) {
     return (
-      <div className={pillClassName} aria-label="GêLeads">
+      <div className={pillClassName} aria-label="GêNovo">
         <BrandMark />
       </div>
     );

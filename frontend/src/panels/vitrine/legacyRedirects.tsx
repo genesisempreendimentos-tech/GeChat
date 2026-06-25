@@ -1,20 +1,11 @@
 import { Navigate, Route } from 'react-router-dom';
 import { vitrinePath } from '@/lib/panels';
 
-/**
- * Redireciona rotas legadas (pré-painéis) para o namespace da Vitrine.
- * Remova junto com o módulo `panels/vitrine/` quando a Vitrine for descartada.
- */
+/** Redireciona rotas legadas para o namespace da Vitrine. */
 export const vitrineLegacyRedirectRoutes = (
   <>
-    <Route path="/dashboard" element={<Navigate to={vitrinePath('/dashboard')} replace />} />
-    <Route path="/dados" element={<Navigate to={vitrinePath('/dados')} replace />} />
-    <Route path="/dados/qualidade" element={<Navigate to={vitrinePath('/dados/qualidade')} replace />} />
-    <Route path="/maturacao" element={<Navigate to={vitrinePath('/maturacao')} replace />} />
-    <Route path="/relatorios" element={<Navigate to={vitrinePath('/relatorios')} replace />} />
-    <Route path="/notifications" element={<Navigate to={vitrinePath('/notifications')} replace />} />
-    <Route path="/profile" element={<Navigate to={vitrinePath('/profile')} replace />} />
+    <Route path="/dashboard" element={<Navigate to={vitrinePath('/item-1')} replace />} />
     <Route path="/settings" element={<Navigate to={vitrinePath('/settings')} replace />} />
-    <Route path="/chat" element={<Navigate to={vitrinePath('/leads')} replace />} />
+    <Route path="/notifications" element={<Navigate to={vitrinePath('/notifications')} replace />} />
   </>
 );

@@ -1,4 +1,4 @@
-import { Home, HandCoins, Users, Building2, History } from 'lucide-react';
+import { LayoutGrid } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -7,6 +7,15 @@ import { useSetSidebarWidth } from '@/contexts/SidebarContext';
 import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 import { SidebarFooterControl } from '@/components/layout/SidebarFooterControl';
 import { SidebarNavItem } from '@/components/layout/SidebarNavItem';
+import { Home } from 'lucide-react';
+
+const userMenuItems = [
+  { icon: Home, label: 'Início', path: '/' },
+  { icon: LayoutGrid, label: 'Item 1', path: '/item-1' },
+  { icon: LayoutGrid, label: 'Item 2', path: '/item-2' },
+  { icon: LayoutGrid, label: 'Item 3', path: '/item-3' },
+  { icon: LayoutGrid, label: 'Item 4', path: '/item-4' },
+];
 
 export default function UserSidebar() {
   const location = useLocation();
@@ -43,41 +52,20 @@ export default function UserSidebar() {
           isExpanded ? 'overflow-y-auto' : 'overflow-hidden',
         )}
       >
-        <SidebarNavItem
-          to="/"
-          icon={Home}
-          label="Comece aqui"
-          isActive={location.pathname === '/'}
-          isExpanded={isExpanded}
-        />
-        <SidebarNavItem
-          to="/vendas"
-          icon={HandCoins}
-          label="Vendas"
-          isActive={location.pathname.startsWith('/vendas')}
-          isExpanded={isExpanded}
-        />
-        <SidebarNavItem
-          to="/leads"
-          icon={Users}
-          label="Leads"
-          isActive={location.pathname.startsWith('/leads')}
-          isExpanded={isExpanded}
-        />
-        <SidebarNavItem
-          to="/empreendimentos"
-          icon={Building2}
-          label="Empreendimentos"
-          isActive={location.pathname.startsWith('/empreendimentos')}
-          isExpanded={isExpanded}
-        />
-        <SidebarNavItem
-          to="/historico"
-          icon={History}
-          label="Histórico"
-          isActive={location.pathname.startsWith('/historico')}
-          isExpanded={isExpanded}
-        />
+        {userMenuItems.map((item) => (
+          <SidebarNavItem
+            key={item.path}
+            to={item.path}
+            icon={item.icon}
+            label={item.label}
+            isActive={
+              item.path === '/'
+                ? location.pathname === '/'
+                : location.pathname.startsWith(item.path)
+            }
+            isExpanded={isExpanded}
+          />
+        ))}
       </nav>
 
       <div className="relative z-10 shrink-0 border-t border-border/70 bg-card/60 dark:bg-card/50">

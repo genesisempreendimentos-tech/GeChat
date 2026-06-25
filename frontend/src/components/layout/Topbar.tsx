@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, LogOut, UserCircle, Settings, LifeBuoy, Lightbulb, ExternalLink } from 'lucide-react';
+import { Bell, LogOut, UserCircle, Settings, LifeBuoy, Lightbulb } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,10 +25,8 @@ import { NotificationsPanel, type NotificationItem } from '@/components/notifica
 import HelpModal from '@/views/navbar/HelpModal';
 import { Quotes } from '@/components/ui/quotes';
 import { AppBrandControl, topbarPillClassName } from '@/components/layout/AppBrandHeader';
-import { GEAPPS_PROFILE_URL } from '@/lib/brandAssets';
 import { settingsPathForPanel } from '@/lib/panels';
 import { usePanelStore } from '@/store/panelStore';
-import { CvcrmSyncStatusIndicator } from '@/components/cvcrm/CvcrmSyncStatusIndicator';
 import { cn } from '@/lib/utils';
 
 function TopbarActions() {
@@ -44,7 +42,7 @@ function TopbarActions() {
   const notificationUnreadCount = notificationItems.filter((n) => !n.read).length;
 
   const handleProfileClick = () => {
-    window.location.href = GEAPPS_PROFILE_URL;
+    navigate(settingsPathForPanel(activePanel));
   };
 
   const handleLogout = () => {
@@ -122,12 +120,9 @@ function TopbarActions() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={handleProfileClick} className="justify-between gap-2">
-              <span className="flex items-center">
-                <UserCircle className="mr-2 h-4 w-4 shrink-0" />
-                Perfil
-              </span>
-              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            <DropdownMenuItem onClick={handleProfileClick}>
+              <UserCircle className="mr-2 h-4 w-4 shrink-0" />
+              Perfil
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(settingsPathForPanel(activePanel))}>
               <Settings className="mr-2 h-4 w-4" />
@@ -151,7 +146,7 @@ function TopbarActions() {
       <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Sair do GêLeads</DialogTitle>
+            <DialogTitle>Sair do GêNovo</DialogTitle>
             <DialogDescription>
               Deseja realmente sair? Você precisará entrar de novo para acessar.
             </DialogDescription>
@@ -183,7 +178,6 @@ export default function Topbar() {
       data-tour="top-nav"
     >
       <AppBrandControl />
-      <CvcrmSyncStatusIndicator className="hidden min-w-0 flex-1 text-center sm:block" />
       <TopbarActions />
     </header>
   );

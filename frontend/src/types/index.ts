@@ -11,17 +11,12 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
-  /** `profiles.created_at` no Supabase (via `profileToUser` em `getUsers`). */
   createdAt?: Date;
-  /** Tipo de acesso: 'admin' | 'creator' | 'user' (coluna access_type em profiles) */
   accessType?: string;
-  /** Ciclo de vida da conta no painel admin (`profiles.profile_status`). */
   profileStatus?: 'active' | 'archived' | 'deleted';
-  /** `profiles.sidebar`: hover | expanded | collapsed */
   sidebar?: SidebarMode;
 }
 
-// System types
 export interface Category {
   id: string;
   name: string;
@@ -53,14 +48,12 @@ export interface System {
   category: SystemCategory;
   active: boolean;
   createdAt: Date;
-  /** Status do app no painel admin */
   status?: AppStatus;
   initial_version?: string;
   next_release_version?: string;
   next_release_date?: string;
 }
 
-// User System Access
 export interface UserSystemAccess {
   id: string;
   userId: string;
@@ -69,7 +62,6 @@ export interface UserSystemAccess {
   isFavorite: boolean;
 }
 
-// Access Log
 export interface AccessLog {
   id: string;
   userId: string;
@@ -79,7 +71,6 @@ export interface AccessLog {
   systemName?: string;
 }
 
-// Statistics
 export interface DashboardStats {
   totalSystems: number;
   activeSystems: number;
@@ -87,7 +78,6 @@ export interface DashboardStats {
   recentAccessCount: number;
 }
 
-// Chat
 export interface Conversation {
   id: string;
   created_at: string;

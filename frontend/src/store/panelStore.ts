@@ -18,6 +18,6 @@ export const usePanelStore = create<PanelState>()(
         set({ activePanel: panelFromPathname(pathname) });
       },
     }),
-    { name: 'geleads-panel' },
+    { name: 'genovo-panel' },
   ),
 );

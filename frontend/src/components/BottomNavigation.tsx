@@ -1,4 +1,4 @@
-import { LayoutDashboard, BarChart3, FileBarChart, Users, Settings } from 'lucide-react';
+import { LayoutGrid, Settings } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
@@ -16,10 +16,10 @@ export function BottomNavigation() {
   const { user } = useAuthStore();
 
   const navItems: NavItem[] = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: vitrinePath('/dashboard') },
-    { icon: BarChart3, label: 'Análise', path: vitrinePath('/dados') },
-    { icon: Users, label: 'Leads', path: vitrinePath('/leads') },
-    { icon: FileBarChart, label: 'Relatórios', path: vitrinePath('/relatorios') },
+    { icon: LayoutGrid, label: 'Item 1', path: vitrinePath('/item-1') },
+    { icon: LayoutGrid, label: 'Item 2', path: vitrinePath('/item-2') },
+    { icon: LayoutGrid, label: 'Item 3', path: vitrinePath('/item-3') },
+    { icon: LayoutGrid, label: 'Item 4', path: vitrinePath('/item-4') },
     { icon: Settings, label: 'Config', path: vitrinePath('/settings') },
   ];
 

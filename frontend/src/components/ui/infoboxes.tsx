@@ -2,8 +2,12 @@ import type { ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { LeadsBalanceComparison } from '@/components/charts/Balance';
 import { MotionFlipNumber, MotionReveal } from '@/components/motion/AppMotion';
+
+type LeadsBalanceComparison = {
+  label?: string;
+  delta?: number;
+};
 
 type InfoBoxCor = 'emerald' | 'blue' | 'amber' | 'violet' | 'muted';
 

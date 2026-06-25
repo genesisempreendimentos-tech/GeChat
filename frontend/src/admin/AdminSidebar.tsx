@@ -1,4 +1,4 @@
-import { type LucideIcon, LayoutDashboard, UserKey, LibraryBig, Building2 } from 'lucide-react';
+import { type LucideIcon, LayoutGrid } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -18,15 +18,14 @@ type AdminNavSection = { title: string; items: AdminNavItem[] };
 
 const adminMenuSections: AdminNavSection[] = [
   {
-    title: 'GêLeads',
-    items: [{ icon: LayoutDashboard, label: 'Dashboard', path: '/admin/home' }],
+    title: 'GêNovo',
+    items: [{ icon: LayoutGrid, label: 'Item 1', path: '/admin/home' }],
   },
   {
     title: 'Admin',
     items: [
-      { icon: UserKey, label: 'Usuários', path: '/admin/members' },
-      { icon: LibraryBig, label: 'Categorias', path: '/admin/categories' },
-      { icon: Building2, label: 'Empreendimentos', path: '/admin/empreendimentos' },
+      { icon: LayoutGrid, label: 'Item 2', path: '/admin/members' },
+      { icon: LayoutGrid, label: 'Item 3', path: '/admin/categories' },
     ],
   },
 ];

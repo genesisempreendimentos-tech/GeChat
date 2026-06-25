@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 
 export function createSupabaseAnonClient(supabaseUrl, supabaseAnonKey, accessToken = null) {
   const options = accessToken
@@ -22,7 +22,7 @@ export function profileRecordToUser(row, fallback) {
     row.nome ??
     row.display_name ??
     fallback.email?.split('@')[0] ??
-    'Usuário';
+    'Usu├írio';
   const accessType = String(row.access_type ?? row.accessType ?? row.role ?? 'user');
   return {
     id: String(row.user_id ?? row.id ?? fallback.id),
@@ -44,7 +44,7 @@ export function profileRecordToUser(row, fallback) {
 
 export function authUserToProfile(authUser) {
   const meta = authUser.user_metadata ?? {};
-  const name = meta.full_name ?? meta.name ?? authUser.email?.split('@')[0] ?? 'Usuário';
+  const name = meta.full_name ?? meta.name ?? authUser.email?.split('@')[0] ?? 'Usu├írio';
   const accessType = String(meta.access_type ?? meta.role ?? 'user');
   return {
     id: authUser.id,

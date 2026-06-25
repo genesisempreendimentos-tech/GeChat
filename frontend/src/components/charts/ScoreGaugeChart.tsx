@@ -1,4 +1,3 @@
-import { NotoEmoji } from '@/components/leads/NotoEmoji';
 import { MotionFlipNumber } from '@/components/motion/AppMotion';
 import { getScoreEmoji, clampScore } from '@/lib/scoreEmoji';
 import { cn } from '@/lib/utils';
@@ -73,24 +72,18 @@ export function ScoreGaugeChart({ value = 0, className, animated = true }: Score
             animate={{ opacity: 1, scale: 1 }}
             transition={motionCfg.springSoft}
           >
-            <NotoEmoji
-              code={scoreEmoji.notoCode}
-              alt={scoreEmoji.emoji}
-              size={36}
-              className="drop-shadow-sm"
-            />
+            <span className="text-4xl drop-shadow-sm" aria-hidden>
+              {scoreEmoji.emoji}
+            </span>
           </motion.div>
         ) : (
           <div
             className="pointer-events-none absolute inset-x-0 top-[30%] flex -translate-y-1/2 justify-center"
             title={scoreEmoji.label}
           >
-            <NotoEmoji
-              code={scoreEmoji.notoCode}
-              alt={scoreEmoji.emoji}
-              size={36}
-              className="drop-shadow-sm"
-            />
+            <span className="text-4xl drop-shadow-sm" aria-hidden>
+              {scoreEmoji.emoji}
+            </span>
           </div>
         )}
 

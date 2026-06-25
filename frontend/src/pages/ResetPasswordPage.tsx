@@ -114,7 +114,7 @@ export default function ResetPasswordPage() {
                   animate={{ rotate: [0, 5, 0, -5, 0], scale: [1, 1.05, 1] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  <img src={BRAND_LOGO_SRC} alt="GêLeads" className="w-full h-full object-contain" />
+                  <img src={BRAND_LOGO_SRC} alt="GêNovo" className="w-full h-full object-contain" />
                 </motion.div>
               </div>
             </motion.div>
@@ -123,7 +123,7 @@ export default function ResetPasswordPage() {
                 Nova senha
               </CardTitle>
               <CardDescription className="text-base">
-                Defina uma nova senha para acessar o GêLeads
+                Defina uma nova senha para acessar o GêNovo
               </CardDescription>
               <div className="pt-2">
                 <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">Demo UI</span>

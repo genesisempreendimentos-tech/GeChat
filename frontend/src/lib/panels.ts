@@ -5,7 +5,7 @@ export type AppPanel = 'user' | 'vitrine' | 'admin';
 
 export const PANEL_HOME: Record<AppPanel, string> = {
   user: '/',
-  vitrine: `${VITRINE_PREFIX}/dashboard`,
+  vitrine: `${VITRINE_PREFIX}/item-1`,
   admin: '/admin/home',
 };
 
