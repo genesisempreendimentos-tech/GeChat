@@ -9,6 +9,7 @@ import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 import { SidebarFooterControl } from '@/components/layout/SidebarFooterControl';
 import { SidebarNavItem } from '@/components/layout/SidebarNavItem';
 import { vitrinePath } from '@/lib/panels';
+import { GLASS_SHELL_BORDER_R } from '@/lib/shellStyles';
 
 type MenuItem = {
   icon: LucideIcon;
@@ -47,7 +48,10 @@ export default function VitrineSidebar() {
         if (layoutMode !== 'hover') return;
         setIsHovered(false);
       }}
-      className="hidden md:flex fixed left-0 top-16 bottom-0 bg-card/60 dark:bg-card/50 backdrop-blur-xl border-r border-border/70 flex-col z-40 overflow-hidden"
+      className={cn(
+        'hidden md:flex fixed left-0 top-16 bottom-0 flex-col z-40 overflow-hidden',
+        GLASS_SHELL_BORDER_R,
+      )}
       data-tour="sidebar"
       role="navigation"
       aria-label="Navegação da Vitrine"
@@ -70,7 +74,7 @@ export default function VitrineSidebar() {
         ))}
       </nav>
 
-      <div className="relative z-10 shrink-0 border-t border-border/70 bg-card/60 dark:bg-card/50">
+      <div className={cn('relative z-10 shrink-0 border-t border-border/70 bg-card/55')}>
         <SidebarFooterControl isExpanded={isExpanded} />
       </div>
     </motion.aside>

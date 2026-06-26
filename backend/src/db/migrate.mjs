@@ -9,6 +9,19 @@ dotenv.config({ path: path.join(__dirname, '..', '..', '.env'), override: true }
 
 const migrationsDir = path.join(__dirname, 'migrations');
 
+function stripSqlComments(statement) {
+  return statement
+    .replace(/^\s*(--[^\n]*\n)+/g, '')
+    .trim();
+}
+
+function parseMigrationStatements(sql) {
+  return sql
+    .split(';')
+    .map((chunk) => stripSqlComments(chunk.trim()))
+    .filter((statement) => statement.length > 0);
+}
+
 export async function ensureGeChatSchema() {
   const files = fs
     .readdirSync(migrationsDir)
@@ -17,12 +30,13 @@ export async function ensureGeChatSchema() {
 
   for (const file of files) {
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-    const statements = sql
-      .split(';')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0 && !s.startsWith('--'));
+    const statements = parseMigrationStatements(sql);
+    if (!statements.length) {
+      console.warn(`[gechat] Migration sem statements executáveis: ${file}`);
+      continue;
+    }
     await runMigrationStatements(statements);
-    console.log(`[gechat] Migration aplicada: ${file}`);
+    console.log(`[gechat] Migration aplicada: ${file} (${statements.length} statement(s))`);
   }
   console.log('[gechat] Schema verificado/aplicado.');
 }

@@ -30,6 +30,7 @@ import { authService } from "@/services/supabase";
 import { isAllowedReturnToUrl } from "@/services/authStorage";
 import { getSafeInternalReturnPath } from "@/lib/postLoginRedirect";
 import { BRAND_LOGO_SRC } from "@/lib/brandAssets";
+import { AuthPageBackground } from "@/components/auth/AuthPageBackground";
 const LogoSvg = '/assets/logo-gen-sem-fundo-svg.svg';
 
 export default function LoginPage() {
@@ -153,8 +154,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
-      {/* Background gradiente animado */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-primary/30" />
+      <AuthPageBackground />
 
       {/* Logos decorativas no background (reduzido para visual mais limpo) */}
       <motion.div
@@ -205,21 +205,6 @@ export default function LoginPage() {
           }}
         />
       </motion.div>
-
-      {/* Padrão de fundo */}
-      <div className="absolute inset-0 opacity-10">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
-            backgroundSize: "40px 40px",
-          }}
-        />
-      </div>
-
-      {/* Círculos decorativos */}
-      <div className="absolute top-0 left-0 w-72 h-72 bg-white/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -619,7 +604,7 @@ export default function LoginPage() {
           transition={{ delay: 0.8, duration: 0.3 }}
           className="mt-6 text-center"
         >
-          <p className="text-xs text-white/70">
+          <p className="text-xs text-muted-foreground">
             © Demo UI — sem dados reais.
           </p>
         </motion.div>

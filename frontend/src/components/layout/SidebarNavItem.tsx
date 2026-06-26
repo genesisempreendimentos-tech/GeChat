@@ -325,13 +325,21 @@ export function SidebarNavGroup({
 type SidebarSectionTitleProps = {
   title: string;
   isExpanded: boolean;
+  /** `sidebar` = alinhado à esquerda; `items` = alinhado com o texto dos itens */
+  align?: 'sidebar' | 'items';
 };
 
-export function SidebarSectionTitle({ title, isExpanded }: SidebarSectionTitleProps) {
+export function SidebarSectionTitle({
+  title,
+  isExpanded,
+  align = 'items',
+}: SidebarSectionTitleProps) {
+  const paddingLeft = align === 'sidebar' ? 16 : SIDEBAR_ICON_COLUMN_WIDTH;
+
   return (
     <motion.p
-      className="overflow-hidden pr-4 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80"
-      style={{ paddingLeft: SIDEBAR_ICON_COLUMN_WIDTH }}
+      className="overflow-hidden pr-4 pb-1.5 pt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80"
+      style={{ paddingLeft }}
       initial={false}
       animate={{
         opacity: isExpanded ? 1 : 0,

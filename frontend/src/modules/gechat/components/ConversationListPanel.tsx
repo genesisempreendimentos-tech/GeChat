@@ -1,0 +1,323 @@
+import { useMemo, useState, type ComponentType } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import {
+  Archive,
+  ArrowLeft,
+  MoreVertical,
+  Search,
+  Settings,
+} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { NewConversationDialog } from '@/modules/gechat/components/NewConversationDialog';
+import { WhatsappConversationRow } from '@/modules/gechat/components/WhatsappConversationRow';
+import {
+  applyConversationListFilter,
+  CONVERSATION_LIST_FILTERS,
+  sortConversationsForList,
+  type ConversationListFilter,
+} from '@/modules/gechat/lib/conversation-list-filters';
+import { useGeChatStore } from '@/store/gechatStore';
+import { useConversationListStore } from '@/store/conversationListStore';
+
+interface ConversationListPanelProps {
+  isExpanded: boolean;
+}
+
+function conversationInitials(name: string) {
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function formatSidebarDate() {
+  const formatted = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR });
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+function ConversationFilterChip({
+  label,
+  icon: Icon,
+  selected,
+  onClick,
+}: {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const chip = (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={selected}
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-all duration-200',
+        selected
+          ? 'gap-1.5 bg-primary/15 px-3 py-1.5 text-primary shadow-sm ring-1 ring-primary/20'
+          : 'h-8 w-8 bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
+      )}
+    >
+      <Icon className={cn('shrink-0', selected ? 'h-4 w-4' : 'h-4 w-4')} aria-hidden />
+      {selected && <span className="text-xs leading-none">{label}</span>}
+    </button>
+  );
+
+  if (selected) return chip;
+
+  return (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>{chip}</TooltipTrigger>
+      <TooltipContent
+        side="bottom"
+        sideOffset={6}
+        className="border-border/80 bg-popover/95 px-2.5 py-1 text-xs font-medium text-popover-foreground shadow-lg backdrop-blur-sm"
+      >
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function ConversationListPanel({ isExpanded }: ConversationListPanelProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const conversations = useGeChatStore((s) => s.conversations);
+  const unreadCounters = useGeChatStore((s) => s.unreadCounters);
+  const favoriteIds = useConversationListStore((s) => s.favoriteIds);
+  const pinnedIds = useConversationListStore((s) => s.pinnedIds);
+  const archivedIds = useConversationListStore((s) => s.archivedIds);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<ConversationListFilter>('all');
+  const [showArchived, setShowArchived] = useState(false);
+
+  const activeConversationId = location.pathname.startsWith('/c/')
+    ? location.pathname.split('/c/')[1]?.split('/')[0]
+    : null;
+
+  const todayLabel = useMemo(() => formatSidebarDate(), []);
+
+  const archivedCount = useMemo(
+    () => conversations.filter((c) => archivedIds.includes(c.id)).length,
+    [conversations, archivedIds],
+  );
+
+  const filtered = useMemo(() => {
+    const list = applyConversationListFilter(conversations, filter, {
+      searchQuery,
+      favoriteIds,
+      archivedIds,
+      unreadCounters,
+      showArchived,
+    });
+    return sortConversationsForList(list, pinnedIds);
+  }, [
+    conversations,
+    filter,
+    searchQuery,
+    favoriteIds,
+    archivedIds,
+    unreadCounters,
+    showArchived,
+    pinnedIds,
+  ]);
+
+  const handleCreated = (id: string) => {
+    navigate(`/c/${id}`);
+  };
+
+  if (!isExpanded) {
+    const collapsedConversations = sortConversationsForList(
+      applyConversationListFilter(conversations, 'all', {
+        searchQuery: '',
+        favoriteIds,
+        archivedIds,
+        unreadCounters,
+        showArchived: false,
+      }),
+      pinnedIds,
+    ).slice(0, 12);
+
+    return (
+      <TooltipProvider delayDuration={200}>
+        <div className="flex flex-col items-center gap-1.5 py-2">
+          <NewConversationDialog onCreated={handleCreated} prominent triggerIconOnly />
+          {collapsedConversations.map((conv) => {
+            const label = conv.displayName ?? conv.name ?? 'Conversa';
+            const unread = unreadCounters[conv.id] ?? 0;
+            const isActive = activeConversationId === conv.id;
+            return (
+              <Tooltip key={conv.id}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/c/${conv.id}`)}
+                    aria-label={label}
+                    className={cn(
+                      'relative rounded-full transition-transform hover:scale-[1.03]',
+                      isActive && 'ring-2 ring-primary/50 ring-offset-2 ring-offset-background',
+                    )}
+                  >
+                    <Avatar className="h-11 w-11">
+                      <AvatarImage src={conv.avatar} alt="" />
+                      <AvatarFallback className="text-xs font-semibold">
+                        {conversationInitials(label)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {unread > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-medium text-primary-foreground ring-2 ring-background">
+                        {unread > 9 ? '9+' : unread}
+                      </span>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="right"
+                  sideOffset={8}
+                  className="border-border/80 bg-popover/95 px-2.5 py-1 text-xs font-medium shadow-lg backdrop-blur-sm"
+                >
+                  {label}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </TooltipProvider>
+    );
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex shrink-0 items-center justify-between gap-2 px-4 pb-2 pt-3">
+        {showArchived ? (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              onClick={() => setShowArchived(false)}
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h2 className="min-w-0 flex-1 text-lg font-semibold">Arquivadas</h2>
+          </>
+        ) : (
+          <h2 className="min-w-0 truncate text-xl font-semibold tracking-tight">
+            {todayLabel}
+          </h2>
+        )}
+        <div className="flex items-center gap-0.5">
+          <NewConversationDialog
+            onCreated={handleCreated}
+            className="h-9 w-9 rounded-full border-0 bg-transparent p-0 shadow-none hover:bg-muted"
+            triggerIconOnly
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9" aria-label="Menu">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                Configurações
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+
+      <div className="shrink-0 px-3 pb-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Pesquisar ou começar uma nova conversa"
+            className="h-9 rounded-lg border-border/60 bg-muted/40 pl-9 text-sm"
+            aria-label="Pesquisar conversas"
+          />
+        </div>
+      </div>
+
+      {!showArchived && (
+        <TooltipProvider delayDuration={200}>
+          <div className="shrink-0 px-3 pb-2">
+            <div className="flex flex-wrap gap-1.5">
+              {CONVERSATION_LIST_FILTERS.map((chip) => (
+                <ConversationFilterChip
+                  key={chip.id}
+                  label={chip.label}
+                  icon={chip.icon}
+                  selected={filter === chip.id}
+                  onClick={() => setFilter(chip.id)}
+                />
+              ))}
+            </div>
+          </div>
+        </TooltipProvider>
+      )}
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {!showArchived && archivedCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowArchived(true)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/50"
+          >
+            <Archive className="h-5 w-5 shrink-0" />
+            <span className="font-medium">Arquivadas</span>
+            <span className="ml-auto text-xs tabular-nums">{archivedCount}</span>
+          </button>
+        )}
+
+        {filtered.length === 0 ? (
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+            {showArchived
+              ? 'Nenhuma conversa arquivada.'
+              : searchQuery.trim()
+                ? 'Nenhuma conversa encontrada.'
+                : filter === 'unread'
+                  ? 'Nenhuma conversa não lida.'
+                  : filter === 'favorites'
+                    ? 'Nenhuma conversa favorita.'
+                    : 'Nenhuma conversa ainda. Toque em + para começar.'}
+          </div>
+        ) : (
+          filtered.map((conv) => (
+            <WhatsappConversationRow
+              key={conv.id}
+              conversation={conv}
+              isActive={activeConversationId === conv.id}
+              archived={showArchived}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

@@ -42,7 +42,7 @@ export async function getUserConversationIds(userId) {
 export async function canPostInConversation(conversationId, userId) {
   const sql = getSql();
   const rows = await sql`
-    SELECT c.type, c.channel_subtype, m.role
+    SELECT c.type, c.channel_subtype, c.only_admins_can_send, m.role
     FROM gechat_conversations c
     JOIN gechat_conversation_members m ON m.conversation_id = c.id
     WHERE c.id = ${conversationId} AND m.user_id = ${userId}
@@ -51,6 +51,9 @@ export async function canPostInConversation(conversationId, userId) {
   const row = rows[0];
   if (!row) return false;
   if (row.type === 'channel' && row.channel_subtype === 'avisos') {
+    return row.role === 'admin';
+  }
+  if (row.type === 'group' && row.only_admins_can_send) {
     return row.role === 'admin';
   }
   return true;

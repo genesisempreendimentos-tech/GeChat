@@ -113,7 +113,7 @@ export const AvatarGroupItem = ({
         onClick()
       }}
       className={cn(
-        "relative inline-flex items-center justify-center align-middle rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0d1520]",
+        "relative inline-flex items-center justify-center align-middle rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         loading && "opacity-70",
         buttonClassName,
       )}

@@ -1,6 +1,8 @@
 import type {
   ChannelSubtype,
   Conversation,
+  GroupMemberSettings,
+  GroupSettingsResponse,
   Message,
   MessageReaction,
   PresenceState,
@@ -54,10 +56,19 @@ export const gechatApi = {
     return data.conversation;
   },
 
-  async createGroup(name: string, memberIds: string[]): Promise<Conversation> {
+  async createGroup(
+    name: string,
+    memberIds: string[],
+    options?: { description?: string; avatarUrl?: string },
+  ): Promise<Conversation> {
     const data = await gechatFetch<{ conversation: Conversation }>('/api/gechat/conversations/group', {
       method: 'POST',
-      body: JSON.stringify({ name, memberIds }),
+      body: JSON.stringify({
+        name,
+        memberIds,
+        description: options?.description,
+        avatarUrl: options?.avatarUrl,
+      }),
     });
     return data.conversation;
   },
@@ -68,6 +79,46 @@ export const gechatApi = {
       body: JSON.stringify({ name, channelSubtype, memberIds }),
     });
     return data.conversation;
+  },
+
+  async getGroupSettings(conversationId: string): Promise<GroupSettingsResponse> {
+    return gechatFetch(`/api/gechat/conversations/${conversationId}/group-settings`);
+  },
+
+  async updateGroup(
+    conversationId: string,
+    patch: {
+      name?: string;
+      description?: string;
+      avatarUrl?: string | null;
+      onlyAdminsCanEdit?: boolean;
+      onlyAdminsCanSend?: boolean;
+    },
+  ) {
+    return gechatFetch<{ conversation: GroupSettingsResponse['conversation'] }>(
+      `/api/gechat/conversations/${conversationId}/group`,
+      { method: 'PATCH', body: JSON.stringify(patch) },
+    );
+  },
+
+  async updateMemberSettings(
+    conversationId: string,
+    patch: Partial<Pick<GroupMemberSettings, 'muted' | 'notificationsEnabled'>>,
+  ) {
+    return gechatFetch<{ mySettings: GroupMemberSettings }>(
+      `/api/gechat/conversations/${conversationId}/member-settings`,
+      { method: 'PATCH', body: JSON.stringify(patch) },
+    );
+  },
+
+  async addGroupMembers(conversationId: string, memberIds: string[]) {
+    return gechatFetch<{
+      addedIds: string[];
+      members: Array<{ userId: string; role: string; profile?: UserProfile }>;
+    }>(`/api/gechat/conversations/${conversationId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ memberIds }),
+    });
   },
 
   async getPresence(userIds: string[]): Promise<Record<string, PresenceState>> {

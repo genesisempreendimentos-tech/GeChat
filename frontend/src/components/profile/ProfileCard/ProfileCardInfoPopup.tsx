@@ -123,13 +123,13 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
         <DialogTitle className="sr-only">Perfil — {data.apelido || data.username}</DialogTitle>
         <DialogDescription className="sr-only">Informações de {data.apelido || data.username}</DialogDescription>
 
-        <div className="relative text-card-foreground overflow-hidden rounded-2xl border border-border/40 bg-[#0d1b2a]">
+        <div className="relative text-card-foreground overflow-hidden rounded-2xl border border-border bg-card">
 
           {/* Botão fechar */}
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="absolute top-3 right-3 z-50 p-1.5 rounded-full bg-white/10 text-white/70 hover:text-white hover:bg-white/20 transition-colors"
+            className="absolute top-3 right-3 z-50 p-1.5 rounded-full bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             aria-label="Fechar"
           >
             <X className="w-4 h-4" />
@@ -174,7 +174,7 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
 
             {/* Nome sempre centralizado sob o avatar; ícone (passaro/leao) ao lado sem deslocar o nome */}
             <div className="text-center mb-4">
-              <h2 className="text-xl font-bold text-white tracking-tight leading-tight truncate">
+              <h2 className="text-xl font-bold text-foreground tracking-tight leading-tight truncate">
                 {data.apelido || data.username || 'Usuário'}
               </h2>
               {/* @username centralizado */}
@@ -182,7 +182,7 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
                 <span className="text-teal-400 text-sm font-semibold">@{data.username}</span>
               </div>
               {data.description && (
-                <p className="text-white/55 text-sm mt-2 leading-relaxed">{data.description}</p>
+                <p className="text-muted-foreground text-sm mt-2 leading-relaxed">{data.description}</p>
               )}
             </div>
 
@@ -296,9 +296,9 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
                   {/* Aniversário */}
                   {data.birthday ? (
                     <div className="flex flex-col gap-0.5">
-                      <p className="text-xs text-white/35 leading-none">Aniversário</p>
-                      <div className="flex items-center gap-1.5 text-white/55 text-sm">
-                        <Cake className="w-3.5 h-3.5 text-white/35" />
+                      <p className="text-xs text-muted-foreground leading-none">Aniversário</p>
+                      <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
+                        <Cake className="w-3.5 h-3.5 text-muted-foreground/70" />
                         <span>{data.birthday}</span>
                       </div>
                     </div>
@@ -307,10 +307,10 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
                   {/* Data de admissão */}
                   {data.admissionDate && (
                     <div className="text-right flex flex-col gap-0.5 items-end">
-                      <p className="text-xs text-white/35 leading-none">Desde</p>
-                      <div className="flex items-center gap-1.5 text-white/55 text-sm">
+                      <p className="text-xs text-muted-foreground leading-none">Desde</p>
+                      <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
                         <span>{data.admissionDate}</span>
-                        <Calendar1 className="w-3.5 h-3.5 text-white/35" />
+                        <Calendar1 className="w-3.5 h-3.5 text-muted-foreground/70" />
                       </div>
                     </div>
                   )}

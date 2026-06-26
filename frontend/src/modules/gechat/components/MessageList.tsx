@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { gechatSocket } from '@/lib/realtime/socket-client';
 import { MessageActionBar } from '@/modules/gechat/components/MessageActionBar';
+import { ChatWallpaperBackground } from '@/modules/gechat/components/ChatWallpaperBackground';
 import { MessageReactions } from '@/modules/gechat/components/MessageReactions';
 import { useGeChatStore } from '@/store/gechatStore';
 import type { Message } from '@/modules/gechat/types';
@@ -222,14 +223,19 @@ export function MessageList({
 
   if (!messages.length && !hasTyping) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground">
-        Nenhuma mensagem. Envie a primeira!
-      </div>
+      <ChatWallpaperBackground className="min-h-0 flex-1">
+        <div className="flex h-0 min-h-0 flex-1 items-center justify-center p-8">
+          <p className="max-w-xs text-center text-sm text-muted-foreground">
+            Nenhuma mensagem. Envie a primeira!
+          </p>
+        </div>
+      </ChatWallpaperBackground>
     );
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+    <ChatWallpaperBackground className="min-h-0 flex-1">
+      <div className="flex h-0 min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto overscroll-contain p-4 pb-6 pt-2">
       {messages.map((msg) => {
         const isOwn = msg.senderId === currentUserId;
         const profile = memberProfiles[msg.senderId] ?? { name: 'Usuário' };
@@ -268,30 +274,16 @@ export function MessageList({
         return (
           <div
             key={msg.clientId ?? msg.id}
-            className={cn('flex gap-2', isOwn ? 'flex-row-reverse' : 'flex-row')}
+            className={cn('flex min-w-0 gap-2', isOwn ? 'flex-row-reverse' : 'flex-row')}
           >
             {!isOwn && <MessageAvatar profile={profile} />}
             <div className={cn('flex max-w-[75%] flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
-              <div className="group/message relative">
-                {!isEditing && (
-                  <MessageActionBar
-                    message={msg}
-                    isOwn={isOwn}
-                    isStarred={isStarred}
-                    isPinned={isPinned}
-                    canEdit={!!canEdit}
-                    alignEnd={isOwn}
-                    onReact={(emoji) => onToggleReaction?.(msg.id, emoji)}
-                    onQuote={handleQuote}
-                    onForward={handleForward}
-                    onToggleRead={handleToggleRead}
-                    onToggleStar={() => toggleStar(conversationId, msg.id)}
-                    onTogglePin={() => togglePin(conversationId, msg.id)}
-                    onDelete={isOwn && onDeleteMessage ? () => onDeleteMessage(msg.id) : undefined}
-                    onEdit={canEdit ? () => startEdit(msg) : undefined}
-                  />
+              <div
+                className={cn(
+                  'group/message relative pb-0 transition-[padding] duration-150',
+                  'group-hover/message:pb-12 group-focus-within/message:pb-12 has-[[data-state=open]]:pb-12',
                 )}
-
+              >
                 <div
                   className={cn(
                     'relative rounded-2xl px-3 py-2 text-sm shadow-sm',
@@ -376,6 +368,25 @@ export function MessageList({
                   </div>
                 )}
                 </div>
+
+                {!isEditing && (
+                  <MessageActionBar
+                    message={msg}
+                    isOwn={isOwn}
+                    isStarred={isStarred}
+                    isPinned={isPinned}
+                    canEdit={!!canEdit}
+                    alignEnd={isOwn}
+                    onReact={(emoji) => onToggleReaction?.(msg.id, emoji)}
+                    onQuote={handleQuote}
+                    onForward={handleForward}
+                    onToggleRead={handleToggleRead}
+                    onToggleStar={() => toggleStar(conversationId, msg.id)}
+                    onTogglePin={() => togglePin(conversationId, msg.id)}
+                    onDelete={isOwn && onDeleteMessage ? () => onDeleteMessage(msg.id) : undefined}
+                    onEdit={canEdit ? () => startEdit(msg) : undefined}
+                  />
+                )}
               </div>
 
               {!isEditing && (
@@ -394,6 +405,7 @@ export function MessageList({
       <TypingBubble conversationId={conversationId} memberProfiles={memberProfiles} />
 
       <div ref={bottomRef} />
-    </div>
+      </div>
+    </ChatWallpaperBackground>
   );
 }

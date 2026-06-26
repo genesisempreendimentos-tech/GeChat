@@ -18,15 +18,15 @@ import { BRAND_LOGO_SRC } from '@/lib/brandAssets';
 
 /** Mesmo visual do cluster de ações à direita no Topbar. */
 export const topbarPillClassName =
-  'flex shrink-0 items-center rounded-full border border-border/50 bg-muted/40 p-1.5 shadow-sm transition-colors hover:bg-muted/50';
+  'flex shrink-0 items-center rounded-full border border-border/50 bg-muted/40 p-2 shadow-sm transition-colors hover:bg-muted/50';
 
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <div className={cn('flex min-w-0 items-center gap-2', className)}>
-      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary/10 shadow-sm">
+    <div className={cn('flex min-w-0 items-center gap-2.5', className)}>
+      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary/10 shadow-sm">
         <img src={BRAND_LOGO_SRC} alt="" className="h-full w-full object-contain p-0.5" />
       </div>
-      <span className="whitespace-nowrap bg-gradient-to-r from-foreground to-primary bg-clip-text text-sm font-bold text-transparent">
+      <span className="whitespace-nowrap bg-gradient-to-r from-foreground to-primary bg-clip-text text-base font-bold text-transparent">
         GêChat
       </span>
     </div>
@@ -71,7 +71,7 @@ export function AppBrandControl({ className }: { className?: string }) {
 
   const pillClassName = cn(
     topbarPillClassName,
-    'gap-2 pl-1.5 pr-3',
+    'gap-2.5 pl-2 pr-4',
     isAuthenticated &&
       'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
     className,

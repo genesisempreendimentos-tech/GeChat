@@ -8,7 +8,7 @@ export function Toaster() {
     <Sonner
       theme={(theme === 'full-dark' ? 'dark' : theme) as "light" | "dark" | "system"}
       className="toaster group"
-      position="top-right"
+      position="top-center"
       toastOptions={{
         classNames: {
           toast:

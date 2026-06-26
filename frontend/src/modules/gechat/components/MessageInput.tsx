@@ -53,7 +53,7 @@ import {
   buildStickerContent,
   buildTextContent,
 } from '@/modules/gechat/lib/message-content';
-import { applyTextFormat, type TextFormat } from '@/modules/gechat/lib/text-format';
+import { applyTextFormat, wrapCodeBlockForSend, type TextFormat } from '@/modules/gechat/lib/text-format';
 import { storageService } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { useGeChatStore } from '@/store/gechatStore';
@@ -68,6 +68,10 @@ const EMOJIS = [
 const STICKERS = ['👍', '❤️', '😂', '🔥', '🎉', '🙏', '😍', '🤝', '💪', '🥳', '😎', '🤩'];
 
 const SLIDE_TRANSITION = { duration: 0.28, ease: [0.32, 0.72, 0, 1] as const };
+
+/** Altura mínima e máxima do campo de mensagem antes de ativar scroll interno. */
+const COMPOSER_INPUT_MIN_HEIGHT = 36;
+const COMPOSER_INPUT_MAX_HEIGHT = 240;
 
 type ComposerPlusAction = {
   id: string;
@@ -220,9 +224,13 @@ function FormatToolbarButton({
 function FormatToolbar({
   onFormat,
   onLink,
+  codeBlockActive,
+  onToggleCodeBlock,
 }: {
   onFormat: (format: TextFormat) => void;
   onLink: () => void;
+  codeBlockActive: boolean;
+  onToggleCodeBlock: () => void;
 }) {
   const textItems: Array<{ format: TextFormat; label: string; icon: ReactNode }> = [
     { format: 'bold', label: 'Negrito', icon: <Bold className="h-4 w-4" /> },
@@ -249,8 +257,15 @@ function FormatToolbar({
         <Link2 className="h-4 w-4" />
       </FormatToolbarButton>
       <Separator orientation="vertical" className="mx-0.5 h-5 bg-border" />
-      <FormatToolbarButton label="Bloco de código" onClick={() => onFormat('codeBlock')}>
-        <Code className="h-4 w-4" />
+      <FormatToolbarButton label="Bloco de código" onClick={onToggleCodeBlock}>
+        <span
+          className={cn(
+            'flex h-6 w-6 items-center justify-center rounded-full transition-colors',
+            codeBlockActive && 'bg-primary/15 text-primary ring-1 ring-inset ring-primary/30',
+          )}
+        >
+          <Code className="h-4 w-4" />
+        </span>
       </FormatToolbarButton>
     </div>
   );
@@ -269,6 +284,7 @@ export function MessageInput({ conversationId, onSend, disabled }: MessageInputP
   const [value, setValue] = useState('');
   const [uploading, setUploading] = useState(false);
   const [formatOpen, setFormatOpen] = useState(false);
+  const [codeBlockMode, setCodeBlockMode] = useState(false);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [activeFlyout, setActiveFlyout] = useState<ComposerFlyoutKind | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
@@ -282,6 +298,23 @@ export function MessageInput({ conversationId, onSend, disabled }: MessageInputP
   const uploadBtnRef = useRef<HTMLButtonElement>(null);
   const plusBtnRef = useRef<HTMLButtonElement>(null);
   const { onType, stopTyping } = useTypingDebounce(conversationId);
+
+  const adjustTextareaHeight = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = `${COMPOSER_INPUT_MIN_HEIGHT}px`;
+    const scrollHeight = el.scrollHeight;
+    const nextHeight = Math.min(
+      Math.max(scrollHeight, COMPOSER_INPUT_MIN_HEIGHT),
+      COMPOSER_INPUT_MAX_HEIGHT,
+    );
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = scrollHeight > COMPOSER_INPUT_MAX_HEIGHT ? 'auto' : 'hidden';
+  }, []);
+
+  useLayoutEffect(() => {
+    adjustTextareaHeight();
+  }, [value, formatOpen, replyTo, codeBlockMode, adjustTextareaHeight]);
 
   const closeFlyout = () => setActiveFlyout(null);
   const closePlusMenu = () => setPlusMenuOpen(false);
@@ -313,12 +346,15 @@ export function MessageInput({ conversationId, onSend, disabled }: MessageInputP
   };
 
   const handleSendText = () => {
-    const trimmed = buildTextContent(value);
-    if (!trimmed || !canSend) return;
+    const raw = buildTextContent(value);
+    if (!raw || !canSend) return;
+    const trimmed = codeBlockMode ? wrapCodeBlockForSend(raw) : raw;
     stopTyping();
     onSend(trimmed, 'text');
     setValue('');
     setFormatOpen(false);
+    setCodeBlockMode(false);
+    requestAnimationFrame(() => adjustTextareaHeight());
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -331,10 +367,21 @@ export function MessageInput({ conversationId, onSend, disabled }: MessageInputP
   const handleFormat = (format: TextFormat) => {
     const el = textareaRef.current;
     if (!el || !canSend) return;
+    if (format === 'codeBlock') {
+      setCodeBlockMode((active) => !active);
+      textareaRef.current?.focus();
+      return;
+    }
     const result = applyTextFormat(value, el.selectionStart, el.selectionEnd, format);
     setValue(result.text);
     onType();
     focusTextarea(result.selectionStart, result.selectionEnd);
+  };
+
+  const toggleCodeBlockMode = () => {
+    if (!canSend) return;
+    setCodeBlockMode((active) => !active);
+    requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
   const handleImageUpload = async (file: File) => {
@@ -419,7 +466,7 @@ export function MessageInput({ conversationId, onSend, disabled }: MessageInputP
 
   return (
     <>
-      <div className="shrink-0 border-t border-border/60 bg-card/40 px-3 py-2 md:px-4">
+      <div className="relative z-20 shrink-0 border-t border-border/60 bg-background px-3 py-2 md:px-4">
         <div className="flex w-full items-end gap-1.5">
           <input
             ref={imageInputRef}
@@ -514,6 +561,7 @@ export function MessageInput({ conversationId, onSend, disabled }: MessageInputP
             className={cn(
               'flex min-w-0 flex-1 flex-col overflow-hidden border border-border/50 bg-muted/40',
               formatOpen && 'ring-1 ring-inset ring-primary/25',
+              codeBlockMode && 'bg-muted/70 ring-1 ring-inset ring-primary/20',
             )}
           >
             {replyTo && (
@@ -543,7 +591,12 @@ export function MessageInput({ conversationId, onSend, disabled }: MessageInputP
                   transition={SLIDE_TRANSITION}
                   className="overflow-hidden"
                 >
-                  <FormatToolbar onFormat={handleFormat} onLink={() => setLinkOpen(true)} />
+                  <FormatToolbar
+                    onFormat={handleFormat}
+                    onLink={() => setLinkOpen(true)}
+                    codeBlockActive={codeBlockMode}
+                    onToggleCodeBlock={toggleCodeBlockMode}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -558,13 +611,21 @@ export function MessageInput({ conversationId, onSend, disabled }: MessageInputP
                 }}
                 onKeyDown={handleKeyDown}
                 disabled={!canSend}
-                placeholder={conversationId ? 'Digite uma mensagem...' : 'Selecione uma conversa'}
+                placeholder={
+                  codeBlockMode
+                    ? 'Digite o código...'
+                    : conversationId
+                      ? 'Digite uma mensagem...'
+                      : 'Selecione uma conversa'
+                }
                 rows={1}
+                style={{ minHeight: COMPOSER_INPUT_MIN_HEIGHT, maxHeight: COMPOSER_INPUT_MAX_HEIGHT }}
                 className={cn(
-                  'min-w-0 flex-1 resize-none bg-transparent px-1.5 py-1.5 text-sm leading-relaxed',
-                  'max-h-32 min-h-[36px]',
+                  'min-w-0 flex-1 resize-none overflow-x-hidden bg-transparent px-1.5 py-1.5 text-sm leading-relaxed',
                   'placeholder:text-muted-foreground focus-visible:outline-none',
                   'disabled:cursor-not-allowed disabled:opacity-50',
+                  codeBlockMode &&
+                    'rounded-md bg-background/80 font-mono text-[13px] leading-normal text-foreground shadow-inner',
                 )}
               />
 

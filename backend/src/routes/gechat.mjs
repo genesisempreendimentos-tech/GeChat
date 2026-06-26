@@ -1,6 +1,12 @@
 import express from 'express';
 import { requireGeChatAuth } from '../middleware/requireGeChatAuth.mjs';
 import { getUserConversations, createDirectConversation, createGroup, createChannel } from '../services/gechat/conversation.service.mjs';
+import {
+  getGroupSettings,
+  updateGroupDetails,
+  updateMemberSettings,
+  addGroupMembers,
+} from '../services/gechat/group-settings.service.mjs';
 import { getConversationMessages, markConversationAsRead, editMessage, deleteMessage } from '../services/gechat/message.service.mjs';
 import { toggleReaction } from '../services/gechat/reaction.service.mjs';
 import { getConversationMembers } from '../services/gechat/membership.service.mjs';
@@ -60,7 +66,7 @@ async function buildConversationList(userId, appLocals) {
     return {
       ...conv,
       displayName: conv.name ?? (conv.type === 'channel' ? 'Canal' : 'Grupo'),
-      avatar: undefined,
+      avatar: conv.avatar ?? undefined,
     };
   });
 }
@@ -192,6 +198,8 @@ export function createGeChatRouter() {
     try {
       const conv = await createGroup({
         name: req.body?.name,
+        description: req.body?.description,
+        avatarUrl: req.body?.avatarUrl,
         memberIds: req.body?.memberIds ?? [],
         creatorId: req.gechatUser.id,
       });
@@ -214,6 +222,93 @@ export function createGeChatRouter() {
     } catch (err) {
       const status = err?.status ?? 500;
       res.status(status).json({ error: err?.message ?? 'Erro ao criar canal.' });
+    }
+  });
+
+  router.get('/conversations/:id/group-settings', async (req, res) => {
+    try {
+      const { conversation, mySettings, members } = await getGroupSettings(
+        req.params.id,
+        req.gechatUser.id,
+      );
+      const profileMap = await enrichProfiles(
+        req.app.locals.supabaseUrl,
+        req.app.locals.supabaseServiceRoleKey,
+        members.map((m) => m.user_id),
+      );
+      res.json({
+        conversation,
+        mySettings,
+        members: members.map((m) => ({
+          id: m.id,
+          conversationId: m.conversation_id,
+          userId: m.user_id,
+          role: m.role,
+          lastReadAt: m.last_read_at,
+          joinedAt: m.joined_at,
+          profile: profileMap[m.user_id],
+        })),
+      });
+    } catch (err) {
+      const status = err?.status ?? 500;
+      res.status(status).json({ error: err?.message ?? 'Erro ao carregar configurações do grupo.' });
+    }
+  });
+
+  router.patch('/conversations/:id/group', async (req, res) => {
+    try {
+      const conversation = await updateGroupDetails(req.params.id, req.gechatUser.id, {
+        name: req.body?.name,
+        description: req.body?.description,
+        avatarUrl: req.body?.avatarUrl,
+        onlyAdminsCanEdit: req.body?.onlyAdminsCanEdit,
+        onlyAdminsCanSend: req.body?.onlyAdminsCanSend,
+      });
+      res.json({ conversation });
+    } catch (err) {
+      const status = err?.status ?? 500;
+      res.status(status).json({ error: err?.message ?? 'Erro ao atualizar grupo.' });
+    }
+  });
+
+  router.patch('/conversations/:id/member-settings', async (req, res) => {
+    try {
+      const mySettings = await updateMemberSettings(req.params.id, req.gechatUser.id, {
+        muted: req.body?.muted,
+        notificationsEnabled: req.body?.notificationsEnabled,
+      });
+      res.json({ mySettings });
+    } catch (err) {
+      const status = err?.status ?? 500;
+      res.status(status).json({ error: err?.message ?? 'Erro ao salvar preferências.' });
+    }
+  });
+
+  router.post('/conversations/:id/members', async (req, res) => {
+    try {
+      const memberIds = Array.isArray(req.body?.memberIds) ? req.body.memberIds : [];
+      const addedIds = await addGroupMembers(req.params.id, req.gechatUser.id, memberIds);
+      const members = await getConversationMembers(req.params.id);
+      const profileMap = await enrichProfiles(
+        req.app.locals.supabaseUrl,
+        req.app.locals.supabaseServiceRoleKey,
+        members.map((m) => m.user_id),
+      );
+      res.json({
+        addedIds,
+        members: members.map((m) => ({
+          id: m.id,
+          conversationId: m.conversation_id,
+          userId: m.user_id,
+          role: m.role,
+          lastReadAt: m.last_read_at,
+          joinedAt: m.joined_at,
+          profile: profileMap[m.user_id],
+        })),
+      });
+    } catch (err) {
+      const status = err?.status ?? 500;
+      res.status(status).json({ error: err?.message ?? 'Erro ao adicionar membros.' });
     }
   });
 
@@ -242,6 +337,7 @@ export function createGeChatRouter() {
       }
       res.json({ presence: map });
     } catch (err) {
+      console.error('[gechat/presence]', err);
       res.status(500).json({ error: 'Erro ao carregar presença.' });
     }
   });
@@ -251,6 +347,7 @@ export function createGeChatRouter() {
       const privacy = await getUserPrivacy(req.gechatUser.id);
       res.json({ privacy });
     } catch (err) {
+      console.error('[gechat/privacy]', err);
       res.status(500).json({ error: 'Erro ao carregar privacidade.' });
     }
   });

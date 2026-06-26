@@ -7,6 +7,10 @@ function mapConversation(row, extras = {}) {
     id: row.id,
     type: row.type,
     name: row.name,
+    description: row.description ?? null,
+    avatar: row.avatar_url ?? undefined,
+    onlyAdminsCanEdit: Boolean(row.only_admins_can_edit),
+    onlyAdminsCanSend: Boolean(row.only_admins_can_send),
     channelSubtype: row.channel_subtype,
     createdBy: row.created_by,
     createdAt: row.created_at,
@@ -130,12 +134,18 @@ export async function createDirectConversation(userId, targetUserId) {
   return conv;
 }
 
-export async function createGroup({ name, memberIds, creatorId }) {
+export async function createGroup({ name, description, avatarUrl, memberIds, creatorId }) {
   if (!name?.trim()) throw Object.assign(new Error('Nome do grupo é obrigatório.'), { status: 400 });
   const sql = getSql();
   const rows = await sql`
-    INSERT INTO gechat_conversations (type, name, created_by)
-    VALUES ('group', ${name.trim()}, ${creatorId})
+    INSERT INTO gechat_conversations (type, name, description, avatar_url, created_by)
+    VALUES (
+      'group',
+      ${name.trim()},
+      ${description?.trim() || null},
+      ${avatarUrl?.trim() || null},
+      ${creatorId}
+    )
     RETURNING *
   `;
   await addMembers(rows[0].id, memberIds ?? [], creatorId);

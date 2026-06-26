@@ -58,15 +58,26 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   /** 0–1: escala inicial proporcional ao volume de dados (ex.: perfil preenchido). */
   entranceFillRatio?: number
+  /** Quando false, clique no overlay e Escape não fecham o modal. */
+  dismissOnOutsideClick?: boolean
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, style, entranceFillRatio, ...props }, ref) => {
+>(({ className, children, style, entranceFillRatio, dismissOnOutsideClick = true, ...props }, ref) => {
   const rootZoom = useRootZoom()
   const motionCfg = useAppMotion()
   const initialScale = modalScaleFromFillRatio(entranceFillRatio ?? 0.45)
+
+  const dismissProps =
+    dismissOnOutsideClick === false
+      ? {
+          onPointerDownOutside: (event: Event) => event.preventDefault(),
+          onInteractOutside: (event: Event) => event.preventDefault(),
+          onEscapeKeyDown: (event: KeyboardEvent) => event.preventDefault(),
+        }
+      : {}
 
   const shellClass = cn(
     "fixed left-1/2 top-1/2 z-50 grid w-full gap-4 border bg-background p-6 shadow-lg rounded-xl outline-none",
@@ -105,6 +116,7 @@ const DialogContent = React.forwardRef<
             "translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           )}
           style={{ zoom: rootZoom, ...style } as React.CSSProperties}
+          {...dismissProps}
           {...props}
         >
           {children}
@@ -123,6 +135,7 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         asChild
+        {...dismissProps}
         {...props}
       >
         <motion.div

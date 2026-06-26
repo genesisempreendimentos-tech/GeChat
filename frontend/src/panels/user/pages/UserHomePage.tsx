@@ -5,6 +5,7 @@ import { useGeChat } from '@/modules/gechat/hooks/useGeChat';
 import { DirectConversationsHome } from '@/modules/gechat/components/DirectConversationsHome';
 import { ChatWindow } from '@/modules/gechat/components/ChatWindow';
 import { ConversationInfoPanel } from '@/modules/gechat/components/ConversationInfoPanel';
+import { GroupInfoView } from '@/modules/gechat/components/GroupInfoView';
 import { ConnectionBanner } from '@/modules/gechat/components/ConnectionBanner';
 import { useGeChatStore } from '@/store/gechatStore';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -36,7 +37,13 @@ export default function UserHomePage() {
   }, [conversationId, openConversation, setActiveConversation]);
 
   useEffect(() => {
+    setInfoOpen(false);
+  }, [conversationId]);
+
+  useEffect(() => {
     if (!conversationId || !isDesktop || introHandled.current) return;
+    const conv = conversations.find((c) => c.id === conversationId);
+    if (conv?.type === 'group') return;
     introHandled.current = true;
 
     try {
@@ -47,7 +54,7 @@ export default function UserHomePage() {
     } catch {
       /* ignore storage errors */
     }
-  }, [conversationId, isDesktop]);
+  }, [conversationId, isDesktop, conversations]);
 
   const handleCreated = (id: string) => {
     navigate(`/c/${id}`);
@@ -70,39 +77,51 @@ export default function UserHomePage() {
     );
   }
 
-  const showInfo = infoOpen && isDesktop;
+  const isGroup = activeConversation.type === 'group';
+  const showGroupInfo = isGroup && infoOpen;
+  const showSideInfo = !isGroup && infoOpen && isDesktop;
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <ConnectionBanner />
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <ChatWindow
-          conversation={activeConversation}
-          onSend={sendMessage}
-          onEditMessage={editMessage}
-          onDeleteMessage={deleteMessage}
-          onToggleReaction={toggleReaction}
-          onBack={() => navigate('/')}
-          infoOpen={showInfo}
-          onToggleInfo={() => setInfoOpen((v) => !v)}
-        />
-        <AnimatePresence initial={false}>
-          {showInfo && (
-            <motion.div
-              key="conversation-info-panel"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: INFO_PANEL_WIDTH, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-              className="h-full shrink-0 overflow-hidden"
-            >
-              <ConversationInfoPanel
-                conversation={activeConversation}
-                onClose={() => setInfoOpen(false)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>      </div>
+        {showGroupInfo ? (
+          <GroupInfoView
+            conversation={activeConversation}
+            onClose={() => setInfoOpen(false)}
+          />
+        ) : (
+          <>
+            <ChatWindow
+              conversation={activeConversation}
+              onSend={sendMessage}
+              onEditMessage={editMessage}
+              onDeleteMessage={deleteMessage}
+              onToggleReaction={toggleReaction}
+              onBack={() => navigate('/')}
+              infoOpen={showSideInfo}
+              onToggleInfo={() => setInfoOpen((v) => !v)}
+            />
+            <AnimatePresence initial={false}>
+              {showSideInfo && (
+                <motion.div
+                  key="conversation-info-panel"
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: INFO_PANEL_WIDTH, opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                  className="h-full shrink-0 overflow-hidden"
+                >
+                  <ConversationInfoPanel
+                    conversation={activeConversation}
+                    onClose={() => setInfoOpen(false)}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
+      </div>
     </div>
   );
 }

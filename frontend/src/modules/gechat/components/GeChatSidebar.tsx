@@ -17,15 +17,7 @@ interface GeChatSidebarProps {
   className?: string;
 }
 
-function filterConversations(list: Conversation[], query: string) {
-  const q = query.trim().toLowerCase();
-  if (!q) return list;
-  return list.filter((c) => {
-    const name = (c.displayName ?? c.name ?? '').toLowerCase();
-    const preview = c.lastMessage?.content?.toLowerCase() ?? '';
-    return name.includes(q) || preview.includes(q);
-  });
-}
+import { filterConversations } from '@/modules/gechat/lib/conversation-search';
 
 function SectionHeader({
   icon: Icon,

@@ -313,10 +313,13 @@ export const supabase = {
   storage: {
     from(bucket: string) {
       return {
-        async upload(path: string, file: File) {
+        async upload(path: string, file: File, options?: { upsert?: boolean }) {
           const client = await getSupabaseClient();
           if (!client) return { data: null, error: { message: 'Storage indisponível.' } };
-          return client.storage.from(bucket).upload(path, file);
+          return client.storage.from(bucket).upload(path, file, {
+            upsert: options?.upsert ?? true,
+            contentType: file.type || 'application/octet-stream',
+          });
         },
         getPublicUrl(path: string) {
           const url = import.meta.env.VITE_SUPABASE_URL;
@@ -381,6 +384,37 @@ export const supabase = {
   },
 };
 
+export const GECHAT_STORAGE_BUCKET = 'GeChat' as const;
+
+/** Supabase Storage rejeita alguns caracteres em nomes de arquivo (ex.: acentos). */
+export function sanitizeStorageFileName(fileName: string) {
+  const trimmed = fileName.trim() || 'arquivo';
+  const dot = trimmed.lastIndexOf('.');
+  const ext = dot > 0 ? trimmed.slice(dot).toLowerCase().replace(/[^a-z0-9.]/g, '') : '';
+  const base = (dot > 0 ? trimmed.slice(0, dot) : trimmed)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'arquivo';
+  return `${base}${ext}`;
+}
+
+async function uploadToGeChatStorage(path: string, file: File) {
+  const client = await getSupabaseClient();
+  if (!client) return { url: null, error: { message: 'Storage indisponível.' } };
+
+  const { data, error } = await client.storage.from(GECHAT_STORAGE_BUCKET).upload(path, file, {
+    upsert: true,
+    contentType: file.type || 'application/octet-stream',
+  });
+
+  if (error) return { url: null, error };
+
+  const { data: urlData } = client.storage.from(GECHAT_STORAGE_BUCKET).getPublicUrl(data?.path ?? path);
+  return { url: urlData.publicUrl, error: null };
+}
+
 export const storageService = {
   async uploadAvatar(userId: string, file: File) {
     const path = `avatars/${userId}/${Date.now()}-${file.name}`;
@@ -401,11 +435,12 @@ export const storageService = {
     return { url: urlData.publicUrl, error: null };
   },
   async uploadRequestChannelIcon(file: File) {
-    const path = `GeChat/channels/${Date.now()}-${file.name}`;
-    const { data, error } = await supabase.storage.from('GeImage').upload(path, file);
-    if (error) return { url: null, error };
-    const { data: urlData } = supabase.storage.from('GeImage').getPublicUrl(data?.path ?? path);
-    return { url: urlData.publicUrl, error: null };
+    const path = `channels/${Date.now()}-${sanitizeStorageFileName(file.name)}`;
+    return uploadToGeChatStorage(path, file);
+  },
+  async uploadGroupAvatar(userId: string, file: File) {
+    const path = `groups/${userId}/${Date.now()}-${sanitizeStorageFileName(file.name)}`;
+    return uploadToGeChatStorage(path, file);
   },
   async uploadSystemAnchorPdf(file: File) {
     const path = `GeChat/anchor/${Date.now()}-${file.name}`;
@@ -422,18 +457,12 @@ export const storageService = {
     return { url: urlData.publicUrl, error: null };
   },
   async uploadChatImage(file: File, conversationId: string, userId: string) {
-    const path = `GeChat/messages/${conversationId}/${userId}/${Date.now()}-${file.name}`;
-    const { data, error } = await supabase.storage.from('GeImage').upload(path, file);
-    if (error) return { url: null, error };
-    const { data: urlData } = supabase.storage.from('GeImage').getPublicUrl(data?.path ?? path);
-    return { url: urlData.publicUrl, error: null };
+    const path = `messages/${conversationId}/${userId}/images/${Date.now()}-${sanitizeStorageFileName(file.name)}`;
+    return uploadToGeChatStorage(path, file);
   },
   async uploadChatFile(file: File, conversationId: string, userId: string) {
-    const path = `GeChat/messages/${conversationId}/${userId}/${Date.now()}-${file.name}`;
-    const { data, error } = await supabase.storage.from('Files').upload(path, file);
-    if (error) return { url: null, error };
-    const { data: urlData } = supabase.storage.from('Files').getPublicUrl(data?.path ?? path);
-    return { url: urlData.publicUrl, error: null };
+    const path = `messages/${conversationId}/${userId}/files/${Date.now()}-${sanitizeStorageFileName(file.name)}`;
+    return uploadToGeChatStorage(path, file);
   },
 };
 

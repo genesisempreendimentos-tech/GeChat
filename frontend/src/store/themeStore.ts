@@ -5,6 +5,7 @@ import {
   profileThemaToAppTheme,
   type AppThemeId,
 } from '@/lib/themeMapping';
+import { applyAppTheme, FORCE_DARK_THEME, syncForcedThemeStorage } from '@/lib/applyAppTheme';
 import { databaseService, supabase } from '@/services/supabase';
 
 export type Theme = AppThemeId;
@@ -29,14 +30,12 @@ async function persistThemaToProfile(theme: Theme) {
 }
 
 function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  root.classList.remove('dark', 'full-dark', 'offwhite');
-  if (theme === 'dark') root.classList.add('dark');
-  if (theme === 'full-dark') {
-    // full-dark herda as variáveis CSS de .full-dark e também precisa da classe
-    // dark para que as variantes dark: do Tailwind funcionem
-    root.classList.add('dark', 'full-dark');
+  if (FORCE_DARK_THEME) {
+    applyAppTheme('dark');
+    syncForcedThemeStorage();
+    return;
   }
+  applyAppTheme(theme);
 }
 
 interface ThemeState {
@@ -52,7 +51,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      theme: 'light',
+      theme: 'dark',
       toggleTheme: () =>
         set((state) => {
           const idx = THEME_ORDER.indexOf(state.theme);
@@ -88,6 +87,12 @@ export const useThemeStore = create<ThemeState>()(
     {
       name: THEME_STORAGE_KEY,
       onRehydrateStorage: () => (state) => {
+        if (FORCE_DARK_THEME) {
+          applyTheme('dark');
+          syncForcedThemeStorage();
+          if (state) state.theme = 'dark';
+          return;
+        }
         if (state) applyTheme(state.theme);
       },
     }
@@ -108,22 +113,4 @@ if (typeof window !== 'undefined') {
       /* ignore */
     }
   });
-
-  const stored = localStorage.getItem(THEME_STORAGE_KEY);
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      let theme = parsed?.state?.theme as string | undefined;
-      // Migração: offwhite era o antigo 3º tema, agora é full-dark
-      if (theme === 'offwhite') {
-        theme = 'full-dark';
-        parsed.state.theme = 'full-dark';
-        localStorage.setItem('theme-storage', JSON.stringify(parsed));
-      }
-      if (theme && THEME_ORDER.includes(theme as Theme)) applyTheme(theme as Theme);
-      else applyTheme('light');
-    } catch {
-      applyTheme('light');
-    }
-  }
 }

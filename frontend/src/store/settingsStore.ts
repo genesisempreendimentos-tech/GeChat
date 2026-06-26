@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { useThemeStore } from '@/store/themeStore';
+import { applyThemeMode, syncForcedThemeStorage, FORCE_DARK_THEME } from '@/lib/applyAppTheme';
+import { useThemeStore, type Theme } from '@/store/themeStore';
+
+import type { ChatWallpaperId } from '@/modules/gechat/lib/chat-wallpapers';
+import { DEFAULT_CHAT_WALLPAPER_INTENSITY } from '@/modules/gechat/lib/chat-wallpapers';
 
 export type ThemeMode = 'light' | 'dark' | 'system' | 'full-dark';
 export type FontSize = 'small' | 'medium' | 'large';
@@ -12,20 +16,26 @@ interface SettingsState {
   accentColor: AccentColor;
   compactMode: boolean;
   animations: boolean;
+  chatWallpaperId: ChatWallpaperId;
+  chatWallpaperIntensity: number;
   setThemeMode: (mode: ThemeMode) => void;
   setFontSize: (size: FontSize) => void;
   setAccentColor: (color: AccentColor) => void;
   setCompactMode: (compact: boolean) => void;
   setAnimations: (enabled: boolean) => void;
+  setChatWallpaperId: (id: ChatWallpaperId) => void;
+  setChatWallpaperIntensity: (intensity: number) => void;
   resetSettings: () => void;
 }
 
 const defaultSettings = {
-  themeMode: 'system' as ThemeMode,
+  themeMode: 'dark' as ThemeMode,
   fontSize: 'medium' as FontSize,
   accentColor: 'teal' as AccentColor,
   compactMode: false,
   animations: true,
+  chatWallpaperId: 'none' as ChatWallpaperId,
+  chatWallpaperIntensity: DEFAULT_CHAT_WALLPAPER_INTENSITY,
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -34,10 +44,11 @@ export const useSettingsStore = create<SettingsState>()(
       ...defaultSettings,
       
       setThemeMode: (mode) => {
-        set({ themeMode: mode });
-        applyTheme(mode);
-        if (mode === 'light' || mode === 'dark' || mode === 'full-dark') {
-          useThemeStore.getState().setTheme(mode);
+        const effective = FORCE_DARK_THEME ? 'dark' : mode;
+        set({ themeMode: effective });
+        applyTheme(effective);
+        if (effective === 'light' || effective === 'dark' || effective === 'full-dark') {
+          useThemeStore.getState().setTheme(effective);
         }
       },
       
@@ -60,7 +71,12 @@ export const useSettingsStore = create<SettingsState>()(
         set({ animations: enabled });
         applyAnimations(enabled);
       },
-      
+
+      setChatWallpaperId: (id) => set({ chatWallpaperId: id }),
+
+      setChatWallpaperIntensity: (intensity) =>
+        set({ chatWallpaperIntensity: Math.min(100, Math.max(0, Math.round(intensity))) }),
+
       resetSettings: () => {
         set(defaultSettings);
         applyTheme(defaultSettings.themeMode);
@@ -76,18 +92,12 @@ export const useSettingsStore = create<SettingsState>()(
   )
 );
 
-// Aplicar tema
+// Aplicar tema (fonte única: applyAppTheme)
 function applyTheme(mode: ThemeMode) {
-  const root = document.documentElement;
-  root.classList.remove('full-dark');
-
-  if (mode === 'system') {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    root.classList.toggle('dark', prefersDark);
-  } else if (mode === 'full-dark') {
-    root.classList.add('dark', 'full-dark');
-  } else {
-    root.classList.toggle('dark', mode === 'dark');
+  applyThemeMode(mode);
+  const theme = FORCE_DARK_THEME ? 'dark' : mode;
+  if (theme === 'light' || theme === 'dark' || theme === 'full-dark') {
+    useThemeStore.setState({ theme: theme as Theme });
   }
 }
 
@@ -146,29 +156,35 @@ if (typeof window !== 'undefined') {
   const stored = localStorage.getItem('gestack-settings');
   if (stored) {
     const settings = JSON.parse(stored).state;
+    if (FORCE_DARK_THEME) {
+      settings.themeMode = 'dark';
+      syncForcedThemeStorage();
+    }
     applyTheme(settings.themeMode);
     applyFontSize(settings.fontSize);
     applyAccentColor(settings.accentColor);
     applyCompactMode(settings.compactMode);
     applyAnimations(settings.animations);
   } else {
-    // Aplicar configurações padrão
     applyTheme(defaultSettings.themeMode);
     applyFontSize(defaultSettings.fontSize);
     applyAccentColor(defaultSettings.accentColor);
     applyCompactMode(defaultSettings.compactMode);
     applyAnimations(defaultSettings.animations);
   }
-  
-  // Listener para mudanças no tema do sistema
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    const stored = localStorage.getItem('gestack-settings');
-    if (stored) {
-      const settings = JSON.parse(stored).state;
-      if (settings.themeMode === 'system') {
-        document.documentElement.classList.remove('full-dark');
-        document.documentElement.classList.toggle('dark', e.matches);
+
+  if (!FORCE_DARK_THEME) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      const storedSettings = localStorage.getItem('gestack-settings');
+      if (!storedSettings) return;
+      try {
+        const settings = JSON.parse(storedSettings).state;
+        if (settings.themeMode === 'system') {
+          applyTheme('system');
+        }
+      } catch {
+        /* ignore */
       }
-    }
-  });
+    });
+  }
 }

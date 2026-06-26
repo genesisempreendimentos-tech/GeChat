@@ -115,7 +115,7 @@ const ProfileCardInfoPopup: React.FC<ProfileCardInfoPopupProps> = ({
               className="w-full max-w-md pointer-events-auto"
               style={{ transformOrigin: 'center center' }}
             >
-            <div className="relative rounded-2xl shadow-2xl overflow-hidden border border-slate-600/40 bg-[#1C2229]">
+            <div className="relative rounded-2xl shadow-2xl overflow-hidden border border-border bg-card">
               <div className="relative max-h-[90vh] overflow-y-auto">
                 <div className="relative p-6 pb-4">
                   <motion.button
@@ -125,12 +125,12 @@ const ProfileCardInfoPopup: React.FC<ProfileCardInfoPopupProps> = ({
                     className="absolute right-3 top-3 p-2 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 border border-slate-600/50 transition-colors z-10"
                     aria-label="Fechar"
                   >
-                    <X className="w-5 h-5 text-white" />
+                    <X className="w-5 h-5 text-foreground" />
                   </motion.button>
 
                   {/* 1. Imagem de perfil */}
                   <div className="flex flex-col items-center gap-4">
-                    <div className="w-28 h-28 rounded-full border-2 border-slate-600/50 overflow-hidden bg-slate-800 flex-shrink-0">
+                    <div className="w-28 h-28 rounded-full border-2 border-border overflow-hidden bg-muted flex-shrink-0">
                       {hasAvatar ? (
                         <img
                           src={userData.avatar}
@@ -147,7 +147,7 @@ const ProfileCardInfoPopup: React.FC<ProfileCardInfoPopupProps> = ({
 
                     {/* 2. Apelido (destaque) | 3. Username */}
                     <div className="text-center">
-                      <h2 className="text-xl font-bold text-white">{userData.apelido || userData.name || '—'}</h2>
+                      <h2 className="text-xl font-bold text-foreground">{userData.apelido || userData.name || '—'}</h2>
                       <p className="text-sm text-slate-400 mt-0.5">@{userData.username || '—'}</p>
                     </div>
 

@@ -8,26 +8,68 @@ export type TextFormat =
   | 'quote'
   | 'list';
 
+type FormatResult = { text: string; selectionStart: number; selectionEnd: number };
+
+function wrapInline(
+  value: string,
+  selectionStart: number,
+  selectionEnd: number,
+  left: string,
+  right: string,
+): FormatResult {
+  const hasSelection = selectionEnd > selectionStart;
+  let start = selectionStart;
+  let end = selectionEnd;
+
+  if (!hasSelection && value.length > 0) {
+    start = 0;
+    end = value.length;
+  }
+
+  const selected = end > start ? value.slice(start, end) : '';
+
+  if (!selected) {
+    const insertion = `${left}${right}`;
+    const text = value.slice(0, start) + insertion + value.slice(end);
+    const cursor = start + left.length;
+    return { text, selectionStart: cursor, selectionEnd: cursor };
+  }
+
+  const wrapped = `${left}${selected}${right}`;
+  const text = value.slice(0, start) + wrapped + value.slice(end);
+  return {
+    text,
+    selectionStart: start,
+    selectionEnd: start + wrapped.length,
+  };
+}
+
 export function applyTextFormat(
   value: string,
   selectionStart: number,
   selectionEnd: number,
   format: TextFormat,
-): { text: string; selectionStart: number; selectionEnd: number } {
-  const hasSelection = selectionEnd > selectionStart;
-  const selected = hasSelection ? value.slice(selectionStart, selectionEnd) : '';
+): FormatResult {
+  let start = selectionStart;
+  let end = selectionEnd;
+
+  if (end <= start && value.length > 0) {
+    start = 0;
+    end = value.length;
+  }
 
   if (format === 'quote' || format === 'list') {
-    const blockStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
-    const blockEnd = value.indexOf('\n', selectionEnd);
-    const end = blockEnd === -1 ? value.length : blockEnd;
-    const block = value.slice(blockStart, end);
+    const blockStart = value.lastIndexOf('\n', start - 1) + 1;
+    const blockEndRaw = value.indexOf('\n', end);
+    const blockEnd = blockEndRaw === -1 ? value.length : blockEndRaw;
+
+    const block = value.slice(blockStart, blockEnd);
     const prefix = format === 'quote' ? '> ' : '- ';
     const transformed = block
       .split('\n')
       .map((line) => (line.startsWith(prefix) ? line : `${prefix}${line}`))
       .join('\n');
-    const text = value.slice(0, blockStart) + transformed + value.slice(end);
+    const text = value.slice(0, blockStart) + transformed + value.slice(blockEnd);
     return {
       text,
       selectionStart: blockStart,
@@ -35,35 +77,28 @@ export function applyTextFormat(
     };
   }
 
-  const placeholder = selected || 'texto';
-  let wrapped = placeholder;
-
   switch (format) {
     case 'bold':
-      wrapped = `**${placeholder}**`;
-      break;
+      return wrapInline(value, start, end, '**', '**');
     case 'italic':
-      wrapped = `*${placeholder}*`;
-      break;
+      return wrapInline(value, start, end, '*', '*');
     case 'underline':
-      wrapped = `__${placeholder}__`;
-      break;
+      return wrapInline(value, start, end, '__', '__');
     case 'strike':
-      wrapped = `~~${placeholder}~~`;
-      break;
+      return wrapInline(value, start, end, '~~', '~~');
     case 'code':
-      wrapped = `\`${placeholder}\``;
-      break;
+      return wrapInline(value, start, end, '`', '`');
     case 'codeBlock':
-      wrapped = `\`\`\`\n${placeholder}\n\`\`\``;
-      break;
+      return wrapInline(value, start, end, '```\n', '\n```');
     default:
-      wrapped = placeholder;
+      return { text: value, selectionStart, selectionEnd };
   }
+}
 
-  const text = value.slice(0, selectionStart) + wrapped + value.slice(selectionEnd);
-  const cursorStart = selectionStart;
-  const cursorEnd = selectionStart + wrapped.length;
-
-  return { text, selectionStart: cursorStart, selectionEnd: cursorEnd };
+/** Envolve texto em bloco de código para envio (composer não mostra os marcadores). */
+export function wrapCodeBlockForSend(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+  if (trimmed.startsWith('```') && trimmed.endsWith('```')) return trimmed;
+  return `\`\`\`\n${trimmed}\n\`\`\``;
 }

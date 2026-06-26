@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BRAND_LOGO_SRC } from "@/lib/brandAssets";
+import { AuthPageBackground } from "@/components/auth/AuthPageBackground";
 const LogoSvg = '/assets/logo-gen-sem-fundo-svg.svg';
 
 const logoFilter =
@@ -13,8 +14,7 @@ export default function AccessDeniedPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
-      {/* Background igual ao /login */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-primary/30" />
+      <AuthPageBackground />
       <motion.div
         className="absolute top-24 left-1/4 w-72 h-72 opacity-[0.06]"
         animate={{ rotate: 360 }}
@@ -39,17 +39,6 @@ export default function AccessDeniedPage() {
       >
         <img src={LogoSvg} alt="" className="w-full h-full" style={{ filter: logoFilter }} />
       </motion.div>
-      <div className="absolute inset-0 opacity-10">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
-            backgroundSize: "40px 40px",
-          }}
-        />
-      </div>
-      <div className="absolute top-0 left-0 w-72 h-72 bg-white/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -87,7 +76,7 @@ export default function AccessDeniedPage() {
           transition={{ delay: 0.5, duration: 0.3 }}
           className="mt-6 text-center"
         >
-          <p className="text-xs text-white/70">
+          <p className="text-xs text-muted-foreground">
             © Demo UI — sem dados reais.
           </p>
         </motion.div>

@@ -39,6 +39,9 @@ export interface Conversation {
   id: string;
   type: ConversationType;
   name?: string | null;
+  description?: string | null;
+  onlyAdminsCanEdit?: boolean;
+  onlyAdminsCanSend?: boolean;
   channelSubtype?: ChannelSubtype | null;
   displayName?: string;
   avatar?: string;
@@ -94,6 +97,25 @@ export interface PresenceState {
 export interface PrivacySettings {
   readReceiptsEnabled: boolean;
   lastSeenVisible: boolean;
+}
+
+export interface GroupMemberSettings {
+  role: MemberRole;
+  muted: boolean;
+  notificationsEnabled: boolean;
+}
+
+export interface GroupSettingsResponse {
+  conversation: Pick<
+    Conversation,
+    'id' | 'name' | 'description' | 'avatar' | 'onlyAdminsCanEdit' | 'onlyAdminsCanSend' | 'createdBy' | 'createdAt' | 'updatedAt'
+  >;
+  mySettings: GroupMemberSettings;
+  members: Array<{
+    userId: string;
+    role: MemberRole;
+    profile?: UserProfile;
+  }>;
 }
 
 export interface SendMessagePayload {

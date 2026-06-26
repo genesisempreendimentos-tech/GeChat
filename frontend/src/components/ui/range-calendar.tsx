@@ -98,7 +98,7 @@ export function RangeCalendar({ value, onChange, className, defaultMonth }: Rang
     <div
       className={cn(
         'w-[320px] rounded-2xl border border-border/70 bg-card p-5 shadow-xl',
-        'dark:border-zinc-800 dark:bg-zinc-900',
+        'border border-border bg-card',
         className,
       )}
     >

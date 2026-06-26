@@ -5,6 +5,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  Image as ImageIcon,
   Monitor,
   Moon,
   Palette,
@@ -20,6 +21,8 @@ import { MainViewHeader } from '@/components/layout/header';
 import { FullDarkEclipseIcon } from '@/components/icons/FullDarkEclipseIcon';
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/store/settingsStore';
+import { getChatWallpaperById } from '@/modules/gechat/lib/chat-wallpapers';
+import { ChatWallpaperSettingsDialog } from '@/modules/gechat/components/ChatWallpaperSettingsDialog';
 import { gechatApi } from '@/modules/gechat/services/gechat-api';
 import { useGeChatStore } from '@/store/gechatStore';
 import type { PrivacySettings } from '@/modules/gechat/types';
@@ -98,7 +101,18 @@ const colors = [
 
 export default function PersonalSettingsPage() {
   const navigate = useNavigate();
-  const { themeMode, accentColor, setThemeMode, setAccentColor, resetSettings } = useSettingsStore();
+  const {
+    themeMode,
+    accentColor,
+    chatWallpaperId,
+    chatWallpaperIntensity,
+    setThemeMode,
+    setAccentColor,
+    resetSettings,
+  } = useSettingsStore();
+
+  const [wallpaperDialogOpen, setWallpaperDialogOpen] = useState(false);
+  const currentWallpaper = getChatWallpaperById(chatWallpaperId);
 
   const privacy = useGeChatStore((s) => s.privacy);
   const setPrivacy = useGeChatStore((s) => s.setPrivacy);
@@ -177,7 +191,7 @@ export default function PersonalSettingsPage() {
               className="flex-1"
               icon={<Settings className="h-6 w-6" />}
               title="Configurações"
-              description="Aparência e privacidade do GêChat"
+              description="Aparência, papel de parede e privacidade do GêChat"
             />
           </div>
 
@@ -250,6 +264,42 @@ export default function PersonalSettingsPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5" />
+                    Papel de parede do chat
+                  </CardTitle>
+                  <CardDescription>
+                    Personalize o fundo da área de mensagens nas suas conversas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+                    <p className="text-sm font-medium">{currentWallpaper.label}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {chatWallpaperId === 'none'
+                        ? 'Sem imagem de fundo'
+                        : `Intensidade em ${chatWallpaperIntensity}%`}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setWallpaperDialogOpen(true)}
+                  >
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    Alterar papel de parede
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <ChatWallpaperSettingsDialog
+                open={wallpaperDialogOpen}
+                onOpenChange={setWallpaperDialogOpen}
+              />
             </div>
 
             <div className="space-y-6">
@@ -324,7 +374,7 @@ export default function PersonalSettingsPage() {
                   ) : (
                     <div className="space-y-3">
                       <p className="text-sm text-muted-foreground">
-                        Tem certeza que deseja restaurar tema e cor para os valores padrão?
+                        Tem certeza que deseja restaurar tema, cor e papel de parede para os valores padrão?
                       </p>
                       <div className="flex gap-2">
                         <Button

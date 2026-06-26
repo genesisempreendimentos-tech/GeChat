@@ -94,9 +94,10 @@ export function MessageActionBar({
   return (
     <div
       className={cn(
-        'pointer-events-none absolute -top-10 z-20 flex gap-1.5 opacity-0 transition-opacity',
+        'pointer-events-none absolute top-full z-10 mt-1 flex gap-1.5 opacity-0 transition-opacity',
         'group-hover/message:pointer-events-auto group-hover/message:opacity-100',
         'group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100',
+        '[&:has([data-state=open])]:pointer-events-auto [&:has([data-state=open])]:opacity-100',
         alignEnd ? 'right-0' : 'left-0',
       )}
     >

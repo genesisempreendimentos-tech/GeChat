@@ -14,6 +14,7 @@ export function profileThemaToAppTheme(raw: string | null | undefined): AppTheme
   const t = String(raw ?? '').toLowerCase();
   if (t === 'dark') return 'dark';
   if (t === 'fulldark') return 'full-dark';
+  if (!t) return 'dark';
   return 'light';
 }
 

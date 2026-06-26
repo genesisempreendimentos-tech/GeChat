@@ -84,12 +84,12 @@
   }
 
   .dark {
-    /* Cores Base */
-    --background: 222.2 84% 4.9%;
+    /* Cores Base — fundo e superfícies com contraste claro */
+    --background: 224 32% 7%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 224 28% 10%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 224 28% 11%;
     --popover-foreground: 210 40% 98%;
 
     /* Cores Primárias (teal-500) */
@@ -98,13 +98,13 @@
     --primary-hover: 173 80% 48%;
 
     /* Cores Secundárias */
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 223 24% 14%;
     --secondary-foreground: 210 40% 98%;
 
     /* Cores de Estado */
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 223 22% 14%;
+    --muted-foreground: 215 16% 65%;
+    --accent: 223 24% 16%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
@@ -116,8 +116,8 @@
     --info-foreground: 0 0% 100%;
 
     /* Bordas e Inputs */
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 223 20% 17%;
+    --input: 223 20% 17%;
     --ring: 173 80% 42%;
     /* Barras Recharts: hover mais escuro que o primário (evita “flash” claro no dark) */
     --chart-bar-active: 173 80% 26%;

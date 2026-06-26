@@ -4,7 +4,8 @@ import { gechatSocket } from '@/lib/realtime/socket-client';
 import { buildQuotedReplyContent } from '@/modules/gechat/lib/message-content';
 import { useGeChatStore } from '@/store/gechatStore';
 import { useAuthStore } from '@/store/authStore';
-import type { Message, MessageReaction, MessageType } from '@/modules/gechat/types';
+import { toast } from 'sonner';
+import type { MemberRole, Message, MessageReaction, MessageType } from '@/modules/gechat/types';
 
 export function useGeChatBootstrap() {
   const { user } = useAuthStore();
@@ -52,11 +53,13 @@ export function useGeChat() {
     messagesByConversation,
     setActiveConversation,
     setMessages,
+    mergeMessages,
     clearUnread,
     setMembers,
+    setMyGroupRole,
   } = useGeChatStore();
 
-  const loadingRef = useRef(false);
+  const loadingByConversation = useRef<Record<string, boolean>>({});
 
   const loadConversations = useCallback(async () => {
     const list = await gechatApi.getConversations();
@@ -80,13 +83,23 @@ export function useGeChat() {
       gechatSocket.joinConversation(conversationId);
       gechatSocket.markRead(conversationId);
 
-      if (!messagesByConversation[conversationId]?.length && !loadingRef.current) {
-        loadingRef.current = true;
+      const hasCachedMessages = Boolean(
+        useGeChatStore.getState().messagesByConversation[conversationId]?.length,
+      );
+
+      if (!hasCachedMessages && !loadingByConversation.current[conversationId]) {
+        loadingByConversation.current[conversationId] = true;
         try {
           const { messages } = await gechatApi.getMessages(conversationId);
-          setMessages(conversationId, messages);
+          const current =
+            useGeChatStore.getState().messagesByConversation[conversationId] ?? [];
+          if (current.length === 0) {
+            setMessages(conversationId, messages);
+          } else {
+            mergeMessages(conversationId, messages);
+          }
         } finally {
-          loadingRef.current = false;
+          loadingByConversation.current[conversationId] = false;
         }
       }
 
@@ -96,11 +109,15 @@ export function useGeChat() {
           conversationId,
           members.map((m) => m.profile ?? { id: m.userId, name: 'Usuário' }),
         );
+        const myMember = members.find((m) => m.userId === user?.id);
+        if (myMember?.role) {
+          setMyGroupRole(conversationId, myMember.role as MemberRole);
+        }
       } catch {
         /* optional */
       }
     },
-    [messagesByConversation, setActiveConversation, clearUnread, setMessages, setMembers],
+    [setActiveConversation, clearUnread, setMessages, mergeMessages, setMembers, setMyGroupRole, user?.id],
   );
 
   const sendMessage = useCallback(
@@ -139,6 +156,7 @@ export function useGeChat() {
 
       if (!result.ok) {
         useGeChatStore.getState().updateMessageStatus(activeConversationId, optimistic.id, 'failed', clientId);
+        toast.error(result.error ?? 'Não foi possível enviar a mensagem.');
       } else if (result.message) {
         useGeChatStore.getState().upsertMessage(activeConversationId, {
           ...result.message,

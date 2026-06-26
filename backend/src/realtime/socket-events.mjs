@@ -33,6 +33,8 @@ export function registerSocketEvents(io, socket) {
         return;
       }
 
+      socket.join(conversationRoom(conversationId));
+
       const message = await createMessage({
         conversationId,
         senderId: userId,

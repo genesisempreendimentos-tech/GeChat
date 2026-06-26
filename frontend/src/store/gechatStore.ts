@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type {
   ConnectionStatus,
   Conversation,
+  MemberRole,
   Message,
   MessageStatus,
   PresenceState,
@@ -21,6 +22,7 @@ interface GeChatState {
   unreadCounters: Record<string, number>;
   connectionStatus: ConnectionStatus;
   membersByConversation: Record<string, UserProfile[]>;
+  myGroupRoleByConversation: Record<string, MemberRole>;
   starredByConversation: Record<string, string[]>;
   pinnedByConversation: Record<string, string[]>;
   replyTo: ReplyQuote | null;
@@ -42,6 +44,7 @@ interface GeChatState {
   incrementUnread: (conversationId: string) => void;
   clearUnread: (conversationId: string) => void;
   setMembers: (conversationId: string, members: UserProfile[]) => void;
+  setMyGroupRole: (conversationId: string, role: MemberRole | null) => void;
   toggleStar: (conversationId: string, messageId: string) => void;
   togglePin: (conversationId: string, messageId: string) => void;
   setReplyTo: (quote: ReplyQuote | null) => void;
@@ -61,6 +64,7 @@ const initialState = {
   unreadCounters: {} as Record<string, number>,
   connectionStatus: 'disconnected' as ConnectionStatus,
   membersByConversation: {} as Record<string, UserProfile[]>,
+  myGroupRoleByConversation: {} as Record<string, MemberRole>,
   starredByConversation: {} as Record<string, string[]>,
   pinnedByConversation: {} as Record<string, string[]>,
   replyTo: null as ReplyQuote | null,
@@ -236,6 +240,15 @@ export const useGeChatStore = create<GeChatState>((set, get) => ({
         ...get().membersByConversation,
         [conversationId]: members,
       },
+    }),
+
+  setMyGroupRole: (conversationId, role) =>
+    set({
+      myGroupRoleByConversation: role
+        ? { ...get().myGroupRoleByConversation, [conversationId]: role }
+        : Object.fromEntries(
+            Object.entries(get().myGroupRoleByConversation).filter(([id]) => id !== conversationId),
+          ),
     }),
 
   toggleStar: (conversationId, messageId) => {
