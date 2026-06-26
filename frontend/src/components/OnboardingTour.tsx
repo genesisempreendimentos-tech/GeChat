@@ -31,7 +31,7 @@ const onboardingSteps: OnboardingStep[] = [
   },
   {
     title: 'Configurações',
-    description: 'Ajuste tema, tipografia e preferências visuais do GêNovo.',
+    description: 'Ajuste tema, tipografia e preferências visuais do GêChat.',
     route: vitrinePath('/settings'),
     placement: 'right',
   },

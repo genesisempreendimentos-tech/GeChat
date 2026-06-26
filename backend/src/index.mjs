@@ -1,9 +1,14 @@
 import fs from 'fs';
 import path from 'path';
+import http from 'http';
+import net from 'net';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import express from 'express';
 import { createAuthRouter } from './routes/auth.mjs';
+import { createGeChatRouter } from './routes/gechat.mjs';
+import { createSocketServer } from './realtime/socket-server.mjs';
+import { ensureGeChatSchema } from './db/migrate.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,11 +60,16 @@ if (supabaseUrl) {
   console.warn('[server] Defina SUPABASE_URL e SUPABASE_ANON_KEY no .env do backend.');
 }
 
+if (!process.env.DATABASE_URL) {
+  console.warn('[server] DATABASE_URL não definida — módulo GêChat indisponível.');
+}
+
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, service: 'genovo' });
+  res.json({ ok: true, service: 'gechat', gechat: Boolean(process.env.DATABASE_URL) });
 });
 
 app.use('/api/auth', createAuthRouter());
+app.use('/api/gechat', createGeChatRouter());
 
 app.use(express.static(distPath));
 
@@ -87,22 +97,51 @@ function persistActivePort(port) {
   }
 }
 
-function startServerWithFallback(port, retriesLeft) {
-  const server = app.listen(port, () => {
-    persistActivePort(port);
-    console.log(`[server] API rodando em http://localhost:${port}`);
-  });
+const httpServer = http.createServer(app);
+createSocketServer(httpServer, app);
 
-  server.on('error', (err) => {
-    if (err?.code === 'EADDRINUSE' && retriesLeft > 0) {
-      const nextPort = port + 1;
-      console.warn(`[server] Porta ${port} ocupada. Tentando ${nextPort}...`);
-      return startServerWithFallback(nextPort, retriesLeft - 1);
+function findAvailablePort(startPort, retriesLeft) {
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.once('error', (err) => {
+      probe.close();
+      if (err?.code === 'EADDRINUSE' && retriesLeft > 0) {
+        resolve(findAvailablePort(startPort + 1, retriesLeft - 1));
+        return;
+      }
+      reject(err);
+    });
+    probe.once('listening', () => {
+      probe.close(() => resolve(startPort));
+    });
+    probe.listen(startPort);
+  });
+}
+
+async function startServer() {
+  if (process.env.DATABASE_URL) {
+    try {
+      await ensureGeChatSchema();
+    } catch (err) {
+      console.error('[server] Falha ao aplicar schema GêChat:', err?.message ?? err);
     }
-    console.error('[server] Falha ao iniciar API:', err);
-    process.exit(1);
+  }
+
+  const port = await findAvailablePort(DEFAULT_PORT, MAX_PORT_RETRIES);
+
+  await new Promise((resolve, reject) => {
+    httpServer.once('error', reject);
+    httpServer.listen(port, () => {
+      httpServer.off('error', reject);
+      persistActivePort(port);
+      console.log(`[server] API rodando em http://localhost:${port}`);
+      resolve();
+    });
   });
 }
 
 clearActivePortFile();
-startServerWithFallback(DEFAULT_PORT, MAX_PORT_RETRIES);
+startServer().catch((err) => {
+  console.error('[server] Falha ao iniciar API:', err);
+  process.exit(1);
+});

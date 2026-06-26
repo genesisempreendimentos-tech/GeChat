@@ -18,6 +18,6 @@ export const usePanelStore = create<PanelState>()(
         set({ activePanel: panelFromPathname(pathname) });
       },
     }),
-    { name: 'genovo-panel' },
+    { name: 'gechat-panel' },
   ),
 );

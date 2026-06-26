@@ -252,7 +252,7 @@ export default function LoginPage() {
                 >
                   <img
                     src={BRAND_LOGO_SRC}
-                    alt="GêNovo"
+                    alt="GêChat"
                     className="w-full h-full object-contain"
                   />
                 </motion.div>
@@ -280,7 +280,7 @@ export default function LoginPage() {
                   className="text-4xl font-bold bg-gradient-to-r from-primary via-teal-400 to-primary bg-clip-text text-transparent"
                   style={{ backgroundSize: "200% auto" }}
                 >
-                  GêNovo
+                  GêChat
                 </CardTitle>
               </motion.div>
               <CardDescription className="text-base">
@@ -473,7 +473,7 @@ export default function LoginPage() {
                       Entrando...
                     </span>
                   ) : (
-                    "Entrar no GêNovo"
+                    "Entrar no GêChat"
                   )}
                 </Button>
               </motion.div>

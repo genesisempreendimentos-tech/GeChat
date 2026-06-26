@@ -83,6 +83,12 @@ export default defineConfig({
           });
         },
       },
+      '/socket.io': {
+        target: `http://localhost:${getBackendPort()}`,
+        changeOrigin: true,
+        ws: true,
+        router: () => `http://localhost:${getBackendPort()}`,
+      },
     },
   },
 })

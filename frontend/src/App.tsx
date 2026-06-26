@@ -9,7 +9,7 @@ import {
   type Location as RouterLocation,
 } from 'react-router-dom';
 import { useEffect } from 'react';
-import { initGeNovoAudit } from '@/assets/audit-log';
+import { initGeChatAudit } from '@/assets/audit-log';
 import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
@@ -29,7 +29,7 @@ import AuthLayout from '@/layouts/AuthLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AdminRoute from '@/components/AdminRoute';
 import AdminLayout from '@/admin/AdminLayout';
-import { UserLayout, UserHomePage, UserItemPage } from '@/panels/user';
+import { UserLayout, UserHomePage, PersonalSettingsPage } from '@/panels/user';
 import { VitrineLayout, vitrineLegacyRedirectRoutes } from '@/panels/vitrine';
 import VitrineItemPage from '@/panels/vitrine/pages/VitrineItemPage';
 
@@ -80,8 +80,9 @@ function LoginRoute() {
 function VitrinePanelExtras() {
   const location = useLocation();
   const isVitrine = location.pathname.startsWith('/vitrine');
+  const isSettings = /\/settings\/?$/.test(location.pathname);
 
-  if (!isVitrine) return null;
+  if (!isVitrine || isSettings) return null;
 
   return (
     <>
@@ -115,7 +116,7 @@ function AppRoutes() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    const cleanup = initGeNovoAudit();
+    const cleanup = initGeChatAudit();
     return () => {
       cleanup?.();
     };
@@ -140,12 +141,16 @@ function AppRoutes() {
         <Route element={<AuthenticatedArea />}>
           {vitrineLegacyRedirectRoutes}
 
+          <Route path="/gechat" element={<Navigate to="/" replace />} />
+          <Route path="/item-1" element={<Navigate to="/" replace />} />
+          <Route path="/item-2" element={<Navigate to="/" replace />} />
+          <Route path="/item-3" element={<Navigate to="/" replace />} />
+          <Route path="/item-4" element={<Navigate to="/" replace />} />
+
           <Route element={<UserLayout />}>
             <Route index element={<UserHomePage />} />
-            <Route path="/item-1" element={<UserItemPage itemNumber={1} />} />
-            <Route path="/item-2" element={<UserItemPage itemNumber={2} />} />
-            <Route path="/item-3" element={<UserItemPage itemNumber={3} />} />
-            <Route path="/item-4" element={<UserItemPage itemNumber={4} />} />
+            <Route path="/c/:conversationId" element={<UserHomePage />} />
+            <Route path="/settings" element={<PersonalSettingsPage />} />
           </Route>
 
           <Route path="/vitrine" element={<VitrineLayout />}>

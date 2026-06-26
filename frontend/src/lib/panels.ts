@@ -1,3 +1,6 @@
+/** Rota principal do GêChat (painel User). */
+export const GECHAT_PATH = '/';
+
 /** Prefixo de rotas do painel Vitrine (módulo descartável em `panels/vitrine/`). */
 export const VITRINE_PREFIX = '/vitrine';
 
@@ -23,5 +26,5 @@ export function panelFromPathname(pathname: string): AppPanel {
 export function settingsPathForPanel(panel: AppPanel): string {
   if (panel === 'admin') return '/admin/home';
   if (panel === 'vitrine') return vitrinePath('/settings');
-  return '/';
+  return '/settings';
 }

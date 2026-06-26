@@ -18,7 +18,7 @@ type AdminNavSection = { title: string; items: AdminNavItem[] };
 
 const adminMenuSections: AdminNavSection[] = [
   {
-    title: 'GêNovo',
+    title: 'GêChat',
     items: [{ icon: LayoutGrid, label: 'Item 1', path: '/admin/home' }],
   },
   {

@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ProfileThema } from '@/lib/themeMapping';
 import type { SidebarMode } from '@/lib/sidebarMode';
 import type { Category, User } from '@/types';
+import { gechatApi } from '@/modules/gechat/services/gechat-api';
 
 export const GEADS_APP_ID = '00000000-0000-4000-8000-000000000002' as const;
 
@@ -146,6 +147,34 @@ function mapUser(row: UserProfile): User {
     profileStatus: row.profileStatus,
     sidebar: row.sidebar,
   };
+}
+
+export type ChatProfile = {
+  id: string;
+  name: string;
+  email?: string;
+  avatar?: string;
+};
+
+function mapProfileRowToChatUser(row: Record<string, unknown>): ChatProfile | null {
+  const id = String(row.user_id ?? row.id ?? '').trim();
+  if (!id) return null;
+  const email = row.email ? String(row.email) : undefined;
+  const name = String(
+    row.full_name ?? row.name ?? email?.split('@')[0] ?? 'Usuário',
+  );
+  const avatarRaw = row.avatar_url ?? row.avatar;
+  return {
+    id,
+    name,
+    email,
+    avatar: avatarRaw ? String(avatarRaw) : undefined,
+  };
+}
+
+function isActiveProfileRow(row: Record<string, unknown>) {
+  const status = String(row.profile_status ?? row.profileStatus ?? 'active').trim().toLowerCase();
+  return !status || status === 'active';
 }
 
 function apiError(message: string) {
@@ -365,31 +394,45 @@ export const storageService = {
     return { error: null };
   },
   async uploadSystemImage(file: File) {
-    const path = `GeNovo/systems/${Date.now()}-${file.name}`;
+    const path = `GeChat/systems/${Date.now()}-${file.name}`;
     const { data, error } = await supabase.storage.from('GeImage').upload(path, file);
     if (error) return { url: null, error };
     const { data: urlData } = supabase.storage.from('GeImage').getPublicUrl(data?.path ?? path);
     return { url: urlData.publicUrl, error: null };
   },
   async uploadRequestChannelIcon(file: File) {
-    const path = `GeNovo/channels/${Date.now()}-${file.name}`;
+    const path = `GeChat/channels/${Date.now()}-${file.name}`;
     const { data, error } = await supabase.storage.from('GeImage').upload(path, file);
     if (error) return { url: null, error };
     const { data: urlData } = supabase.storage.from('GeImage').getPublicUrl(data?.path ?? path);
     return { url: urlData.publicUrl, error: null };
   },
   async uploadSystemAnchorPdf(file: File) {
-    const path = `GeNovo/anchor/${Date.now()}-${file.name}`;
+    const path = `GeChat/anchor/${Date.now()}-${file.name}`;
     const { data, error } = await supabase.storage.from('Files').upload(path, file);
     if (error) return { url: null, error };
     const { data: urlData } = supabase.storage.from('Files').getPublicUrl(data?.path ?? path);
     return { url: urlData.publicUrl, error: null };
   },
   async uploadComunicadoImage(file: File, userId?: string) {
-    const path = `GeNovo/comunicados/${userId ?? 'anon'}/${Date.now()}-${file.name}`;
+    const path = `GeChat/comunicados/${userId ?? 'anon'}/${Date.now()}-${file.name}`;
     const { data, error } = await supabase.storage.from('GeImage').upload(path, file);
     if (error) return { url: null, error };
     const { data: urlData } = supabase.storage.from('GeImage').getPublicUrl(data?.path ?? path);
+    return { url: urlData.publicUrl, error: null };
+  },
+  async uploadChatImage(file: File, conversationId: string, userId: string) {
+    const path = `GeChat/messages/${conversationId}/${userId}/${Date.now()}-${file.name}`;
+    const { data, error } = await supabase.storage.from('GeImage').upload(path, file);
+    if (error) return { url: null, error };
+    const { data: urlData } = supabase.storage.from('GeImage').getPublicUrl(data?.path ?? path);
+    return { url: urlData.publicUrl, error: null };
+  },
+  async uploadChatFile(file: File, conversationId: string, userId: string) {
+    const path = `GeChat/messages/${conversationId}/${userId}/${Date.now()}-${file.name}`;
+    const { data, error } = await supabase.storage.from('Files').upload(path, file);
+    if (error) return { url: null, error };
+    const { data: urlData } = supabase.storage.from('Files').getPublicUrl(data?.path ?? path);
     return { url: urlData.publicUrl, error: null };
   },
 };
@@ -444,6 +487,26 @@ export const databaseService = {
     if (error) return { data: [], error };
     return { data: (data ?? []).map((r) => mapUser(r as UserProfile)), error: null };
   },
+  /** Perfis ativos em `public.profiles` para iniciar conversas no GêChat. */
+  async listChatProfiles(excludeUserId?: string) {
+    const client = await getSupabaseClient();
+    if (!client) return { data: [] as ChatProfile[], error: apiError('Supabase indisponível.') };
+
+    const { data, error } = await client
+      .from('profiles')
+      .select('user_id, id, full_name, name, email, avatar_url, avatar, profile_status, apelido')
+      .order('full_name', { ascending: true, nullsFirst: false });
+
+    if (error) return { data: [], error };
+
+    const users = (data ?? [])
+      .filter((row) => isActiveProfileRow(row as Record<string, unknown>))
+      .map((row) => mapProfileRowToChatUser(row as Record<string, unknown>))
+      .filter((u): u is ChatProfile => !!u && u.id !== excludeUserId)
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+
+    return { data: users, error: null };
+  },
   async getAdministrators() {
     const { data } = await this.getUsers();
     return { data: data.filter((u) => u.accessType === 'admin'), error: null };
@@ -476,7 +539,7 @@ export const databaseService = {
   async getUserForegroundScreenTimeMsForGeAds(userId: string) {
     const client = await getSupabaseClient();
     if (!client) return 0;
-    const slug = (import.meta.env.VITE_GENOVO_AUDIT_SLUG ?? import.meta.env.VITE_GELEADS_AUDIT_SLUG ?? import.meta.env.VITE_GEADS_AUDIT_SLUG ?? 'genovo').toLowerCase();
+    const slug = (import.meta.env.VITE_GECHAT_AUDIT_SLUG ?? import.meta.env.VITE_GENOVO_AUDIT_SLUG ?? import.meta.env.VITE_GELEADS_AUDIT_SLUG ?? import.meta.env.VITE_GEADS_AUDIT_SLUG ?? 'gechat').toLowerCase();
     const { data: app } = await client.from('apps').select('id').eq('slug', slug).maybeSingle();
     if (!app?.id) return 0;
     const { data } = await client.from('audit_logs').select('screen_time_ms').eq('actor_user_id', userId).eq('app_id', app.id).eq('action', 'screen_time_active');
@@ -576,9 +639,38 @@ export const databaseService = {
 };
 
 export const chatService = {
-  async getConversations(..._args: any[]) { return empty; },
-  async getOrCreateConversation(..._args: any[]) { return emptyData; },
-  async getMessages(..._args: any[]) { return empty; },
-  async sendMessage(..._args: any[]) { return emptyData; },
-  subscribeToMessages(..._args: any[]) { return { unsubscribe() {} }; },
+  async getConversations() {
+    try {
+      return { data: await gechatApi.getConversations(), error: null };
+    } catch (error) {
+      return { data: [] as any[], error };
+    }
+  },
+  async getOrCreateConversation(targetUserId: string) {
+    try {
+      return { data: await gechatApi.createDirect(targetUserId), error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+  async getMessages(conversationId: string) {
+    try {
+      const { messages } = await gechatApi.getMessages(conversationId);
+      return { data: messages, error: null };
+    } catch (error) {
+      return { data: [] as any[], error };
+    }
+  },
+  async sendMessage(conversationId: string, content: string) {
+    try {
+      const { gechatSocket } = await import('@/lib/realtime/socket-client');
+      const result = await gechatSocket.sendMessage({ conversationId, content });
+      return { data: result.message ?? null, error: result.ok ? null : result.error };
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+  subscribeToMessages() {
+    return { unsubscribe() {} };
+  },
 };

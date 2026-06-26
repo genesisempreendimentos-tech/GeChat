@@ -1,5 +1,5 @@
 /*
-  GENOVO – Schema completo para Supabase
+  GECHAT – Schema completo para Supabase
   
   Execute no Supabase: SQL Editor → New query → Cole → Run.
   Garante tabelas e colunas necessárias para o painel admin e evita 400 em PATCH/GET.
@@ -137,4 +137,11 @@ CREATE POLICY "Profiles select own or admin"
     (user_id = auth.uid() OR id = auth.uid())
     OR public.is_admin()
     OR public.is_softadmin()
+  );
+
+DROP POLICY IF EXISTS "Authenticated can read active profiles for chat" ON public.profiles;
+CREATE POLICY "Authenticated can read active profiles for chat"
+  ON public.profiles FOR SELECT TO authenticated
+  USING (
+    COALESCE(NULLIF(TRIM(profile_status), ''), 'active') = 'active'
   );

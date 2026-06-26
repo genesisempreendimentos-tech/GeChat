@@ -1,8 +1,8 @@
 import { getBearerJwt, resolveUserFromJwt } from './authSupabase.mjs';
 import { loadProfileForAuthUser } from '../services/supabaseServer.mjs';
 
-const ACCESS_COOKIE = 'genovo_sb_access';
-const REFRESH_COOKIE = 'genovo_sb_refresh';
+const ACCESS_COOKIE = 'gechat_sb_access';
+const REFRESH_COOKIE = 'gechat_sb_refresh';
 
 function readCookie(req, name) {
   const raw = req.headers.cookie;

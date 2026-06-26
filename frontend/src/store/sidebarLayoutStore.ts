@@ -3,7 +3,7 @@ import type { SidebarMode } from '@/lib/sidebarMode';
 import { parseSidebarMode } from '@/lib/sidebarMode';
 import { databaseService } from '@/services/supabase';
 
-const STORAGE_KEY = 'genovo_sidebar_mode';
+const STORAGE_KEY = 'gechat_sidebar_mode';
 
 function readStoredMode(): SidebarMode {
   try {

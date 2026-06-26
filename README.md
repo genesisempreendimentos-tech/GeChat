@@ -1,8 +1,8 @@
-# GêNovo — Template SaaS
+# GêChat — Chat interno corporativo
 
-Starter reutilizável com design system completo, autenticação Supabase e painéis modulares (User, Vitrine, Admin).
+Aplicação de chat em tempo real para equipes, com autenticação Supabase, persistência em Neon e módulo GêChat no painel User.
 
-Repositório: [github.com/genesisempreendimentos-tech/GeNovo](https://github.com/genesisempreendimentos-tech/GeNovo)
+Repositório: [github.com/genesisempreendimentos-tech/GeChat](https://github.com/genesisempreendimentos-tech/GeChat)
 
 ## Executar
 
@@ -25,17 +25,18 @@ npm run dev:frontend
 Copie `.env.example` para `backend/.env` e configure:
 
 - `SUPABASE_URL` e `SUPABASE_ANON_KEY` — autenticação
-- `SUPABASE_SERVICE_ROLE_KEY` — operações administrativas (opcional)
+- `SUPABASE_SERVICE_ROLE_KEY` — perfis e listagem de usuários
+- `DATABASE_URL` — Neon Postgres (dados do GêChat)
 
 No frontend, configure em `frontend/.env`:
 
-- `VITE_API_URL=http://localhost:3001`
+- `VITE_API_URL=http://localhost:3031`
 - `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`
-- `VITE_GENOVO_AUDIT_SLUG=genovo`
+- `VITE_GECHAT_AUDIT_SLUG=gechat`
 
 ## Estrutura
 
-- **User** — painel principal (módulos a construir)
+- **User** — painel principal com o módulo GêChat (`/gechat`)
 - **Vitrine** — protótipo de referência com placeholders
 - **Admin** — gestão administrativa
 - **Auth** — login, cadastro, reset de senha via Supabase
@@ -46,15 +47,6 @@ No frontend, configure em `frontend/.env`:
 npm run build:prod
 ```
 
-## Deploy (VPS)
-
-Scripts em `deploy/`:
-
-- `install.sh` — instalação inicial (clone, build, PM2, nginx)
-- `deploy.sh` — pull + build + restart
-- `nginx-genovo.conf` — proxy reverso para o Node
-- `ecosystem.config.cjs` — processo PM2 `genovo`
-
 ## Supabase (referência SQL)
 
-Migrations de auth/perfis em `frontend/src/services/migration-genovo-*.sql` e `migration-profiles-*.sql` — executar manualmente no SQL Editor do Supabase conforme necessário.
+Migrations de auth/perfis em `frontend/src/services/migration-gechat-*.sql` e `migration-profiles-*.sql` — executar manualmente no SQL Editor do Supabase conforme necessário.

@@ -26,8 +26,8 @@ const buildWA = (rawWA: string, apelido: string) => {
   const phone = digitsOnly(rawWA)
   if (!phone) return ''
   const text = apelido?.trim()
-    ? `Olá, me chamo ${apelido.trim()} e vim do GêNovo.`
-    : 'Olá, vim do GêNovo.'
+    ? `Olá, me chamo ${apelido.trim()} e vim do GêChat.`
+    : 'Olá, vim do GêChat.'
   return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`
 }
 

@@ -43,7 +43,7 @@ const ProfileCardComponent = ({
   enableMobileTilt = false,
   mobileTiltSensitivity = 5,
   showUserInfo = true,
-  iconUrl = '/assets/GeNovo.png',
+  iconUrl = '/assets/GeChat.png',
   innerGradient,
   behindGlowEnabled = true,
   behindGlowColor,

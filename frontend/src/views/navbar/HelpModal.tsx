@@ -42,7 +42,7 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             Ajuda
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Informações sobre o GêNovo, dicas de uso e contato com o suporte.
+            Informações sobre o GêChat, dicas de uso e contato com o suporte.
           </DialogDescription>
         </DialogHeader>
 
@@ -50,11 +50,11 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
           <section className="space-y-2 rounded-xl border border-border/50 bg-card/40 p-4">
             <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              Sobre o GêNovo
+              Sobre o GêChat
             </h3>
             <p>
-              O GêNovo é um template SaaS reutilizável com design system completo, autenticação
-              Supabase e painéis modulares para você construir seu produto.
+              O GêChat é o chat interno corporativo da empresa: conversas diretas, grupos,
+              canais e mensagens em tempo real integrados ao app.
             </p>
           </section>
 
@@ -62,8 +62,8 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             <h3 className="text-base font-semibold text-foreground">Como usar</h3>
             <ul className="list-disc pl-5 space-y-2 marker:text-primary/70">
               <li>
-                <strong className="text-foreground font-semibold">Painel User:</strong>{' '}
-                área principal do seu aplicativo.
+                <strong className="text-foreground font-semibold">GêChat:</strong>{' '}
+                chat interno na página inicial do painel User.
               </li>
               <li>
                 <strong className="text-foreground font-semibold">Vitrine:</strong>{' '}

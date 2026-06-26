@@ -1,5 +1,5 @@
 ---
-name: GêNovo
+name: GêChat
 description: Template SaaS reutilizável — interface de produto com acento teal e tipografia Plus Jakarta Sans.
 colors:
   primary: "#14b8a6"
@@ -71,4 +71,4 @@ components:
     widthCollapsed: "80px"
 ---
 
-**North Star: Template SaaS modular.** O GêNovo se comporta como um cockpit limpo: fundo claro, acento teal confiável, tipografia geométrica legível e cards com borda sutil. A estética prioriza densidade informativa com respiro — base sólida para qualquer produto.
+**North Star: Chat corporativo integrado.** O GêChat se comporta como um cockpit limpo: fundo claro, acento teal confiável, tipografia geométrica legível e cards com borda sutil. A estética prioriza densidade informativa com respiro — base sólida para comunicação interna.

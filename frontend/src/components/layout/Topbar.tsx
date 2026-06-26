@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, LogOut, UserCircle, Settings, LifeBuoy, Lightbulb } from 'lucide-react';
+import { Bell, ExternalLink, LogOut, UserCircle, Settings, LifeBuoy, Lightbulb } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +29,8 @@ import { settingsPathForPanel } from '@/lib/panels';
 import { usePanelStore } from '@/store/panelStore';
 import { cn } from '@/lib/utils';
 
+const GEAPPS_PROFILE_URL = 'https://geapps.genesisapps.com.br/profile';
+
 function TopbarActions() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
@@ -40,10 +42,6 @@ function TopbarActions() {
   const [quoteFetchKey, setQuoteFetchKey] = useState(0);
   const [notificationItems] = useState<NotificationItem[]>([]);
   const notificationUnreadCount = notificationItems.filter((n) => !n.read).length;
-
-  const handleProfileClick = () => {
-    navigate(settingsPathForPanel(activePanel));
-  };
 
   const handleLogout = () => {
     setShowLogoutModal(false);
@@ -120,9 +118,17 @@ function TopbarActions() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={handleProfileClick}>
-              <UserCircle className="mr-2 h-4 w-4 shrink-0" />
-              Perfil
+            <DropdownMenuItem asChild>
+              <a
+                href={GEAPPS_PROFILE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full cursor-pointer items-center"
+              >
+                <UserCircle className="mr-2 h-4 w-4 shrink-0" />
+                <span className="flex-1">Meu perfil</span>
+                <ExternalLink className="ml-2 h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+              </a>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(settingsPathForPanel(activePanel))}>
               <Settings className="mr-2 h-4 w-4" />
@@ -146,7 +152,7 @@ function TopbarActions() {
       <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Sair do GêNovo</DialogTitle>
+            <DialogTitle>Sair do GêChat</DialogTitle>
             <DialogDescription>
               Deseja realmente sair? Você precisará entrar de novo para acessar.
             </DialogDescription>

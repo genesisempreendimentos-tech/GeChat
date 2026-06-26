@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { User, UserRole } from '@/types';
 import { authService, databaseService } from '@/services/supabase';
-import { emitGeNovoAuditAppLogin } from '@/assets/audit-log';
+import { emitGeChatAuditAppLogin } from '@/assets/audit-log';
 import { useThemeStore } from '@/store/themeStore';
 import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 
@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         sidebar: userData.sidebar,
       };
       set({ user, isAuthenticated: true, loading: false });
-      void emitGeNovoAuditAppLogin(user.id, user.email);
+      void emitGeChatAuditAppLogin(user.id, user.email);
       return { success: true };
     }
     void userError;
