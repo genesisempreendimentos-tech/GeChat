@@ -3,6 +3,7 @@ import type {
   Conversation,
   GroupMemberSettings,
   GroupSettingsResponse,
+  MemberRole,
   Message,
   MessageReaction,
   PresenceState,
@@ -121,6 +122,20 @@ export const gechatApi = {
     });
   },
 
+  async updateGroupMemberRole(conversationId: string, userId: string, role: MemberRole) {
+    return gechatFetch<{ member: { userId: string; role: MemberRole } }>(
+      `/api/gechat/conversations/${conversationId}/members/${userId}`,
+      { method: 'PATCH', body: JSON.stringify({ role }) },
+    );
+  },
+
+  async removeGroupMember(conversationId: string, userId: string) {
+    return gechatFetch<{ userId: string; conversationId: string }>(
+      `/api/gechat/conversations/${conversationId}/members/${userId}`,
+      { method: 'DELETE' },
+    );
+  },
+
   async getPresence(userIds: string[]): Promise<Record<string, PresenceState>> {
     if (!userIds.length) return {};
     const data = await gechatFetch<{ presence: Record<string, PresenceState> }>(
@@ -148,6 +163,21 @@ export const gechatApi = {
       `/api/gechat/conversations/${conversationId}/messages/${messageId}`,
       { method: 'DELETE' },
     );
+  },
+
+  async getMessageReads(conversationId: string, messageId: string) {
+    return gechatFetch<{
+      deliveredTo: Array<{
+        userId: string;
+        deliveredAt: string;
+        profile: UserProfile;
+      }>;
+      readBy: Array<{
+        userId: string;
+        readAt: string;
+        profile: UserProfile;
+      }>;
+    }>(`/api/gechat/conversations/${conversationId}/messages/${messageId}/reads`);
   },
 
   async toggleReaction(conversationId: string, messageId: string, emoji: string) {

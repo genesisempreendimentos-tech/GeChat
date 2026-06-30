@@ -37,6 +37,10 @@ export function parseMessageContent(message: Message): ParsedMessageContent {
     }
   }
 
+  if (message.type === 'audio') {
+    return { kind: 'file', url: message.content, name: 'Áudio' };
+  }
+
   if (message.type === 'file') {
     try {
       const data = JSON.parse(message.content);
@@ -201,13 +205,104 @@ export function previewText(message: Message) {
 }
 
 export function getMessagePlainText(message: Message): string {
-  const parsed = parseMessageContent(message);
-  if (parsed.kind === 'text') return parsed.text;
-  if (parsed.kind === 'link') return parsed.title ?? parsed.url;
-  if (parsed.kind === 'image') return parsed.name ?? 'Imagem';
-  if (parsed.kind === 'file') return parsed.name;
-  if (parsed.kind === 'sticker') return parsed.emoji;
-  return message.content;
+  return getMessagePreviewText(message.content, message.type);
+}
+
+/** Texto amigável para listas e notificações — sem JSON, markdown ou blocos de citação. */
+export function getMessagePreviewText(content: string, type?: MessageType): string {
+  const trimmed = content.trim();
+  if (!trimmed) return '';
+
+  const messageType = type ?? inferMessageType(trimmed);
+  const parsed = parseMessageContent({ content: trimmed, type: messageType } as Message);
+
+  switch (parsed.kind) {
+    case 'sticker':
+      return parsed.emoji;
+    case 'image':
+      return 'Foto';
+    case 'file':
+      return parsed.name || 'Arquivo';
+    case 'link':
+      return parsed.title || 'Link';
+    case 'text': {
+      const preview = stripMarkdownForPreview(extractReplyPreview(parsed.text));
+      if (preview) return preview;
+      if (messageType === 'audio') return 'Áudio';
+      return '';
+    }
+    default:
+      return '';
+  }
+}
+
+function inferMessageType(content: string): MessageType {
+  if (!content.startsWith('{')) return 'text';
+
+  try {
+    const data = JSON.parse(content);
+    if (data?.kind === 'sticker') return 'image';
+    if (data?.kind === 'link') return 'text';
+    if (data?.kind === 'audio') return 'audio';
+    if (data?.url) {
+      const mime = String(data.mime ?? '');
+      const name = String(data.name ?? '').toLowerCase();
+      if (mime.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|aac|webm)$/i.test(name)) {
+        return 'audio';
+      }
+      if (
+        data.kind === 'file' ||
+        (mime && !mime.startsWith('image/')) ||
+        /\.(pdf|doc|docx|xls|xlsx|zip|rar|txt|csv)$/i.test(name)
+      ) {
+        return 'file';
+      }
+      return 'image';
+    }
+  } catch {
+    return 'text';
+  }
+
+  return 'text';
+}
+
+function extractReplyPreview(text: string): string {
+  const blocks = text.split(/\n\n+/);
+  const replyParts = blocks.filter(
+    (block) => !block.split('\n').every((line) => line.startsWith('>') || line.trim() === ''),
+  );
+
+  if (replyParts.length > 0) {
+    return replyParts.join('\n\n').trim();
+  }
+
+  return text
+    .split('\n')
+    .map((line) => line.replace(/^>\s?/, ''))
+    .join(' ')
+    .trim();
+}
+
+function stripMarkdownForPreview(text: string): string {
+  if (text.startsWith('{') && text.endsWith('}')) {
+    try {
+      JSON.parse(text);
+      return '';
+    } catch {
+      /* texto com chaves */
+    }
+  }
+
+  return text
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/~~([^~]+)~~/g, '$1')
+    .replace(/^[-*]\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function buildQuotedReplyContent(quote: { preview: string }, reply: string) {

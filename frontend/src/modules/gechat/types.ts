@@ -32,6 +32,7 @@ export interface LastMessage {
   content: string;
   senderId: string;
   createdAt: string;
+  type?: MessageType;
   status?: MessageStatus;
 }
 

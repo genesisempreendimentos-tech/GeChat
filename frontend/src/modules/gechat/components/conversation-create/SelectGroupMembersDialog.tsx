@@ -50,7 +50,11 @@ export function SelectGroupMembersDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg gap-0 p-0 overflow-hidden sm:max-w-lg" dismissOnOutsideClick={false}>
+      <DialogContent
+        className="max-w-lg gap-0 p-0 overflow-hidden sm:max-w-lg"
+        entranceStyle="subtle"
+        dismissOnOutsideClick={false}
+      >
         <DialogHeader className="space-y-1 border-b border-border/60 px-6 py-5 text-left">
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-sky-600 dark:text-sky-400" />

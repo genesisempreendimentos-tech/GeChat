@@ -26,12 +26,28 @@ export const CONVERSATION_LIST_FILTERS: Array<{
 export function sortConversationsForList(
   conversations: Conversation[],
   pinnedIds: string[],
+  unreadCounters: Record<string, number> = {},
+  typingByConversation: Record<string, string[]> = {},
 ) {
   const pinnedSet = new Set(pinnedIds);
+
+  const unreadCount = (c: Conversation) => unreadCounters[c.id] ?? c.unreadCount ?? 0;
+  const isTyping = (c: Conversation) =>
+    (typingByConversation[c.id] ?? []).length > 0;
+
   return [...conversations].sort((a, b) => {
     const aPinned = pinnedSet.has(a.id);
     const bPinned = pinnedSet.has(b.id);
     if (aPinned !== bPinned) return aPinned ? -1 : 1;
+
+    const aUnread = unreadCount(a) > 0;
+    const bUnread = unreadCount(b) > 0;
+    if (aUnread !== bUnread) return aUnread ? -1 : 1;
+
+    const aTyping = isTyping(a);
+    const bTyping = isTyping(b);
+    if (aTyping !== bTyping) return aTyping ? -1 : 1;
+
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 }

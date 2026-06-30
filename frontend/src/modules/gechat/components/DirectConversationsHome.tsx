@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useGeChatStore } from '@/store/gechatStore';
 import type { Conversation } from '@/modules/gechat/types';
+import { getMessagePreviewText } from '@/modules/gechat/lib/message-content';
 import { NewConversationDialog } from './NewConversationDialog';
 
 function initials(name: string) {
@@ -25,9 +26,14 @@ function formatTime(dateStr?: string) {
 interface DirectConversationsHomeProps {
   conversations: Conversation[];
   onCreated: (id: string) => void;
+  onOpen?: (id: string) => void;
 }
 
-export function DirectConversationsHome({ conversations, onCreated }: DirectConversationsHomeProps) {
+export function DirectConversationsHome({
+  conversations,
+  onCreated,
+  onOpen,
+}: DirectConversationsHomeProps) {
   const unreadCounters = useGeChatStore((s) => s.unreadCounters);
   const onlineUsers = useGeChatStore((s) => s.onlineUsers);
   const direct = conversations.filter((c) => c.type === 'direct');
@@ -56,7 +62,12 @@ export function DirectConversationsHome({ conversations, onCreated }: DirectConv
             const isOnline = conv.otherMemberId ? onlineUsers[conv.otherMemberId] : false;
 
             return (
-              <Link key={conv.id} to={`/c/${conv.id}`} className="block">
+              <Link
+                key={conv.id}
+                to={`/c/${conv.id}`}
+                className="block"
+                onClick={() => onOpen?.(conv.id)}
+              >
                 <Card className="flex items-center gap-3 p-4 transition-colors hover:bg-muted/40">
                   <div className="relative shrink-0">
                     <Avatar className="h-11 w-11">
@@ -77,7 +88,10 @@ export function DirectConversationsHome({ conversations, onCreated }: DirectConv
                       )}
                     </div>
                     <p className="truncate text-xs text-muted-foreground">
-                      {conv.lastMessage?.content ?? 'Sem mensagens'}
+                      {conv.lastMessage
+                        ? getMessagePreviewText(conv.lastMessage.content, conv.lastMessage.type) ||
+                          'Sem mensagens'
+                        : 'Sem mensagens'}
                     </p>
                     <p className="mt-0.5 text-[10px] text-muted-foreground/80">
                       {formatTime(conv.lastMessage?.createdAt ?? conv.updatedAt)}

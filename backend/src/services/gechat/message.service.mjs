@@ -74,6 +74,7 @@ export async function getConversationMessages(conversationId, userId, { cursor, 
     ...m,
     reactions: reactionMap[m.id] ?? [],
   }));
+  await recordPendingDeliveries(conversationId, userId);
   const nextCursor =
     rows.length === safeLimit && messages.length > 0
       ? `${messages[0].createdAt instanceof Date ? messages[0].createdAt.toISOString() : messages[0].createdAt}|${messages[0].id}`
@@ -99,6 +100,8 @@ export async function markConversationAsRead(conversationId, userId) {
   if (!privacy.readReceiptsEnabled) {
     return { readCount: 0, readAt: now, receiptsSent: false };
   }
+
+  await recordPendingDeliveries(conversationId, userId);
 
   const unread = await sql`
     SELECT id FROM gechat_messages
@@ -191,6 +194,104 @@ export async function editMessage(messageId, userId, content) {
   `;
 
   return mapMessage(updated[0]);
+}
+
+export async function recordMessageDelivery(messageId, userId) {
+  const sql = getSql();
+  const now = new Date().toISOString();
+  await sql`
+    INSERT INTO gechat_message_deliveries (message_id, user_id, delivered_at)
+    VALUES (${messageId}, ${userId}, ${now})
+    ON CONFLICT (message_id, user_id) DO NOTHING
+  `;
+}
+
+export async function recordDeliveriesForOnlineMembers(messageId, conversationId, senderId) {
+  const { getConversationMembers } = await import('./membership.service.mjs');
+  const { isUserOnline } = await import('../../realtime/presence-manager.mjs');
+  const members = await getConversationMembers(conversationId);
+
+  for (const member of members) {
+    if (member.user_id === senderId) continue;
+    if (isUserOnline(member.user_id)) {
+      await recordMessageDelivery(messageId, member.user_id);
+    }
+  }
+}
+
+export async function recordPendingDeliveries(conversationId, userId) {
+  const sql = getSql();
+  const now = new Date().toISOString();
+  const pending = await sql`
+    SELECT id FROM gechat_messages
+    WHERE conversation_id = ${conversationId}
+      AND sender_id != ${userId}
+      AND id NOT IN (
+        SELECT message_id FROM gechat_message_deliveries WHERE user_id = ${userId}
+      )
+  `;
+
+  for (const msg of pending) {
+    await sql`
+      INSERT INTO gechat_message_deliveries (message_id, user_id, delivered_at)
+      VALUES (${msg.id}, ${userId}, ${now})
+      ON CONFLICT (message_id, user_id) DO NOTHING
+    `;
+  }
+
+  return pending.length;
+}
+
+export async function getMessageReceiptDetails(messageId, conversationId, userId) {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT * FROM gechat_messages WHERE id = ${messageId} LIMIT 1
+  `;
+  const row = rows[0];
+  if (!row) throw Object.assign(new Error('Mensagem não encontrada.'), { status: 404 });
+  if (row.conversation_id !== conversationId) {
+    throw Object.assign(new Error('Mensagem não pertence a esta conversa.'), { status: 400 });
+  }
+
+  const member = await isMember(conversationId, userId);
+  if (!member) throw Object.assign(new Error('Acesso negado.'), { status: 403 });
+  if (row.sender_id !== userId) {
+    throw Object.assign(new Error('Somente o autor pode ver os dados da mensagem.'), { status: 403 });
+  }
+
+  const deliveries = await sql`
+    SELECT user_id, delivered_at
+    FROM gechat_message_deliveries
+    WHERE message_id = ${messageId}
+    ORDER BY delivered_at ASC
+  `;
+
+  const reads = await sql`
+    SELECT user_id, read_at
+    FROM gechat_message_reads
+    WHERE message_id = ${messageId}
+    ORDER BY read_at ASC
+  `;
+
+  const readUserIds = new Set(reads.map((r) => r.user_id));
+
+  return {
+    deliveredTo: deliveries
+      .filter((r) => !readUserIds.has(r.user_id))
+      .map((r) => ({
+        userId: r.user_id,
+        at: r.delivered_at instanceof Date ? r.delivered_at.toISOString() : r.delivered_at,
+      })),
+    readBy: reads.map((r) => ({
+      userId: r.user_id,
+      at: r.read_at instanceof Date ? r.read_at.toISOString() : r.read_at,
+    })),
+  };
+}
+
+export async function getMessageReadReceipts(messageId, conversationId, userId) {
+  const details = await getMessageReceiptDetails(messageId, conversationId, userId);
+  return details.readBy.map((r) => ({ userId: r.userId, readAt: r.at }));
 }
 
 export async function deleteMessage(messageId, userId) {

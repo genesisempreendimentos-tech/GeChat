@@ -6,7 +6,7 @@ import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { useRootZoom } from "@/hooks/useRootZoom"
 import { useAppMotion } from "@/hooks/useAppMotion"
-import { modalScaleFromFillRatio } from "@/lib/motionPresets"
+import { modalScaleFromFillRatio, motionModalTransitionSubtle } from "@/lib/motionPresets"
 
 const Dialog = DialogPrimitive.Root
 
@@ -58,6 +58,8 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   /** 0–1: escala inicial proporcional ao volume de dados (ex.: perfil preenchido). */
   entranceFillRatio?: number
+  /** `subtle` = fade discreto sem bounce; `default` = spring com escala e deslocamento. */
+  entranceStyle?: 'default' | 'subtle'
   /** Quando false, clique no overlay e Escape não fecham o modal. */
   dismissOnOutsideClick?: boolean
 }
@@ -65,10 +67,11 @@ type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, style, entranceFillRatio, dismissOnOutsideClick = true, ...props }, ref) => {
+>(({ className, children, style, entranceFillRatio, entranceStyle = 'default', dismissOnOutsideClick = true, ...props }, ref) => {
   const rootZoom = useRootZoom()
   const motionCfg = useAppMotion()
-  const initialScale = modalScaleFromFillRatio(entranceFillRatio ?? 0.45)
+  const isSubtle = entranceStyle === 'subtle'
+  const initialScale = isSubtle ? 0.98 : modalScaleFromFillRatio(entranceFillRatio ?? 0.45)
 
   const dismissProps =
     dismissOnOutsideClick === false
@@ -84,26 +87,34 @@ const DialogContent = React.forwardRef<
     className
   )
 
-  const centeredMotion = {
-    initial: {
-      opacity: 0,
-      scale: initialScale,
-      x: '-50%',
-      y: 'calc(-50% + 8px)',
-    },
-    animate: {
-      opacity: 1,
-      scale: 1,
-      x: '-50%',
-      y: '-50%',
-    },
-    exit: {
-      opacity: 0,
-      scale: initialScale,
-      x: '-50%',
-      y: 'calc(-50% + 6px)',
-    },
-  } as const
+  const centeredMotion = isSubtle
+    ? ({
+        initial: { opacity: 0, scale: initialScale, x: '-50%', y: '-50%' },
+        animate: { opacity: 1, scale: 1, x: '-50%', y: '-50%' },
+        exit: { opacity: 0, scale: initialScale, x: '-50%', y: '-50%' },
+      } as const)
+    : ({
+        initial: {
+          opacity: 0,
+          scale: initialScale,
+          x: '-50%',
+          y: 'calc(-50% + 8px)',
+        },
+        animate: {
+          opacity: 1,
+          scale: 1,
+          x: '-50%',
+          y: '-50%',
+        },
+        exit: {
+          opacity: 0,
+          scale: initialScale,
+          x: '-50%',
+          y: 'calc(-50% + 6px)',
+        },
+      } as const)
+
+  const motionTransition = isSubtle ? motionModalTransitionSubtle : motionCfg.modalTransition
 
   if (!motionCfg.enabled) {
     return (
@@ -113,7 +124,9 @@ const DialogContent = React.forwardRef<
           ref={ref}
           className={cn(
             shellClass,
-            "translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+            "translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+            !isSubtle &&
+              "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           )}
           style={{ zoom: rootZoom, ...style } as React.CSSProperties}
           {...dismissProps}
@@ -151,7 +164,7 @@ const DialogContent = React.forwardRef<
           initial={centeredMotion.initial}
           animate={centeredMotion.animate}
           exit={centeredMotion.exit}
-          transition={motionCfg.modalTransition}
+          transition={motionTransition}
         >
           {children}
           <DialogPrimitive.Close className="absolute right-3 top-3 rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">

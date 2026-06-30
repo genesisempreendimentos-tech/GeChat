@@ -47,6 +47,7 @@ export function useGeChatSocket(enabled = true) {
               content: message.content,
               senderId: message.senderId,
               createdAt: message.createdAt,
+              type: message.type,
               status: message.status,
             },
             updatedAt: message.createdAt,
@@ -100,6 +101,7 @@ export function useGeChatSocket(enabled = true) {
         const activeId = store.getState().activeConversationId;
         if (!activeId) return;
         store.getState().updateMessageStatus(activeId, data.messageId, data.status, data.clientId);
+        store.getState().patchConversationLastMessageStatus(activeId, data.status, data.messageId);
       }),
     );
 
@@ -107,6 +109,11 @@ export function useGeChatSocket(enabled = true) {
       gechatSocket.on('message:delivered', (raw) => {
         const data = raw as { messageId: string; conversationId: string };
         store.getState().updateMessageStatus(data.conversationId, data.messageId, 'delivered');
+        store.getState().patchConversationLastMessageStatus(
+          data.conversationId,
+          'delivered',
+          data.messageId,
+        );
       }),
     );
 
@@ -121,13 +128,22 @@ export function useGeChatSocket(enabled = true) {
             store.getState().updateMessageStatus(data.conversationId, m.id, 'read');
           }
         }
+        const conv = store.getState().conversations.find((c) => c.id === data.conversationId);
+        if (conv?.lastMessage?.senderId === currentUserId) {
+          store.getState().patchConversationLastMessageStatus(data.conversationId, 'read');
+        }
       }),
     );
 
     unsubscribers.push(
       gechatSocket.on('typing:start', (raw) => {
-        const data = raw as { conversationId: string; userId: string };
-        store.getState().setTyping(data.conversationId, data.userId, true);
+        const data = raw as { conversationId: string; userId: string; userName?: string };
+        store.getState().setTyping(
+          data.conversationId,
+          data.userId,
+          true,
+          data.userName,
+        );
       }),
     );
 

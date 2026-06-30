@@ -49,7 +49,11 @@ interface CreateConversationHubProps {
 export function CreateConversationHub({ open, onOpenChange, onSelect }: CreateConversationHubProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md gap-0 p-0 overflow-hidden" dismissOnOutsideClick={false}>
+      <DialogContent
+        className="max-w-md gap-0 p-0 overflow-hidden"
+        entranceStyle="subtle"
+        dismissOnOutsideClick={false}
+      >
         <DialogHeader className="space-y-1 border-b border-border/60 px-6 py-5 text-left">
           <DialogTitle>Nova conversa</DialogTitle>
           <DialogDescription>Escolha o tipo de conversa que deseja iniciar.</DialogDescription>

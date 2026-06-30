@@ -6,8 +6,16 @@ import {
   updateGroupDetails,
   updateMemberSettings,
   addGroupMembers,
+  updateGroupMemberRole,
+  removeGroupMember,
 } from '../services/gechat/group-settings.service.mjs';
-import { getConversationMessages, markConversationAsRead, editMessage, deleteMessage } from '../services/gechat/message.service.mjs';
+import {
+  getConversationMessages,
+  markConversationAsRead,
+  editMessage,
+  deleteMessage,
+  getMessageReceiptDetails,
+} from '../services/gechat/message.service.mjs';
 import { toggleReaction } from '../services/gechat/reaction.service.mjs';
 import { getConversationMembers } from '../services/gechat/membership.service.mjs';
 import { getPresenceForUsers } from '../services/gechat/presence.service.mjs';
@@ -128,6 +136,37 @@ export function createGeChatRouter() {
     } catch (err) {
       const status = err?.status ?? 500;
       res.status(status).json({ error: err?.message ?? 'Erro ao excluir mensagem.' });
+    }
+  });
+
+  router.get('/conversations/:conversationId/messages/:messageId/reads', async (req, res) => {
+    try {
+      const { deliveredTo, readBy } = await getMessageReceiptDetails(
+        req.params.messageId,
+        req.params.conversationId,
+        req.gechatUser.id,
+      );
+      const userIds = [...new Set([...deliveredTo.map((r) => r.userId), ...readBy.map((r) => r.userId)])];
+      const profileMap = await enrichProfiles(
+        req.app.locals.supabaseUrl,
+        req.app.locals.supabaseServiceRoleKey,
+        userIds,
+      );
+      res.json({
+        deliveredTo: deliveredTo.map((r) => ({
+          userId: r.userId,
+          deliveredAt: r.at,
+          profile: profileMap[r.userId] ?? { id: r.userId, name: 'Usuário', email: '' },
+        })),
+        readBy: readBy.map((r) => ({
+          userId: r.userId,
+          readAt: r.at,
+          profile: profileMap[r.userId] ?? { id: r.userId, name: 'Usuário', email: '' },
+        })),
+      });
+    } catch (err) {
+      const status = err?.status ?? 500;
+      res.status(status).json({ error: err?.message ?? 'Erro ao carregar dados da mensagem.' });
     }
   });
 
@@ -309,6 +348,36 @@ export function createGeChatRouter() {
     } catch (err) {
       const status = err?.status ?? 500;
       res.status(status).json({ error: err?.message ?? 'Erro ao adicionar membros.' });
+    }
+  });
+
+  router.patch('/conversations/:conversationId/members/:userId', async (req, res) => {
+    try {
+      const role = req.body?.role;
+      const result = await updateGroupMemberRole(
+        req.params.conversationId,
+        req.gechatUser.id,
+        req.params.userId,
+        role,
+      );
+      res.json({ member: result });
+    } catch (err) {
+      const status = err?.status ?? 500;
+      res.status(status).json({ error: err?.message ?? 'Erro ao atualizar membro.' });
+    }
+  });
+
+  router.delete('/conversations/:conversationId/members/:userId', async (req, res) => {
+    try {
+      const result = await removeGroupMember(
+        req.params.conversationId,
+        req.gechatUser.id,
+        req.params.userId,
+      );
+      res.json(result);
+    } catch (err) {
+      const status = err?.status ?? 500;
+      res.status(status).json({ error: err?.message ?? 'Erro ao remover membro.' });
     }
   });
 

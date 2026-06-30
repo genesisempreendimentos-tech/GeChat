@@ -9,6 +9,7 @@ import { createAuthRouter } from './routes/auth.mjs';
 import { createGeChatRouter } from './routes/gechat.mjs';
 import { createSocketServer } from './realtime/socket-server.mjs';
 import { ensureGeChatSchema } from './db/migrate.mjs';
+import { logDevServerUrls } from './lib/dev-network.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +40,7 @@ app.use((req, res, next) => {
 });
 
 const DEFAULT_PORT = Number(process.env.SERVER_PORT) || 3001;
+const SERVER_HOST = process.env.SERVER_HOST || '0.0.0.0';
 const MAX_PORT_RETRIES = Number(process.env.SERVER_PORT_RETRY_COUNT) || 30;
 const ACTIVE_PORT_FILE = path.join(__dirname, '..', '.server-port');
 
@@ -131,10 +133,10 @@ async function startServer() {
 
   await new Promise((resolve, reject) => {
     httpServer.once('error', reject);
-    httpServer.listen(port, () => {
+    httpServer.listen(port, SERVER_HOST, () => {
       httpServer.off('error', reject);
       persistActivePort(port);
-      console.log(`[server] API rodando em http://localhost:${port}`);
+      logDevServerUrls({ label: 'server', port, host: SERVER_HOST });
       resolve();
     });
   });

@@ -53,6 +53,7 @@ export function ChatWindow({
   const title = conversation.displayName ?? conversation.name ?? 'Conversa';
   const initials = title.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
   const isGroup = conversation.type === 'group';
+  const isGroupLike = conversation.type === 'group' || conversation.type === 'channel';
   const sendRestricted =
     isGroup && Boolean(conversation.onlyAdminsCanSend) && myGroupRole !== 'admin';
   const headerOpensInfo = isGroup && Boolean(onToggleInfo);
@@ -130,21 +131,23 @@ export function ChatWindow({
           currentUserId={currentUserId ?? ''}
           memberProfiles={memberProfiles}
           conversationId={conversation.id}
+          isGroupLike={isGroupLike}
           onEditMessage={onEditMessage}
           onDeleteMessage={onDeleteMessage}
           onToggleReaction={onToggleReaction}
         />
       </div>
-      {sendRestricted && (
-        <p className="shrink-0 border-t border-border/60 bg-muted/20 px-4 py-2 text-center text-xs text-muted-foreground">
+      {sendRestricted ? (
+        <p className="shrink-0 border-t border-border/60 bg-muted/20 px-4 py-3 text-center text-xs text-muted-foreground">
           Somente administradores podem enviar mensagens neste grupo.
         </p>
+      ) : (
+        <MessageInput
+          conversationId={conversation.id}
+          onSend={onSend}
+          disabled={connectionStatus === 'error'}
+        />
       )}
-      <MessageInput
-        conversationId={conversation.id}
-        onSend={onSend}
-        disabled={connectionStatus === 'error' || sendRestricted}
-      />
     </div>
   );
 }

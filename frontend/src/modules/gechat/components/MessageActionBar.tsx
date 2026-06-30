@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Forward,
+  Info,
   MessageSquarePlus,
   MoreVertical,
   Pencil,
@@ -57,6 +58,8 @@ interface MessageActionBarProps {
   isPinned: boolean;
   canEdit: boolean;
   alignEnd?: boolean;
+  visible?: boolean;
+  onMenuOpenChange?: (open: boolean) => void;
   onReact: (emoji: string) => void;
   onQuote: () => void;
   onForward: () => void;
@@ -65,6 +68,8 @@ interface MessageActionBarProps {
   onTogglePin: () => void;
   onDelete?: () => void;
   onEdit?: () => void;
+  onShowDetails?: () => void;
+  showDetails?: boolean;
 }
 
 export function MessageActionBar({
@@ -74,6 +79,8 @@ export function MessageActionBar({
   isPinned,
   canEdit,
   alignEnd,
+  visible = false,
+  onMenuOpenChange,
   onReact,
   onQuote,
   onForward,
@@ -82,9 +89,26 @@ export function MessageActionBar({
   onTogglePin,
   onDelete,
   onEdit,
+  onShowDetails,
+  showDetails,
 }: MessageActionBarProps) {
   void message;
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const handlePickerOpenChange = (open: boolean) => {
+    setPickerOpen(open);
+  };
+
+  const handleMoreOpenChange = (open: boolean) => {
+    setMoreOpen(open);
+  };
+
+  const isOpen = visible || pickerOpen || moreOpen;
+
+  useEffect(() => {
+    onMenuOpenChange?.(pickerOpen || moreOpen);
+  }, [pickerOpen, moreOpen, onMenuOpenChange]);
 
   const handleReact = (emoji: string) => {
     onReact(emoji);
@@ -94,10 +118,8 @@ export function MessageActionBar({
   return (
     <div
       className={cn(
-        'pointer-events-none absolute top-full z-10 mt-1 flex gap-1.5 opacity-0 transition-opacity',
-        'group-hover/message:pointer-events-auto group-hover/message:opacity-100',
-        'group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100',
-        '[&:has([data-state=open])]:pointer-events-auto [&:has([data-state=open])]:opacity-100',
+        'pointer-events-none absolute bottom-full z-20 mb-1 flex gap-1.5 opacity-0 transition-opacity duration-150',
+        isOpen && 'pointer-events-auto opacity-100',
         alignEnd ? 'right-0' : 'left-0',
       )}
     >
@@ -116,7 +138,7 @@ export function MessageActionBar({
       </div>
 
       <div className="flex items-center gap-0.5 rounded-full border border-border/60 bg-card px-1 py-1 shadow-md">
-        <DropdownMenu open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DropdownMenu open={pickerOpen} onOpenChange={handlePickerOpenChange}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -144,7 +166,7 @@ export function MessageActionBar({
           <Reply className="h-4 w-4" />
         </ToolbarButton>
 
-        <DropdownMenu>
+        <DropdownMenu open={moreOpen} onOpenChange={handleMoreOpenChange}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -157,7 +179,7 @@ export function MessageActionBar({
               <MoreVertical className="h-4 w-4" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align={alignEnd ? 'end' : 'start'} className="w-56">
+          <DropdownMenuContent side="top" align={alignEnd ? 'end' : 'start'} className="w-56">
             {isOwn ? (
               <>
                 <DropdownMenuItem onClick={onQuote}>
@@ -168,6 +190,12 @@ export function MessageActionBar({
                   <Forward className="mr-2 h-4 w-4" />
                   Encaminhar mensagem
                 </DropdownMenuItem>
+                {showDetails && onShowDetails && (
+                  <DropdownMenuItem onClick={onShowDetails}>
+                    <Info className="mr-2 h-4 w-4" />
+                    Dados
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onToggleRead}>
                   <MessageSquarePlus className="mr-2 h-4 w-4" />

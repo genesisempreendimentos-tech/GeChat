@@ -1,22 +1,5 @@
 import type { Conversation, LastMessage } from '@/modules/gechat/types';
-
-function plainFromContent(content: string): string {
-  const trimmed = content.trim();
-  if (!trimmed) return '';
-
-  try {
-    const data = JSON.parse(trimmed);
-    if (data?.kind === 'sticker' && data.emoji) return String(data.emoji);
-    if (data?.kind === 'image' || data?.url) return 'Foto';
-    if (data?.kind === 'file') return data.name ? `Arquivo: ${data.name}` : 'Arquivo';
-    if (data?.kind === 'link') return data.title ? String(data.title) : 'Link';
-    if (typeof data?.text === 'string') return data.text;
-  } catch {
-    /* texto simples */
-  }
-
-  return trimmed.replace(/\s+/g, ' ');
-}
+import { getMessagePreviewText } from '@/modules/gechat/lib/message-content';
 
 export function formatLastMessagePreview(
   lastMessage: LastMessage | null | undefined,
@@ -28,8 +11,12 @@ export function formatLastMessagePreview(
     return conversation.type === 'group' ? 'Nenhuma mensagem ainda' : 'Inicie a conversa';
   }
 
-  const text = plainFromContent(lastMessage.content);
+  const text = getMessagePreviewText(lastMessage.content, lastMessage.type);
   const preview = text.length > 80 ? `${text.slice(0, 80)}…` : text;
+
+  if (!preview) {
+    return conversation.type === 'group' ? 'Nenhuma mensagem ainda' : 'Inicie a conversa';
+  }
 
   if (conversation.type === 'group' || conversation.type === 'channel') {
     if (lastMessage.senderId === currentUserId) {

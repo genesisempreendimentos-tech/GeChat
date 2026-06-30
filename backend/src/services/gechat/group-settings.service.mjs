@@ -196,3 +196,94 @@ export async function addGroupMembers(conversationId, userId, memberIds) {
 
   return unique;
 }
+
+async function countAdmins(conversationId) {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT COUNT(*)::int AS count
+    FROM gechat_conversation_members
+    WHERE conversation_id = ${conversationId} AND role = 'admin'
+  `;
+  return rows[0]?.count ?? 0;
+}
+
+export async function updateGroupMemberRole(conversationId, actorUserId, targetUserId, role) {
+  if (!(await isMember(conversationId, actorUserId))) {
+    throw Object.assign(new Error('Acesso negado.'), { status: 403 });
+  }
+  await requireGroup(conversationId);
+  await requireAdmin(conversationId, actorUserId);
+
+  if (!['admin', 'member'].includes(role)) {
+    throw Object.assign(new Error('Papel inválido.'), { status: 400 });
+  }
+
+  const sql = getSql();
+  const targetRows = await sql`
+    SELECT role FROM gechat_conversation_members
+    WHERE conversation_id = ${conversationId} AND user_id = ${targetUserId}
+    LIMIT 1
+  `;
+  if (!targetRows[0]) {
+    throw Object.assign(new Error('Membro não encontrado.'), { status: 404 });
+  }
+
+  if (targetRows[0].role === 'admin' && role === 'member') {
+    const admins = await countAdmins(conversationId);
+    if (admins <= 1) {
+      throw Object.assign(new Error('O grupo precisa de pelo menos um administrador.'), { status: 400 });
+    }
+  }
+
+  const updated = await sql`
+    UPDATE gechat_conversation_members
+    SET role = ${role}
+    WHERE conversation_id = ${conversationId} AND user_id = ${targetUserId}
+    RETURNING user_id, role
+  `;
+
+  await sql`
+    UPDATE gechat_conversations SET updated_at = NOW() WHERE id = ${conversationId}
+  `;
+
+  return { userId: updated[0].user_id, role: updated[0].role };
+}
+
+export async function removeGroupMember(conversationId, actorUserId, targetUserId) {
+  if (!(await isMember(conversationId, actorUserId))) {
+    throw Object.assign(new Error('Acesso negado.'), { status: 403 });
+  }
+  await requireGroup(conversationId);
+  await requireAdmin(conversationId, actorUserId);
+
+  if (targetUserId === actorUserId) {
+    throw Object.assign(new Error('Você não pode se expulsar.'), { status: 400 });
+  }
+
+  const sql = getSql();
+  const targetRows = await sql`
+    SELECT role FROM gechat_conversation_members
+    WHERE conversation_id = ${conversationId} AND user_id = ${targetUserId}
+    LIMIT 1
+  `;
+  if (!targetRows[0]) {
+    throw Object.assign(new Error('Membro não encontrado.'), { status: 404 });
+  }
+
+  if (targetRows[0].role === 'admin') {
+    const admins = await countAdmins(conversationId);
+    if (admins <= 1) {
+      throw Object.assign(new Error('Não é possível remover o único administrador.'), { status: 400 });
+    }
+  }
+
+  await sql`
+    DELETE FROM gechat_conversation_members
+    WHERE conversation_id = ${conversationId} AND user_id = ${targetUserId}
+  `;
+  await sql`
+    UPDATE gechat_conversations SET updated_at = NOW() WHERE id = ${conversationId}
+  `;
+
+  return { userId: targetUserId, conversationId };
+}

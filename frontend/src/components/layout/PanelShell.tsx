@@ -11,6 +11,14 @@ function isSettingsPath(pathname: string) {
   return /\/settings\/?$/.test(pathname);
 }
 
+/** Evita remontar o painel inteiro ao trocar só o id da conversa na URL. */
+function getMotionPageKey(pathname: string) {
+  if (pathname === '/' || pathname === '') return 'gechat-home';
+  if (pathname.startsWith('/c/')) return 'gechat-conversation';
+  if (isSettingsPath(pathname)) return 'gechat-settings';
+  return pathname;
+}
+
 function PanelMainContent({
   ariaLabel,
   mainClassName,
@@ -51,7 +59,7 @@ function PanelMainContent({
         role="main"
         aria-label={ariaLabel}
       >
-        <MotionPage pageKey={location.pathname} className="flex h-full min-h-0 flex-1 flex-col">
+        <MotionPage pageKey={getMotionPageKey(location.pathname)} className="flex h-full min-h-0 flex-1 flex-col">
           <Outlet />
         </MotionPage>
       </main>

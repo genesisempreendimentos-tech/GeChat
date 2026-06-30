@@ -4,13 +4,23 @@ import {
   Loader2,
   Pencil,
   Save,
+  Settings,
   Shield,
+  ShieldCheck,
+  UserMinus,
   UserPlus,
   Users,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { gechatApi } from '@/modules/gechat/services/gechat-api';
 import { useGeChatStore } from '@/store/gechatStore';
 import type { Conversation, GroupMemberSettings, MemberRole, UserProfile } from '@/modules/gechat/types';
@@ -85,9 +95,19 @@ function SettingToggleRow({
 function MemberCard({
   member,
   role,
+  showAdminActions,
+  acting,
+  onMakeAdmin,
+  onRemoveAdmin,
+  onExpel,
 }: {
   member: UserProfile;
   role?: MemberRole;
+  showAdminActions?: boolean;
+  acting?: boolean;
+  onMakeAdmin?: () => void;
+  onRemoveAdmin?: () => void;
+  onExpel?: () => void;
 }) {
   const online = useGeChatStore((s) => s.onlineUsers[member.id]);
 
@@ -122,6 +142,47 @@ function MemberCard({
           <PresenceBadge userId={member.id} />
         </div>
       </div>
+      {showAdminActions && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+              disabled={acting}
+              aria-label={`Gerenciar ${member.name}`}
+            >
+              {acting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Settings className="h-4 w-4" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            {role === 'admin' ? (
+              <DropdownMenuItem onClick={onRemoveAdmin}>
+                <UserMinus className="mr-2 h-4 w-4" />
+                Remover como administrador
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={onMakeAdmin}>
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Tornar administrador
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={onExpel}
+              className="text-destructive focus:text-destructive"
+            >
+              <UserMinus className="mr-2 h-4 w-4" />
+              Expulsar do grupo
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </li>
   );
 }
@@ -140,6 +201,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
   const [savingMemberSetting, setSavingMemberSetting] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [actingOnMemberId, setActingOnMemberId] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
 
   const [description, setDescription] = useState(conversation.description ?? '');
@@ -365,6 +427,58 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
     }
   };
 
+  const handleMakeAdmin = async (userId: string, memberName: string) => {
+    setActingOnMemberId(userId);
+    try {
+      const { member } = await gechatApi.updateGroupMemberRole(conversation.id, userId, 'admin');
+      setMemberRoles((prev) => ({ ...prev, [member.userId]: member.role }));
+      toast.success(`${memberName} agora é administrador.`);
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Não foi possível promover o membro.');
+    } finally {
+      setActingOnMemberId(null);
+    }
+  };
+
+  const handleRemoveAdmin = async (userId: string, memberName: string) => {
+    setActingOnMemberId(userId);
+    try {
+      const { member } = await gechatApi.updateGroupMemberRole(conversation.id, userId, 'member');
+      setMemberRoles((prev) => ({ ...prev, [member.userId]: member.role }));
+      toast.success(`${memberName} não é mais administrador.`);
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Não foi possível alterar o papel do membro.');
+    } finally {
+      setActingOnMemberId(null);
+    }
+  };
+
+  const handleExpelMember = async (userId: string, memberName: string) => {
+    if (!window.confirm(`Expulsar ${memberName} do grupo?`)) return;
+    setActingOnMemberId(userId);
+    try {
+      await gechatApi.removeGroupMember(conversation.id, userId);
+      setMemberRoles((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+      setLocalMembers((prev) => {
+        const next = prev.filter((m) => m.id !== userId);
+        setMembers(conversation.id, next);
+        return next;
+      });
+      toast.success(`${memberName} foi removido do grupo.`);
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Não foi possível expulsar o membro.');
+    } finally {
+      setActingOnMemberId(null);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
       <header className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2.5 md:px-4">
@@ -583,6 +697,11 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
                       key={member.id}
                       member={member}
                       role={memberRoles[member.id]}
+                      showAdminActions={isAdmin && member.id !== currentUserId}
+                      acting={actingOnMemberId === member.id}
+                      onMakeAdmin={() => void handleMakeAdmin(member.id, member.name)}
+                      onRemoveAdmin={() => void handleRemoveAdmin(member.id, member.name)}
+                      onExpel={() => void handleExpelMember(member.id, member.name)}
                     />
                   ))}
                 </ul>

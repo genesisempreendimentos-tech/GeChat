@@ -1,5 +1,6 @@
 import { useMemo, useState, type ComponentType } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -33,8 +34,11 @@ import {
   sortConversationsForList,
   type ConversationListFilter,
 } from '@/modules/gechat/lib/conversation-list-filters';
+import { useGeChat } from '@/modules/gechat/hooks/useGeChat';
 import { useGeChatStore } from '@/store/gechatStore';
 import { useConversationListStore } from '@/store/conversationListStore';
+import { useAppMotion } from '@/hooks/useAppMotion';
+import { MOTION_EASE } from '@/lib/motionPresets';
 
 interface ConversationListPanelProps {
   isExpanded: boolean;
@@ -65,22 +69,51 @@ function ConversationFilterChip({
   selected: boolean;
   onClick: () => void;
 }) {
+  const motionCfg = useAppMotion();
+
   const chip = (
-    <button
+    <motion.button
       type="button"
+      layout
       onClick={onClick}
       aria-label={label}
       aria-pressed={selected}
+      transition={motionCfg.springSoft}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-all duration-200',
+        'relative inline-flex h-8 shrink-0 items-center justify-center overflow-hidden rounded-full font-medium',
         selected
-          ? 'gap-1.5 bg-primary/15 px-3 py-1.5 text-primary shadow-sm ring-1 ring-primary/20'
-          : 'h-8 w-8 bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
+          ? 'px-3 text-primary'
+          : 'w-8 bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
       )}
     >
-      <Icon className={cn('shrink-0', selected ? 'h-4 w-4' : 'h-4 w-4')} aria-hidden />
-      {selected && <span className="text-xs leading-none">{label}</span>}
-    </button>
+      {selected && (
+        <motion.span
+          layoutId="gechat-conversation-filter-pill"
+          className="absolute inset-0 rounded-full bg-primary/15 shadow-sm ring-1 ring-primary/20"
+          transition={motionCfg.springSoft}
+        />
+      )}
+      <span className="relative z-[1] flex items-center gap-1.5">
+        <Icon className="h-4 w-4 shrink-0" aria-hidden />
+        <AnimatePresence initial={false} mode="popLayout">
+          {selected && (
+            <motion.span
+              key={`${label}-label`}
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 'auto' }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{
+                opacity: { duration: 0.16, ease: MOTION_EASE },
+                width: motionCfg.springSoft,
+              }}
+              className="overflow-hidden text-xs leading-none whitespace-nowrap"
+            >
+              {label}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </span>
+    </motion.button>
   );
 
   if (selected) return chip;
@@ -102,8 +135,10 @@ function ConversationFilterChip({
 export function ConversationListPanel({ isExpanded }: ConversationListPanelProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { openConversation } = useGeChat();
   const conversations = useGeChatStore((s) => s.conversations);
   const unreadCounters = useGeChatStore((s) => s.unreadCounters);
+  const typingUsersByConversation = useGeChatStore((s) => s.typingUsersByConversation);
   const favoriteIds = useConversationListStore((s) => s.favoriteIds);
   const pinnedIds = useConversationListStore((s) => s.pinnedIds);
   const archivedIds = useConversationListStore((s) => s.archivedIds);
@@ -111,6 +146,7 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<ConversationListFilter>('all');
   const [showArchived, setShowArchived] = useState(false);
+  const motionCfg = useAppMotion();
 
   const activeConversationId = location.pathname.startsWith('/c/')
     ? location.pathname.split('/c/')[1]?.split('/')[0]
@@ -131,7 +167,7 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
       unreadCounters,
       showArchived,
     });
-    return sortConversationsForList(list, pinnedIds);
+    return sortConversationsForList(list, pinnedIds, unreadCounters, typingUsersByConversation);
   }, [
     conversations,
     filter,
@@ -139,9 +175,15 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
     favoriteIds,
     archivedIds,
     unreadCounters,
+    typingUsersByConversation,
     showArchived,
     pinnedIds,
   ]);
+
+  const handleOpenConversation = (id: string) => {
+    navigate(`/c/${id}`);
+    void openConversation(id);
+  };
 
   const handleCreated = (id: string) => {
     navigate(`/c/${id}`);
@@ -157,6 +199,8 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
         showArchived: false,
       }),
       pinnedIds,
+      unreadCounters,
+      typingUsersByConversation,
     ).slice(0, 12);
 
     return (
@@ -172,7 +216,7 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    onClick={() => navigate(`/c/${conv.id}`)}
+                    onClick={() => handleOpenConversation(conv.id)}
                     aria-label={label}
                     className={cn(
                       'relative rounded-full transition-transform hover:scale-[1.03]',
@@ -267,22 +311,24 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
       {!showArchived && (
         <TooltipProvider delayDuration={200}>
           <div className="shrink-0 px-3 pb-2">
-            <div className="flex flex-wrap gap-1.5">
-              {CONVERSATION_LIST_FILTERS.map((chip) => (
-                <ConversationFilterChip
-                  key={chip.id}
-                  label={chip.label}
-                  icon={chip.icon}
-                  selected={filter === chip.id}
-                  onClick={() => setFilter(chip.id)}
-                />
-              ))}
-            </div>
+            <LayoutGroup id="gechat-conversation-filters">
+              <div className="flex flex-wrap gap-1.5">
+                {CONVERSATION_LIST_FILTERS.map((chip) => (
+                  <ConversationFilterChip
+                    key={chip.id}
+                    label={chip.label}
+                    icon={chip.icon}
+                    selected={filter === chip.id}
+                    onClick={() => setFilter(chip.id)}
+                  />
+                ))}
+              </div>
+            </LayoutGroup>
           </div>
         </TooltipProvider>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto relative z-[1]">
         {!showArchived && archivedCount > 0 && (
           <button
             type="button"
@@ -295,28 +341,42 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
           </button>
         )}
 
-        {filtered.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-            {showArchived
-              ? 'Nenhuma conversa arquivada.'
-              : searchQuery.trim()
-                ? 'Nenhuma conversa encontrada.'
-                : filter === 'unread'
-                  ? 'Nenhuma conversa não lida.'
-                  : filter === 'favorites'
-                    ? 'Nenhuma conversa favorita.'
-                    : 'Nenhuma conversa ainda. Toque em + para começar.'}
-          </div>
-        ) : (
-          filtered.map((conv) => (
-            <WhatsappConversationRow
-              key={conv.id}
-              conversation={conv}
-              isActive={activeConversationId === conv.id}
-              archived={showArchived}
-            />
-          ))
-        )}
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.div
+            key={showArchived ? 'archived' : filter}
+            initial={motionCfg.enabled ? { opacity: 0, y: 6 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            exit={motionCfg.enabled ? { opacity: 0, y: -4 } : undefined}
+            transition={{
+              opacity: { duration: 0.2, ease: MOTION_EASE },
+              y: motionCfg.springSoft,
+            }}
+          >
+            {filtered.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                {showArchived
+                  ? 'Nenhuma conversa arquivada.'
+                  : searchQuery.trim()
+                    ? 'Nenhuma conversa encontrada.'
+                    : filter === 'unread'
+                      ? 'Nenhuma conversa não lida.'
+                      : filter === 'favorites'
+                        ? 'Nenhuma conversa favorita.'
+                        : 'Nenhuma conversa ainda. Toque em + para começar.'}
+              </div>
+            ) : (
+              filtered.map((conv) => (
+                <WhatsappConversationRow
+                  key={conv.id}
+                  conversation={conv}
+                  isActive={activeConversationId === conv.id}
+                  archived={showArchived}
+                  onOpen={handleOpenConversation}
+                />
+              ))
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

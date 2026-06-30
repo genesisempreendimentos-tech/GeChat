@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { Check, CheckCheck, ExternalLink, FileText, Pin, Star } from 'lucide-react';
+import { ExternalLink, FileText, Pin, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { gechatSocket } from '@/lib/realtime/socket-client';
 import { MessageActionBar } from '@/modules/gechat/components/MessageActionBar';
+import { MessageReadReceiptsDialog } from '@/modules/gechat/components/MessageReadReceiptsDialog';
 import { ChatWallpaperBackground } from '@/modules/gechat/components/ChatWallpaperBackground';
 import { MessageReactions } from '@/modules/gechat/components/MessageReactions';
+import { MessageStatusTicks } from '@/modules/gechat/lib/message-status-ticks';
 import { useGeChatStore } from '@/store/gechatStore';
 import type { Message } from '@/modules/gechat/types';
 import {
@@ -17,6 +19,7 @@ import {
   parseMessageContent,
   renderFormattedText,
 } from '@/modules/gechat/lib/message-content';
+import { formatTypingPreview } from '@/modules/gechat/lib/format-typing-preview';
 function initials(name: string) {
   return name
     .split(' ')
@@ -27,11 +30,14 @@ function initials(name: string) {
 }
 
 function StatusIcon({ status }: { status: Message['status'] }) {
-  if (status === 'read') return <CheckCheck className="h-3 w-3 text-primary-foreground/90" />;
-  if (status === 'delivered') return <CheckCheck className="h-3 w-3 opacity-70" />;
-  if (status === 'sent') return <Check className="h-3 w-3 opacity-70" />;
-  if (status === 'failed') return <span className="text-[10px] text-destructive">!</span>;
-  return <Check className="h-3 w-3 opacity-40" />;
+  return (
+    <MessageStatusTicks
+      status={status}
+      size="md"
+      readClassName="text-sky-300"
+      pendingClassName="text-primary-foreground/70"
+    />
+  );
 }
 
 export type MemberProfile = {
@@ -100,26 +106,6 @@ function MessageBody({ message }: { message: Message }) {
   return <div className="whitespace-pre-wrap break-words">{renderFormattedText(parsed.text)}</div>;
 }
 
-function TypingDots() {
-  return (
-    <div className="flex items-center gap-1 px-0.5" aria-hidden>
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          className="h-1.5 w-1.5 rounded-full bg-muted-foreground/70"
-          animate={{ y: [0, -3, 0], opacity: [0.35, 1, 0.35] }}
-          transition={{
-            repeat: Infinity,
-            duration: 0.85,
-            delay: i * 0.14,
-            ease: 'easeInOut',
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function TypingBubble({
   conversationId,
   memberProfiles,
@@ -128,13 +114,17 @@ function TypingBubble({
   memberProfiles: Record<string, MemberProfile>;
 }) {
   const typingUsers = useGeChatStore((s) => s.typingUsersByConversation[conversationId] ?? []);
+  const typingNames = useGeChatStore((s) => s.typingNamesByConversation[conversationId] ?? {});
   const currentUserId = useGeChatStore((s) => s.currentUser?.id);
   const members = useGeChatStore((s) => s.membersByConversation[conversationId] ?? []);
 
-  const others = typingUsers.filter((id) => id !== currentUserId);
-  if (!others.length) return null;
+  const typingPreview = formatTypingPreview(typingUsers, currentUserId, {
+    ...Object.fromEntries(members.map((m) => [m.id, m.name])),
+    ...typingNames,
+  });
+  if (!typingPreview) return null;
 
-  const typerId = others[0];
+  const typerId = typingUsers.find((id) => id !== currentUserId) ?? typingUsers[0];
   const profile =
     memberProfiles[typerId] ??
     (() => {
@@ -151,7 +141,7 @@ function TypingBubble({
       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
       role="status"
       aria-live="polite"
-      aria-label={`${profile.name} está digitando`}
+      aria-label={typingPreview}
     >
       <motion.div
         animate={{ scale: [1, 1.05, 1] }}
@@ -159,8 +149,8 @@ function TypingBubble({
       >
         <MessageAvatar profile={profile} />
       </motion.div>
-      <div className="rounded-2xl bg-muted px-3.5 py-2.5 shadow-sm">
-        <TypingDots />
+      <div className="rounded-2xl bg-muted px-3.5 py-2.5 text-sm italic text-muted-foreground shadow-sm">
+        {typingPreview}
       </div>
     </motion.div>
   );
@@ -171,6 +161,7 @@ interface MessageListProps {
   currentUserId: string;
   memberProfiles: Record<string, MemberProfile>;
   conversationId: string;
+  isGroupLike?: boolean;
   onEditMessage?: (messageId: string, content: string) => void;
   onDeleteMessage?: (messageId: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
@@ -181,11 +172,17 @@ export function MessageList({
   currentUserId,
   memberProfiles,
   conversationId,
+  isGroupLike = false,
   onEditMessage,
   onDeleteMessage,
   onToggleReaction,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const lastScrollTailRef = useRef<string | null>(null);
+  const hideActionsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activeActionsId, setActiveActionsId] = useState<string | null>(null);
+  const [actionsMenuLocked, setActionsMenuLocked] = useState(false);
+  const [detailsMessageId, setDetailsMessageId] = useState<string | null>(null);
   const typingUsers = useGeChatStore((s) => s.typingUsersByConversation[conversationId] ?? []);
   const starred = useGeChatStore((s) => s.starredByConversation[conversationId] ?? []);
   const pinned = useGeChatStore((s) => s.pinnedByConversation[conversationId] ?? []);
@@ -200,8 +197,12 @@ export function MessageList({
   const [editDraft, setEditDraft] = useState('');
 
   useEffect(() => {
+    const last = messages[messages.length - 1];
+    const tail = last ? (last.clientId ?? last.id) : null;
+    if (!tail || tail === lastScrollTailRef.current) return;
+    lastScrollTailRef.current = tail;
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, messages[messages.length - 1]?.id, hasTyping, editingId]);
+  }, [messages, hasTyping, editingId]);
 
   const startEdit = (message: Message) => {
     const parsed = parseMessageContent(message);
@@ -220,6 +221,28 @@ export function MessageList({
     onEditMessage(editingId, editDraft.trim());
     cancelEdit();
   };
+
+  const showMessageActions = (messageKey: string) => {
+    if (hideActionsTimerRef.current) {
+      clearTimeout(hideActionsTimerRef.current);
+      hideActionsTimerRef.current = null;
+    }
+    setActiveActionsId(messageKey);
+  };
+
+  const scheduleHideMessageActions = () => {
+    if (hideActionsTimerRef.current) clearTimeout(hideActionsTimerRef.current);
+    hideActionsTimerRef.current = setTimeout(() => {
+      if (!actionsMenuLocked) setActiveActionsId(null);
+      hideActionsTimerRef.current = null;
+    }, 450);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hideActionsTimerRef.current) clearTimeout(hideActionsTimerRef.current);
+    };
+  }, []);
 
   if (!messages.length && !hasTyping) {
     return (
@@ -271,6 +294,9 @@ export function MessageList({
           gechatSocket.markRead(conversationId);
         };
 
+        const messageKey = msg.clientId ?? msg.id;
+        const actionsVisible = activeActionsId === messageKey;
+
         return (
           <div
             key={msg.clientId ?? msg.id}
@@ -280,13 +306,23 @@ export function MessageList({
             <div className={cn('flex max-w-[75%] flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
               <div
                 className={cn(
-                  'group/message relative pb-0 transition-[padding] duration-150',
-                  'group-hover/message:pb-12 group-focus-within/message:pb-12 has-[[data-state=open]]:pb-12',
+                  'relative',
+                  'z-0 hover:z-20 focus-within:z-20 has-[[data-state=open]]:z-20',
+                  actionsVisible && 'z-20',
                 )}
+                onMouseEnter={() => showMessageActions(messageKey)}
+                onMouseLeave={scheduleHideMessageActions}
+                onFocusCapture={() => showMessageActions(messageKey)}
+                onBlurCapture={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    scheduleHideMessageActions();
+                  }
+                }}
               >
+                <div className="relative">
                 <div
                   className={cn(
-                    'relative rounded-2xl px-3 py-2 text-sm shadow-sm',
+                    'relative z-10 rounded-2xl px-3 py-2 text-sm shadow-sm',
                     isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
                     isStarred && 'ring-1 ring-amber-400/40',
                     isPinned && 'ring-1 ring-primary/30',
@@ -377,6 +413,15 @@ export function MessageList({
                     isPinned={isPinned}
                     canEdit={!!canEdit}
                     alignEnd={isOwn}
+                    visible={actionsVisible}
+                    onMenuOpenChange={(open) => {
+                      setActionsMenuLocked(open);
+                      if (open) {
+                        showMessageActions(messageKey);
+                      } else {
+                        scheduleHideMessageActions();
+                      }
+                    }}
                     onReact={(emoji) => onToggleReaction?.(msg.id, emoji)}
                     onQuote={handleQuote}
                     onForward={handleForward}
@@ -385,8 +430,11 @@ export function MessageList({
                     onTogglePin={() => togglePin(conversationId, msg.id)}
                     onDelete={isOwn && onDeleteMessage ? () => onDeleteMessage(msg.id) : undefined}
                     onEdit={canEdit ? () => startEdit(msg) : undefined}
+                    showDetails={isOwn && isGroupLike}
+                    onShowDetails={() => setDetailsMessageId(msg.id)}
                   />
                 )}
+                </div>
               </div>
 
               {!isEditing && (
@@ -406,6 +454,15 @@ export function MessageList({
 
       <div ref={bottomRef} />
       </div>
+
+      <MessageReadReceiptsDialog
+        open={detailsMessageId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailsMessageId(null);
+        }}
+        conversationId={conversationId}
+        messageId={detailsMessageId}
+      />
     </ChatWallpaperBackground>
   );
 }

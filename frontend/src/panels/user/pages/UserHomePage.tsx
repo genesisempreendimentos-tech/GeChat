@@ -16,12 +16,20 @@ const INFO_PANEL_WIDTH = 288;
 export default function UserHomePage() {
   const { conversationId } = useParams<{ conversationId?: string }>();
   const navigate = useNavigate();
-  const { conversations, openConversation, sendMessage, editMessage, deleteMessage, toggleReaction } =
-    useGeChat();
+  const conversations = useGeChatStore((s) => s.conversations);
+  const {
+    openConversation,
+    loadConversations,
+    sendMessage,
+    editMessage,
+    deleteMessage,
+    toggleReaction,
+  } = useGeChat();
   const setActiveConversation = useGeChatStore((s) => s.setActiveConversation);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [infoOpen, setInfoOpen] = useState(false);
   const introHandled = useRef(false);
+  const reloadAttempted = useRef<string | null>(null);
 
   const activeConversation = useMemo(
     () => (conversationId ? conversations.find((c) => c.id === conversationId) ?? null : null),
@@ -29,12 +37,22 @@ export default function UserHomePage() {
   );
 
   useEffect(() => {
-    if (conversationId) {
-      void openConversation(conversationId);
-    } else {
+    if (!conversationId) {
       setActiveConversation(null);
+      return;
     }
+    void openConversation(conversationId);
   }, [conversationId, openConversation, setActiveConversation]);
+
+  useEffect(() => {
+    if (!conversationId || activeConversation) {
+      reloadAttempted.current = null;
+      return;
+    }
+    if (reloadAttempted.current === conversationId) return;
+    reloadAttempted.current = conversationId;
+    void loadConversations();
+  }, [conversationId, activeConversation, loadConversations]);
 
   useEffect(() => {
     setInfoOpen(false);
@@ -64,7 +82,11 @@ export default function UserHomePage() {
     return (
       <div className="flex h-full flex-col">
         <ConnectionBanner />
-        <DirectConversationsHome conversations={conversations} onCreated={handleCreated} />
+        <DirectConversationsHome
+          conversations={conversations}
+          onCreated={handleCreated}
+          onOpen={(id) => void openConversation(id)}
+        />
       </div>
     );
   }
@@ -87,12 +109,14 @@ export default function UserHomePage() {
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {showGroupInfo ? (
           <GroupInfoView
+            key={activeConversation.id}
             conversation={activeConversation}
             onClose={() => setInfoOpen(false)}
           />
         ) : (
           <>
             <ChatWindow
+              key={activeConversation.id}
               conversation={activeConversation}
               onSend={sendMessage}
               onEditMessage={editMessage}

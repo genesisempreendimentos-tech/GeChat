@@ -44,6 +44,12 @@ export const motionModalTransition = {
   y: { type: 'spring', stiffness: 220, damping: 26, mass: 1 },
 } as const;
 
+/** Entrada discreta para modais simples — fade + leve escala, sem bounce. */
+export const motionModalTransitionSubtle: Transition = {
+  duration: 0.22,
+  ease: MOTION_EASE,
+};
+
 export const motionPageTransition: Transition = {
   duration: 0.32,
   ease: MOTION_EASE,

@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 const BACKEND_DIR = path.resolve(__dirname, '../backend')
+const FRONTEND_PORT = Number(process.env.FRONTEND_PORT) || 5180
 
 function readServerPortFromEnvFile(): number | null {
   const envPath = path.join(BACKEND_DIR, '.env')
@@ -41,6 +42,9 @@ function getBackendPort(): number {
   return 3001
 }
 
+const backendPort = getBackendPort()
+const backendTarget = `http://127.0.0.1:${backendPort}`
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -66,29 +70,36 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
   },
   server: {
-    host: true,
-    port: 5173,
+    host: '0.0.0.0',
+    port: FRONTEND_PORT,
     strictPort: false,
+    hmr: {
+      port: FRONTEND_PORT,
+      clientPort: FRONTEND_PORT,
+    },
     proxy: {
       '/api': {
-        target: `http://localhost:${getBackendPort()}`,
+        target: backendTarget,
         changeOrigin: true,
-        router: () => `http://localhost:${getBackendPort()}`,
         configure: (proxy) => {
           proxy.on('proxyReq', (proxyReq, req) => {
-            const h = req.headers;
-            const auth = h.authorization ?? h.Authorization;
-            const value = Array.isArray(auth) ? auth.join(', ') : auth;
-            if (value) proxyReq.setHeader('Authorization', value);
-          });
+            const h = req.headers
+            const auth = h.authorization ?? h.Authorization
+            const value = Array.isArray(auth) ? auth.join(', ') : auth
+            if (value) proxyReq.setHeader('Authorization', value)
+          })
         },
       },
       '/socket.io': {
-        target: `http://localhost:${getBackendPort()}`,
+        target: backendTarget,
         changeOrigin: true,
         ws: true,
-        router: () => `http://localhost:${getBackendPort()}`,
       },
     },
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: FRONTEND_PORT,
+    strictPort: false,
   },
 })

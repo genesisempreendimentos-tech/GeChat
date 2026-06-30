@@ -5,8 +5,6 @@ import {
   ArchiveRestore,
   Ban,
   BellOff,
-  Check,
-  CheckCheck,
   ChevronDown,
   Heart,
   ListPlus,
@@ -16,7 +14,8 @@ import {
   PinOff,
   Trash2,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { type KeyboardEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -31,6 +30,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { formatLastMessagePreview } from '@/modules/gechat/lib/format-conversation-preview';
+import { formatTypingPreview } from '@/modules/gechat/lib/format-typing-preview';
+import { MessageStatusTicks } from '@/modules/gechat/lib/message-status-ticks';
 import { gechatApi } from '@/modules/gechat/services/gechat-api';
 import type { Conversation } from '@/modules/gechat/types';
 import { useGeChatStore } from '@/store/gechatStore';
@@ -66,18 +67,25 @@ interface WhatsappConversationRowProps {
   conversation: Conversation;
   isActive: boolean;
   archived?: boolean;
+  onOpen?: (conversationId: string) => void;
 }
 
 export function WhatsappConversationRow({
   conversation,
   isActive,
   archived = false,
+  onOpen,
 }: WhatsappConversationRowProps) {
+  const navigate = useNavigate();
   const currentUserId = useGeChatStore((s) => s.currentUser?.id);
-  const unread = useGeChatStore((s) => s.unreadCounters[conversation.id] ?? conversation.unreadCount ?? 0);
+  const unread = useGeChatStore((s) => {
+    if (isActive) return 0;
+    return s.unreadCounters[conversation.id] ?? conversation.unreadCount ?? 0;
+  });
   const setUnread = useGeChatStore((s) => s.setUnread);
   const members = useGeChatStore((s) => s.membersByConversation[conversation.id] ?? []);
   const typingUsers = useGeChatStore((s) => s.typingUsersByConversation[conversation.id] ?? []);
+  const typingNames = useGeChatStore((s) => s.typingNamesByConversation[conversation.id] ?? {});
   const onlineUsers = useGeChatStore((s) => s.onlineUsers);
   const isPinned = useConversationListStore((s) => s.pinnedIds.includes(conversation.id));
   const isFavorite = useConversationListStore((s) => s.favoriteIds.includes(conversation.id));
@@ -90,9 +98,12 @@ export function WhatsappConversationRow({
 
   const label = conversation.displayName ?? conversation.name ?? 'Conversa';
   const last = conversation.lastMessage;
-  const isTyping = typingUsers.some((id) => id !== currentUserId);
+  const typingPreview = formatTypingPreview(typingUsers, currentUserId, {
+    ...Object.fromEntries(members.map((m) => [m.id, m.name])),
+    ...typingNames,
+  });
+  const isTyping = Boolean(typingPreview);
   const isOwnLast = last?.senderId === currentUserId;
-  const isGroupLike = conversation.type === 'group' || conversation.type === 'channel';
 
   const senderProfile =
     last && last.senderId !== currentUserId
@@ -101,7 +112,7 @@ export function WhatsappConversationRow({
       : undefined;
 
   const preview = isTyping
-    ? 'digitando…'
+    ? typingPreview!
     : formatLastMessagePreview(last, conversation, currentUserId, senderProfile?.name);
 
   const isOnline =
@@ -109,8 +120,31 @@ export function WhatsappConversationRow({
       ? onlineUsers[conversation.otherMemberId]
       : false;
 
-  const showReadStatus =
-    isOwnLast && last?.status && !isTyping && (conversation.type === 'direct' || isGroupLike);
+  const showReadStatus = isOwnLast && last?.status && !isTyping;
+
+  const handleOpenConversation = () => {
+    if (unread > 0) {
+      useGeChatStore.getState().clearUnread(conversation.id);
+    }
+    if (onOpen) {
+      onOpen(conversation.id);
+      return;
+    }
+    navigate(`/c/${conversation.id}`);
+  };
+
+  const handleRowClick = () => {
+    handleOpenConversation();
+  };
+
+  const handleRowKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleRowClick();
+    }
+  };
+
+  const isGroupLike = conversation.type === 'group' || conversation.type === 'channel';
 
   const handleMute = async (muted: boolean) => {
     try {
@@ -138,13 +172,17 @@ export function WhatsappConversationRow({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={handleRowClick}
+      onKeyDown={handleRowKeyDown}
       className={cn(
-        'group relative flex items-stretch transition-colors hover:bg-muted/50',
+        'group relative flex cursor-pointer items-stretch transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
         isActive && 'bg-muted/70',
         unread > 0 && !isActive && 'bg-primary/[0.04]',
       )}
     >
-      <Link to={`/c/${conversation.id}`} className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-3 pr-1">
+      <div className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-3 pr-1">
         <div className="relative shrink-0">
           <Avatar className="h-[49px] w-[49px]">
             <AvatarImage src={conversation.avatar} alt="" />
@@ -173,26 +211,23 @@ export function WhatsappConversationRow({
             )}
           >
             {showReadStatus && (
-              <span
-                className={cn(
-                  'inline-flex shrink-0',
-                  last?.status === 'read' ? 'text-primary' : 'text-muted-foreground/80',
-                )}
-                aria-hidden
-              >
-                {last?.status === 'read' ? (
-                  <CheckCheck className="h-[15px] w-[15px]" strokeWidth={2} />
-                ) : (
-                  <Check className="h-[15px] w-[15px]" strokeWidth={2} />
-                )}
-              </span>
+              <MessageStatusTicks
+                status={last?.status}
+                size="sm"
+                readClassName="text-sky-500"
+                pendingClassName="text-muted-foreground/75"
+              />
             )}
             <span className="truncate">{preview}</span>
           </p>
         </div>
-      </Link>
+      </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-1 py-2.5 pr-3 pl-0.5">
+      <div
+        className="flex shrink-0 flex-col items-end gap-1 py-2.5 pr-3 pl-0.5"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
         <span
           className={cn(
             'text-[12px] tabular-nums leading-none',
@@ -203,7 +238,7 @@ export function WhatsappConversationRow({
         </span>
 
         <div className="flex h-[18px] items-center justify-end gap-0.5">
-          {unread > 0 && (
+          {unread > 0 && !isActive && (
             <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-primary-foreground group-hover:hidden">
               {unread > 99 ? '99+' : unread}
             </span>

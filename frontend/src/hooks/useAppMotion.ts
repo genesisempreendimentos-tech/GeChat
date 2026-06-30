@@ -4,6 +4,7 @@ import type { Transition } from 'framer-motion';
 import {
   motionModalSpring,
   motionModalTransition,
+  motionModalTransitionSubtle,
   motionPageTransition,
   motionSpring,
   motionSpringSoft,
@@ -26,6 +27,7 @@ export function useAppMotion() {
       odometerSlotTransition: animations ? motionOdometerSlotTransition : INSTANT,
       modalSpring: animations ? motionModalSpring : INSTANT,
       modalTransition: animations ? motionModalTransition : INSTANT,
+      modalTransitionSubtle: animations ? motionModalTransitionSubtle : INSTANT,
       staggerStep: animations ? 0.06 : 0,
       revealDelay: (index: number) => (animations ? index * 0.06 : 0),
     }),

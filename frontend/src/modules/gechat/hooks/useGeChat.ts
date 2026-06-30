@@ -35,6 +35,21 @@ export function useGeChatBootstrap() {
         setPresence(id, state);
       }
     }
+
+    const groupLike = list.filter((c) => c.type === 'group' || c.type === 'channel');
+    await Promise.all(
+      groupLike.map(async (conv) => {
+        try {
+          const { members } = await gechatApi.getMembers(conv.id);
+          useGeChatStore.getState().setMembers(
+            conv.id,
+            members.map((m) => m.profile ?? { id: m.userId, name: 'Usuário' }),
+          );
+        } catch {
+          /* membros opcionais na lista */
+        }
+      }),
+    );
   }, [setConversations, setPresence]);
 
   useEffect(() => {
@@ -74,6 +89,21 @@ export function useGeChat() {
         useGeChatStore.getState().setPresence(id, state);
       }
     }
+
+    const groupLike = list.filter((c) => c.type === 'group' || c.type === 'channel');
+    await Promise.all(
+      groupLike.map(async (conv) => {
+        try {
+          const { members } = await gechatApi.getMembers(conv.id);
+          useGeChatStore.getState().setMembers(
+            conv.id,
+            members.map((m) => m.profile ?? { id: m.userId, name: 'Usuário' }),
+          );
+        } catch {
+          /* membros opcionais na lista */
+        }
+      }),
+    );
   }, []);
 
   const openConversation = useCallback(
@@ -82,6 +112,7 @@ export function useGeChat() {
       clearUnread(conversationId);
       gechatSocket.joinConversation(conversationId);
       gechatSocket.markRead(conversationId);
+      gechatApi.markAsRead(conversationId).catch(console.error);
 
       const hasCachedMessages = Boolean(
         useGeChatStore.getState().messagesByConversation[conversationId]?.length,
@@ -161,7 +192,7 @@ export function useGeChat() {
         useGeChatStore.getState().upsertMessage(activeConversationId, {
           ...result.message,
           clientId,
-          status: 'sent',
+          status: result.message.status ?? 'sent',
         });
       }
     },

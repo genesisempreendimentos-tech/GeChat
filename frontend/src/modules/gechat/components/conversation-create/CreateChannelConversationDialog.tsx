@@ -86,7 +86,11 @@ export function CreateChannelConversationDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg gap-0 p-0 overflow-hidden" dismissOnOutsideClick={false}>
+      <DialogContent
+        className="max-w-lg gap-0 p-0 overflow-hidden"
+        entranceStyle="subtle"
+        dismissOnOutsideClick={false}
+      >
         <DialogHeader className="space-y-3 border-b border-border/60 px-6 py-5 text-left">
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/15 to-violet-500/5 text-violet-600 dark:text-violet-400">

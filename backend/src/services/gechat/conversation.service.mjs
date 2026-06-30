@@ -24,7 +24,7 @@ async function attachLastMessageAndUnread(conversations, userId) {
   const result = [];
   for (const conv of conversations) {
     const lastRows = await sql`
-      SELECT id, content, sender_id, created_at, status
+      SELECT id, content, sender_id, created_at, status, type
       FROM gechat_messages
       WHERE conversation_id = ${conv.id}
       ORDER BY created_at DESC
@@ -37,6 +37,7 @@ async function attachLastMessageAndUnread(conversations, userId) {
           senderId: lastRows[0].sender_id,
           createdAt: lastRows[0].created_at,
           status: lastRows[0].status,
+          type: lastRows[0].type,
         }
       : null;
     const unreadCount = await getUnreadCount(conv.id, userId);

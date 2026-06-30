@@ -1,5 +1,5 @@
 import { getUserConversationIds, isMember, canPostInConversation } from '../services/gechat/membership.service.mjs';
-import { createMessage, markConversationAsRead, updateMessageStatus, editMessage, deleteMessage } from '../services/gechat/message.service.mjs';
+import { createMessage, markConversationAsRead, updateMessageStatus, editMessage, deleteMessage, recordDeliveriesForOnlineMembers, recordPendingDeliveries } from '../services/gechat/message.service.mjs';
 import { toggleReaction } from '../services/gechat/reaction.service.mjs';
 import { getConversationById } from '../services/gechat/conversation.service.mjs';
 import { getUserPrivacy, getPrivacyForUsers, maskPresenceForViewer } from '../services/gechat/privacy.service.mjs';
@@ -43,8 +43,10 @@ export function registerSocketEvents(io, socket) {
       });
 
       const enriched = { ...message, clientId };
-      io.to(conversationRoom(conversationId)).emit('message:new', enriched);
+      socket.to(conversationRoom(conversationId)).emit('message:new', enriched);
       socket.emit('message:sent', { messageId: message.id, clientId, status: 'sent' });
+
+      await recordDeliveriesForOnlineMembers(message.id, conversationId, userId);
 
       const members = await import('../services/gechat/membership.service.mjs').then((m) =>
         m.getConversationMembers(conversationId),
@@ -190,6 +192,11 @@ export function registerSocketEvents(io, socket) {
     if (!conversationId) return;
     if (!(await isMember(conversationId, userId))) return;
     socket.join(conversationRoom(conversationId));
+    try {
+      await recordPendingDeliveries(conversationId, userId);
+    } catch (err) {
+      console.error('[socket conversation:join deliveries]', err);
+    }
   });
 
   socket.on('disconnect', async () => {
