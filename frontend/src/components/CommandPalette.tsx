@@ -8,13 +8,14 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { LayoutGrid, Settings } from 'lucide-react';
+import { MessageSquare, Settings } from 'lucide-react';
 import { BRAND_LOGO_SRC } from '@/lib/brandAssets';
-import { vitrinePath } from '@/lib/panels';
+import { useGeChatStore } from '@/store/gechatStore';
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false);
   const navigate = useNavigate();
+  const conversations = useGeChatStore((s) => s.conversations);
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -32,11 +33,6 @@ export function CommandPalette() {
     command();
   }, []);
 
-  const items = Array.from({ length: 6 }, (_, i) => ({
-    label: `Item ${i + 1}`,
-    path: vitrinePath(`/item-${i + 1}`),
-  }));
-
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-4 py-3 pr-14 min-h-[52px]">
@@ -45,17 +41,24 @@ export function CommandPalette() {
         </div>
         <span className="font-semibold text-foreground text-sm">GêChat</span>
       </div>
-      <CommandInput placeholder="Buscar páginas..." />
+      <CommandInput placeholder="Buscar conversas..." />
       <CommandList>
         <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
-        <CommandGroup heading="Navegação">
-          {items.map((item) => (
-            <CommandItem key={item.path} onSelect={() => runCommand(() => navigate(item.path))}>
-              <LayoutGrid className="mr-2 h-4 w-4" />
-              <span>{item.label}</span>
-            </CommandItem>
-          ))}
-          <CommandItem onSelect={() => runCommand(() => navigate(vitrinePath('/settings')))}>
+        {conversations.length > 0 && (
+          <CommandGroup heading="Conversas">
+            {conversations.slice(0, 8).map((conv) => (
+              <CommandItem
+                key={conv.id}
+                onSelect={() => runCommand(() => navigate(`/c/${conv.id}`))}
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                <span>{conv.displayName ?? conv.name ?? 'Conversa'}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        <CommandGroup heading="Ações">
+          <CommandItem onSelect={() => runCommand(() => navigate('/settings'))}>
             <Settings className="mr-2 h-4 w-4" />
             <span>Configurações</span>
           </CommandItem>

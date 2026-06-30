@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Archive,
   ArrowLeft,
+  Eye,
   MoreVertical,
   Search,
   Settings,
@@ -17,6 +18,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -42,6 +44,7 @@ import { MOTION_EASE } from '@/lib/motionPresets';
 
 interface ConversationListPanelProps {
   isExpanded: boolean;
+  onSidebarHoverLockChange?: (locked: boolean) => void;
 }
 
 function conversationInitials(name: string) {
@@ -132,7 +135,10 @@ function ConversationFilterChip({
   );
 }
 
-export function ConversationListPanel({ isExpanded }: ConversationListPanelProps) {
+export function ConversationListPanel({
+  isExpanded,
+  onSidebarHoverLockChange,
+}: ConversationListPanelProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { openConversation } = useGeChat();
@@ -142,11 +148,18 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
   const favoriteIds = useConversationListStore((s) => s.favoriteIds);
   const pinnedIds = useConversationListStore((s) => s.pinnedIds);
   const archivedIds = useConversationListStore((s) => s.archivedIds);
+  const readInBackground = useConversationListStore((s) => s.readInBackground);
+  const setReadInBackground = useConversationListStore((s) => s.setReadInBackground);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<ConversationListFilter>('all');
   const [showArchived, setShowArchived] = useState(false);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const motionCfg = useAppMotion();
+
+  const handleMenuLockChange = (open: boolean) => {
+    onSidebarHoverLockChange?.(open);
+  };
 
   const activeConversationId = location.pathname.startsWith('/c/')
     ? location.pathname.split('/c/')[1]?.split('/')[0]
@@ -230,7 +243,7 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
                       </AvatarFallback>
                     </Avatar>
                     {unread > 0 && (
-                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-medium text-primary-foreground ring-2 ring-background">
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[9px] font-medium text-white ring-2 ring-background">
                         {unread > 9 ? '9+' : unread}
                       </span>
                     )}
@@ -279,13 +292,44 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
             className="h-9 w-9 rounded-full border-0 bg-transparent p-0 shadow-none hover:bg-muted"
             triggerIconOnly
           />
-          <DropdownMenu>
+          <DropdownMenu
+            open={headerMenuOpen}
+            onOpenChange={(open) => {
+              setHeaderMenuOpen(open);
+              handleMenuLockChange(open);
+            }}
+            modal={false}
+          >
             <DropdownMenuTrigger asChild>
               <Button type="button" variant="ghost" size="icon" className="h-9 w-9" aria-label="Menu">
                 <MoreVertical className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" sideOffset={8} className="w-60">
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                onClick={() => setReadInBackground(!readInBackground)}
+                className="flex cursor-pointer items-center justify-between gap-2"
+              >
+                <span className="flex items-center gap-2">
+                  <Eye className="h-4 w-4 shrink-0" />
+                  Leitura em segundo plano
+                </span>
+                <span
+                  className={cn(
+                    'ml-auto flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors',
+                    readInBackground ? 'bg-emerald-500' : 'bg-muted-foreground/30',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'h-4 w-4 rounded-full bg-white shadow transition-transform',
+                      readInBackground ? 'translate-x-4' : 'translate-x-0',
+                    )}
+                  />
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate('/settings')}>
                 <Settings className="mr-2 h-4 w-4" />
                 Configurações
@@ -365,15 +409,23 @@ export function ConversationListPanel({ isExpanded }: ConversationListPanelProps
                         : 'Nenhuma conversa ainda. Toque em + para começar.'}
               </div>
             ) : (
-              filtered.map((conv) => (
-                <WhatsappConversationRow
-                  key={conv.id}
-                  conversation={conv}
-                  isActive={activeConversationId === conv.id}
-                  archived={showArchived}
-                  onOpen={handleOpenConversation}
-                />
-              ))
+              <LayoutGroup id="gechat-conv-rows">
+                {filtered.map((conv) => (
+                  <motion.div
+                    key={conv.id}
+                    layout="position"
+                    transition={{ type: 'spring', stiffness: 500, damping: 48, mass: 0.5 }}
+                  >
+                    <WhatsappConversationRow
+                      conversation={conv}
+                      isActive={activeConversationId === conv.id}
+                      archived={showArchived}
+                      onOpen={handleOpenConversation}
+                      onMenuOpenChange={handleMenuLockChange}
+                    />
+                  </motion.div>
+                ))}
+              </LayoutGroup>
             )}
           </motion.div>
         </AnimatePresence>

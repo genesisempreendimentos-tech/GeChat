@@ -6,11 +6,14 @@ interface ConversationListState {
   pinnedIds: string[];
   archivedIds: string[];
   mutedIds: string[];
+  /** Quando false (padrão), só marca como lido quando a aba está visível. */
+  readInBackground: boolean;
   toggleFavorite: (conversationId: string) => void;
   togglePin: (conversationId: string) => void;
   archive: (conversationId: string) => void;
   unarchive: (conversationId: string) => void;
   setMuted: (conversationId: string, muted: boolean) => void;
+  setReadInBackground: (v: boolean) => void;
   isFavorite: (conversationId: string) => boolean;
   isPinned: (conversationId: string) => boolean;
   isArchived: (conversationId: string) => boolean;
@@ -24,6 +27,9 @@ export const useConversationListStore = create<ConversationListState>()(
       pinnedIds: [],
       archivedIds: [],
       mutedIds: [],
+      readInBackground: false,
+
+      setReadInBackground: (v) => set({ readInBackground: v }),
 
       toggleFavorite: (conversationId) =>
         set((state) => {

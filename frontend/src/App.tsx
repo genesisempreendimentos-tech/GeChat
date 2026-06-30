@@ -13,25 +13,19 @@ import { initGeChatAudit } from '@/assets/audit-log';
 import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
-import { vitrinePath } from '@/lib/panels';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useAdminShortcut } from '@/hooks/useAdminShortcut';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useNaoGritaPopup, NaoGritaPopup } from '@/hooks/useNaoGritaPopup';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { CommandPalette } from '@/components/CommandPalette';
-import { BottomNavigation } from '@/components/BottomNavigation';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
-import { OnboardingTour } from '@/components/OnboardingTour';
 import { LoadingGif } from '@/components/LoadingGif';
 import AuthLayout from '@/layouts/AuthLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AdminRoute from '@/components/AdminRoute';
 import AdminLayout from '@/admin/AdminLayout';
 import { UserLayout, UserHomePage, PersonalSettingsPage } from '@/panels/user';
-import { VitrineLayout, vitrineLegacyRedirectRoutes } from '@/panels/vitrine';
-import VitrineItemPage from '@/panels/vitrine/pages/VitrineItemPage';
 
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
@@ -75,22 +69,6 @@ function LoginRoute() {
     );
   }
   return <Navigate to={internalAfterAuth} replace />;
-}
-
-function VitrinePanelExtras() {
-  const location = useLocation();
-  const isVitrine = location.pathname.startsWith('/vitrine');
-  const isSettings = /\/settings\/?$/.test(location.pathname);
-
-  if (!isVitrine || isSettings) return null;
-
-  return (
-    <>
-      <CommandPalette />
-      <BottomNavigation />
-      <OnboardingTour />
-    </>
-  );
 }
 
 function AuthenticatedArea() {
@@ -139,30 +117,11 @@ function AppRoutes() {
         </Route>
 
         <Route element={<AuthenticatedArea />}>
-          {vitrineLegacyRedirectRoutes}
-
-          <Route path="/gechat" element={<Navigate to="/" replace />} />
-          <Route path="/item-1" element={<Navigate to="/" replace />} />
-          <Route path="/item-2" element={<Navigate to="/" replace />} />
-          <Route path="/item-3" element={<Navigate to="/" replace />} />
-          <Route path="/item-4" element={<Navigate to="/" replace />} />
-
           <Route element={<UserLayout />}>
             <Route index element={<UserHomePage />} />
             <Route path="/c/:conversationId" element={<UserHomePage />} />
             <Route path="/settings" element={<PersonalSettingsPage />} />
-          </Route>
-
-          <Route path="/vitrine" element={<VitrineLayout />}>
-            <Route index element={<Navigate to={vitrinePath('/item-1')} replace />} />
-            <Route path="item-1" element={<VitrineItemPage itemNumber={1} />} />
-            <Route path="item-2" element={<VitrineItemPage itemNumber={2} />} />
-            <Route path="item-3" element={<VitrineItemPage itemNumber={3} />} />
-            <Route path="item-4" element={<VitrineItemPage itemNumber={4} />} />
-            <Route path="item-5" element={<VitrineItemPage itemNumber={5} />} />
-            <Route path="item-6" element={<VitrineItemPage itemNumber={6} />} />
-            <Route path="notifications" element={<NotificationsPage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
           </Route>
         </Route>
 
@@ -184,7 +143,6 @@ function AppRoutes() {
       </Routes>
 
       <NaoGritaPopup show={showPopup} onClose={() => setShowPopup(false)} />
-      {isAuthenticated && <VitrinePanelExtras />}
     </>
   );
 }

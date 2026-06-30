@@ -18,6 +18,8 @@ interface ChatWindowProps {
   onBack?: () => void;
   infoOpen?: boolean;
   onToggleInfo?: () => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
 }
 
 export function ChatWindow({
@@ -29,12 +31,15 @@ export function ChatWindow({
   onBack,
   infoOpen,
   onToggleInfo,
+  onLoadMore,
+  hasMore,
 }: ChatWindowProps) {
   const messages = useGeChatStore((s) => s.messagesByConversation[conversation.id] ?? []);
   const currentUserId = useGeChatStore((s) => s.currentUser?.id);
   const members = useGeChatStore((s) => s.membersByConversation[conversation.id] ?? []);
   const connectionStatus = useGeChatStore((s) => s.connectionStatus);
   const myGroupRole = useGeChatStore((s) => s.myGroupRoleByConversation[conversation.id]);
+  const hasMoreMessages = useGeChatStore((s) => Boolean(s.nextCursorByConversation?.[conversation.id]));
 
   const memberProfiles = useMemo(() => {
     const map: Record<string, { name: string; avatar?: string }> = {};
@@ -55,7 +60,7 @@ export function ChatWindow({
   const isGroup = conversation.type === 'group';
   const isGroupLike = conversation.type === 'group' || conversation.type === 'channel';
   const sendRestricted =
-    isGroup && Boolean(conversation.onlyAdminsCanSend) && myGroupRole !== 'admin';
+    isGroupLike && Boolean(conversation.onlyAdminsCanSend) && myGroupRole !== 'admin';
   const headerOpensInfo = isGroup && Boolean(onToggleInfo);
   const showInfoButton = Boolean(onToggleInfo) && !isGroup;
 
@@ -135,6 +140,8 @@ export function ChatWindow({
           onEditMessage={onEditMessage}
           onDeleteMessage={onDeleteMessage}
           onToggleReaction={onToggleReaction}
+          hasMore={hasMore ?? hasMoreMessages}
+          onLoadMore={onLoadMore}
         />
       </div>
       {sendRestricted ? (

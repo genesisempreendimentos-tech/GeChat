@@ -222,24 +222,20 @@ export async function recordDeliveriesForOnlineMembers(messageId, conversationId
 export async function recordPendingDeliveries(conversationId, userId) {
   const sql = getSql();
   const now = new Date().toISOString();
-  const pending = await sql`
-    SELECT id FROM gechat_messages
-    WHERE conversation_id = ${conversationId}
-      AND sender_id != ${userId}
-      AND id NOT IN (
-        SELECT message_id FROM gechat_message_deliveries WHERE user_id = ${userId}
+  const result = await sql`
+    INSERT INTO gechat_message_deliveries (message_id, user_id, delivered_at)
+    SELECT m.id, ${userId}, ${now}
+    FROM gechat_messages m
+    WHERE m.conversation_id = ${conversationId}
+      AND m.sender_id != ${userId}
+      AND NOT EXISTS (
+        SELECT 1 FROM gechat_message_deliveries d
+        WHERE d.message_id = m.id AND d.user_id = ${userId}
       )
+    ON CONFLICT (message_id, user_id) DO NOTHING
+    RETURNING message_id
   `;
-
-  for (const msg of pending) {
-    await sql`
-      INSERT INTO gechat_message_deliveries (message_id, user_id, delivered_at)
-      VALUES (${msg.id}, ${userId}, ${now})
-      ON CONFLICT (message_id, user_id) DO NOTHING
-    `;
-  }
-
-  return pending.length;
+  return result.length;
 }
 
 export async function getMessageReceiptDetails(messageId, conversationId, userId) {

@@ -8,6 +8,9 @@ import { ConversationInfoPanel } from '@/modules/gechat/components/ConversationI
 import { GroupInfoView } from '@/modules/gechat/components/GroupInfoView';
 import { ConnectionBanner } from '@/modules/gechat/components/ConnectionBanner';
 import { useGeChatStore } from '@/store/gechatStore';
+import { useConversationListStore } from '@/store/conversationListStore';
+import { gechatSocket } from '@/lib/realtime/socket-client';
+import { gechatApi } from '@/modules/gechat/services/gechat-api';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 const DETAILS_INTRO_KEY = 'gechat-details-intro-shown';
@@ -24,6 +27,7 @@ export default function UserHomePage() {
     editMessage,
     deleteMessage,
     toggleReaction,
+    loadMoreMessages,
   } = useGeChat();
   const setActiveConversation = useGeChatStore((s) => s.setActiveConversation);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -56,6 +60,23 @@ export default function UserHomePage() {
 
   useEffect(() => {
     setInfoOpen(false);
+  }, [conversationId]);
+
+  // Quando o usuário volta à aba (após ter ficado em background), marca a
+  // conversa ativa como lida — respeitando a setting "leitura em segundo plano".
+  useEffect(() => {
+    if (!conversationId) return;
+    const onVisible = () => {
+      if (document.hidden) return;
+      const { readInBackground } = useConversationListStore.getState();
+      if (!readInBackground) {
+        gechatSocket.markRead(conversationId);
+        gechatApi.markAsRead(conversationId).catch(console.error);
+        useGeChatStore.getState().clearUnread(conversationId);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [conversationId]);
 
   useEffect(() => {
@@ -122,6 +143,7 @@ export default function UserHomePage() {
               onEditMessage={editMessage}
               onDeleteMessage={deleteMessage}
               onToggleReaction={toggleReaction}
+              onLoadMore={loadMoreMessages ? () => loadMoreMessages(activeConversation.id) : undefined}
               onBack={() => navigate('/')}
               infoOpen={showSideInfo}
               onToggleInfo={() => setInfoOpen((v) => !v)}

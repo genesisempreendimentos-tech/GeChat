@@ -13,7 +13,9 @@ import {
   Settings,
   Shield,
   Sun,
+  Volume2,
 } from 'lucide-react';
+import { getSoundById } from '@/modules/gechat/lib/notification-sounds';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MainViewFluidShell } from '@/components/layout/MainViewFluidShell';
@@ -23,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/store/settingsStore';
 import { getChatWallpaperById } from '@/modules/gechat/lib/chat-wallpapers';
 import { ChatWallpaperSettingsDialog } from '@/modules/gechat/components/ChatWallpaperSettingsDialog';
+import { NotificationSoundSettingsDialog } from '@/modules/gechat/components/NotificationSoundSettingsDialog';
 import { gechatApi } from '@/modules/gechat/services/gechat-api';
 import { useGeChatStore } from '@/store/gechatStore';
 import type { PrivacySettings } from '@/modules/gechat/types';
@@ -106,13 +109,17 @@ export default function PersonalSettingsPage() {
     accentColor,
     chatWallpaperId,
     chatWallpaperIntensity,
+    notificationSoundId,
     setThemeMode,
     setAccentColor,
     resetSettings,
   } = useSettingsStore();
 
+  const [soundDialogOpen, setSoundDialogOpen] = useState(false);
   const [wallpaperDialogOpen, setWallpaperDialogOpen] = useState(false);
   const currentWallpaper = getChatWallpaperById(chatWallpaperId);
+  const currentSound = getSoundById(notificationSoundId);
+  const CurrentSoundIcon = currentSound.icon;
 
   const privacy = useGeChatStore((s) => s.privacy);
   const setPrivacy = useGeChatStore((s) => s.setPrivacy);
@@ -268,37 +275,40 @@ export default function PersonalSettingsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <ImageIcon className="h-5 w-5" />
-                    Papel de parede do chat
+                    <Volume2 className="h-5 w-5" />
+                    Som de notificação
                   </CardTitle>
                   <CardDescription>
-                    Personalize o fundo da área de mensagens nas suas conversas
+                    Escolha o som que toca quando você recebe uma mensagem
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
-                    <p className="text-sm font-medium">{currentWallpaper.label}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {chatWallpaperId === 'none'
-                        ? 'Sem imagem de fundo'
-                        : `Intensidade em ${chatWallpaperIntensity}%`}
-                    </p>
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background text-primary">
+                        <CurrentSoundIcon className="h-4 w-4" aria-hidden />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{currentSound.label}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{currentSound.description}</p>
+                      </div>
+                    </div>
                   </div>
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full"
-                    onClick={() => setWallpaperDialogOpen(true)}
+                    onClick={() => setSoundDialogOpen(true)}
                   >
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    Alterar papel de parede
+                    <Volume2 className="mr-2 h-4 w-4" />
+                    Alterar som de notificação
                   </Button>
                 </CardContent>
               </Card>
 
-              <ChatWallpaperSettingsDialog
-                open={wallpaperDialogOpen}
-                onOpenChange={setWallpaperDialogOpen}
+              <NotificationSoundSettingsDialog
+                open={soundDialogOpen}
+                onOpenChange={setSoundDialogOpen}
               />
             </div>
 
@@ -351,6 +361,42 @@ export default function PersonalSettingsPage() {
                   )}
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5" />
+                    Papel de parede do chat
+                  </CardTitle>
+                  <CardDescription>
+                    Personalize o fundo da área de mensagens nas suas conversas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+                    <p className="text-sm font-medium">{currentWallpaper.label}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {chatWallpaperId === 'none'
+                        ? 'Sem imagem de fundo'
+                        : `Intensidade em ${chatWallpaperIntensity}%`}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setWallpaperDialogOpen(true)}
+                  >
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    Alterar papel de parede
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <ChatWallpaperSettingsDialog
+                open={wallpaperDialogOpen}
+                onOpenChange={setWallpaperDialogOpen}
+              />
 
               <Card>
                 <CardHeader>

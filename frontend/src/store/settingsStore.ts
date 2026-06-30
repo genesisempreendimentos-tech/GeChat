@@ -18,6 +18,7 @@ interface SettingsState {
   animations: boolean;
   chatWallpaperId: ChatWallpaperId;
   chatWallpaperIntensity: number;
+  notificationSoundId: string;
   setThemeMode: (mode: ThemeMode) => void;
   setFontSize: (size: FontSize) => void;
   setAccentColor: (color: AccentColor) => void;
@@ -25,6 +26,7 @@ interface SettingsState {
   setAnimations: (enabled: boolean) => void;
   setChatWallpaperId: (id: ChatWallpaperId) => void;
   setChatWallpaperIntensity: (intensity: number) => void;
+  setNotificationSoundId: (id: string) => void;
   resetSettings: () => void;
 }
 
@@ -36,6 +38,7 @@ const defaultSettings = {
   animations: true,
   chatWallpaperId: 'none' as ChatWallpaperId,
   chatWallpaperIntensity: DEFAULT_CHAT_WALLPAPER_INTENSITY,
+  notificationSoundId: 'default',
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -76,6 +79,8 @@ export const useSettingsStore = create<SettingsState>()(
 
       setChatWallpaperIntensity: (intensity) =>
         set({ chatWallpaperIntensity: Math.min(100, Math.max(0, Math.round(intensity))) }),
+
+      setNotificationSoundId: (id) => set({ notificationSoundId: id }),
 
       resetSettings: () => {
         set(defaultSettings);

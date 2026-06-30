@@ -2,6 +2,21 @@ import { useEffect, useRef } from 'react';
 import { gechatSocket } from '@/lib/realtime/socket-client';
 import { useGeChatStore } from '@/store/gechatStore';
 import type { Conversation, Message, PresenceState } from '@/modules/gechat/types';
+import {
+  canShowBrowserNotifications,
+  playNotificationSound,
+  showBrowserNotification,
+} from '../services/gechat-notifications';
+
+function getNotificationPreview(content: string, type: Message['type']): string {
+  if (type === 'audio') return '🎵 Áudio';
+  const nonQuote = content
+    .split('\n')
+    .filter((l) => !l.startsWith('>'))
+    .join(' ')
+    .trim();
+  return (nonQuote || content).slice(0, 120);
+}
 
 export function useGeChatSocket(enabled = true) {
   const store = useGeChatStore;
@@ -12,16 +27,20 @@ export function useGeChatSocket(enabled = true) {
     initialized.current = true;
 
     const unsubscribers: Array<() => void> = [];
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     store.getState().setConnectionStatus('connecting');
 
-    gechatSocket.connect().then((s) => {
+    async function tryConnect() {
+      const s = await gechatSocket.connect();
       if (!s) {
         store.getState().setConnectionStatus('error');
+        retryTimer = setTimeout(tryConnect, 5000);
         return;
       }
       if (s.connected) store.getState().setConnectionStatus('connected');
-    });
+    }
+    void tryConnect();
 
     unsubscribers.push(
       gechatSocket.on('connect', () => store.getState().setConnectionStatus('connected')),
@@ -35,12 +54,13 @@ export function useGeChatSocket(enabled = true) {
 
     unsubscribers.push(
       gechatSocket.on('message:new', (raw) => {
-        const message = raw as Message;
+        const message = raw as Message & { senderName?: string; senderAvatar?: string };
         store.getState().upsertMessage(message.conversationId, message);
-        const convs = store.getState().conversations;
+        const state = store.getState();
+        const convs = state.conversations;
         const conv = convs.find((c) => c.id === message.conversationId);
         if (conv) {
-          store.getState().upsertConversation({
+          state.upsertConversation({
             ...conv,
             lastMessage: {
               id: message.id,
@@ -52,6 +72,50 @@ export function useGeChatSocket(enabled = true) {
             },
             updatedAt: message.createdAt,
           });
+        }
+
+        // Notificações: somente para mensagens de outros usuários em conversas não ativas
+        const currentUserId = state.currentUser?.id;
+        const activeId = state.activeConversationId;
+        if (message.senderId !== currentUserId && message.conversationId !== activeId) {
+          const members = state.membersByConversation[message.conversationId] ?? [];
+          const sender = members.find((m) => m.id === message.senderId);
+
+          // Cascata: (1) nome embutido no evento pelo backend, (2) perfil já carregado
+          // em membersByConversation, (3) nome da conversa direta (= nome da outra pessoa).
+          const isGroup = conv ? conv.type !== 'direct' : false;
+          const senderName =
+            message.senderName ??
+            sender?.name ??
+            (!isGroup ? (conv?.displayName ?? conv?.name) : null) ??
+            'Alguém';
+          const senderAvatar =
+            message.senderAvatar ?? sender?.avatar ?? (!isGroup ? conv?.avatar : undefined);
+
+          const preview = getNotificationPreview(message.content, message.type);
+
+          if (canShowBrowserNotifications()) {
+            // Permissão concedida: notificação nativa sempre (aba ativa ou não),
+            // igual ao comportamento do WhatsApp Web.
+            void showBrowserNotification({
+              title: isGroup ? (conv?.name ?? 'Grupo') : senderName,
+              body: isGroup ? `${senderName}: ${preview}` : preview,
+              icon: senderAvatar,
+              conversationId: message.conversationId,
+            });
+            playNotificationSound();
+          } else {
+            // Sem permissão nativa: toast in-app + som como fallback.
+            playNotificationSound();
+            state.pushInAppNotification({
+              conversationId: message.conversationId,
+              senderName,
+              senderAvatar,
+              conversationName: conv?.name ?? senderName,
+              isGroup,
+              preview,
+            });
+          }
         }
       }),
     );
@@ -97,11 +161,10 @@ export function useGeChatSocket(enabled = true) {
 
     unsubscribers.push(
       gechatSocket.on('message:sent', (raw) => {
-        const data = raw as { messageId: string; clientId?: string; status: Message['status'] };
-        const activeId = store.getState().activeConversationId;
-        if (!activeId) return;
-        store.getState().updateMessageStatus(activeId, data.messageId, data.status, data.clientId);
-        store.getState().patchConversationLastMessageStatus(activeId, data.status, data.messageId);
+        const data = raw as { messageId: string; clientId?: string; status: Message['status']; conversationId: string };
+        if (!data.conversationId) return;
+        store.getState().updateMessageStatus(data.conversationId, data.messageId, data.status, data.clientId);
+        store.getState().patchConversationLastMessageStatus(data.conversationId, data.status, data.messageId);
       }),
     );
 
@@ -184,6 +247,7 @@ export function useGeChatSocket(enabled = true) {
     );
 
     return () => {
+      if (retryTimer) clearTimeout(retryTimer);
       unsubscribers.forEach((fn) => fn());
       gechatSocket.disconnect();
       initialized.current = false;

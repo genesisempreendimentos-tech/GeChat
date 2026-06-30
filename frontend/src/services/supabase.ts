@@ -568,7 +568,7 @@ export const databaseService = {
   async getUserForegroundScreenTimeMsForGeAds(userId: string) {
     const client = await getSupabaseClient();
     if (!client) return 0;
-    const slug = (import.meta.env.VITE_GECHAT_AUDIT_SLUG ?? import.meta.env.VITE_GENOVO_AUDIT_SLUG ?? import.meta.env.VITE_GELEADS_AUDIT_SLUG ?? import.meta.env.VITE_GEADS_AUDIT_SLUG ?? 'gechat').toLowerCase();
+    const slug = (import.meta.env.VITE_GECHAT_AUDIT_SLUG ?? 'gechat').toLowerCase();
     const { data: app } = await client.from('apps').select('id').eq('slug', slug).maybeSingle();
     if (!app?.id) return 0;
     const { data } = await client.from('audit_logs').select('screen_time_ms').eq('actor_user_id', userId).eq('app_id', app.id).eq('action', 'screen_time_active');

@@ -11,6 +11,16 @@ import type {
   UserProfile,
 } from '@/modules/gechat/types';
 
+export type InAppNotification = {
+  id: string;
+  conversationId: string;
+  senderName: string;
+  senderAvatar?: string;
+  conversationName: string;
+  isGroup: boolean;
+  preview: string;
+};
+
 interface GeChatState {
   currentUser: UserProfile | null;
   conversations: Conversation[];
@@ -24,10 +34,10 @@ interface GeChatState {
   connectionStatus: ConnectionStatus;
   membersByConversation: Record<string, UserProfile[]>;
   myGroupRoleByConversation: Record<string, MemberRole>;
-  starredByConversation: Record<string, string[]>;
-  pinnedByConversation: Record<string, string[]>;
+  nextCursorByConversation: Record<string, string | null>;
   replyTo: ReplyQuote | null;
   privacy: PrivacySettings;
+  inAppNotifications: InAppNotification[];
 
   setCurrentUser: (user: UserProfile | null) => void;
   setConnectionStatus: (status: ConnectionStatus) => void;
@@ -51,11 +61,12 @@ interface GeChatState {
   ) => void;
   setMembers: (conversationId: string, members: UserProfile[]) => void;
   setMyGroupRole: (conversationId: string, role: MemberRole | null) => void;
-  toggleStar: (conversationId: string, messageId: string) => void;
-  togglePin: (conversationId: string, messageId: string) => void;
+  setNextCursor: (conversationId: string, cursor: string | null) => void;
   setReplyTo: (quote: ReplyQuote | null) => void;
   setPrivacy: (privacy: PrivacySettings) => void;
   removeMessage: (conversationId: string, messageId: string) => void;
+  pushInAppNotification: (n: Omit<InAppNotification, 'id'>) => void;
+  dismissInAppNotification: (id: string) => void;
   reset: () => void;
 }
 
@@ -72,13 +83,13 @@ const initialState = {
   connectionStatus: 'disconnected' as ConnectionStatus,
   membersByConversation: {} as Record<string, UserProfile[]>,
   myGroupRoleByConversation: {} as Record<string, MemberRole>,
-  starredByConversation: {} as Record<string, string[]>,
-  pinnedByConversation: {} as Record<string, string[]>,
+  nextCursorByConversation: {} as Record<string, string | null>,
   replyTo: null as ReplyQuote | null,
   privacy: {
     readReceiptsEnabled: true,
     lastSeenVisible: true,
   } as PrivacySettings,
+  inAppNotifications: [] as InAppNotification[],
 };
 
 function sortMessages(messages: Message[]) {
@@ -159,10 +170,13 @@ export const useGeChatStore = create<GeChatState>((set, get) => ({
     const list = get().conversations;
     const idx = list.findIndex((c) => c.id === conversation.id);
     const activeId = get().activeConversationId;
+    // Prefer the local counter — socket `conversation:updated` carries the
+    // sender's view of unreadCount (always 0), which must not overwrite our
+    // correctly-incremented in-memory counter.
     const mergedUnread =
       conversation.id === activeId
         ? 0
-        : conversation.unreadCount ?? get().unreadCounters[conversation.id] ?? 0;
+        : get().unreadCounters[conversation.id] ?? conversation.unreadCount ?? 0;
 
     const next =
       idx >= 0
@@ -210,7 +224,9 @@ export const useGeChatStore = create<GeChatState>((set, get) => ({
     if (message.senderId !== currentUserId && conversationId !== activeId) {
       get().incrementUnread(conversationId);
     }
-    if (conversationId === activeId && message.senderId !== currentUserId) {
+    // Só limpa unread localmente se o usuário está realmente vendo a conversa.
+    // Se a aba estiver oculta, mantém o badge até ele voltar à tela.
+    if (conversationId === activeId && message.senderId !== currentUserId && !document.hidden) {
       get().clearUnread(conversationId);
     }
 
@@ -352,31 +368,13 @@ export const useGeChatStore = create<GeChatState>((set, get) => ({
           ),
     }),
 
-  toggleStar: (conversationId, messageId) => {
-    const current = get().starredByConversation[conversationId] ?? [];
-    const next = current.includes(messageId)
-      ? current.filter((id) => id !== messageId)
-      : [...current, messageId];
+  setNextCursor: (conversationId, cursor) =>
     set({
-      starredByConversation: {
-        ...get().starredByConversation,
-        [conversationId]: next,
+      nextCursorByConversation: {
+        ...get().nextCursorByConversation,
+        [conversationId]: cursor,
       },
-    });
-  },
-
-  togglePin: (conversationId, messageId) => {
-    const current = get().pinnedByConversation[conversationId] ?? [];
-    const next = current.includes(messageId)
-      ? current.filter((id) => id !== messageId)
-      : [...current, messageId];
-    set({
-      pinnedByConversation: {
-        ...get().pinnedByConversation,
-        [conversationId]: next,
-      },
-    });
-  },
+    }),
 
   setReplyTo: (quote) => set({ replyTo: quote }),
 
@@ -391,6 +389,15 @@ export const useGeChatStore = create<GeChatState>((set, get) => ({
       },
     });
   },
+
+  pushInAppNotification: (n) => {
+    const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const current = get().inAppNotifications;
+    set({ inAppNotifications: [...current.slice(-4), { ...n, id }] });
+  },
+
+  dismissInAppNotification: (id) =>
+    set({ inAppNotifications: get().inAppNotifications.filter((n) => n.id !== id) }),
 
   reset: () => set({ ...initialState }),
 }));

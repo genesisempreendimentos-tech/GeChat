@@ -1,14 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Forward,
   Info,
   MessageSquarePlus,
   MoreVertical,
   Pencil,
-  Pin,
   Reply,
   SmilePlus,
-  Star,
   Trash2,
 } from 'lucide-react';
 import {
@@ -54,8 +52,6 @@ function ToolbarButton({
 interface MessageActionBarProps {
   message: Message;
   isOwn: boolean;
-  isStarred: boolean;
-  isPinned: boolean;
   canEdit: boolean;
   alignEnd?: boolean;
   visible?: boolean;
@@ -64,8 +60,6 @@ interface MessageActionBarProps {
   onQuote: () => void;
   onForward: () => void;
   onToggleRead: () => void;
-  onToggleStar: () => void;
-  onTogglePin: () => void;
   onDelete?: () => void;
   onEdit?: () => void;
   onShowDetails?: () => void;
@@ -75,8 +69,6 @@ interface MessageActionBarProps {
 export function MessageActionBar({
   message,
   isOwn,
-  isStarred,
-  isPinned,
   canEdit,
   alignEnd,
   visible = false,
@@ -85,8 +77,6 @@ export function MessageActionBar({
   onQuote,
   onForward,
   onToggleRead,
-  onToggleStar,
-  onTogglePin,
   onDelete,
   onEdit,
   onShowDetails,
@@ -98,17 +88,15 @@ export function MessageActionBar({
 
   const handlePickerOpenChange = (open: boolean) => {
     setPickerOpen(open);
+    onMenuOpenChange?.(open || moreOpen);
   };
 
   const handleMoreOpenChange = (open: boolean) => {
     setMoreOpen(open);
+    onMenuOpenChange?.(pickerOpen || open);
   };
 
   const isOpen = visible || pickerOpen || moreOpen;
-
-  useEffect(() => {
-    onMenuOpenChange?.(pickerOpen || moreOpen);
-  }, [pickerOpen, moreOpen, onMenuOpenChange]);
 
   const handleReact = (emoji: string) => {
     onReact(emoji);
@@ -201,14 +189,6 @@ export function MessageActionBar({
                   <MessageSquarePlus className="mr-2 h-4 w-4" />
                   Marcar como não lida
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onToggleStar}>
-                  <Star className={cn('mr-2 h-4 w-4', isStarred && 'fill-current text-amber-500')} />
-                  {isStarred ? 'Remover estrela' : 'Marcar com estrela'}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onTogglePin}>
-                  <Pin className={cn('mr-2 h-4 w-4', isPinned && 'fill-current')} />
-                  {isPinned ? 'Desafixar' : 'Fixar no quadro'}
-                </DropdownMenuItem>
                 {onDelete && (
                   <>
                     <DropdownMenuSeparator />
@@ -229,14 +209,6 @@ export function MessageActionBar({
                 <DropdownMenuItem onClick={onToggleRead}>
                   <MessageSquarePlus className="mr-2 h-4 w-4" />
                   Marcar como lida
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onToggleStar}>
-                  <Star className={cn('mr-2 h-4 w-4', isStarred && 'fill-current text-amber-500')} />
-                  {isStarred ? 'Remover estrela' : 'Marcar com estrela'}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onTogglePin}>
-                  <Pin className={cn('mr-2 h-4 w-4', isPinned && 'fill-current')} />
-                  {isPinned ? 'Desafixar' : 'Fixar no quadro'}
                 </DropdownMenuItem>
               </>
             )}

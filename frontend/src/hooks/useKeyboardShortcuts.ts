@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { vitrinePath } from '@/lib/panels';
 
 interface KeyboardShortcut {
   key: string;
@@ -17,19 +16,13 @@ export function useKeyboardShortcuts() {
   const navigate = useNavigate();
 
   const shortcuts: KeyboardShortcut[] = [
-  ...Array.from({ length: 6 }, (_, i) => ({
-    key: String(i + 1),
-    altKey: true,
-    action: () => navigate(vitrinePath(`/item-${i + 1}`)),
-    description: `Ir para Item ${i + 1}`,
-  })),
-  {
-    key: ',',
-    altKey: true,
-    action: () => navigate(vitrinePath('/settings')),
-    description: 'Ir para Configurações',
-  },
-];
+    {
+      key: ',',
+      altKey: true,
+      action: () => navigate('/settings'),
+      description: 'Ir para Configurações',
+    },
+  ];
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -69,13 +62,10 @@ export function useKeyboardShortcuts() {
   const showShortcutsHelp = () => {
     const help = `Atalhos de Teclado:
 • Ctrl+K - Busca global
-• Alt+1 a Alt+6 - Itens da Vitrine
 • Alt+, - Configurações
 • Shift+? - Mostrar atalhos`;
 
-    toast.info(help, {
-      duration: 8000,
-    });
+    toast.info(help, { duration: 8000 });
   };
 
   return { showShortcutsHelp };

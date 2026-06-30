@@ -99,13 +99,7 @@ Implementa de ponta a ponta seguindo o ficheiro em contexto, apenas adaptando im
 import { supabase, databaseService } from '@/services/supabase';
 
 function auditSlug() {
-  return (
-    import.meta.env.VITE_GECHAT_AUDIT_SLUG ??
-    import.meta.env.VITE_GENOVO_AUDIT_SLUG ??
-    import.meta.env.VITE_GELEADS_AUDIT_SLUG ??
-    import.meta.env.VITE_GEADS_AUDIT_SLUG ??
-    'gechat'
-  )
+  return (import.meta.env.VITE_GECHAT_AUDIT_SLUG ?? 'gechat')
     .toString()
     .trim()
     .toLowerCase() || 'gechat';
@@ -219,12 +213,6 @@ export async function emitGeChatAuditAppLogin(userId, email) {
   });
 }
 
-/** @deprecated use emitGeChatAuditAppLogin */
-export const emitGeNovoAuditAppLogin = emitGeChatAuditAppLogin;
-/** @deprecated use emitGeChatAuditAppLogin */
-export const emitGeLeadsAuditAppLogin = emitGeChatAuditAppLogin;
-/** @deprecated use emitGeChatAuditAppLogin */
-export const emitGeAdsAuditAppLogin = emitGeChatAuditAppLogin;
 
 function todayLocalDateKey() {
   const d = new Date();
@@ -463,9 +451,3 @@ export function initGeChatAudit() {
   return cleanup;
 }
 
-/** @deprecated use initGeChatAudit */
-export const initGeNovoAudit = initGeChatAudit;
-/** @deprecated use initGeChatAudit */
-export const initGeLeadsAudit = initGeChatAudit;
-/** @deprecated use initGeChatAudit */
-export const initGeAdsAudit = initGeChatAudit;

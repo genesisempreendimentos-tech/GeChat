@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { GLASS_SHELL_BORDER_R } from '@/lib/shellStyles';
 import { cn } from '@/lib/utils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSetSidebarWidth } from '@/contexts/SidebarContext';
 import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 import { SidebarFooterControl } from '@/components/layout/SidebarFooterControl';
@@ -13,9 +13,21 @@ const SIDEBAR_WIDTH_COLLAPSED = 72;
 export default function UserSidebar() {
   const layoutMode = useSidebarLayoutStore((s) => s.mode);
   const [isHovered, setIsHovered] = useState(false);
+  const [hoverLockCount, setHoverLockCount] = useState(0);
+  const isHoverLocked = hoverLockCount > 0;
   const isExpanded =
-    layoutMode === 'expanded' ? true : layoutMode === 'collapsed' ? false : isHovered;
+    layoutMode === 'expanded'
+      ? true
+      : layoutMode === 'collapsed'
+        ? false
+        : isHovered || isHoverLocked;
   const setSidebarWidth = useSetSidebarWidth();
+
+  const hoverLockRef = useRef(0);
+  const handleHoverLockChange = useCallback((locked: boolean) => {
+    hoverLockRef.current = Math.max(0, hoverLockRef.current + (locked ? 1 : -1));
+    setHoverLockCount(hoverLockRef.current);
+  }, []);
 
   useEffect(() => {
     setSidebarWidth(isExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED);
@@ -31,7 +43,7 @@ export default function UserSidebar() {
         setIsHovered(true);
       }}
       onMouseLeave={() => {
-        if (layoutMode !== 'hover') return;
+        if (layoutMode !== 'hover' || isHoverLocked) return;
         setIsHovered(false);
       }}
       className={cn(
@@ -42,7 +54,10 @@ export default function UserSidebar() {
       aria-label="Conversas do GêChat"
     >
       <div className="min-h-0 flex-1 overflow-hidden">
-        <ConversationListPanel isExpanded={isExpanded} />
+        <ConversationListPanel
+          isExpanded={isExpanded}
+          onSidebarHoverLockChange={handleHoverLockChange}
+        />
       </div>
 
       <div className={cn('relative z-10 shrink-0 border-t border-border/70 bg-card/55')}>

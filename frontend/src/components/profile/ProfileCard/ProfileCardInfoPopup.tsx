@@ -7,6 +7,8 @@ import { WhatsappIcon } from '@/components/icons/WhatsappIcon'
 import { DotLottiePlayer } from '@dotlottie/react-player'
 import '@dotlottie/react-player/dist/index.css'
 import { profileDataFillRatio } from '@/lib/motionPresets'
+import { resolveProfileBannerUrl } from '@/lib/profile-banner'
+import { resolveProfileMascoteKey, resolveProfileMascoteLottie } from '@/lib/profile-mascote'
 
 // Helpers para construir URLs sociais
 const digitsOnly   = (v: string) => (v || '').replace(/\D+/g, '')
@@ -72,15 +74,15 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
       apelido:       userData.apelido || '',
       username:      userData.username  || userData.handle || '',
       description:   userData.description || userData.bio || '',
-      profession:    userData.profession  || userData.title || userData.cadeira_principal || '',
+      profession:    userData.profession  || userData.title || userData.cadeira_principal || userData.job_title || '',
       avatarUrl:     userData.avatar_url  || userData.avatarUrl || userData.avatar || '',
-      bannerUrl:     userData.banner_url  || userData.bannerUrl || '',
+      bannerUrl:     resolveProfileBannerUrl(userData.banner_url ?? userData.bannerUrl),
       birthday:      formatDate(userData.birthday || userData.birthDate || userData.birth_date),
       admissionDate: formatDate(userData.admissionDate || userData.hire_date),
       whatsapp:      userData.whatsapp  || '',
       instagram:     userData.instagram || '',
       linkedin:      userData.linkedin  || '',
-      mascote:       (userData.mascote as 'gato' | 'cachorro' | 'passaro' | 'terra' | 'tigre' | 'cavalo' | 'peixe' | 'leao') || '',
+      mascote:       resolveProfileMascoteKey(userData),
       icon:          userData.icon ?? '',
       sectorIcon:    userData.sector_icon || '',
     }
@@ -207,15 +209,7 @@ export default function ProfileCardInfoPopup({ open, onOpenChange, userData, cur
 
             {/* Redes sociais centralizadas + mascote na coluna direita (não desloca o centro) */}
             {(data.whatsapp || data.instagram || data.linkedin || !!data.mascote) && (() => {
-              const mascoteSrc =
-                data.mascote === 'gato' ? '/assets/cat.lottie' :
-                data.mascote === 'cachorro' ? '/assets/dog.lottie' :
-                data.mascote === 'passaro' ? '/assets/bird.lottie' :
-                data.mascote === 'terra' ? '/assets/terra.lottie' :
-                data.mascote === 'tigre' ? '/assets/tigre.lottie' :
-                data.mascote === 'cavalo' ? '/assets/cavalo.lottie' :
-                data.mascote === 'peixe' ? '/assets/peixe.lottie' :
-                data.mascote === 'leao' ? '/assets/leao.lottie' : null
+              const mascoteSrc = resolveProfileMascoteLottie({ mascote: data.mascote, icon: data.icon })
 
               return (
                 <div className="grid grid-cols-[auto_auto_auto] items-center justify-center mb-4 w-full">

@@ -1,5 +1,4 @@
-import { Check, UserKey, UserStar } from 'lucide-react';
-import { MirrorRectangular } from '@/components/icons/MirrorRectangular';
+import { Check, UserStar } from 'lucide-react';
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -42,7 +41,7 @@ function PanelMenuItem({
 }: {
   panel: AppPanel;
   activePanel: AppPanel;
-  icon: typeof UserKey;
+  icon: typeof UserStar;
   label: string;
   onSelect: (panel: AppPanel) => void;
 }) {
@@ -72,7 +71,7 @@ export function AppBrandControl({ className }: { className?: string }) {
   const pillClassName = cn(
     topbarPillClassName,
     'gap-2.5 pl-2 pr-4',
-    isAuthenticated &&
+    isAuthenticated && isSoftadmin &&
       'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
     className,
   );
@@ -82,6 +81,7 @@ export function AppBrandControl({ className }: { className?: string }) {
     navigate(PANEL_HOME[panel]);
   };
 
+  // Usuário não autenticado — logo simples
   if (!isAuthenticated) {
     return (
       <div className={pillClassName} aria-label="GêChat">
@@ -90,6 +90,21 @@ export function AppBrandControl({ className }: { className?: string }) {
     );
   }
 
+  // Usuário comum — logo clicável que vai para home
+  if (!isSoftadmin) {
+    return (
+      <button
+        type="button"
+        className={pillClassName}
+        aria-label="GêChat — ir para início"
+        onClick={() => navigate('/')}
+      >
+        <BrandMark />
+      </button>
+    );
+  }
+
+  // Softadmin — dropdown User / Admin
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -101,26 +116,17 @@ export function AppBrandControl({ className }: { className?: string }) {
         <PanelMenuItem
           panel="user"
           activePanel={activePanel}
-          icon={UserKey}
-          label="User"
+          icon={Check}
+          label="GêChat"
           onSelect={switchPanel}
         />
         <PanelMenuItem
-          panel="vitrine"
+          panel="admin"
           activePanel={activePanel}
-          icon={MirrorRectangular}
-          label="Vitrine"
+          icon={UserStar}
+          label="Admin"
           onSelect={switchPanel}
         />
-        {isSoftadmin ? (
-          <PanelMenuItem
-            panel="admin"
-            activePanel={activePanel}
-            icon={UserStar}
-            label="Admin"
-            onSelect={switchPanel}
-          />
-        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

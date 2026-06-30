@@ -14,7 +14,7 @@ import {
   PinOff,
   Trash2,
 } from 'lucide-react';
-import { type KeyboardEvent } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -68,6 +68,7 @@ interface WhatsappConversationRowProps {
   isActive: boolean;
   archived?: boolean;
   onOpen?: (conversationId: string) => void;
+  onMenuOpenChange?: (open: boolean) => void;
 }
 
 export function WhatsappConversationRow({
@@ -75,6 +76,7 @@ export function WhatsappConversationRow({
   isActive,
   archived = false,
   onOpen,
+  onMenuOpenChange,
 }: WhatsappConversationRowProps) {
   const navigate = useNavigate();
   const currentUserId = useGeChatStore((s) => s.currentUser?.id);
@@ -95,6 +97,19 @@ export function WhatsappConversationRow({
   const setMuted = useConversationListStore((s) => s.setMuted);
   const archive = useConversationListStore((s) => s.archive);
   const unarchive = useConversationListStore((s) => s.unarchive);
+
+  // Flash a green indicator briefly when a new message arrives while not active
+  const prevUnreadRef = useRef(unread);
+  const [justReceived, setJustReceived] = useState(false);
+  useEffect(() => {
+    if (unread > prevUnreadRef.current && !isActive) {
+      setJustReceived(true);
+      const t = setTimeout(() => setJustReceived(false), 1800);
+      prevUnreadRef.current = unread;
+      return () => clearTimeout(t);
+    }
+    prevUnreadRef.current = unread;
+  }, [unread, isActive]);
 
   const label = conversation.displayName ?? conversation.name ?? 'Conversa';
   const last = conversation.lastMessage;
@@ -179,9 +194,15 @@ export function WhatsappConversationRow({
       className={cn(
         'group relative flex cursor-pointer items-stretch transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
         isActive && 'bg-muted/70',
-        unread > 0 && !isActive && 'bg-primary/[0.04]',
+        unread > 0 && !isActive && 'bg-emerald-500/[0.04]',
       )}
     >
+      {justReceived && !isActive && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-0 h-full w-0.5 rounded-r bg-emerald-400 transition-opacity duration-700"
+        />
+      )}
       <div className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-3 pr-1">
         <div className="relative shrink-0">
           <Avatar className="h-[49px] w-[49px]">
@@ -231,7 +252,7 @@ export function WhatsappConversationRow({
         <span
           className={cn(
             'text-[12px] tabular-nums leading-none',
-            unread > 0 ? 'font-medium text-primary' : 'text-muted-foreground',
+            unread > 0 ? 'font-medium text-emerald-500' : 'text-muted-foreground',
           )}
         >
           {last?.createdAt ? formatListTime(last.createdAt) : formatListTime(conversation.updatedAt)}
@@ -239,7 +260,7 @@ export function WhatsappConversationRow({
 
         <div className="flex h-[18px] items-center justify-end gap-0.5">
           {unread > 0 && !isActive && (
-            <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-primary-foreground group-hover:hidden">
+            <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[11px] font-semibold leading-none text-white group-hover:hidden">
               {unread > 99 ? '99+' : unread}
             </span>
           )}
@@ -247,7 +268,7 @@ export function WhatsappConversationRow({
             <Pin className="h-[15px] w-[15px] text-muted-foreground" aria-hidden />
           )}
 
-          <DropdownMenu>
+          <DropdownMenu modal={false} onOpenChange={onMenuOpenChange}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"

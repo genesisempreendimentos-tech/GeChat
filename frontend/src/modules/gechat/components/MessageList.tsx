@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { ExternalLink, FileText, Pin, Star } from 'lucide-react';
+import { ExternalLink, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { gechatSocket } from '@/lib/realtime/socket-client';
 import { MessageActionBar } from '@/modules/gechat/components/MessageActionBar';
 import { MessageReadReceiptsDialog } from '@/modules/gechat/components/MessageReadReceiptsDialog';
+import { GeChatProfilePopup } from '@/modules/gechat/components/GeChatProfilePopup';
 import { ChatWallpaperBackground } from '@/modules/gechat/components/ChatWallpaperBackground';
 import { MessageReactions } from '@/modules/gechat/components/MessageReactions';
 import { MessageStatusTicks } from '@/modules/gechat/lib/message-status-ticks';
@@ -45,12 +46,33 @@ export type MemberProfile = {
   avatar?: string;
 };
 
-function MessageAvatar({ profile }: { profile: MemberProfile }) {
-  return (
-    <Avatar className="mt-1 h-7 w-7 shrink-0">
+function MessageAvatar({
+  profile,
+  onPress,
+}: {
+  profile: MemberProfile;
+  onPress?: () => void;
+}) {
+  const avatar = (
+    <Avatar className={cn('h-7 w-7 shrink-0', onPress && 'cursor-pointer transition-opacity hover:opacity-90')}>
       <AvatarImage src={profile.avatar} alt={profile.name} />
       <AvatarFallback className="text-[10px]">{initials(profile.name)}</AvatarFallback>
     </Avatar>
+  );
+
+  if (!onPress) {
+    return <span className="mt-1 shrink-0">{avatar}</span>;
+  }
+
+  return (
+    <button
+      type="button"
+      className="mt-1 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={onPress}
+      aria-label={`Ver perfil de ${profile.name}`}
+    >
+      {avatar}
+    </button>
   );
 }
 
@@ -165,6 +187,8 @@ interface MessageListProps {
   onEditMessage?: (messageId: string, content: string) => void;
   onDeleteMessage?: (messageId: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
 }
 
 export function MessageList({
@@ -176,6 +200,8 @@ export function MessageList({
   onEditMessage,
   onDeleteMessage,
   onToggleReaction,
+  onLoadMore,
+  hasMore,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastScrollTailRef = useRef<string | null>(null);
@@ -183,11 +209,8 @@ export function MessageList({
   const [activeActionsId, setActiveActionsId] = useState<string | null>(null);
   const [actionsMenuLocked, setActionsMenuLocked] = useState(false);
   const [detailsMessageId, setDetailsMessageId] = useState<string | null>(null);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const typingUsers = useGeChatStore((s) => s.typingUsersByConversation[conversationId] ?? []);
-  const starred = useGeChatStore((s) => s.starredByConversation[conversationId] ?? []);
-  const pinned = useGeChatStore((s) => s.pinnedByConversation[conversationId] ?? []);
-  const toggleStar = useGeChatStore((s) => s.toggleStar);
-  const togglePin = useGeChatStore((s) => s.togglePin);
   const setReplyTo = useGeChatStore((s) => s.setReplyTo);
   const setUnread = useGeChatStore((s) => s.setUnread);
   const clearUnread = useGeChatStore((s) => s.clearUnread);
@@ -259,14 +282,23 @@ export function MessageList({
   return (
     <ChatWallpaperBackground className="min-h-0 flex-1">
       <div className="flex h-0 min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto overscroll-contain p-4 pb-6 pt-2">
+      {hasMore && onLoadMore && (
+        <div className="flex justify-center py-3">
+          <button
+            type="button"
+            onClick={onLoadMore}
+            className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
+          >
+            Carregar mensagens anteriores
+          </button>
+        </div>
+      )}
       {messages.map((msg) => {
         const isOwn = msg.senderId === currentUserId;
         const profile = memberProfiles[msg.senderId] ?? { name: 'Usuário' };
         const senderName = profile.name;
         const isEditing = editingId === msg.id;
         const canEdit = isOwn && isEditableMessage(msg) && onEditMessage;
-        const isStarred = starred.includes(msg.id);
-        const isPinned = pinned.includes(msg.id);
         const preview = getMessagePlainText(msg);
 
         const handleQuote = () => {
@@ -302,7 +334,9 @@ export function MessageList({
             key={msg.clientId ?? msg.id}
             className={cn('flex min-w-0 gap-2', isOwn ? 'flex-row-reverse' : 'flex-row')}
           >
-            {!isOwn && <MessageAvatar profile={profile} />}
+            {!isOwn && (
+              <MessageAvatar profile={profile} onPress={() => setProfileUserId(msg.senderId)} />
+            )}
             <div className={cn('flex max-w-[75%] flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
               <div
                 className={cn(
@@ -324,34 +358,17 @@ export function MessageList({
                   className={cn(
                     'relative z-10 rounded-2xl px-3 py-2 text-sm shadow-sm',
                     isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
-                    isStarred && 'ring-1 ring-amber-400/40',
-                    isPinned && 'ring-1 ring-primary/30',
                   )}
                 >
-                {(isStarred || isPinned) && (
-                  <div
-                    className={cn(
-                      'mb-1 flex items-center gap-2 text-[10px] opacity-70',
-                      isOwn ? 'text-primary-foreground/80' : 'text-muted-foreground',
-                    )}
-                  >
-                    {isStarred && (
-                      <span className="inline-flex items-center gap-0.5">
-                        <Star className="h-3 w-3 fill-current text-amber-400" />
-                        Estrela
-                      </span>
-                    )}
-                    {isPinned && (
-                      <span className="inline-flex items-center gap-0.5">
-                        <Pin className="h-3 w-3" />
-                        Fixada
-                      </span>
-                    )}
-                  </div>
-                )}
 
                 {!isOwn && (
-                  <p className="mb-0.5 text-[10px] font-medium opacity-70">{senderName}</p>
+                  <button
+                    type="button"
+                    onClick={() => setProfileUserId(msg.senderId)}
+                    className="mb-0.5 text-left text-[10px] font-medium opacity-70 transition-opacity hover:opacity-100 hover:underline"
+                  >
+                    {senderName}
+                  </button>
                 )}
 
                 {isEditing ? (
@@ -409,8 +426,6 @@ export function MessageList({
                   <MessageActionBar
                     message={msg}
                     isOwn={isOwn}
-                    isStarred={isStarred}
-                    isPinned={isPinned}
                     canEdit={!!canEdit}
                     alignEnd={isOwn}
                     visible={actionsVisible}
@@ -426,8 +441,6 @@ export function MessageList({
                     onQuote={handleQuote}
                     onForward={handleForward}
                     onToggleRead={handleToggleRead}
-                    onToggleStar={() => toggleStar(conversationId, msg.id)}
-                    onTogglePin={() => togglePin(conversationId, msg.id)}
                     onDelete={isOwn && onDeleteMessage ? () => onDeleteMessage(msg.id) : undefined}
                     onEdit={canEdit ? () => startEdit(msg) : undefined}
                     showDetails={isOwn && isGroupLike}
@@ -442,6 +455,8 @@ export function MessageList({
                   reactions={msg.reactions}
                   currentUserId={currentUserId}
                   alignEnd={isOwn}
+                  showReactorNames={isGroupLike}
+                  memberProfiles={memberProfiles}
                   onReact={(emoji) => onToggleReaction?.(msg.id, emoji)}
                 />
               )}
@@ -462,6 +477,14 @@ export function MessageList({
         }}
         conversationId={conversationId}
         messageId={detailsMessageId}
+      />
+
+      <GeChatProfilePopup
+        userId={profileUserId}
+        open={profileUserId !== null}
+        onOpenChange={(open) => {
+          if (!open) setProfileUserId(null);
+        }}
       />
     </ChatWallpaperBackground>
   );

@@ -3,6 +3,7 @@ import { gechatApi } from '@/modules/gechat/services/gechat-api';
 import { gechatSocket } from '@/lib/realtime/socket-client';
 import { buildQuotedReplyContent } from '@/modules/gechat/lib/message-content';
 import { useGeChatStore } from '@/store/gechatStore';
+import { useConversationListStore } from '@/store/conversationListStore';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 import type { MemberRole, Message, MessageReaction, MessageType } from '@/modules/gechat/types';
@@ -35,26 +36,20 @@ export function useGeChatBootstrap() {
         setPresence(id, state);
       }
     }
-
-    const groupLike = list.filter((c) => c.type === 'group' || c.type === 'channel');
-    await Promise.all(
-      groupLike.map(async (conv) => {
-        try {
-          const { members } = await gechatApi.getMembers(conv.id);
-          useGeChatStore.getState().setMembers(
-            conv.id,
-            members.map((m) => m.profile ?? { id: m.userId, name: 'Usuário' }),
-          );
-        } catch {
-          /* membros opcionais na lista */
-        }
-      }),
-    );
   }, [setConversations, setPresence]);
 
   useEffect(() => {
     loadConversations().catch(console.error);
     gechatApi.getPrivacy().then(setPrivacy).catch(console.error);
+  }, [loadConversations, setPrivacy]);
+
+  // Recarrega conversas sempre que o socket conecta/reconecta
+  useEffect(() => {
+    const unsub = gechatSocket.on('connect', () => {
+      loadConversations().catch(console.error);
+      gechatApi.getPrivacy().then(setPrivacy).catch(console.error);
+    });
+    return () => { unsub(); };
   }, [loadConversations, setPrivacy]);
 
   return { loadConversations };
@@ -89,21 +84,6 @@ export function useGeChat() {
         useGeChatStore.getState().setPresence(id, state);
       }
     }
-
-    const groupLike = list.filter((c) => c.type === 'group' || c.type === 'channel');
-    await Promise.all(
-      groupLike.map(async (conv) => {
-        try {
-          const { members } = await gechatApi.getMembers(conv.id);
-          useGeChatStore.getState().setMembers(
-            conv.id,
-            members.map((m) => m.profile ?? { id: m.userId, name: 'Usuário' }),
-          );
-        } catch {
-          /* membros opcionais na lista */
-        }
-      }),
-    );
   }, []);
 
   const openConversation = useCallback(
@@ -111,8 +91,14 @@ export function useGeChat() {
       setActiveConversation(conversationId);
       clearUnread(conversationId);
       gechatSocket.joinConversation(conversationId);
-      gechatSocket.markRead(conversationId);
-      gechatApi.markAsRead(conversationId).catch(console.error);
+
+      // Só envia read receipt ao servidor se o usuário está realmente na tela.
+      // Com "leitura em segundo plano" ativo, envia sempre.
+      const { readInBackground } = useConversationListStore.getState();
+      if (!document.hidden || readInBackground) {
+        gechatSocket.markRead(conversationId);
+        gechatApi.markAsRead(conversationId).catch(console.error);
+      }
 
       const hasCachedMessages = Boolean(
         useGeChatStore.getState().messagesByConversation[conversationId]?.length,
@@ -121,7 +107,7 @@ export function useGeChat() {
       if (!hasCachedMessages && !loadingByConversation.current[conversationId]) {
         loadingByConversation.current[conversationId] = true;
         try {
-          const { messages } = await gechatApi.getMessages(conversationId);
+          const { messages, nextCursor } = await gechatApi.getMessages(conversationId);
           const current =
             useGeChatStore.getState().messagesByConversation[conversationId] ?? [];
           if (current.length === 0) {
@@ -129,6 +115,7 @@ export function useGeChat() {
           } else {
             mergeMessages(conversationId, messages);
           }
+          useGeChatStore.getState().setNextCursor(conversationId, nextCursor ?? null);
         } finally {
           loadingByConversation.current[conversationId] = false;
         }
@@ -317,6 +304,14 @@ export function useGeChat() {
     [activeConversationId, user],
   );
 
+  const loadMoreMessages = useCallback(async (conversationId: string) => {
+    const cursor = useGeChatStore.getState().nextCursorByConversation[conversationId];
+    if (!cursor) return;
+    const { messages, nextCursor } = await gechatApi.getMessages(conversationId, cursor);
+    useGeChatStore.getState().mergeMessages(conversationId, messages);
+    useGeChatStore.getState().setNextCursor(conversationId, nextCursor ?? null);
+  }, []);
+
   const createDirect = useCallback(
     async (targetUserId: string) => {
       const conv = await gechatApi.createDirect(targetUserId);
@@ -333,6 +328,7 @@ export function useGeChat() {
     messages: activeConversationId ? messagesByConversation[activeConversationId] ?? [] : [],
     loadConversations,
     openConversation,
+    loadMoreMessages,
     sendMessage,
     editMessage,
     deleteMessage,

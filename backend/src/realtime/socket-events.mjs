@@ -1,4 +1,4 @@
-import { getUserConversationIds, isMember, canPostInConversation } from '../services/gechat/membership.service.mjs';
+import { getUserConversationIds, isMember, canPostInConversation, getConversationMembers } from '../services/gechat/membership.service.mjs';
 import { createMessage, markConversationAsRead, updateMessageStatus, editMessage, deleteMessage, recordDeliveriesForOnlineMembers, recordPendingDeliveries } from '../services/gechat/message.service.mjs';
 import { toggleReaction } from '../services/gechat/reaction.service.mjs';
 import { getConversationById } from '../services/gechat/conversation.service.mjs';
@@ -42,15 +42,18 @@ export function registerSocketEvents(io, socket) {
         type,
       });
 
-      const enriched = { ...message, clientId };
+      const enriched = {
+        ...message,
+        clientId,
+        senderName: socket.data.profile?.name ?? null,
+        senderAvatar: socket.data.profile?.avatar ?? null,
+      };
       socket.to(conversationRoom(conversationId)).emit('message:new', enriched);
-      socket.emit('message:sent', { messageId: message.id, clientId, status: 'sent' });
+      socket.emit('message:sent', { messageId: message.id, clientId, status: 'sent', conversationId });
 
       await recordDeliveriesForOnlineMembers(message.id, conversationId, userId);
 
-      const members = await import('../services/gechat/membership.service.mjs').then((m) =>
-        m.getConversationMembers(conversationId),
-      );
+      const members = await getConversationMembers(conversationId);
       let anyDelivered = false;
       for (const member of members) {
         if (member.user_id === userId) continue;
@@ -232,9 +235,7 @@ export async function handleSocketConnection(io, socket, appLocals) {
 
   const relatedUserIds = new Set();
   for (const convId of conversationIds) {
-    const members = await import('../services/gechat/membership.service.mjs').then((m) =>
-      m.getConversationMembers(convId),
-    );
+    const members = await getConversationMembers(convId);
     for (const m of members) {
       if (m.user_id !== userId) relatedUserIds.add(m.user_id);
     }
@@ -266,8 +267,8 @@ export async function handleSocketConnection(io, socket, appLocals) {
 
   for (const relatedId of relatedUserIds) {
     io.to(userRoom(relatedId)).emit('presence:online', { userId });
-    for (const convId of conversationIds) {
-      socket.to(conversationRoom(convId)).emit('presence:online', { userId });
-    }
+  }
+  for (const convId of conversationIds) {
+    socket.to(conversationRoom(convId)).emit('presence:online', { userId });
   }
 }

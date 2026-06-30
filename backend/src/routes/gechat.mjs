@@ -38,12 +38,21 @@ async function buildConversationList(userId, appLocals) {
   const enriched = [];
   const profileIds = new Set();
 
+  // 1 query batch para buscar todos os membros de todas as conversas de uma vez
+  const allConvIds = conversations.map(c => c.id);
+  const memberRows = await sql`
+    SELECT conversation_id, user_id
+    FROM gechat_conversation_members
+    WHERE conversation_id = ANY(${allConvIds}::uuid[])
+  `;
+  const memberIdsByConv = {};
+  for (const row of memberRows) {
+    if (!memberIdsByConv[row.conversation_id]) memberIdsByConv[row.conversation_id] = [];
+    memberIdsByConv[row.conversation_id].push(row.user_id);
+  }
+
   for (const conv of conversations) {
-    const members = await sql`
-      SELECT user_id FROM gechat_conversation_members
-      WHERE conversation_id = ${conv.id}
-    `;
-    const memberIds = members.map((m) => m.user_id);
+    const memberIds = memberIdsByConv[conv.id] ?? [];
     memberIds.forEach((id) => profileIds.add(id));
 
     let otherMemberId = null;
@@ -457,17 +466,22 @@ export function createGeChatRouter() {
         return res.status(500).json({ error: 'Service role não configurada.' });
       }
       const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-      const search = String(req.query.search ?? '').trim().toLowerCase();
+      const search = String(req.query.search ?? '').trim();
       let query = supabase
         .from('profiles')
         .select('user_id, id, full_name, name, email, avatar_url, avatar, profile_status, apelido')
         .or('profile_status.is.null,profile_status.eq.active')
-        .order('full_name', { ascending: true, nullsFirst: false });
+        .order('full_name', { ascending: true, nullsFirst: false })
+        .limit(100);
+
+      if (search) {
+        query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,apelido.ilike.%${search}%`);
+      }
 
       const { data, error } = await query;
       if (error) return res.status(500).json({ error: error.message });
 
-      let users = (data ?? [])
+      const users = (data ?? [])
         .filter((row) => {
           const id = String(row.user_id ?? row.id);
           return id && id !== req.gechatUser.id;
@@ -483,13 +497,6 @@ export function createGeChatRouter() {
           email: row.email,
           avatar: row.avatar_url ?? row.avatar,
         }));
-
-      if (search) {
-        users = users.filter((u) => {
-          const haystack = `${u.name} ${u.email ?? ''}`.toLowerCase();
-          return haystack.includes(search);
-        });
-      }
 
       res.json({ users });
     } catch (err) {

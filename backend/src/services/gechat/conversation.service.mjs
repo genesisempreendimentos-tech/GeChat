@@ -1,5 +1,4 @@
 import { getSql } from '../../db/neon.mjs';
-import { getUnreadCount } from './message.service.mjs';
 import { getConversationMembers, isMember } from './membership.service.mjs';
 
 function mapConversation(row, extras = {}) {
@@ -20,30 +19,46 @@ function mapConversation(row, extras = {}) {
 }
 
 async function attachLastMessageAndUnread(conversations, userId) {
+  if (!conversations.length) return [];
   const sql = getSql();
-  const result = [];
-  for (const conv of conversations) {
-    const lastRows = await sql`
-      SELECT id, content, sender_id, created_at, status, type
-      FROM gechat_messages
-      WHERE conversation_id = ${conv.id}
-      ORDER BY created_at DESC
-      LIMIT 1
-    `;
-    const lastMessage = lastRows[0]
-      ? {
-          id: lastRows[0].id,
-          content: lastRows[0].content,
-          senderId: lastRows[0].sender_id,
-          createdAt: lastRows[0].created_at,
-          status: lastRows[0].status,
-          type: lastRows[0].type,
-        }
-      : null;
-    const unreadCount = await getUnreadCount(conv.id, userId);
-    result.push(mapConversation(conv, { lastMessage, unreadCount }));
-  }
-  return result;
+  const convIds = conversations.map(c => c.id);
+
+  // 1 query: última mensagem de todas as conversas
+  const lastMsgRows = await sql`
+    SELECT DISTINCT ON (conversation_id)
+      id, conversation_id, content, sender_id, created_at, status, type
+    FROM gechat_messages
+    WHERE conversation_id = ANY(${convIds}::uuid[])
+    ORDER BY conversation_id, created_at DESC, id DESC
+  `;
+
+  // 1 query: contagem de não-lidas de todas as conversas
+  const unreadRows = await sql`
+    SELECT m.conversation_id, COUNT(*)::int AS count
+    FROM gechat_messages m
+    LEFT JOIN gechat_conversation_members cm
+      ON cm.conversation_id = m.conversation_id AND cm.user_id = ${userId}
+    WHERE m.conversation_id = ANY(${convIds}::uuid[])
+      AND m.sender_id != ${userId}
+      AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
+    GROUP BY m.conversation_id
+  `;
+
+  const lastMsgMap = Object.fromEntries(lastMsgRows.map(r => [r.conversation_id, r]));
+  const unreadMap = Object.fromEntries(unreadRows.map(r => [r.conversation_id, r.count]));
+
+  return conversations.map(conv => {
+    const lastRow = lastMsgMap[conv.id];
+    const lastMessage = lastRow ? {
+      id: lastRow.id,
+      content: lastRow.content,
+      senderId: lastRow.sender_id,
+      createdAt: lastRow.created_at,
+      status: lastRow.status,
+      type: lastRow.type,
+    } : null;
+    return mapConversation(conv, { lastMessage, unreadCount: unreadMap[conv.id] ?? 0 });
+  });
 }
 
 export async function getUserConversations(userId) {

@@ -1,7 +1,6 @@
 import { ChevronRight, Home } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { vitrinePath } from '@/lib/panels';
 
 interface BreadcrumbItem {
   label: string;
@@ -14,19 +13,16 @@ interface BreadcrumbsProps {
 }
 
 const routeNames: Record<string, string> = {
-  vitrine: 'Vitrine',
   settings: 'Configurações',
   notifications: 'Notificações',
   admin: 'Admin',
-  home: 'Item 1',
-  members: 'Item 2',
-  categories: 'Item 3',
+  home: 'Dashboard',
+  members: 'Membros',
+  categories: 'Categorias',
 };
 
 function formatSegment(path: string): string {
   if (routeNames[path]) return routeNames[path];
-  const itemMatch = path.match(/^item-(\d+)$/);
-  if (itemMatch) return `Item ${itemMatch[1]}`;
   return path.charAt(0).toUpperCase() + path.slice(1);
 }
 
@@ -41,7 +37,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
       className={cn('flex items-center gap-1.5 text-sm text-muted-foreground', className)}
     >
       <Link
-        to={vitrinePath('/item-1')}
+        to="/"
         className="flex items-center p-1 -m-1 rounded-md hover:text-foreground hover:bg-accent/50 transition-colors"
       >
         <Home className="h-4 w-4" />
