@@ -1,4 +1,4 @@
-import { type LucideIcon, LayoutGrid } from 'lucide-react';
+import { type LucideIcon, LayoutDashboard, MessagesSquare, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { GLASS_SHELL_BORDER_R } from '@/lib/shellStyles';
@@ -20,14 +20,14 @@ type AdminNavSection = { title: string; items: AdminNavItem[] };
 const adminMenuSections: AdminNavSection[] = [
   {
     title: 'GêChat',
-    items: [{ icon: LayoutGrid, label: 'Item 1', path: '/admin/home' }],
+    items: [
+      { icon: LayoutDashboard, label: 'Visão geral', path: '/admin/home' },
+      { icon: MessagesSquare, label: 'Conversas', path: '/admin/conversations' },
+    ],
   },
   {
     title: 'Admin',
-    items: [
-      { icon: LayoutGrid, label: 'Item 2', path: '/admin/members' },
-      { icon: LayoutGrid, label: 'Item 3', path: '/admin/categories' },
-    ],
+    items: [{ icon: Users, label: 'Usuários', path: '/admin/members' }],
   },
 ];
 
@@ -67,7 +67,7 @@ export default function AdminSidebar() {
       <nav className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-0 pt-6 pb-2">
         {adminMenuSections.map((section, sectionIndex) => (
           <div key={section.title} className={cn(!isExpanded && sectionIndex > 0 && 'pt-1')}>
-            <SidebarSectionTitle title={section.title} isExpanded={isExpanded} />
+            <SidebarSectionTitle title={section.title} isExpanded={isExpanded} align="sidebar" />
             {!isExpanded && sectionIndex > 0 ? (
               <div className="mx-3 mb-2 h-px bg-border/60" aria-hidden />
             ) : null}

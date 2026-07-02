@@ -97,6 +97,7 @@ function MemberCard({
   role,
   showAdminActions,
   acting,
+  expelLabel = 'grupo',
   onMakeAdmin,
   onRemoveAdmin,
   onExpel,
@@ -105,6 +106,7 @@ function MemberCard({
   role?: MemberRole;
   showAdminActions?: boolean;
   acting?: boolean;
+  expelLabel?: string;
   onMakeAdmin?: () => void;
   onRemoveAdmin?: () => void;
   onExpel?: () => void;
@@ -178,7 +180,7 @@ function MemberCard({
               className="text-destructive focus:text-destructive"
             >
               <UserMinus className="mr-2 h-4 w-4" />
-              Expulsar do grupo
+              Expulsar do {expelLabel}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -216,10 +218,14 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
   const [memberRoles, setMemberRoles] = useState<Record<string, MemberRole>>({});
   const [members, setLocalMembers] = useState<UserProfile[]>(cachedMembers);
 
+  const isChannel = conversation.type === 'channel';
+  const entityLabel = isChannel ? 'Canal' : 'Grupo';
+  const entityLabelLower = isChannel ? 'canal' : 'grupo';
+
   const isAdmin = mySettings?.role === 'admin';
   const canEditDetails = onlyAdminsCanEdit ? Boolean(isAdmin) : true;
 
-  const title = conversation.displayName ?? conversation.name ?? 'Grupo';
+  const title = conversation.displayName ?? conversation.name ?? entityLabel;
   const avatarSrc = conversation.avatar;
 
   const applyGroupPayload = useCallback(
@@ -272,7 +278,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
       }
     } catch (err) {
       console.error(err);
-      toast.error('Não foi possível atualizar as informações do grupo.');
+      toast.error(`Não foi possível atualizar as informações do ${entityLabelLower}.`);
     } finally {
       setRefreshing(false);
     }
@@ -350,7 +356,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
         muted,
       });
       setMySettings(updated);
-      toast.success(muted ? 'Grupo silenciado.' : 'Grupo reativado.');
+      toast.success(muted ? `${entityLabel} silenciado.` : `${entityLabel} reativado.`);
     } catch (err) {
       console.error(err);
       toast.error('Não foi possível atualizar o silêncio.');
@@ -456,7 +462,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
   };
 
   const handleExpelMember = async (userId: string, memberName: string) => {
-    if (!window.confirm(`Expulsar ${memberName} do grupo?`)) return;
+    if (!window.confirm(`Expulsar ${memberName} do ${entityLabelLower}?`)) return;
     setActingOnMemberId(userId);
     try {
       await gechatApi.removeGroupMember(conversation.id, userId);
@@ -470,7 +476,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
         setMembers(conversation.id, next);
         return next;
       });
-      toast.success(`${memberName} foi removido do grupo.`);
+      toast.success(`${memberName} foi removido do ${entityLabelLower}.`);
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : 'Não foi possível expulsar o membro.');
@@ -512,7 +518,9 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
               </Avatar>
               <h1 className="mt-5 text-2xl font-semibold tracking-tight md:text-3xl">{title}</h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Grupo
+                {isChannel
+                  ? `Canal · ${conversation.channelSubtype ?? 'geral'}`
+                  : entityLabel}
                 {sortedMembers.length > 0 && ` · ${sortedMembers.length} membros`}
               </p>
               {isAdmin && (
@@ -556,7 +564,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
                       'flex w-full resize-none rounded-md border border-border/60 bg-background px-3 py-2 text-sm',
                       'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                     )}
-                    placeholder="Descreva o propósito deste grupo..."
+                    placeholder={`Descreva o propósito deste ${entityLabelLower}...`}
                   />
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[11px] text-muted-foreground">
@@ -595,7 +603,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
               ) : (
                 <div className="rounded-2xl border border-border/60 bg-muted/15 px-4 py-4 md:px-5 md:py-5">
                   <p className="text-sm leading-relaxed text-foreground/90">
-                    {description.trim() || 'Este grupo ainda não tem descrição.'}
+                    {description.trim() || `Este ${entityLabelLower} ainda não tem descrição.`}
                   </p>
                 </div>
               )}
@@ -609,15 +617,15 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
                 <SettingToggleRow
                   id="group-notifications"
                   title="Notificações"
-                  description="Receber alertas de novas mensagens neste grupo."
+                  description={`Receber alertas de novas mensagens neste ${entityLabelLower}.`}
                   checked={Boolean(mySettings?.notificationsEnabled)}
                   disabled={savingMemberSetting || Boolean(mySettings?.muted)}
                   onChange={handleToggleNotifications}
                 />
                 <SettingToggleRow
                   id="group-muted"
-                  title="Silenciar grupo"
-                  description="Parar notificações sem sair do grupo."
+                  title={`Silenciar ${entityLabelLower}`}
+                  description={`Parar notificações sem sair do ${entityLabelLower}.`}
                   checked={Boolean(mySettings?.muted)}
                   disabled={savingMemberSetting}
                   onChange={handleToggleMute}
@@ -629,7 +637,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
               <section className="space-y-3">
                 <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   <Shield className="h-3.5 w-3.5" />
-                  Permissões do grupo
+                  Permissões do {entityLabelLower}
                 </h2>
                 <div className="space-y-2">
                   <SettingToggleRow
@@ -643,7 +651,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
                   <SettingToggleRow
                     id="group-only-admins-send"
                     title="Somente admins enviam mensagens"
-                    description="Quando ativo, membros comuns podem ler o grupo, mas não publicar."
+                    description={`Quando ativo, membros comuns podem ler o ${entityLabelLower}, mas não publicar.`}
                     checked={onlyAdminsCanSend}
                     disabled={savingPermission}
                     onChange={handleToggleOnlyAdminsCanSend}
@@ -653,7 +661,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium">Convidar membros</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          Adicione colegas que ainda não fazem parte do grupo.
+                          Adicione colegas que ainda não fazem parte do {entityLabelLower}.
                         </p>
                       </div>
                       <Button
@@ -699,6 +707,7 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
                       role={memberRoles[member.id]}
                       showAdminActions={isAdmin && member.id !== currentUserId}
                       acting={actingOnMemberId === member.id}
+                      expelLabel={entityLabelLower}
                       onMakeAdmin={() => void handleMakeAdmin(member.id, member.name)}
                       onRemoveAdmin={() => void handleRemoveAdmin(member.id, member.name)}
                       onExpel={() => void handleExpelMember(member.id, member.name)}
@@ -715,8 +724,8 @@ export function GroupInfoView({ conversation, onClose }: GroupInfoViewProps) {
         onOpenChange={setInviteOpen}
         selectedIds={[]}
         excludeIds={memberIds}
-        title="Convidar para o grupo"
-        description="Selecione os colegas que deseja adicionar ao grupo."
+        title={`Convidar para o ${entityLabelLower}`}
+        description={`Selecione os colegas que deseja adicionar ao ${entityLabelLower}.`}
         confirmLabel="Adicionar"
         onConfirm={handleInviteMembers}
       />

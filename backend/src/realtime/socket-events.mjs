@@ -193,8 +193,10 @@ export function registerSocketEvents(io, socket) {
   socket.on('conversation:join', async (payload) => {
     const conversationId = payload?.conversationId;
     if (!conversationId) return;
-    if (!(await isMember(conversationId, userId))) return;
+    const isAdmin = socket.data.profile?.accessType === 'admin';
+    if (!isAdmin && !(await isMember(conversationId, userId))) return;
     socket.join(conversationRoom(conversationId));
+    if (isAdmin) return;
     try {
       await recordPendingDeliveries(conversationId, userId);
     } catch (err) {

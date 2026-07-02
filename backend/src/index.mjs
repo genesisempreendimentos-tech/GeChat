@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 import { createAuthRouter } from './routes/auth.mjs';
 import { createGeChatRouter } from './routes/gechat.mjs';
+import { createAdminRouter } from './routes/admin.mjs';
 import { createSocketServer } from './realtime/socket-server.mjs';
 import { ensureGeChatSchema } from './db/migrate.mjs';
 import { logDevServerUrls } from './lib/dev-network.mjs';
@@ -72,6 +73,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', createAuthRouter());
 app.use('/api/gechat', createGeChatRouter());
+app.use('/api/admin', createAdminRouter());
 
 app.use(express.static(distPath));
 

@@ -35,7 +35,7 @@ import SettingsPage from '@/pages/SettingsPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
 import AdminMembersPage from '@/admin/pages/AdminMembersPage';
-import AdminCategoriesPage from '@/admin/pages/AdminCategoriesPage';
+import AdminConversationsPage from '@/admin/pages/AdminConversationsPage';
 
 function LoginRoute() {
   const { isAuthenticated, loading } = useAuthStore();
@@ -136,7 +136,7 @@ function AppRoutes() {
           <Route index element={<Navigate to="/admin/home" replace />} />
           <Route path="home" element={<AdminDashboardPage />} />
           <Route path="members" element={<AdminMembersPage />} />
-          <Route path="categories" element={<AdminCategoriesPage />} />
+          <Route path="conversations" element={<AdminConversationsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

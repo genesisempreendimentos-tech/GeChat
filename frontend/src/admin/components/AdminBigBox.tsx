@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { TRANSLUCENT_BIG_BOX } from '@/lib/translucentBigBox';
+import { ADMIN_PANEL_BOX } from '@/lib/translucentBigBox';
 
 interface AdminBigBoxProps {
   children: ReactNode;
@@ -11,7 +11,7 @@ export function AdminBigBox({ children, className }: AdminBigBoxProps) {
   return (
     <div
       className={cn(
-        TRANSLUCENT_BIG_BOX,
+        ADMIN_PANEL_BOX,
         'p-4 md:p-6',
         className
       )}

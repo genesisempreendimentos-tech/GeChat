@@ -82,7 +82,7 @@ export default function UserHomePage() {
   useEffect(() => {
     if (!conversationId || !isDesktop || introHandled.current) return;
     const conv = conversations.find((c) => c.id === conversationId);
-    if (conv?.type === 'group') return;
+    if (conv?.type === 'group' || conv?.type === 'channel') return;
     introHandled.current = true;
 
     try {
@@ -120,9 +120,10 @@ export default function UserHomePage() {
     );
   }
 
-  const isGroup = activeConversation.type === 'group';
-  const showGroupInfo = isGroup && infoOpen;
-  const showSideInfo = !isGroup && infoOpen && isDesktop;
+  const isGroupLike =
+    activeConversation.type === 'group' || activeConversation.type === 'channel';
+  const showGroupInfo = isGroupLike && infoOpen;
+  const showSideInfo = activeConversation.type === 'direct' && infoOpen && isDesktop;
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { applyThemeMode, syncForcedThemeStorage, FORCE_DARK_THEME } from '@/lib/applyAppTheme';
+import { applyThemeMode, resolveThemeMode, syncForcedThemeStorage, FORCE_DARK_THEME } from '@/lib/applyAppTheme';
 import { useThemeStore, type Theme } from '@/store/themeStore';
 
 import type { ChatWallpaperId } from '@/modules/gechat/lib/chat-wallpapers';
@@ -50,7 +50,9 @@ export const useSettingsStore = create<SettingsState>()(
         const effective = FORCE_DARK_THEME ? 'dark' : mode;
         set({ themeMode: effective });
         applyTheme(effective);
-        if (effective === 'light' || effective === 'dark' || effective === 'full-dark') {
+        if (effective === 'system') {
+          useThemeStore.setState({ theme: resolveThemeMode('system') });
+        } else if (effective === 'light' || effective === 'dark' || effective === 'full-dark') {
           useThemeStore.getState().setTheme(effective);
         }
       },
@@ -100,9 +102,16 @@ export const useSettingsStore = create<SettingsState>()(
 // Aplicar tema (fonte única: applyAppTheme)
 function applyTheme(mode: ThemeMode) {
   applyThemeMode(mode);
-  const theme = FORCE_DARK_THEME ? 'dark' : mode;
-  if (theme === 'light' || theme === 'dark' || theme === 'full-dark') {
-    useThemeStore.setState({ theme: theme as Theme });
+  if (FORCE_DARK_THEME) {
+    useThemeStore.setState({ theme: 'dark' });
+    return;
+  }
+  if (mode === 'system') {
+    useThemeStore.setState({ theme: resolveThemeMode('system') });
+    return;
+  }
+  if (mode === 'light' || mode === 'dark' || mode === 'full-dark') {
+    useThemeStore.setState({ theme: mode as Theme });
   }
 }
 

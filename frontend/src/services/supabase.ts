@@ -135,15 +135,20 @@ function notifyAuth(event: string) {
   listeners.forEach((cb) => cb(event));
 }
 
+function normalizeAccessType(value: unknown): 'user' | 'admin' {
+  return String(value ?? 'user').toLowerCase() === 'admin' ? 'admin' : 'user';
+}
+
 function mapUser(row: UserProfile): User {
+  const accessType = normalizeAccessType(row.accessType);
   return {
     id: row.id,
     name: row.name,
     email: row.email,
-    role: (row.accessType as User['role']) || 'user',
+    role: accessType,
     avatar: row.avatar,
     createdAt: row.createdAt,
-    accessType: row.accessType,
+    accessType,
     profileStatus: row.profileStatus,
     sidebar: row.sidebar,
   };
@@ -160,9 +165,7 @@ function mapProfileRowToChatUser(row: Record<string, unknown>): ChatProfile | nu
   const id = String(row.user_id ?? row.id ?? '').trim();
   if (!id) return null;
   const email = row.email ? String(row.email) : undefined;
-  const name = String(
-    row.full_name ?? row.name ?? email?.split('@')[0] ?? 'Usuário',
-  );
+  const name = String(row.name ?? email?.split('@')[0] ?? 'Usuário');
   const avatarRaw = row.avatar_url ?? row.avatar;
   return {
     id,

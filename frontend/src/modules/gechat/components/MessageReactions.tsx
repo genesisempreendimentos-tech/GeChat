@@ -26,7 +26,7 @@ interface MessageReactionsProps {
   alignEnd?: boolean;
   showReactorNames?: boolean;
   memberProfiles?: Record<string, MemberProfile>;
-  onReact: (emoji: string) => void;
+  onReact?: (emoji: string) => void;
 }
 
 export function MessageReactions({
@@ -49,16 +49,28 @@ export function MessageReactions({
             ? `${group.count} reações`
             : 'Reação';
 
-        const button = (
+        const chipClass = cn(
+          'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs shadow-sm transition-colors',
+          group.hasOwn
+            ? 'border-primary/40 bg-primary/10 text-foreground'
+            : 'border-border/60 bg-card text-foreground',
+          onReact && !group.hasOwn && 'hover:bg-muted',
+        );
+
+        const chip = (
+          <span className={chipClass}>
+            <span className="text-sm leading-none">{group.emoji}</span>
+            {group.count > 1 && (
+              <span className="text-[10px] font-medium opacity-70">{group.count}</span>
+            )}
+          </span>
+        );
+
+        const button = onReact ? (
           <button
             type="button"
             onClick={() => onReact(group.emoji)}
-            className={cn(
-              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs shadow-sm transition-colors',
-              group.hasOwn
-                ? 'border-primary/40 bg-primary/10 text-foreground'
-                : 'border-border/60 bg-card text-foreground hover:bg-muted',
-            )}
+            className={chipClass}
             title={showReactorNames ? undefined : tooltipLabel}
           >
             <span className="text-sm leading-none">{group.emoji}</span>
@@ -66,6 +78,8 @@ export function MessageReactions({
               <span className="text-[10px] font-medium opacity-70">{group.count}</span>
             )}
           </button>
+        ) : (
+          chip
         );
 
         if (!showReactorNames) {

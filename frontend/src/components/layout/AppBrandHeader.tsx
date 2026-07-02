@@ -1,4 +1,4 @@
-import { Check, UserStar } from 'lucide-react';
+import { Check, User, UserStar } from 'lucide-react';
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -19,14 +19,14 @@ import { BRAND_LOGO_SRC } from '@/lib/brandAssets';
 export const topbarPillClassName =
   'flex shrink-0 items-center rounded-full border border-border/50 bg-muted/40 p-2 shadow-sm transition-colors hover:bg-muted/50';
 
-export function BrandMark({ className }: { className?: string }) {
+export function BrandMark({ className, label = 'GêChat' }: { className?: string; label?: string }) {
   return (
     <div className={cn('flex min-w-0 items-center gap-2.5', className)}>
       <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary/10 shadow-sm">
         <img src={BRAND_LOGO_SRC} alt="" className="h-full w-full object-contain p-0.5" />
       </div>
       <span className="whitespace-nowrap bg-gradient-to-r from-foreground to-primary bg-clip-text text-base font-bold text-transparent">
-        GêChat
+        {label}
       </span>
     </div>
   );
@@ -81,11 +81,13 @@ export function AppBrandControl({ className }: { className?: string }) {
     navigate(PANEL_HOME[panel]);
   };
 
+  const brandLabel = activePanel === 'admin' ? 'Admin' : 'GêChat';
+
   // Usuário não autenticado — logo simples
   if (!isAuthenticated) {
     return (
       <div className={pillClassName} aria-label="GêChat">
-        <BrandMark />
+        <BrandMark label="GêChat" />
       </div>
     );
   }
@@ -99,7 +101,7 @@ export function AppBrandControl({ className }: { className?: string }) {
         aria-label="GêChat — ir para início"
         onClick={() => navigate('/')}
       >
-        <BrandMark />
+        <BrandMark label="GêChat" />
       </button>
     );
   }
@@ -109,15 +111,15 @@ export function AppBrandControl({ className }: { className?: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button type="button" className={pillClassName} aria-label="Trocar painel">
-          <BrandMark />
+          <BrandMark label={brandLabel} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" align="start" className="min-w-[180px]" sideOffset={6}>
         <PanelMenuItem
           panel="user"
           activePanel={activePanel}
-          icon={Check}
-          label="GêChat"
+          icon={User}
+          label="User"
           onSelect={switchPanel}
         />
         <PanelMenuItem

@@ -58,11 +58,12 @@ export function ChatWindow({
   const title = conversation.displayName ?? conversation.name ?? 'Conversa';
   const initials = title.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
   const isGroup = conversation.type === 'group';
-  const isGroupLike = conversation.type === 'group' || conversation.type === 'channel';
+  const isChannel = conversation.type === 'channel';
+  const isGroupLike = isGroup || isChannel;
   const sendRestricted =
     isGroupLike && Boolean(conversation.onlyAdminsCanSend) && myGroupRole !== 'admin';
-  const headerOpensInfo = isGroup && Boolean(onToggleInfo);
-  const showInfoButton = Boolean(onToggleInfo) && !isGroup;
+  const headerOpensInfo = isGroupLike && Boolean(onToggleInfo);
+  const showInfoButton = Boolean(onToggleInfo) && conversation.type === 'direct';
 
   const headerMainClass = cn(
     'flex min-w-0 flex-1 items-center gap-2 text-left',
@@ -109,7 +110,7 @@ export function ChatWindow({
             type="button"
             className={headerMainClass}
             onClick={onToggleInfo}
-            aria-label="Informações do grupo"
+            aria-label={conversation.type === 'channel' ? 'Informações do canal' : 'Informações do grupo'}
             aria-expanded={infoOpen}
           >
             {headerMainContent}
@@ -146,7 +147,7 @@ export function ChatWindow({
       </div>
       {sendRestricted ? (
         <p className="shrink-0 border-t border-border/60 bg-muted/20 px-4 py-3 text-center text-xs text-muted-foreground">
-          Somente administradores podem enviar mensagens neste grupo.
+          Somente administradores podem enviar mensagens neste {isChannel ? 'canal' : 'grupo'}.
         </p>
       ) : (
         <MessageInput

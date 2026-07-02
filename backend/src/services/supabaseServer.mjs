@@ -11,25 +11,31 @@ export function createSupabaseAnonClient(supabaseUrl, supabaseAnonKey, accessTok
   return createClient(supabaseUrl, supabaseAnonKey, options);
 }
 
+export function normalizeAccessType(value) {
+  return String(value ?? 'user').toLowerCase() === 'admin' ? 'admin' : 'user';
+}
+
 export function normalizeRole(value) {
-  return value === 'admin' || value === 'creator' || value === 'user' ? value : 'user';
+  return normalizeAccessType(value);
+}
+
+function resolveProfileName(row, fallback) {
+  const fromName = String(row.name ?? '').trim();
+  if (fromName) return fromName;
+  const fromEmail = fallback?.email?.split('@')[0];
+  if (fromEmail) return fromEmail;
+  return 'Usuário';
 }
 
 export function profileRecordToUser(row, fallback) {
-  const name =
-    row.full_name ??
-    row.name ??
-    row.nome ??
-    row.display_name ??
-    fallback.email?.split('@')[0] ??
-    'Usu├írio';
-  const accessType = String(row.access_type ?? row.accessType ?? row.role ?? 'user');
+  const name = resolveProfileName(row, fallback);
+  const accessType = normalizeAccessType(row.access_type ?? row.accessType ?? row.role);
   return {
     id: String(row.user_id ?? row.id ?? fallback.id),
     name: String(name),
     full_name: String(name),
     email: String(row.email ?? fallback.email ?? ''),
-    role: normalizeRole(accessType),
+    role: accessType,
     accessType,
     profileStatus: row.profile_status ?? row.profileStatus ?? 'active',
     avatar: row.avatar_url ?? row.avatar ?? undefined,
@@ -44,14 +50,14 @@ export function profileRecordToUser(row, fallback) {
 
 export function authUserToProfile(authUser) {
   const meta = authUser.user_metadata ?? {};
-  const name = meta.full_name ?? meta.name ?? authUser.email?.split('@')[0] ?? 'Usu├írio';
-  const accessType = String(meta.access_type ?? meta.role ?? 'user');
+  const name = String(meta.name ?? meta.full_name ?? authUser.email?.split('@')[0] ?? 'Usuário');
+  const accessType = normalizeAccessType(meta.access_type ?? meta.role);
   return {
     id: authUser.id,
     name: String(name),
     full_name: String(name),
     email: String(authUser.email ?? ''),
-    role: normalizeRole(accessType),
+    role: accessType,
     accessType,
     profileStatus: 'active',
     avatar: meta.avatar_url ?? meta.avatar ?? undefined,

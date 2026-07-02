@@ -68,6 +68,7 @@ export const useThemeStore = create<ThemeState>()(
         void persistThemaToProfile(theme);
       },
       applyFromProfileThema: (thema) => {
+        if (!thema) return;
         const next = profileThemaToAppTheme(thema);
         applyTheme(next);
         syncSettingsThemeMode(next);

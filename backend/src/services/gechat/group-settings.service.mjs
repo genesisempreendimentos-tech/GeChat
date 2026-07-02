@@ -3,15 +3,15 @@ import { getMemberRole, isMember } from './membership.service.mjs';
 
 const MAX_DESCRIPTION = 500;
 
-async function requireGroup(conversationId) {
+async function requireGroupLike(conversationId) {
   const sql = getSql();
   const rows = await sql`
     SELECT * FROM gechat_conversations
-    WHERE id = ${conversationId} AND type = 'group'
+    WHERE id = ${conversationId} AND type IN ('group', 'channel')
     LIMIT 1
   `;
   if (!rows[0]) {
-    throw Object.assign(new Error('Grupo não encontrado.'), { status: 404 });
+    throw Object.assign(new Error('Conversa não encontrada.'), { status: 404 });
   }
   return rows[0];
 }
@@ -31,8 +31,7 @@ function mapGroupConversation(row) {
     description: row.description ?? null,
     avatar: row.avatar_url ?? undefined,
     onlyAdminsCanEdit: Boolean(row.only_admins_can_edit),
-    onlyAdminsCanSend: Boolean(row.only_admins_can_send),
-    createdBy: row.created_by,
+    channelSubtype: row.channel_subtype ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -49,7 +48,7 @@ export async function getGroupSettings(conversationId, userId) {
     FROM gechat_conversations c
     INNER JOIN gechat_conversation_members m
       ON m.conversation_id = c.id AND m.user_id = ${userId}
-    WHERE c.id = ${conversationId} AND c.type = 'group'
+    WHERE c.id = ${conversationId} AND c.type IN ('group', 'channel')
     LIMIT 1
   `;
 
@@ -58,7 +57,7 @@ export async function getGroupSettings(conversationId, userId) {
     if (!member) {
       throw Object.assign(new Error('Acesso negado.'), { status: 403 });
     }
-    throw Object.assign(new Error('Grupo não encontrado.'), { status: 404 });
+    throw Object.assign(new Error('Conversa não encontrada.'), { status: 404 });
   }
 
   const row = rows[0];
@@ -81,7 +80,7 @@ export async function updateGroupDetails(conversationId, userId, patch) {
   if (!(await isMember(conversationId, userId))) {
     throw Object.assign(new Error('Acesso negado.'), { status: 403 });
   }
-  const conversation = await requireGroup(conversationId);
+  const conversation = await requireGroupLike(conversationId);
   if (conversation.only_admins_can_edit) {
     await requireAdmin(conversationId, userId);
   }
@@ -137,7 +136,7 @@ export async function updateMemberSettings(conversationId, userId, patch) {
   if (!(await isMember(conversationId, userId))) {
     throw Object.assign(new Error('Acesso negado.'), { status: 403 });
   }
-  await requireGroup(conversationId);
+  await requireGroupLike(conversationId);
 
   const sql = getSql();
   const current = await sql`
@@ -181,7 +180,7 @@ export async function addGroupMembers(conversationId, userId, memberIds) {
   if (!(await isMember(conversationId, userId))) {
     throw Object.assign(new Error('Acesso negado.'), { status: 403 });
   }
-  await requireGroup(conversationId);
+  await requireGroupLike(conversationId);
   await requireAdmin(conversationId, userId);
 
   const sql = getSql();
@@ -211,7 +210,7 @@ export async function updateGroupMemberRole(conversationId, actorUserId, targetU
   if (!(await isMember(conversationId, actorUserId))) {
     throw Object.assign(new Error('Acesso negado.'), { status: 403 });
   }
-  await requireGroup(conversationId);
+  await requireGroupLike(conversationId);
   await requireAdmin(conversationId, actorUserId);
 
   if (!['admin', 'member'].includes(role)) {
@@ -253,7 +252,7 @@ export async function removeGroupMember(conversationId, actorUserId, targetUserI
   if (!(await isMember(conversationId, actorUserId))) {
     throw Object.assign(new Error('Acesso negado.'), { status: 403 });
   }
-  await requireGroup(conversationId);
+  await requireGroupLike(conversationId);
   await requireAdmin(conversationId, actorUserId);
 
   if (targetUserId === actorUserId) {

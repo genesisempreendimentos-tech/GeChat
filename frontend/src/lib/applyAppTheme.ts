@@ -4,7 +4,7 @@ import type { ThemeMode } from '@/store/settingsStore';
 export type ResolvedAppTheme = 'light' | 'dark' | 'full-dark';
 
 /** Enquanto true, ignora preferências salvas e força o tema escuro em todo o app. */
-export const FORCE_DARK_THEME = true;
+export const FORCE_DARK_THEME = false;
 
 export const FORCED_APP_THEME: ResolvedAppTheme = 'dark';
 

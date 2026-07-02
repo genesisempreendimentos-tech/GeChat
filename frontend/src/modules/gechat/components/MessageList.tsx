@@ -189,6 +189,9 @@ interface MessageListProps {
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onLoadMore?: () => void;
   hasMore?: boolean;
+  readOnly?: boolean;
+  /** Visualização admin: todas as mensagens à esquerda com avatar e nome do remetente. */
+  observerMode?: boolean;
 }
 
 export function MessageList({
@@ -202,6 +205,8 @@ export function MessageList({
   onToggleReaction,
   onLoadMore,
   hasMore,
+  readOnly = false,
+  observerMode = false,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastScrollTailRef = useRef<string | null>(null);
@@ -294,7 +299,7 @@ export function MessageList({
         </div>
       )}
       {messages.map((msg) => {
-        const isOwn = msg.senderId === currentUserId;
+        const isOwn = !observerMode && msg.senderId === currentUserId;
         const profile = memberProfiles[msg.senderId] ?? { name: 'Usuário' };
         const senderName = profile.name;
         const isEditing = editingId === msg.id;
@@ -302,6 +307,7 @@ export function MessageList({
         const preview = getMessagePlainText(msg);
 
         const handleQuote = () => {
+          if (readOnly) return;
           setReplyTo({
             messageId: msg.id,
             senderName,
@@ -318,6 +324,7 @@ export function MessageList({
         };
 
         const handleToggleRead = () => {
+          if (readOnly) return;
           if (isOwn) {
             setUnread(conversationId, 1);
             return;
@@ -422,7 +429,7 @@ export function MessageList({
                 )}
                 </div>
 
-                {!isEditing && (
+                {!isEditing && !readOnly && (
                   <MessageActionBar
                     message={msg}
                     isOwn={isOwn}
@@ -457,7 +464,7 @@ export function MessageList({
                   alignEnd={isOwn}
                   showReactorNames={isGroupLike}
                   memberProfiles={memberProfiles}
-                  onReact={(emoji) => onToggleReaction?.(msg.id, emoji)}
+                  onReact={readOnly ? undefined : (emoji) => onToggleReaction?.(msg.id, emoji)}
                 />
               )}
             </div>

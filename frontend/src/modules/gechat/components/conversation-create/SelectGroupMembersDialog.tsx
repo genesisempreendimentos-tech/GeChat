@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,9 +34,13 @@ export function SelectGroupMembersDialog({
 }: SelectGroupMembersDialogProps) {
   const picker = useConversationUsers(open);
   const [draftIds, setDraftIds] = useState<string[]>(selectedIds);
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
-    if (open) setDraftIds(selectedIds);
+    if (open && !wasOpenRef.current) {
+      setDraftIds(selectedIds);
+    }
+    wasOpenRef.current = open;
   }, [open, selectedIds]);
 
   const toggleUser = (id: string) => {

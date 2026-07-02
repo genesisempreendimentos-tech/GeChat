@@ -16,9 +16,9 @@ const routeNames: Record<string, string> = {
   settings: 'Configurações',
   notifications: 'Notificações',
   admin: 'Admin',
-  home: 'Dashboard',
-  members: 'Membros',
-  categories: 'Categorias',
+  home: 'Visão geral',
+  members: 'Usuários',
+  conversations: 'Conversas',
 };
 
 function formatSegment(path: string): string {

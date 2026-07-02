@@ -35,10 +35,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         id: userData.id,
         name: userData.name,
         email: userData.email,
-        role: (userData.accessType as UserRole) || 'user',
+        role: userData.accessType === 'admin' ? 'admin' : 'user',
         avatar: userData.avatar,
         createdAt: userData.createdAt ? new Date(userData.createdAt) : new Date(),
-        accessType: userData.accessType,
+        accessType: userData.accessType === 'admin' ? 'admin' : 'user',
         sidebar: userData.sidebar,
       };
       set({ user, isAuthenticated: true, loading: false });
@@ -86,10 +86,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         id: userData.id,
         name: userData.name,
         email: userData.email,
-        role: (userData.accessType as UserRole) || 'user',
+        role: userData.accessType === 'admin' ? 'admin' : 'user',
         avatar: userData.avatar,
         createdAt: userData.createdAt ? new Date(userData.createdAt) : new Date(),
-        accessType: userData.accessType,
+        accessType: userData.accessType === 'admin' ? 'admin' : 'user',
         sidebar: userData.sidebar,
       };
       set({ user, isAuthenticated: true, loading: false });

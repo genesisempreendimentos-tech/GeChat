@@ -7,11 +7,10 @@ function createServiceClient(supabaseUrl, serviceRoleKey) {
 }
 
 function mapProfile(row) {
-  const name =
-    row.full_name ?? row.name ?? row.nome ?? row.display_name ?? row.email?.split('@')[0] ?? 'Usuário';
+  const name = String(row.name ?? row.email?.split('@')[0] ?? 'Usuário');
   return {
     id: String(row.user_id ?? row.id),
-    name: String(name),
+    name,
     email: String(row.email ?? ''),
     avatar: row.avatar_url ?? row.avatar ?? undefined,
   };
