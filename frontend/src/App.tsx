@@ -9,7 +9,6 @@ import {
   type Location as RouterLocation,
 } from 'react-router-dom';
 import { useEffect } from 'react';
-import { initGeChatAudit } from '@/assets/audit-log';
 import { useAuthStore } from '@/store/authStore';
 import { isAllowedReturnToUrl } from '@/services/authStorage';
 import { getSafeInternalReturnPath } from '@/lib/postLoginRedirect';
@@ -31,6 +30,7 @@ import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import AccessDeniedPage from '@/pages/AccessDeniedPage';
+import NoAppAccessPage from '@/pages/NoAppAccessPage';
 import SettingsPage from '@/pages/SettingsPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import AdminDashboardPage from '@/admin/pages/AdminDashboardPage';
@@ -92,14 +92,6 @@ function AppRoutes() {
   useAdminShortcut();
   useKeyboardShortcuts();
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    const cleanup = initGeChatAudit();
-    return () => {
-      cleanup?.();
-    };
-  }, [isAuthenticated]);
-
   const { showPopup, setShowPopup } = useNaoGritaPopup();
 
   return (
@@ -114,6 +106,7 @@ function AppRoutes() {
           />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/access-denied" element={<AccessDeniedPage />} />
+          <Route path="/sem-acesso-app" element={<NoAppAccessPage />} />
         </Route>
 
         <Route element={<AuthenticatedArea />}>

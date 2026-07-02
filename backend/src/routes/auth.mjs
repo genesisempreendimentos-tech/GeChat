@@ -4,6 +4,11 @@ import {
   createSupabaseAnonClient,
   loadProfileForAuthUser,
 } from '../services/supabaseServer.mjs';
+import {
+  findAppBySlug,
+  resolveAuditSlug,
+  userHasAppAccess,
+} from '../services/appsSupabase.mjs';
 
 function authHttpStatus(error) {
   const status = Number(error?.status ?? error?.statusCode ?? 0);
@@ -167,6 +172,38 @@ export function createAuthRouter() {
     }
     clearAuthCookies(req, res);
     return res.json({ ok: true });
+  });
+
+  router.get('/app-access', async (req, res) => {
+    try {
+      const sessionUser = await resolveSessionUser(req, res);
+      if (!sessionUser?.accessToken || !sessionUser.authUser?.id) {
+        return res.json({ allowed: false, code: 'NOT_AUTHENTICATED' });
+      }
+
+      const { supabaseUrl, supabaseAnonKey } = req.app.locals;
+      const supabase = createSupabaseAnonClient(
+        supabaseUrl,
+        supabaseAnonKey,
+        sessionUser.accessToken,
+      );
+      const slug = resolveAuditSlug();
+      const hostname = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? '').split(':')[0];
+      const app = await findAppBySlug(supabase, slug, hostname);
+      if (!app?.id) {
+        return res.json({ allowed: false, code: 'APP_NOT_FOUND' });
+      }
+
+      const allowed = await userHasAppAccess(supabase, sessionUser.authUser.id, app.id);
+      if (!allowed) {
+        return res.json({ allowed: false, code: 'NO_APP_ACCESS', appId: app.id, slug: app.slug });
+      }
+
+      return res.json({ allowed: true, appId: app.id, slug: app.slug });
+    } catch (err) {
+      console.error('[auth/app-access]', err);
+      return res.json({ allowed: false, code: 'ERROR' });
+    }
   });
 
   router.get('/access-token', async (req, res) => {

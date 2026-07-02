@@ -341,7 +341,7 @@ export const supabase = {
 
     const execute = async () => {
       const client = await getSupabaseClient();
-      if (!client) throw new Error('Supabase indisponível.');
+      if (!client) return { data: null, error: { message: 'Supabase indisponível.' } };
       let q: any = client.from(table);
       for (const { op, args } of ops) {
         const fn = q[op];
@@ -619,15 +619,42 @@ export const databaseService = {
     const client = await getSupabaseClient();
     if (!client) return emptyData;
     const needle = slug.toLowerCase().replace(/\s+/g, '');
+    const validStatuses = new Set(['ativo', 'active', 'beta', 'lancamento', 'lançamento', 'rascunho']);
+    const invalidStatuses = new Set(['arquivado', 'excluido', 'excluído']);
+    const isValid = (row: { id?: string; status?: string } | null) => {
+      if (!row?.id) return false;
+      const status = String(row.status ?? '').trim().toLowerCase();
+      if (invalidStatuses.has(status)) return false;
+      return validStatuses.has(status);
+    };
+
     const exact = await client.from('apps').select('*').eq('slug', needle).maybeSingle();
     if (exact.error) return { data: null, error: exact.error };
-    if (exact.data?.id) return { data: exact.data, error: null };
+    if (isValid(exact.data)) return { data: exact.data, error: null };
+
     const fuzzy = await client.from('apps').select('*').ilike('slug', needle).maybeSingle();
     if (fuzzy.error) return { data: null, error: fuzzy.error };
-    return { data: fuzzy.data ?? null, error: null };
+    if (isValid(fuzzy.data)) return { data: fuzzy.data, error: null };
+
+    return { data: null, error: null };
   },
-  async userHasAccessToApp(..._args: any[]) { return { data: false, error: null }; },
-  async userHasAccessToAppBySlug(..._args: any[]) { return { data: false, error: null }; },
+  async userHasAccessToApp(userId: string, appId: string) {
+    const client = await getSupabaseClient();
+    if (!client) return { data: false, error: null };
+    const { data, error } = await client
+      .from('user_app_access')
+      .select('access')
+      .eq('user_id', userId)
+      .eq('app_id', appId)
+      .maybeSingle();
+    if (error) return { data: false, error };
+    return { data: data?.access === true, error: null };
+  },
+  async userHasAccessToAppBySlug(userId: string, slug: string) {
+    const { data: app, error } = await this.getAppBySlug(slug);
+    if (error || !app?.id) return { data: false, error: error ?? null };
+    return this.userHasAccessToApp(userId, app.id);
+  },
   async getSystemsForMember(..._args: any[]) { return empty; },
   async createSystem(..._args: any[]) { return emptyData; },
   async updateSystem(..._args: any[]) { return emptyData; },

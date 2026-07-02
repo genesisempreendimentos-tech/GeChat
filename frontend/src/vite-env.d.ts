@@ -11,8 +11,3 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
-
-declare module '@/assets/audit-log' {
-  export function initGeChatAudit(): (() => void) | undefined
-  export function emitGeChatAuditAppLogin(userId: string, email?: string): Promise<void>
-}

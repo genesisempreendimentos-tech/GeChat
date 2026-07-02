@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { User, UserRole } from '@/types';
 import { authService, databaseService } from '@/services/supabase';
-import { emitGeChatAuditAppLogin } from '@/assets/audit-log';
+import { emitGeChatAuditAppLogin, clearAuditHubCache, stopGeChatAudit } from '@/lib/auditLog';
 import { useThemeStore } from '@/store/themeStore';
 import { useSidebarLayoutStore } from '@/store/sidebarLayoutStore';
 
@@ -42,7 +42,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         sidebar: userData.sidebar,
       };
       set({ user, isAuthenticated: true, loading: false });
-      void emitGeChatAuditAppLogin(user.id, user.email);
+      void emitGeChatAuditAppLogin(user.id, user.email).catch((err) => {
+        console.warn('[audit] login event failed', err);
+      });
       return { success: true };
     }
     void userError;
@@ -64,6 +66,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    stopGeChatAudit();
+    clearAuditHubCache();
     await authService.signOut();
     useSidebarLayoutStore.getState().applyFromProfile(undefined);
     set({ user: null, isAuthenticated: false });
